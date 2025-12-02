@@ -1,0 +1,129 @@
+# Frictionless Data Package
+# https://specs.frictionlessdata.io/data-package/
+
+name: test1-dataset
+title: Test Dataset 1
+version: 1.0.0
+created: 2025-11-13
+
+description: |
+  Test dataset containing product inventory and user information.
+  This package includes two CSV files with sample data for testing
+  the Pivotal DSL data processing language.
+
+keywords:
+  - test
+  - products
+  - users
+  - sample-data
+
+licenses:
+  - name: CC-BY-4.0
+    title: Creative Commons Attribution 4.0
+    path: https://creativecommons.org/licenses/by/4.0/
+
+contributors:
+  - title: Neal Hughes
+    role: author
+
+resources:
+  # Products/Inventory Data
+  - name: data
+    path: data/data.csv
+    title: Product Inventory
+    description: Product catalog with pricing and inventory information
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: id
+          type: integer
+          title: Product ID
+          description: Unique identifier for each product
+          constraints:
+            required: true
+            unique: true
+            minimum: 1
+        - name: product
+          type: string
+          title: Product Name
+          description: Name of the product
+          constraints:
+            required: true
+            minLength: 1
+        - name: price
+          type: number
+          title: Price
+          description: Product price in USD
+          constraints:
+            required: true
+            minimum: 0
+        - name: quantity
+          type: integer
+          title: Quantity
+          description: Available quantity in stock
+          constraints:
+            required: true
+            minimum: 0
+        - name: category
+          type: string
+          title: Category
+          description: Product category
+          constraints:
+            required: true
+            enum:
+              - Electronics
+              - Furniture
+      primaryKey:
+        - id
+      
+  # Users Data
+  - name: users
+    path: data/users.csv
+    title: User Information
+    description: Customer/user demographic and contact information
+    format: csv
+    mediatype: text/csv
+    encoding: utf-8
+    schema:
+      fields:
+        - name: user_id
+          type: integer
+          title: User ID
+          description: Unique identifier for each user
+          constraints:
+            required: true
+            unique: true
+            minimum: 1
+        - name: name
+          type: string
+          title: Full Name
+          description: User's full name
+          constraints:
+            required: true
+            minLength: 1
+        - name: email
+          type: string
+          title: Email Address
+          description: User's email address
+          format: email
+          constraints:
+            required: true
+            pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        - name: age
+          type: integer
+          title: Age
+          description: User's age in years
+          constraints:
+            required: true
+            minimum: 18
+            maximum: 120
+        - name: city
+          type: string
+          title: City
+          description: User's city of residence
+          constraints:
+            required: true
+      primaryKey:
+        - user_id
