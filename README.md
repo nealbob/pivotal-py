@@ -51,7 +51,10 @@ pip install pandas lark-parser
 ### Setup
 
 1. Clone or download the Pivotal DSL files
-2. Ensure `dsl_parser.py` is in your Python path or working directory
+2. Install the package:
+   ```bash
+   pip install .
+   ```
 3. (Optional) Install the [VS Code extension](#vs-code-extension) for enhanced editing
 
 ---
@@ -61,10 +64,10 @@ pip install pandas lark-parser
 ### Basic Usage
 
 ```python
-import dsl_parser
+import pivotal
 
 # Create parser instance
-parser = dsl_parser.DSLParser()
+parser = pivotal.DSLParser()
 
 # Write Pivotal DSL code
 dsl_code = """
@@ -90,7 +93,7 @@ print(high_value_sales)
 with open('analysis.pivotal', 'r') as f:
     dsl_code = f.read()
 
-parser = dsl_parser.DSLParser()
+parser = pivotal.DSLParser()
 parser.execute(dsl_code, globals())
 ```
 
@@ -346,7 +349,7 @@ Copy the `pivotal_vscode` folder to your VS Code extensions directory:
 ### DSLParser Class
 
 ```python
-parser = dsl_parser.DSLParser(backend="pandas")
+parser = pivotal.DSLParser(backend="pandas")
 ```
 
 #### Methods
@@ -572,9 +575,9 @@ Execute code step-by-step in an interactive session to verify each operation.
 
 ### Common Issues
 
-**Import Error: `No module named 'dsl_parser'`**
-- Ensure `dsl_parser.py` is in your working directory or Python path
-- Add the directory to sys.path: `sys.path.insert(0, '/path/to/pivotal')`
+**Import Error: `No module named 'pivotal'`**
+- Ensure you have installed the package: `pip install .`
+- Check that your virtual environment is active
 
 **Parse Error: Unexpected indentation**
 - Check that indentation is consistent (use spaces, not tabs)
@@ -615,7 +618,7 @@ with open('generated_script.py', 'w') as f:
 
 ```python
 # Execute and capture results
-parser = dsl_parser.DSLParser()
+parser = pivotal.DSLParser()
 tables = parser.execute(dsl_code, globals(), verbose=False)
 
 # Access specific tables

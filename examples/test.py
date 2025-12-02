@@ -1,13 +1,19 @@
-import dsl_parser 
-import csv 
+import sys
 import os
-import importlib
-importlib.reload(dsl_parser)
+# Add parent directory to path so we can import pivotal if not installed
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-with open('test.pivotal', 'r') as f:
+import pivotal
+import csv 
+import importlib
+importlib.reload(pivotal)
+
+# Use path relative to this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(script_dir, 'test.pivotal'), 'r') as f:
     dsl_code = f.read()
 
-parser = dsl_parser.DSLParser()
+parser = pivotal.DSLParser()
 results = parser.parse(dsl_code)
 
 print("\n")

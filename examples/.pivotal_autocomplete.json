@@ -152,8 +152,39 @@
         "('price', 'Furniture')": "float64"
       },
       "has_multiindex_columns": true
+    },
+    "df8": {
+      "columns": [
+        [
+          "price",
+          "Electronics"
+        ],
+        [
+          "price",
+          "Furniture"
+        ],
+        [
+          "quantity",
+          "Electronics"
+        ],
+        [
+          "quantity",
+          "Furniture"
+        ]
+      ],
+      "shape": [
+        6,
+        4
+      ],
+      "dtypes": {
+        "('price', 'Electronics')": "float64",
+        "('price', 'Furniture')": "float64",
+        "('quantity', 'Electronics')": "float64",
+        "('quantity', 'Furniture')": "float64"
+      },
+      "has_multiindex_columns": true
     }
   },
-  "timestamp": "2025-11-10T09:36:21.011077",
-  "current_table": "df7"
+  "timestamp": "2025-12-02T17:01:22.437504",
+  "current_table": "df8"
 }

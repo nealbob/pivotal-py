@@ -1,8 +1,8 @@
-load testdf data.csv
+load testdf data/data.csv
    names ["my", "name", "is", "neal", "hughes"]
    header 0
 
-load testdf3 "data.csv"
+load testdf3 "data/data.csv"
    
 table testdf4 from testdf
 
