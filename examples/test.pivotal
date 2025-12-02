@@ -37,6 +37,10 @@ table df8 from testdf3
       cols category
       agg sum, mean
 
+table df9 from testdf3
+   groupby category
+      agg price mean, quantity sum
+
 
 
 

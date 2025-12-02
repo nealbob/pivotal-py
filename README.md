@@ -1,4 +1,4 @@
-# Pivotal DSL
+# Pivotal
 
 <img src="pivotal_logo.svg" width="120">
 

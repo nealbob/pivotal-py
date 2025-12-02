@@ -21,6 +21,15 @@ grammar_indented = r"""
                | sort_statement
                | merge_statement
                | pivot_statement
+               | groupby_statement
+
+    groupby_statement: "groupby" group_cols (_NL _INDENT agg_clause _DEDENT)? _NL?
+
+    group_cols: IDENTIFIER ("," IDENTIFIER)*
+
+    agg_clause: "agg" agg_item ("," agg_item)* _NL?
+
+    agg_item: IDENTIFIER AGG_FUNCTION
 
     merge_statement: MERGE_TYPE? ("merge" | "join") RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -475,6 +484,46 @@ class DSLTransformer(Transformer):
     def pivot_cols(self, *columns):
         """Handle pivot columns specification"""
         return [str(col) for col in columns]
+
+    def groupby_statement(self, *args):
+        """Handle groupby statements"""
+        # args[0] is group_cols (list of strings)
+        group_cols = args[0]
+        
+        agg_dict = {}
+        
+        # Search for agg_clause result in args
+        for arg in args[1:]:
+            if isinstance(arg, list):
+                # Check if it's a list of dicts (agg_clause result)
+                is_agg_list = True
+                for item in arg:
+                    if not isinstance(item, dict):
+                        is_agg_list = False
+                        break
+                
+                if is_agg_list and len(arg) > 0:
+                    for item in arg:
+                        agg_dict.update(item)
+        
+        ast_node = {
+            'type': 'groupby',
+            'table_name': self.current_table,
+            'by': group_cols,
+            'agg': agg_dict
+        }
+        
+        return ast_node
+
+    def group_cols(self, *columns):
+        return [str(col) for col in columns]
+
+    def agg_clause(self, *items):
+        # Filter out tokens like _NL
+        return [item for item in items if isinstance(item, dict)]
+
+    def agg_item(self, col, func):
+        return {str(col): str(func)}
     
     def agg_s(self, *functions):
         """Handle aggregation functions"""
@@ -663,6 +712,15 @@ class CodeGenerator:
         pivot_args_str = ', '.join(pivot_args)
         
         return f"{table_name} = pd.pivot_table({table_name}, {pivot_args_str})"
+
+    def generate_groupby_pandas(self, ast_node):
+        by = ast_node['by']
+        agg = ast_node['agg']
+        
+        if agg:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by}).agg({agg}).reset_index()"
+        else:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by}).sum().reset_index()"
     
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators"""
