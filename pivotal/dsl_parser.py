@@ -23,6 +23,9 @@ grammar_indented = r"""
                | pivot_statement
                | groupby_statement
                | python_statement
+               | plot_statement
+
+    plot_statement: "plot" (IDENTIFIER | STRING)? (_NL | _NL _INDENT params _DEDENT)?
 
     python_statement: "python" UNQUOTED_STRING _NL?
                     | "python" _NL _INDENT python_block _DEDENT _NL?
@@ -232,8 +235,9 @@ class DSLTransformer(Transformer):
         
         clean_args = []
         for arg in args:
-            if isinstance(arg, (str, Token)) and str(arg) in ['df', 'dataframe', 'table']:
-                continue
+            # We used to filter 'df', 'dataframe', 'table' here, but that caused issues
+            # when the table name itself was 'df'.
+            # Since these are anonymous terminals in the grammar, they shouldn't appear in args anyway.
             if isinstance(arg, Token) and arg.type == '_NL':
                 continue
             clean_args.append(arg)
@@ -591,6 +595,29 @@ class DSLTransformer(Transformer):
             'code': str(code).strip(),
             'table_name': self.current_table
         }
+    
+    def plot_statement(self, *args):
+        kind = None
+        kwargs = {}
+        kwargs_str = ""
+        
+        for arg in args:
+            if isinstance(arg, Token) and arg.type != '_NL':
+                kind = str(arg)
+            elif isinstance(arg, str):
+                 # Sometimes lark passes strings directly if they are terminals
+                 kind = arg
+            elif isinstance(arg, list):
+                # params
+                kwargs, kwargs_str = self._keyword_arg(arg)
+        
+        return {
+            'type': 'plot',
+            'table_name': self.current_table,
+            'kind': kind,
+            'kwargs': kwargs,
+            'kwargs_str': kwargs_str
+        }
 
     def python_block(self, *lines):
         return "\n".join(lines)
@@ -747,15 +774,28 @@ class CodeGenerator:
 
     def generate_copy_table_pandas(self, ast_node):
         # Validation + copy
-        validation = f"if not isinstance({ast_node['copy_from']}, pd.DataFrame): raise TypeError('{ast_node['copy_from']} is not a pandas DataFrame')"
+        # We check if the source table exists and is a dataframe
+        validation = f"if '{ast_node['copy_from']}' not in locals() and '{ast_node['copy_from']}' not in globals(): raise NameError(\"name '{ast_node['copy_from']}' is not defined\")"
+        validation += f"\nif not isinstance({ast_node['copy_from']}, pd.DataFrame): raise TypeError('{ast_node['copy_from']} is not a pandas DataFrame')"
+        
         copy_code = f"{ast_node['table_name']} = {ast_node['copy_from']}.copy()"
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{validation}\n{copy_code}\n{table_name}"
     
     def generate_validate_table_pandas(self, ast_node):
+        # Just set the table name for tracking, don't validate existence yet as it might be created in this block
+        # Actually, validate_table is used when we say "df existing_table"
+        # So we should check if it exists in globals/locals
+        
+        validation = f"if '{ast_node['table_name']}' not in locals() and '{ast_node['table_name']}' not in globals(): raise NameError(\"name '{ast_node['table_name']}' is not defined\")"
+        validation += f"\nif not isinstance({ast_node['table_name']}, pd.DataFrame): raise TypeError('{ast_node['table_name']} is not a pandas DataFrame')"
+        
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        validation = f"if not isinstance({ast_node['table_name']}, pd.DataFrame): raise TypeError('{ast_node['table_name']} is not a pandas DataFrame')"
         return f"{validation}\n{table_name}"
+        
+        # Ah, copy_table generates the copy code. validate_table is for "df existing".
+        
+        return f"{table_name}"
     
     def generate_set_pandas(self, ast_node):
         if ast_node['conditions']:
@@ -976,6 +1016,23 @@ class CodeGenerator:
     
     def generate_python_pandas(self, ast_node):
         return ast_node['code']
+
+    def generate_plot_pandas(self, ast_node):
+        kind = ast_node['kind']
+        kwargs_str = ast_node['kwargs_str']
+        
+        args_str = ""
+        if kind:
+            args_str += f"kind='{kind}'"
+        
+        if kwargs_str:
+            if args_str:
+                args_str += kwargs_str # kwargs_str has leading comma
+            else:
+                # Remove leading comma if it's the first arg
+                args_str = kwargs_str[2:]
+                
+        return f"{ast_node['table_name']}.plot({args_str})"
 
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators"""

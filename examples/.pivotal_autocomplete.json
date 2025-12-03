@@ -1,27 +1,6 @@
 {
   "tables": {
-    "testdf": {
-      "columns": [
-        "my",
-        "name",
-        "is",
-        "neal",
-        "hughes"
-      ],
-      "shape": [
-        6,
-        5
-      ],
-      "dtypes": {
-        "my": "int64",
-        "name": "object",
-        "is": "float64",
-        "neal": "int64",
-        "hughes": "object"
-      },
-      "has_multiindex_columns": false
-    },
-    "testdf3": {
+    "df": {
       "columns": [
         "id",
         "product",
@@ -42,194 +21,7 @@
       },
       "has_multiindex_columns": false
     },
-    "testdf4": {
-      "columns": [
-        "my",
-        "name",
-        "is",
-        "neal",
-        "hughes"
-      ],
-      "shape": [
-        6,
-        5
-      ],
-      "dtypes": {
-        "my": "int64",
-        "name": "object",
-        "is": "float64",
-        "neal": "int64",
-        "hughes": "object"
-      },
-      "has_multiindex_columns": false
-    },
-    "gocats": {
-      "columns": [
-        "product",
-        "price",
-        "quantity",
-        "id",
-        "newcol"
-      ],
-      "shape": [
-        3,
-        5
-      ],
-      "dtypes": {
-        "product": "object",
-        "price": "float64",
-        "quantity": "int64",
-        "id": "int64",
-        "newcol": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "testdf5": {
-      "columns": [
-        "product",
-        "price",
-        "quantity",
-        "newcol"
-      ],
-      "shape": [
-        6,
-        4
-      ],
-      "dtypes": {
-        "product": "object",
-        "price": "float64",
-        "quantity": "int64",
-        "newcol": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df6": {
-      "columns": [
-        "id",
-        "product_x",
-        "price_x",
-        "quantity_x",
-        "category",
-        "product_y",
-        "price_y",
-        "quantity_y",
-        "newcol"
-      ],
-      "shape": [
-        6,
-        9
-      ],
-      "dtypes": {
-        "id": "int64",
-        "product_x": "object",
-        "price_x": "float64",
-        "quantity_x": "int64",
-        "category": "object",
-        "product_y": "object",
-        "price_y": "float64",
-        "quantity_y": "float64",
-        "newcol": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df7": {
-      "columns": [
-        [
-          "price",
-          "Electronics"
-        ],
-        [
-          "price",
-          "Furniture"
-        ]
-      ],
-      "shape": [
-        6,
-        2
-      ],
-      "dtypes": {
-        "('price', 'Electronics')": "float64",
-        "('price', 'Furniture')": "float64"
-      },
-      "has_multiindex_columns": true
-    },
-    "df8": {
-      "columns": [
-        [
-          "price",
-          "Electronics"
-        ],
-        [
-          "price",
-          "Furniture"
-        ],
-        [
-          "quantity",
-          "Electronics"
-        ],
-        [
-          "quantity",
-          "Furniture"
-        ]
-      ],
-      "shape": [
-        6,
-        4
-      ],
-      "dtypes": {
-        "('price', 'Electronics')": "float64",
-        "('price', 'Furniture')": "float64",
-        "('quantity', 'Electronics')": "float64",
-        "('quantity', 'Furniture')": "float64"
-      },
-      "has_multiindex_columns": true
-    },
-    "df9": {
-      "columns": [
-        "category",
-        "mean_price",
-        "sum_quantity"
-      ],
-      "shape": [
-        2,
-        3
-      ],
-      "dtypes": {
-        "category": "object",
-        "mean_price": "float64",
-        "sum_quantity": "int64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df10": {
-      "columns": [
-        "price"
-      ],
-      "shape": [
-        6,
-        1
-      ],
-      "dtypes": {
-        "price": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df11": {
-      "columns": [
-        "prod",
-        "cost"
-      ],
-      "shape": [
-        6,
-        2
-      ],
-      "dtypes": {
-        "prod": "object",
-        "cost": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df12": {
+    "df_plot": {
       "columns": [
         "id",
         "product",
@@ -250,83 +42,49 @@
       },
       "has_multiindex_columns": false
     },
-    "df13": {
+    "df_bar": {
       "columns": [
         "id",
         "product",
         "price",
         "quantity",
-        "category",
-        "new_col"
+        "category"
       ],
       "shape": [
         6,
-        6
+        5
       ],
       "dtypes": {
         "id": "int64",
         "product": "object",
         "price": "float64",
         "quantity": "int64",
-        "category": "object",
-        "new_col": "int64"
+        "category": "object"
       },
       "has_multiindex_columns": false
     },
-    "df14": {
+    "df_scatter": {
       "columns": [
         "id",
         "product",
         "price",
         "quantity",
-        "category",
-        "multi_col"
+        "category"
       ],
       "shape": [
         6,
-        6
+        5
       ],
       "dtypes": {
         "id": "int64",
         "product": "object",
         "price": "float64",
         "quantity": "int64",
-        "category": "object",
-        "multi_col": "int64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df15": {
-      "columns": [
-        "product",
-        "price"
-      ],
-      "shape": [
-        6,
-        2
-      ],
-      "dtypes": {
-        "product": "object",
-        "price": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "df16": {
-      "columns": [
-        "product",
-        "quantity"
-      ],
-      "shape": [
-        6,
-        2
-      ],
-      "dtypes": {
-        "product": "object",
-        "quantity": "int64"
+        "category": "object"
       },
       "has_multiindex_columns": false
     }
   },
-  "timestamp": "2025-12-03T09:43:55.328377",
-  "current_table": "df16"
+  "timestamp": "2025-12-03T14:23:41.574315",
+  "current_table": "df_scatter"
 }

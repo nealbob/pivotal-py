@@ -1,0 +1,21 @@
+load df "data/data.csv"
+
+df df_plot from df
+    plot line
+        x "product"
+        y "price"
+        title "Product Prices"
+        legend False
+
+df df_bar from df
+    plot bar
+        x "category"
+        y "quantity"
+        title "Category Quantities"
+
+df df_scatter from df
+    plot scatter
+        x "price"
+        y "quantity"
+        c "category"
+        colormap "viridis"

@@ -9,7 +9,7 @@
         "category"
       ],
       "shape": [
-        4,
+        6,
         5
       ],
       "dtypes": {
@@ -20,36 +20,8 @@
         "category": "object"
       },
       "has_multiindex_columns": false
-    },
-    "grouped": {
-      "columns": [
-        "category",
-        "price"
-      ],
-      "shape": [
-        2,
-        2
-      ],
-      "dtypes": {
-        "category": "object",
-        "price": "float64"
-      },
-      "has_multiindex_columns": false
-    },
-    "pivoted": {
-      "columns": [
-        "price"
-      ],
-      "shape": [
-        2,
-        1
-      ],
-      "dtypes": {
-        "price": "float64"
-      },
-      "has_multiindex_columns": false
     }
   },
-  "timestamp": "2025-12-03T10:37:33.009611",
+  "timestamp": "2025-12-03T14:13:35.005421",
   "current_table": "df"
 }
