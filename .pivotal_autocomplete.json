@@ -1,0 +1,55 @@
+{
+  "tables": {
+    "df": {
+      "columns": [
+        "id",
+        "product",
+        "price",
+        "quantity",
+        "category"
+      ],
+      "shape": [
+        4,
+        5
+      ],
+      "dtypes": {
+        "id": "int64",
+        "product": "object",
+        "price": "float64",
+        "quantity": "int64",
+        "category": "object"
+      },
+      "has_multiindex_columns": false
+    },
+    "grouped": {
+      "columns": [
+        "category",
+        "price"
+      ],
+      "shape": [
+        2,
+        2
+      ],
+      "dtypes": {
+        "category": "object",
+        "price": "float64"
+      },
+      "has_multiindex_columns": false
+    },
+    "pivoted": {
+      "columns": [
+        "price"
+      ],
+      "shape": [
+        2,
+        1
+      ],
+      "dtypes": {
+        "price": "float64"
+      },
+      "has_multiindex_columns": false
+    }
+  },
+  "timestamp": "2025-12-03T10:37:33.009611",
+  "current_table": "df"
+}

@@ -1,0 +1,23 @@
+python
+    filename = 'data.csv'
+    sort_col = 'price'
+    group_col = 'category'
+    pivot_idx = 'category'
+    pivot_val = 'price'
+    filter_val = 100
+
+load df :filename
+
+sort :sort_col desc
+
+df grouped from df
+group by :group_col
+    agg sum price
+
+df pivoted from df
+pivot
+    rows :pivot_idx
+    agg mean :pivot_val
+
+df df
+filter price > :filter_val

@@ -4,42 +4,71 @@ load testdf data/data.csv
 
 load testdf3 "data/data.csv"
    
-table testdf4 from testdf
+df testdf4 from testdf
 
-table gocats from testdf3
+df gocats from testdf3
    filter price < 200 and quantity > 1
    select product, price, quantity, id
    set newcol = price * quantity
 
-table testdf5 from testdf3
+df testdf5 from testdf3
    select product, price, quantity
    set newcol = price * quantity
       where price < 200
 
-table df6 from testdf3
+df df6 from testdf3
    sort price desc, quantity asc
    left merge gocats on id
 
-table df7 from testdf3
+df df7 from testdf3
    left merge gocats 
       left_on id
       right_on id
 
-table df7 from testdf3
-   pivot on price
+df df7 from testdf3
+   pivot
+      agg sum price
       rows product
       cols category
-      agg sum
 
-table df8 from testdf3
-   pivot on price, quantity
+df df8 from testdf3
+   pivot
+      agg sum price, mean quantity
       rows product
       cols category
-      agg sum, mean
 
-table df9 from testdf3
-   groupby category
-      agg price mean, quantity sum
+df df9 from testdf3
+   group by category
+      agg mean price as mean_price, sum quantity as sum_quantity
+
+df df10 from testdf3
+   pivot
+      agg sum price
+      rows product
+
+df df11 from testdf3
+   select product as prod, price as cost
+
+df df12 from testdf3
+   order by price desc
+
+df df13 from testdf3
+   python print("Executing python code")
+   python df13['new_col'] = 100
+
+df df14 from testdf3
+   python
+      print("Multiline python start")
+      df14['multi_col'] = 200
+      print("Multiline python end")
+
+df df15 from testdf3
+   python varlist = ["product", "price"]
+   select :varlist
+
+df df16 from testdf3
+   python single_col = "quantity"
+   select product, :single_col
 
 
 
@@ -48,26 +77,14 @@ table df9 from testdf3
 
 TODO 
 
-YAML header
+SQL: CAPSLOCK ; ?
 
-group by X agg mean
-   A mean
-   B min
 
-apply my_function 
-   param 3
+table 
 
-rename A alpha, B beta
+plot
 
-python df.mean()
 
-python 
-   def my_function(df, param=2):
-      # do something
-      return df
-end
-
-:variable python object
 */
 
 

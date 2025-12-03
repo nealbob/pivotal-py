@@ -14,7 +14,7 @@ grammar_indented = r"""
     start: _NL* (_INDENT? statement _DEDENT?)+ _NL*
 
     statement: load_statement 
-               | table_statement  
+               | dataframe_statement  
                | set_statement  
                | filter_statement  
                | select_statement   
@@ -22,14 +22,21 @@ grammar_indented = r"""
                | merge_statement
                | pivot_statement
                | groupby_statement
+               | python_statement
 
-    groupby_statement: "groupby" group_cols (_NL _INDENT agg_clause _DEDENT)? _NL?
+    python_statement: "python" UNQUOTED_STRING _NL?
+                    | "python" _NL _INDENT python_block _DEDENT _NL?
 
-    group_cols: IDENTIFIER ("," IDENTIFIER)*
+    python_block: python_line+
+    python_line: UNQUOTED_STRING _NL
+
+    groupby_statement: "group" "by" group_cols (_NL _INDENT agg_clause _DEDENT)? _NL?
+
+    group_cols: (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))*
 
     agg_clause: "agg" agg_item ("," agg_item)* _NL?
 
-    agg_item: IDENTIFIER AGG_FUNCTION
+    agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
 
     merge_statement: MERGE_TYPE? ("merge" | "join") RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -37,26 +44,28 @@ grammar_indented = r"""
     keys: IDENTIFIER ("," IDENTIFIER)*
     RIGHT_TABLE: IDENTIFIER
 
-    load_statement: "load" table_name (STRING | PATH) (_NL | _NL _INDENT params _DEDENT)?
+    load_statement: "load" table_name (STRING | PATH | PYTHON_VAR) (_NL | _NL _INDENT params _DEDENT)?
 
-    table_statement: "table" table_name ("from" copy_table)? _NL?
+    dataframe_statement: ("df" | "dataframe") table_name ("from" copy_table)? _NL?
 
     set_statement: "set" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
 
     filter_statement: "filter" condition_list  _NL?
     
-    select_statement: "select" IDENTIFIER ("," IDENTIFIER)* _NL?
+    select_statement: "select" select_item ("," select_item)* _NL?
+    
+    select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
 
-    pivot_statement: "pivot" "on" pivot_values _NL _INDENT pivot_rows _NL pivot_cols (_NL _DEDENT | _NL agg_s _DEDENT) 
+    pivot_statement: "pivot" _NL _INDENT pivot_args _DEDENT
 
-    pivot_values: IDENTIFIER ("," IDENTIFIER)* 
-    pivot_rows: "rows" IDENTIFIER ("," IDENTIFIER)*   
-    pivot_cols: "cols" IDENTIFIER ("," IDENTIFIER)*  
-    agg_s:  "agg" AGG_FUNCTION ("," AGG_FUNCTION)* _NL?
+    pivot_args: (agg_clause | pivot_rows | pivot_cols)+
+
+    pivot_rows: "rows" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
+    pivot_cols: "cols" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
    
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
 
-    sort_statement: "sort" IDENTIFIER SORT_TYPE? ("," IDENTIFIER SORT_TYPE?)* _NL?
+    sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
     SORT_TYPE: "asc" | "desc"
     
@@ -83,17 +92,18 @@ grammar_indented = r"""
 
     file_path: PATH
 
-    value: BOOLEAN | NUMBER | STRING | IDENTIFIER | PATH | NONE 
+    value: BOOLEAN | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
     list_value: "[" [value ("," value)*] "]" |  [value "," value ("," value)*] 
 
     BOOLEAN.2: "True" | "False" | "true" | "false"
     NONE.2: "None" | "none"
     AOR.2: /and/i | /or/i
+    PYTHON_VAR: ":" IDENTIFIER
     IDENTIFIER: /[a-zA-Z][a-zA-Z0-9_]*/
     IDENT_LIST.2: IDENTIFIER ("," IDENTIFIER)*
     STRING: /"[^"]*"/ | /'[^']*'/
     UNQUOTED_STRING: /[^\n]+/
-    PATH: /[a-zA-Z0-9_]*[:\\\/][a-zA-Z0-9_:\/\\\.\-]+|[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+/
+    PATH: /[a-zA-Z0-9_]+[:\\\/][a-zA-Z0-9_:\/\\\.\-]+|[\\\/][a-zA-Z0-9_:\/\\\.\-]+|[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+/
     NUMBER: /\d+(\.\d+)?/
     COMMENT: /#[^\n]*/ | /--[^\n]*/
     MULTILINE_COMMENT:  /\/\*[\s\S]*?\*\//
@@ -142,22 +152,22 @@ class DSLTransformer(Transformer):
         while i < len(args):
             arg = args[i]
             # Check if this is a sort_type Tree object (skip it, as it's not a column)
-            if isinstance(arg, Token):
+            if isinstance(arg, Token) and arg.type in ['SORT', 'ORDER', 'BY']:
                 i += 1
                 continue
             
-            # This is a column identifier
-            column = str(arg)
+            # This is a column identifier or variable
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                column = arg
+            else:
+                column = str(arg)
+            
             columns.append(column)
             
             # Check if next arg is a sort_type
-            if i + 1 < len(args) and isinstance(args[i + 1], Token):
-                # Safely access children with bounds checking
-                if len(args[i + 1]) > 0:
-                    sort_type = str(args[i + 1]).lower()
-                    ascending.append(sort_type == 'asc')
-                else:
-                    ascending.append(True)
+            if i + 1 < len(args) and isinstance(args[i + 1], Token) and args[i + 1].type == 'SORT_TYPE':
+                sort_type = str(args[i + 1]).lower()
+                ascending.append(sort_type == 'asc')
                 i += 2
             else:
                 # Default to ascending if no sort_type specified
@@ -190,7 +200,10 @@ class DSLTransformer(Transformer):
 
     def load_statement(self, table_name,  source, params=None):
 
-        source_str = str(source)
+        if isinstance(source, dict) and source.get('type') == 'var':
+            source_val = source
+        else:
+            source_val = str(source)
 
         if params:
             kwargs, kwargs_str = self._keyword_arg(params)
@@ -202,7 +215,7 @@ class DSLTransformer(Transformer):
         ast_node = {
             'type': 'load_table',
             'table_name': str(table_name),
-            'source': source_str,
+            'source': source_val,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str
         }
@@ -211,8 +224,23 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
-    def table_statement(self, table_name, copy_table=None):
+    def dataframe_statement(self, *args):
         """Handle table statements with optional 'from' clause"""
+        
+        # Filter out the keyword if it's passed (it might be the first arg)
+        # And filter out _NL if it's passed
+        
+        clean_args = []
+        for arg in args:
+            if isinstance(arg, (str, Token)) and str(arg) in ['df', 'dataframe', 'table']:
+                continue
+            if isinstance(arg, Token) and arg.type == '_NL':
+                continue
+            clean_args.append(arg)
+            
+        table_name = clean_args[0]
+        copy_table = clean_args[1] if len(clean_args) > 1 else None
+        
         table_name_str = str(table_name)
         
         if copy_table is not None:
@@ -360,21 +388,45 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
-    def select_statement(self, *columns):
+    def select_statement(self, *items):
         """Handle select statements to select specific columns"""
-        column_list = [str(col) for col in columns]
+        columns = []
+        renames = {}
+        
+        for item in items:
+            if isinstance(item, dict):
+                if item.get('type') == 'var':
+                    columns.append(item)
+                else:
+                    col = item['column']
+                    columns.append(col)
+                    if 'alias' in item:
+                        renames[col] = item['alias']
+            else:
+                # Fallback if item is just a string (shouldn't happen with new grammar)
+                columns.append(str(item))
         
         ast_node = {
             'type': 'select',
             'table_name': self.current_table,
-            'columns': column_list
+            'columns': columns,
+            'renames': renames
         }
         
-        # Generate Python code: table.loc[:, ['col1', 'col2', ...]]
-        columns_str = str(column_list)
-        python_code = f"{self.current_table} = {self.current_table}.loc[:, {columns_str}]"
-        
         return ast_node
+
+    def select_item(self, col, alias=None):
+        if isinstance(col, dict) and col.get('type') == 'var':
+             # Variable reference cannot have alias in this simple implementation
+             # or we could support it if it's a single column
+             return col
+        
+        if alias:
+            return {'column': str(col), 'alias': str(alias)}
+        return {'column': str(col)}
+    
+    def PYTHON_VAR(self, token):
+        return {'type': 'var', 'name': str(token)[1:]}
 
     def merge_statement(self, *args):
         """Handle merge statements"""
@@ -420,77 +472,65 @@ class DSLTransformer(Transformer):
         return ast_node
    
     
-    def pivot_statement(self, values_columns, pivot_rows, pivot_cols, agg):
+    def pivot_statement(self, *args):
         """Handle pivot statements to create pivot tables"""
-        # Extract values columns from values_columns
-        values_column_list = []
-        if isinstance(values_columns, Tree):
-            values_column_list = [str(col) for col in values_columns.children]
-        elif isinstance(values_columns, list):
-            values_column_list = [str(col) for col in values_columns]
-        else:
-            values_column_list = [str(values_columns)]
-        
-        # Extract row columns from pivot_rows
         row_columns = []
-        if isinstance(pivot_rows, Tree):
-            row_columns = [str(col) for col in pivot_rows.children]
-        elif isinstance(pivot_rows, list):
-            row_columns = [str(col) for col in pivot_rows]
-        else:
-            row_columns = [str(pivot_rows)]
-        
-        # Extract column columns from pivot_cols
         col_columns = []
-        if isinstance(pivot_cols, Tree):
-            col_columns = [str(col) for col in pivot_cols.children]
-        elif isinstance(pivot_cols, list):
-            col_columns = [str(col) for col in pivot_cols]
-        else:
-            col_columns = [str(pivot_cols)]
+        agg_list = []
         
-        # Extract aggregation functions
-        agg_functions = []
-        if isinstance(agg, Tree):
-            agg_functions = agg.children 
-        elif isinstance(agg, list):
-            agg_functions = [str(func) for func in agg]
-        else:
-            agg_functions = [str(agg)]
+        pivot_args_result = args[0]
         
-        # Default to 'sum' if no aggregation specified
-        if not agg_functions:
-            agg_functions = ['sum']
+        for arg in pivot_args_result:
+            if isinstance(arg, list):
+                # This is likely agg_clause result (list of dicts)
+                for item in arg:
+                    if isinstance(item, dict) and 'type' not in item:
+                         agg_list.append(item)
+            elif isinstance(arg, dict):
+                if arg.get('type') == 'rows':
+                    row_columns = arg['columns']
+                elif arg.get('type') == 'cols':
+                    col_columns = arg['columns']
         
         ast_node = {
             'type': 'pivot',
             'table_name': self.current_table,
-            'values': values_column_list,
             'index': row_columns,
             'columns': col_columns,
-            'aggfunc': agg_functions[0] if len(agg_functions) == 1 else agg_functions
+            'agg_list': agg_list
         }
         
         return ast_node
-    
-    def pivot_values(self, *columns):
-        """Handle pivot rows specification"""
-        return [str(col) for col in columns]
+
+    def pivot_args(self, *args):
+        return list(args)
     
     def pivot_rows(self, *columns):
         """Handle pivot rows specification"""
-        return [str(col) for col in columns]
+        cols = []
+        for col in columns:
+            if isinstance(col, dict) and col.get('type') == 'var':
+                cols.append(col)
+            else:
+                cols.append(str(col))
+        return {'type': 'rows', 'columns': cols}
     
     def pivot_cols(self, *columns):
         """Handle pivot columns specification"""
-        return [str(col) for col in columns]
+        cols = []
+        for col in columns:
+            if isinstance(col, dict) and col.get('type') == 'var':
+                cols.append(col)
+            else:
+                cols.append(str(col))
+        return {'type': 'cols', 'columns': cols}
 
     def groupby_statement(self, *args):
         """Handle groupby statements"""
         # args[0] is group_cols (list of strings)
         group_cols = args[0]
         
-        agg_dict = {}
+        agg_list = []
         
         # Search for agg_clause result in args
         for arg in args[1:]:
@@ -503,27 +543,39 @@ class DSLTransformer(Transformer):
                         break
                 
                 if is_agg_list and len(arg) > 0:
-                    for item in arg:
-                        agg_dict.update(item)
+                    agg_list.extend(arg)
         
         ast_node = {
             'type': 'groupby',
             'table_name': self.current_table,
             'by': group_cols,
-            'agg': agg_dict
+            'agg_list': agg_list
         }
         
         return ast_node
 
     def group_cols(self, *columns):
-        return [str(col) for col in columns]
+        cols = []
+        for col in columns:
+            if isinstance(col, dict) and col.get('type') == 'var':
+                cols.append(col)
+            else:
+                cols.append(str(col))
+        return cols
 
     def agg_clause(self, *items):
         # Filter out tokens like _NL
         return [item for item in items if isinstance(item, dict)]
 
-    def agg_item(self, col, func):
-        return {str(col): str(func)}
+    def agg_item(self, func, col, alias=None):
+        if isinstance(col, dict) and col.get('type') == 'var':
+            res = {'column': col, 'func': str(func)}
+        else:
+            res = {'column': str(col), 'func': str(func)}
+            
+        if alias:
+            res['alias'] = str(alias)
+        return res
     
     def agg_s(self, *functions):
         """Handle aggregation functions"""
@@ -533,6 +585,19 @@ class DSLTransformer(Transformer):
         """Handle aggregation function tokens"""
         return str(token)
     
+    def python_statement(self, code):
+        return {
+            'type': 'python',
+            'code': str(code).strip(),
+            'table_name': self.current_table
+        }
+
+    def python_block(self, *lines):
+        return "\n".join(lines)
+
+    def python_line(self, code):
+        return str(code)
+
     def condition(self, column, comparator, value):
         """Handle individual filter conditions"""
         return {
@@ -597,7 +662,7 @@ class DSLTransformer(Transformer):
     
     def _convert_value(self, val):
         """Convert parsed value to appropriate Python type"""
-        if isinstance(val, (int, float, list)) or val is None:
+        if isinstance(val, (int, float, list, dict)) or val is None:
             return val
         val_str = str(val)
         # Try to convert to number
@@ -630,15 +695,53 @@ class CodeGenerator:
     
     # Pandas code generators
     def generate_sort_pandas(self, ast_node):
-        return f"{ast_node['table_name']} = {ast_node['table_name']}.sort_values({ast_node['columns']}, ascending={ast_node['ascending']})"
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        
+        # Check if we have any variable references
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+        
+        if has_vars:
+            # Generate code to construct the column list and ascending list dynamically
+            col_list_code = "[]"
+            asc_list_code = "[]"
+            
+            for col, asc in zip(columns, ascending):
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    # Handle both list and single item
+                    # If it's a list, we assume ascending applies to all (or default True)
+                    # If the user specified 'desc' for a list variable, we apply it to all
+                    asc_val = str(asc)
+                    col_list_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                    asc_list_code += f" + ([{asc_val}] * len({var_name}) if isinstance({var_name}, list) else [{asc_val}])"
+                else:
+                    col_list_code += f" + ['{col}']"
+                    asc_list_code += f" + [{asc}]"
+            
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.sort_values({col_list_code}, ascending={asc_list_code})"
+        else:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.sort_values({columns}, ascending={ascending})"
     
     def generate_load_table_pandas(self, ast_node):
-        load_table = f"{ast_node['table_name']} = pd.read_csv('{ast_node['source']}'{ast_node['kwargs_str']})"
+        source = ast_node['source']
+        if isinstance(source, dict) and source.get('type') == 'var':
+            source_code = source['name']
+        else:
+            source_code = f"'{source}'"
+            
+        load_table = f"{ast_node['table_name']} = pd.read_csv({source_code}{ast_node['kwargs_str']})"
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{load_table}\n{table_name}" 
 
     def generate_load_table_polars(self, ast_node):
-        load_table = f"{ast_node['table_name']} = pl.read_csv('{ast_node['source']}'{ast_node['kwargs_str']})"
+        source = ast_node['source']
+        if isinstance(source, dict) and source.get('type') == 'var':
+            source_code = source['name']
+        else:
+            source_code = f"'{source}'"
+
+        load_table = f"{ast_node['table_name']} = pl.read_csv({source_code}{ast_node['kwargs_str']})"
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{load_table}\n{table_name}"
 
@@ -651,7 +754,7 @@ class CodeGenerator:
     
     def generate_validate_table_pandas(self, ast_node):
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        validation - f"if not isinstance({ast_node['table_name']}, pd.DataFrame): raise TypeError('{ast_node['table_name']} is not a pandas DataFrame')"
+        validation = f"if not isinstance({ast_node['table_name']}, pd.DataFrame): raise TypeError('{ast_node['table_name']} is not a pandas DataFrame')"
         return f"{validation}\n{table_name}"
     
     def generate_set_pandas(self, ast_node):
@@ -668,7 +771,30 @@ class CodeGenerator:
         return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}')"
     
     def generate_select_pandas(self, ast_node):
-        return f"{ast_node['table_name']} = {ast_node['table_name']}.loc[:, {ast_node['columns']}]"
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        
+        # Check if we have any variable references
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+        
+        if has_vars:
+            # Generate code to construct the column list dynamically
+            col_list_code = "[]"
+            for col in columns:
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    # Handle both list and single item
+                    col_list_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                else:
+                    col_list_code += f" + ['{col}']"
+            
+            code = f"{ast_node['table_name']} = {ast_node['table_name']}.loc[:, {col_list_code}]"
+        else:
+            code = f"{ast_node['table_name']} = {ast_node['table_name']}.loc[:, {columns}]"
+            
+        if renames:
+            code += f".rename(columns={renames})"
+        return code
     
     def generate_merge_pandas(self, ast_node):
         if ast_node['keys'] == '':
@@ -679,49 +805,178 @@ class CodeGenerator:
     def generate_pivot_pandas(self, ast_node):
         """Generate pandas pivot_table code"""
         table_name = ast_node['table_name']
-        values = ast_node['values']
         index = ast_node['index']
         columns = ast_node['columns']
-        aggfunc = ast_node['aggfunc']
+        agg_list = ast_node.get('agg_list', [])
         
-        # Format index and columns as lists if they have multiple elements
-        index_str = str(index) if len(index) > 1 else f"'{index[0]}'" if index else None
-        columns_str = str(columns) if len(columns) > 1 else f"'{columns[0]}'" if columns else None
+        # Helper to process list/var/string arguments
+        def process_arg(arg):
+            if not arg:
+                return None
+            
+            # Check if it's a variable reference
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return arg['name']
+            
+            # Check if it's a list containing variable references
+            if isinstance(arg, list):
+                has_vars = any(isinstance(item, dict) and item.get('type') == 'var' for item in arg)
+                if has_vars:
+                    code = "[]"
+                    for item in arg:
+                        if isinstance(item, dict) and item.get('type') == 'var':
+                            var_name = item['name']
+                            code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                        else:
+                            code += f" + ['{item}']"
+                    return code
+                elif len(arg) > 1:
+                    return str(arg)
+                elif len(arg) == 1:
+                    return f"'{arg[0]}'"
+                else:
+                    return None
+            
+            return f"'{arg}'"
+
+        index_str = process_arg(index)
+        columns_str = process_arg(columns)
         
-        # Build the pivot_table call
+        # Process agg_list to build values and aggfunc
+        has_vars_in_agg = any(isinstance(item['column'], dict) and item['column'].get('type') == 'var' for item in agg_list)
+        
+        code_lines = []
+        
+        if has_vars_in_agg:
+            code_lines.append("_aggfunc = {}")
+            for item in agg_list:
+                col = item['column']
+                func = item['func']
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    code_lines.append(f"_cols = {var_name} if isinstance({var_name}, list) else [{var_name}]")
+                    code_lines.append(f"for c in _cols: _aggfunc[c] = '{func}'")
+                else:
+                    code_lines.append(f"_aggfunc['{col}'] = '{func}'")
+            
+            aggfunc_str = "_aggfunc"
+            values_str = "list(_aggfunc.keys())"
+            
+        else:
+             agg_dict = {}
+             for item in agg_list:
+                col = item['column']
+                func = item['func']
+                if col not in agg_dict:
+                    agg_dict[col] = []
+                agg_dict[col].append(func)
+            
+             for k, v in agg_dict.items():
+                if len(v) == 1:
+                    agg_dict[k] = v[0]
+             
+             values = list(agg_dict.keys())
+             values_str = str(values) if len(values) > 1 else f"'{values[0]}'"
+             aggfunc_str = str(agg_dict)
+
+        # Build pivot_table call
         pivot_args = []
-        pivot_args.append(f"values={values}")
+        pivot_args.append(f"values={values_str}")
         
-        if index:
+        if index_str:
             pivot_args.append(f"index={index_str}")
         
-        if columns:
+        if columns_str:
             pivot_args.append(f"columns={columns_str}")
+            
+        pivot_args.append(f"aggfunc={aggfunc_str}")
         
-        if aggfunc:
-            if isinstance(aggfunc, list):
-                aggfunc_str = str(aggfunc)
-                if len(aggfunc) == len(values):
-                    aggfunc_str = str({val: func for val, func in zip(values, aggfunc)})
-                else:
-                    aggfunc_str = str(aggfunc)
-            else:
-                aggfunc_str = f"'{aggfunc}'"
-            pivot_args.append(f"aggfunc={aggfunc_str}")
+        pivot_call = f"{table_name} = pd.pivot_table({table_name}, {', '.join(pivot_args)})"
         
-        pivot_args_str = ', '.join(pivot_args)
-        
-        return f"{table_name} = pd.pivot_table({table_name}, {pivot_args_str})"
+        if has_vars_in_agg:
+            return "\n".join(code_lines + [pivot_call])
+        else:
+            return pivot_call
 
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']
-        agg = ast_node['agg']
+        agg_list = ast_node.get('agg_list', [])
         
-        if agg:
-            return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by}).agg({agg}).reset_index()"
+        # Handle 'by' argument which can be a list, a variable, or a list containing variables
+        if isinstance(by, dict) and by.get('type') == 'var':
+            by_code = by['name']
+        elif isinstance(by, list):
+            has_vars = any(isinstance(item, dict) and item.get('type') == 'var' for item in by)
+            if has_vars:
+                by_code = "[]"
+                for item in by:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        var_name = item['name']
+                        by_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                    else:
+                        by_code += f" + ['{item}']"
+            else:
+                by_code = str(by)
         else:
-            return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by}).sum().reset_index()"
+            by_code = f"'{by}'"
+
+        if agg_list:
+            # Check if any aliases exist
+            has_aliases = any('alias' in item for item in agg_list)
+            
+            if has_aliases:
+                # Use named aggregation syntax
+                # agg(alias=('col', 'func'))
+                agg_args = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias', None)
+                    
+                    if isinstance(col, dict) and col.get('type') == 'var':
+                        col_code = col['name']
+                        if not alias:
+                             alias = f"agg_{func}" 
+                    else:
+                        col_code = f"'{col}'"
+                        if not alias:
+                            alias = f"{col}_{func}"
+                    
+                    agg_args.append(f"{alias}=({col_code}, '{func}')")
+                
+                agg_str = ", ".join(agg_args)
+                return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).agg({agg_str}).reset_index()"
+            else:
+                # Old style dict aggregation
+                has_vars_in_agg = any(isinstance(item['column'], dict) and item['column'].get('type') == 'var' for item in agg_list)
+                
+                if has_vars_in_agg:
+                    code_lines = []
+                    code_lines.append("_agg_dict = {}")
+                    for item in agg_list:
+                        col = item['column']
+                        func = item['func']
+                        if isinstance(col, dict) and col.get('type') == 'var':
+                            var_name = col['name']
+                            code_lines.append(f"_cols = {var_name} if isinstance({var_name}, list) else [{var_name}]")
+                            code_lines.append(f"for c in _cols: _agg_dict[c] = '{func}'")
+                        else:
+                            code_lines.append(f"_agg_dict['{col}'] = '{func}'")
+                    
+                    agg_dict_str = "_agg_dict"
+                    groupby_call = f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).agg({agg_dict_str}).reset_index()"
+                    return "\n".join(code_lines + [groupby_call])
+                else:
+                    agg_dict = {}
+                    for item in agg_list:
+                        agg_dict[item['column']] = item['func']
+                    return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).agg({agg_dict}).reset_index()"
+        else:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).sum().reset_index()"
     
+    def generate_python_pandas(self, ast_node):
+        return ast_node['code']
+
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators"""
         query_parts = []
@@ -731,8 +986,15 @@ class CodeGenerator:
             comparator = condition['comparator']
             value = condition['value']
             
+            # Debug
+            # print(f"DEBUG: value={value}, type={type(value)}")
+
             # Build query string part
-            if comparator in ['in', 'not in']:
+            if isinstance(value, dict) and value.get('type') == 'var':
+                # Use @var_name syntax for pandas query
+                value_str = f"@{value['name']}"
+                query_parts.append(f"{column} {comparator} {value_str}")
+            elif comparator in ['in', 'not in']:
                 if isinstance(value, list):
                     value_str = str(value)
                 else:
@@ -955,6 +1217,15 @@ class DSLParser:
         
         # Update autocomplete info after execution
         self.update_autocomplete_info(globals_dict)
+        
+        # Collect tables
+        tables = {}
+        for res in results:
+            if 'table_name' in res:
+                name = res['table_name']
+                if name in globals_dict:
+                    tables[name] = globals_dict[name]
+        return tables
         
 
 # Example usage
