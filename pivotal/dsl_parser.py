@@ -792,10 +792,6 @@ class CodeGenerator:
         
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{validation}\n{table_name}"
-        
-        # Ah, copy_table generates the copy code. validate_table is for "df existing".
-        
-        return f"{table_name}"
     
     def generate_set_pandas(self, ast_node):
         if ast_node['conditions']:
@@ -1204,11 +1200,12 @@ class DSLParser:
             String containing all generated Python code, or None if parse error
         """
         results = self.parse(code)
-        code = self.generate_code(results)
-        
+
         if isinstance(results, dict) and 'error' in results:
             print(f"Parse error: {results['error']}")
             return None
+
+        code = self.generate_code(results)
         
         # Collect all Python code
         python_lines = ["import pandas as pd", ""]
@@ -1251,11 +1248,12 @@ class DSLParser:
             globals_dict['pd'] = pd
         
         results = self.parse(code)
-        python_code_list = self.generate_code(results, backend=backend)
-        
+
         if isinstance(results, dict) and 'error' in results:
             print(f"Parse error: {results['error']}")
             return None
+
+        python_code_list = self.generate_code(results, backend=backend)
         
         i = 0 
         for python_code in python_code_list:

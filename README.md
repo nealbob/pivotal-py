@@ -17,7 +17,6 @@
   - [Sorting](#sorting)
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
-- [VS Code Extension](#vs-code-extension)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 
@@ -31,7 +30,6 @@
 📊 **Rich Operations** - Load, filter, select, sort, merge, pivot, and transform data  
 🎯 **Type-Aware** - Intelligent handling of different data types  
 🔍 **Interactive** - Execute code directly in Python REPL with instant feedback  
-🚀 **VS Code Integration** - Syntax highlighting and intelligent autocomplete
 
 ---
 
@@ -55,7 +53,6 @@ pip install pandas lark-parser
    ```bash
    pip install .
    ```
-3. (Optional) Install the [VS Code extension](#vs-code-extension) for enhanced editing
 
 ---
 
@@ -73,7 +70,7 @@ parser = pivotal.DSLParser()
 dsl_code = """
 load sales sales_data.csv
 
-table high_value_sales:
+df high_value_sales from sales:
     filter amount > 1000
     select customer_id, product, amount
     sort amount desc
@@ -130,11 +127,11 @@ load inventory "inventory_2024.csv"
 
 ```pivotal
 # Copy from existing table
-table filtered_data from sales:
+df filtered_data from sales:
     filter price > 100
 
 # Switch context to existing table
-table sales:
+df sales:
     # operations go here...
 ```
 
@@ -146,13 +143,13 @@ table sales:
 Filter rows based on conditions:
 
 ```pivotal
-table active_users:
+df active_users from users:
     filter status == "active"
 
-table premium_sales:
+df premium_sales from sales:
     filter amount > 1000 and category == "premium"
 
-table regional_data:
+df regional_data from sales:
     filter region in ["North", "South", "East"]
 ```
 
@@ -169,10 +166,10 @@ table regional_data:
 Choose specific columns to keep:
 
 ```pivotal
-table customer_summary:
+df customer_summary from customers:
     select customer_id, name, email
 
-table sales_metrics:
+df sales_metrics from sales:
     select product, quantity, revenue, profit_margin
 ```
 
@@ -184,16 +181,16 @@ Create new columns or modify existing ones using the `set` statement:
 
 ```pivotal
 # Simple calculation
-table sales:
+df sales:
     set total = price * quantity
 
 # Conditional assignment
-table products:
+df products from catalog:
     set discount_price = price * 0.9
        where category == "clearance"
 
 # Multiple operations
-table analysis:
+df analysis from sales:
     set revenue = price * quantity
     set profit = revenue - cost
     set margin = profit / revenue
@@ -214,15 +211,15 @@ Sort data by one or more columns:
 
 ```pivotal
 # Single column, ascending (default)
-table sorted_sales:
+df sorted_sales from sales:
     sort amount
 
 # Single column, descending
-table top_performers:
+df top_performers from sales:
     sort revenue desc
 
 # Multiple columns
-table ranked_products:
+df ranked_products from sales:
     sort category asc, sales desc, price asc
 ```
 
@@ -238,19 +235,19 @@ Join two tables together:
 
 ```pivotal
 # Inner join (default)
-table combined:
+df combined from sales:
     merge other_table on customer_id
 
 # Left join
-table sales_with_customers from sales:
+df sales_with_customers from sales:
     left merge customers on customer_id
 
 # Join with explicit merge type
-table full_data:
+df full_data from table1:
     outer merge secondary on id
 
 # Join on multiple keys
-table matched:
+df matched from table1:
     merge other on key1, key2
 ```
 
@@ -262,7 +259,7 @@ table matched:
 
 **Advanced Parameters:**
 ```pivotal
-table complex_merge from table1:
+df complex_merge from table1:
     left merge table2
        left_on id
        right_on customer_id
@@ -280,25 +277,25 @@ Create pivot tables with aggregations:
 
 ```pivotal
 # Basic pivot
-table sales_pivot:
-    pivot on amount
+df sales_pivot from sales:
+    pivot
+       agg sum amount
        rows product
        cols region
-       agg sum
 
-# Multiple value columns
-table multi_metric_pivot:
-    pivot on revenue, quantity
+# Multiple aggregations on multiple columns
+df multi_metric_pivot from sales:
+    pivot
+       agg sum revenue, mean quantity
        rows category
        cols quarter
-       agg sum, mean
 
-# Complex pivot
-table detailed_summary:
-    pivot on sales, profit, units
+# Complex pivot with multiple functions per column
+df detailed_summary from sales:
+    pivot
+       agg sum sales, mean profit, sum units
        rows product, category
        cols region, quarter
-       agg sum, mean, count
 ```
 
 **Aggregation Functions:**
@@ -315,34 +312,6 @@ table detailed_summary:
 
 ---
 
-## VS Code Extension
-
-### Features
-- **Syntax Highlighting** - Color-coded keywords, operators, and functions
-- **Intelligent Autocomplete** - Context-aware suggestions for tables, columns, and operations
-- **Code Execution** - Run Pivotal code directly from the editor
-- **Snippets** - Quick templates for common patterns
-
-### Installation
-
-Copy the `pivotal_vscode` folder to your VS Code extensions directory:
-```
-%USERPROFILE%\.vscode\extensions\  (Windows)
-~/.vscode/extensions/               (Mac/Linux)
-```
-
-### Keyboard Shortcuts
-
-- **`Shift+Enter`** - Execute entire file in Python Interactive
-- **`Ctrl+Enter`** - Execute selected text in Python Interactive
-
-### Commands
-
-- **Pivotal: Execute File** - Run the current `.pivotal` file
-- **Pivotal: Execute Selection** - Run selected Pivotal code
-- **Pivotal: Reinitialize Parser** - Reload the DSL parsernd
-
----
 
 ## API Reference
 
@@ -404,26 +373,26 @@ load sales sales_data.csv
 load products product_catalog.csv
 
 # Filter high-value sales
-table high_value from sales:
+df high_value from sales:
     filter amount > 500
     select customer_id, product_id, amount, date
 
 # Merge with product info
-table enriched_sales from high_value:
+df enriched_sales from high_value:
     left merge products on product_id
     select customer_id, product_name, category, amount
 
 # Calculate metrics
-table analysis from enriched_sales:
+df analysis from enriched_sales:
     set revenue = amount
     set is_premium = amount > 1000
 
 # Create summary pivot
-table category_summary from analysis:
-    pivot on revenue
+df category_summary from analysis:
+    pivot
+       agg sum revenue, mean revenue, count revenue
        rows category
        cols is_premium
-       agg sum, mean, count
 ```
 
 ### Example 2: Customer Segmentation
@@ -434,22 +403,23 @@ load customers customer_data.csv
 load transactions transaction_log.csv
 
 # Calculate customer metrics
-table customer_stats from transactions:
+df customer_stats from transactions:
     set total_spent = amount
-    
+
 # Aggregate by customer
-table customer_summary:
-    # Group operations would go here
-    
+df customer_summary from customer_stats:
+    group by customer_id
+       agg sum total_spent as total_spent
+
 # Segment customers
-table segments from customer_summary:
+df segments from customer_summary:
     set segment = "low"
-    
-table high_value from segments:
+
+df high_value from segments:
     set segment = "high"
        where total_spent > 1000
-       
-table medium_value from segments:
+
+df medium_value from segments:
     set segment = "medium"
        where total_spent > 500 and total_spent <= 1000
 ```
@@ -462,25 +432,25 @@ load timeseries sensor_data.csv
    header 0
 
 # Filter by date range
-table recent_data from timeseries:
+df recent_data from timeseries:
     filter date >= "2024-01-01"
     select sensor_id, date, temperature, humidity
 
 # Calculate rolling metrics
-table with_metrics from recent_data:
+df with_metrics from recent_data:
     set temp_fahrenheit = temperature * 9/5 + 32
     set comfort_index = temperature * 0.7 + humidity * 0.3
 
 # Sort chronologically
-table chronological from with_metrics:
+df chronological from with_metrics:
     sort date asc, sensor_id asc
 
 # Create pivot by sensor
-table sensor_pivot from chronological:
-    pivot on temperature, humidity
+df sensor_pivot from chronological:
+    pivot
+       agg mean temperature, min temperature, max temperature
        rows date
        cols sensor_id
-       agg mean, min, max
 ```
 
 ### Example 4: Data Quality Check
@@ -490,17 +460,17 @@ table sensor_pivot from chronological:
 load raw_data input.csv
 
 # Check for issues
-table quality_check from raw_data:
+df quality_check from raw_data:
     filter status != "invalid"
     select id, name, value, category
 
 # Remove duplicates and standardize
-table cleaned from quality_check:
+df cleaned from quality_check:
     set name_clean = name
     set value_normalized = value / 100
 
 # Filter outliers
-table final_data from cleaned:
+df final_data from cleaned:
     filter value_normalized > 0 and value_normalized < 10
     sort id asc
 ```
@@ -533,17 +503,17 @@ load data file.csv
 ### 1. **Use Descriptive Table Names**
 ```pivotal
 # Good
-table high_value_customers:
+df high_value_customers from customers:
     filter total_spent > 1000
 
 # Less clear
-table t1:
+df t1 from customers:
     filter total_spent > 1000
 ```
 
 ### 2. **Chain Operations Logically**
 ```pivotal
-table analysis from raw_data:
+df analysis from raw_data:
     filter status == "active"    # First filter
     select id, name, value        # Then select needed columns
     set normalized = value / 100  # Then calculate
@@ -555,14 +525,14 @@ Pivotal uses indentation to define operation blocks. Use spaces (not tabs) for c
 
 ### 4. **Break Complex Operations into Steps**
 ```pivotal
-# Instead of one giant table with many operations
-table step1:
+# Instead of one giant df with many operations
+df step1 from raw_data:
     filter condition1
-    
-table step2 from step1:
+
+df step2 from step1:
     merge other_data on key
-    
-table final from step2:
+
+df final from step2:
     select needed_columns
 ```
 
@@ -603,7 +573,7 @@ Convert Pivotal code to a standalone Python script:
 ```python
 dsl_code = """
 load data input.csv
-table analysis:
+df analysis from data:
     filter value > 100
 """
 
@@ -661,7 +631,6 @@ Contributions are welcome! Areas for improvement:
 - **v0.1.0** - Initial release
   - Basic load, table, filter, select operations
   - Merge and pivot support
-  - VS Code extension with autocomplete
 
 ---
 
