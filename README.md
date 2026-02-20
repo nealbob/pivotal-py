@@ -17,6 +17,7 @@
   - [Sorting](#sorting)
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
+  - [Data Cleaning](#data-cleaning)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 
@@ -100,24 +101,28 @@ parser.execute(dsl_code, globals())
 
 ### Loading Data
 
-Load CSV files into named tables:
+Load data files into named tables. The file format is detected automatically from the extension:
 
 ```pivotal
-# Basic load
+# CSV (default)
 load sales data.csv
 
-# Load then select 
-load customers users.csv
-   select name, email, city
-   
-# Load with custom names
-load inventory "inventory_2024.csv"
+# Excel
+load budget report.xlsx
+
+# Parquet
+load events events.parquet
+
+# Quoted path
+load inventory "data/inventory_2024.csv"
    names ["product", "quantity", "price"]
    header 0
 ```
 
+**Supported formats:** `.csv`, `.xlsx`, `.xls`, `.parquet`
+
 **Parameters:**
-- Accepts all keyword arguments of `pandas.read_csv()`
+- Accepts all keyword arguments of the relevant pandas reader (`read_csv`, `read_excel`, `read_parquet`)
 
 ---
 
@@ -143,20 +148,38 @@ df sales:
 Filter rows based on conditions:
 
 ```pivotal
+# Comparison
 df active_users from users:
     filter status == "active"
 
+# Logical operators
 df premium_sales from sales:
     filter amount > 1000 and category == "premium"
 
+# Membership
 df regional_data from sales:
     filter region in ["North", "South", "East"]
+
+# Range (inclusive)
+df mid_range from sales:
+    filter price between [100, 500]
+
+# String matching
+df laptop_sales from sales:
+    filter product contains "Laptop"
+
+df recent from logs:
+    filter event startswith "login"
+
+df errors from logs:
+    filter message not contains "warning"
 ```
 
 **Supported Operators:**
 - Comparison: `==`, `!=`, `>`, `<`, `>=`, `<=`
 - Membership: `in`, `not in`
-
+- Range: `between [lo, hi]`
+- String: `contains`, `not contains`, `startswith`, `endswith`
 - Logical: `and`, `or`
 
 ---
@@ -306,9 +329,77 @@ df detailed_summary from sales:
 - `max` - Maximum value
 - `median` - Median value
 - `std` - Standard deviation
-- `var` - Variance
-- `first` - First value
-- `last` - Last value
+
+---
+
+### Data Cleaning
+
+#### Drop Columns
+
+Remove one or more columns:
+
+```pivotal
+df clean from sales:
+    drop id, internal_ref
+```
+
+#### Rename Columns
+
+Rename columns with `as`:
+
+```pivotal
+df renamed from sales:
+    rename product as item, quantity as qty, unit_price as price
+```
+
+#### Handle Missing Values
+
+Fill or drop rows with null values:
+
+```pivotal
+# Fill all nulls with a value
+df filled from raw:
+    fillna 0
+
+df filled_str from raw:
+    fillna "unknown"
+
+# Drop rows that contain any null
+df complete from raw:
+    dropna
+
+# Drop rows where specific columns are null
+df complete from raw:
+    dropna price, quantity
+```
+
+#### Deduplicate
+
+Remove duplicate rows:
+
+```pivotal
+# Remove fully duplicate rows
+df unique from sales:
+    distinct
+
+# Remove duplicates based on specific columns
+df unique from sales:
+    distinct product, category
+```
+
+#### Concatenate Tables
+
+Stack tables vertically:
+
+```pivotal
+# Append one table to another
+df combined from jan_sales:
+    concat feb_sales
+
+# Append multiple tables at once
+df all_sales from q1:
+    concat q2, q3, q4
+```
 
 ---
 
@@ -453,26 +544,37 @@ df sensor_pivot from chronological:
        cols sensor_id
 ```
 
-### Example 4: Data Quality Check
+### Example 4: Data Cleaning Pipeline
 
 ```pivotal
 # Load data
 load raw_data input.csv
 
-# Check for issues
-df quality_check from raw_data:
-    filter status != "invalid"
-    select id, name, value, category
+# Drop columns we don't need
+df trimmed from raw_data:
+    drop internal_id, last_modified
 
-# Remove duplicates and standardize
-df cleaned from quality_check:
-    set name_clean = name
-    set value_normalized = value / 100
+# Rename for clarity
+df renamed from trimmed:
+    rename cust_nm as customer_name, val as value, cat as category
 
-# Filter outliers
-df final_data from cleaned:
-    filter value_normalized > 0 and value_normalized < 10
-    sort id asc
+# Remove rows with missing critical fields
+df no_nulls from renamed:
+    dropna customer_name, value
+
+# Fill remaining nulls in non-critical fields
+df filled from no_nulls:
+    fillna "uncategorised"
+
+# Remove duplicates on key columns
+df deduped from filled:
+    distinct customer_name, value, category
+
+# Filter to valid range and known categories
+df final_data from deduped:
+    filter value between [0, 10000]
+    filter category not contains "test"
+    sort value desc
 ```
 
 ---
