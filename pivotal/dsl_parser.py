@@ -13,17 +13,23 @@ grammar_indented = r"""
     %declare _INDENT _DEDENT
     start: _NL* (_INDENT? statement _DEDENT?)+ _NL*
 
-    statement: load_statement 
-               | dataframe_statement  
-               | set_statement  
-               | filter_statement  
-               | select_statement   
+    statement: load_statement
+               | dataframe_statement
+               | set_statement
+               | filter_statement
+               | select_statement
                | sort_statement
                | merge_statement
                | pivot_statement
                | groupby_statement
                | python_statement
                | plot_statement
+               | drop_statement
+               | fillna_statement
+               | dropna_statement
+               | distinct_statement
+               | concat_statement
+               | rename_statement
 
     plot_statement: "plot" (IDENTIFIER | STRING)? (_NL | _NL _INDENT params _DEDENT)?
 
@@ -82,7 +88,22 @@ grammar_indented = r"""
 
     condition_list: condition (AOR condition)*
 
-    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not in"
+    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not in" | "between" | "contains" | "not contains" | "startswith" | "endswith"
+
+    drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
+
+    fillna_statement: "fillna" value _NL?
+
+    dropna_statement: "dropna" dropna_cols? _NL?
+    dropna_cols: IDENTIFIER ("," IDENTIFIER)*
+
+    distinct_statement: "distinct" distinct_cols? _NL?
+    distinct_cols: IDENTIFIER ("," IDENTIFIER)*
+
+    concat_statement: "concat" IDENTIFIER ("," IDENTIFIER)* _NL?
+
+    rename_statement: "rename" rename_item ("," rename_item)* _NL?
+    rename_item: IDENTIFIER "as" IDENTIFIER
 
     params: param+
 
@@ -432,6 +453,63 @@ class DSLTransformer(Transformer):
     def PYTHON_VAR(self, token):
         return {'type': 'var', 'name': str(token)[1:]}
 
+    def drop_statement(self, *cols):
+        return {
+            'type': 'drop',
+            'table_name': self.current_table,
+            'columns': [str(c) for c in cols]
+        }
+
+    def fillna_statement(self, val):
+        return {
+            'type': 'fillna',
+            'table_name': self.current_table,
+            'value': val
+        }
+
+    def dropna_statement(self, *args):
+        cols = args[0] if args and isinstance(args[0], list) else []
+        return {
+            'type': 'dropna',
+            'table_name': self.current_table,
+            'columns': cols
+        }
+
+    def dropna_cols(self, *cols):
+        return [str(c) for c in cols]
+
+    def distinct_statement(self, *args):
+        cols = args[0] if args and isinstance(args[0], list) else []
+        return {
+            'type': 'distinct',
+            'table_name': self.current_table,
+            'columns': cols
+        }
+
+    def distinct_cols(self, *cols):
+        return [str(c) for c in cols]
+
+    def concat_statement(self, *tables):
+        return {
+            'type': 'concat',
+            'table_name': self.current_table,
+            'tables': [str(t) for t in tables]
+        }
+
+    def rename_statement(self, *items):
+        renames = {}
+        for item in items:
+            if isinstance(item, dict):
+                renames.update(item)
+        return {
+            'type': 'rename',
+            'table_name': self.current_table,
+            'renames': renames
+        }
+
+    def rename_item(self, old, new):
+        return {str(old): str(new)}
+
     def merge_statement(self, *args):
         """Handle merge statements"""
         
@@ -626,7 +704,7 @@ class DSLTransformer(Transformer):
         return str(code)
 
     def condition(self, column, comparator, value):
-        """Handle individual filter conditions"""
+        """Handle individual filter conditions."""
         return {
             'column': str(column),
             'comparator': str(comparator),
@@ -750,27 +828,57 @@ class CodeGenerator:
         else:
             return f"{ast_node['table_name']} = {ast_node['table_name']}.sort_values({columns}, ascending={ascending})"
     
+    def _reader_for_source(self, source_str):
+        """Return the appropriate pandas reader function for a file path string."""
+        ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+        if ext in ('xlsx', 'xls'):
+            return 'pd.read_excel'
+        if ext == 'parquet':
+            return 'pd.read_parquet'
+        return 'pd.read_csv'
+
     def generate_load_table_pandas(self, ast_node):
         source = ast_node['source']
+        table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
+
         if isinstance(source, dict) and source.get('type') == 'var':
-            source_code = source['name']
+            # Runtime format detection for variable file paths
+            var = source['name']
+            kw = ast_node['kwargs_str']
+            load_table = (
+                f"_src = {var}\n"
+                f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
+                f"if _ext in ('xlsx', 'xls'):\n"
+                f"    {ast_node['table_name']} = pd.read_excel(_src{kw})\n"
+                f"elif _ext == 'parquet':\n"
+                f"    {ast_node['table_name']} = pd.read_parquet(_src{kw})\n"
+                f"else:\n"
+                f"    {ast_node['table_name']} = pd.read_csv(_src{kw})"
+            )
         else:
-            source_code = f"'{source}'"
-            
-        load_table = f"{ast_node['table_name']} = pd.read_csv({source_code}{ast_node['kwargs_str']})"
-        table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        return f"{load_table}\n{table_name}" 
+            reader = self._reader_for_source(str(source))
+            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+
+        return f"{load_table}\n{table_name_marker}"
 
     def generate_load_table_polars(self, ast_node):
         source = ast_node['source']
+        table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
+
         if isinstance(source, dict) and source.get('type') == 'var':
             source_code = source['name']
+            load_table = f"{ast_node['table_name']} = pl.read_csv({source_code}{ast_node['kwargs_str']})"
         else:
-            source_code = f"'{source}'"
+            ext = str(source).rsplit('.', 1)[-1].lower() if '.' in str(source) else ''
+            if ext in ('xlsx', 'xls'):
+                reader = 'pl.read_excel'
+            elif ext == 'parquet':
+                reader = 'pl.read_parquet'
+            else:
+                reader = 'pl.read_csv'
+            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
 
-        load_table = f"{ast_node['table_name']} = pl.read_csv({source_code}{ast_node['kwargs_str']})"
-        table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        return f"{load_table}\n{table_name}"
+        return f"{load_table}\n{table_name_marker}"
 
     def generate_copy_table_pandas(self, ast_node):
         # Validation + copy
@@ -795,7 +903,7 @@ class CodeGenerator:
     
     def generate_set_pandas(self, ast_node):
         if ast_node['conditions']:
-            query_str = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+            query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
             return (f"condition = {ast_node['table_name']}.eval('{query_str}')\n"
                    f"{ast_node['table_name']}.loc[condition, '{ast_node['target']}'] = "
                    f"{ast_node['table_name']}.eval('{ast_node['expression']}')[condition]")
@@ -803,8 +911,9 @@ class CodeGenerator:
             return f"{ast_node['table_name']}['{ast_node['target']}'] = {ast_node['table_name']}.eval('{ast_node['expression']}')"
     
     def generate_filter_pandas(self, ast_node):
-        query_str = self._build_query_string(ast_node['conditions'], ast_node['operators'])
-        return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}')"
+        query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+        engine = ", engine='python'" if needs_python_engine else ""
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}'{engine})"
     
     def generate_select_pandas(self, ast_node):
         columns = ast_node['columns']
@@ -1010,6 +1119,33 @@ class CodeGenerator:
         else:
             return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).sum().reset_index()"
     
+    def generate_drop_pandas(self, ast_node):
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
+
+    def generate_fillna_pandas(self, ast_node):
+        val = ast_node['value']
+        val_code = f"'{val}'" if isinstance(val, str) else str(val)
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.fillna({val_code})"
+
+    def generate_dropna_pandas(self, ast_node):
+        cols = ast_node['columns']
+        if cols:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.dropna(subset={cols})"
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.dropna()"
+
+    def generate_distinct_pandas(self, ast_node):
+        cols = ast_node['columns']
+        if cols:
+            return f"{ast_node['table_name']} = {ast_node['table_name']}.drop_duplicates(subset={cols})"
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.drop_duplicates()"
+
+    def generate_concat_pandas(self, ast_node):
+        others = ', '.join(ast_node['tables'])
+        return f"{ast_node['table_name']} = pd.concat([{ast_node['table_name']}, {others}], ignore_index=True)"
+
+    def generate_rename_pandas(self, ast_node):
+        return f"{ast_node['table_name']} = {ast_node['table_name']}.rename(columns={ast_node['renames']})"
+
     def generate_python_pandas(self, ast_node):
         return ast_node['code']
 
@@ -1031,20 +1167,36 @@ class CodeGenerator:
         return f"{ast_node['table_name']}.plot({args_str})"
 
     def _build_query_string(self, conditions, operators):
-        """Build query string from conditions and operators"""
+        """Build query string from conditions and operators.
+
+        Returns:
+            (query_str, needs_python_engine) — the second flag signals that
+            pandas must use engine='python' (e.g. for str accessor methods).
+        """
         query_parts = []
-        
+        needs_python_engine = False
+
         for i, condition in enumerate(conditions):
             column = condition['column']
             comparator = condition['comparator']
             value = condition['value']
-            
-            # Debug
-            # print(f"DEBUG: value={value}, type={type(value)}")
 
-            # Build query string part
-            if isinstance(value, dict) and value.get('type') == 'var':
-                # Use @var_name syntax for pandas query
+            if comparator == 'between':
+                lo, hi = value
+                query_parts.append(f"{column} >= {lo} and {column} <= {hi}")
+            elif comparator == 'contains':
+                query_parts.append(f'{column}.str.contains("{value}")')
+                needs_python_engine = True
+            elif comparator == 'not contains':
+                query_parts.append(f'not {column}.str.contains("{value}")')
+                needs_python_engine = True
+            elif comparator == 'startswith':
+                query_parts.append(f'{column}.str.startswith("{value}")')
+                needs_python_engine = True
+            elif comparator == 'endswith':
+                query_parts.append(f'{column}.str.endswith("{value}")')
+                needs_python_engine = True
+            elif isinstance(value, dict) and value.get('type') == 'var':
                 value_str = f"@{value['name']}"
                 query_parts.append(f"{column} {comparator} {value_str}")
             elif comparator in ['in', 'not in']:
@@ -1054,15 +1206,14 @@ class CodeGenerator:
                     value_str = f"[{value}]"
                 query_parts.append(f"{column} {comparator} {value_str}")
             elif isinstance(value, str):
-                query_parts.append(f"{column} {comparator} '{value}'")
+                query_parts.append(f'{column} {comparator} "{value}"')
             else:
                 query_parts.append(f"{column} {comparator} {value}")
-            
-            # Add operator if not the last condition
+
             if i < len(operators):
                 query_parts.append(operators[i])
-        
-        return ' '.join(query_parts)
+
+        return ' '.join(query_parts), needs_python_engine
     
     # Future: Add SQL generators
     def generate_sort_sql(self, ast_node):
