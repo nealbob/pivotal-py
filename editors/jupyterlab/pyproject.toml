@@ -10,8 +10,7 @@ build-backend = "hatchling.build"
 name = "pivotal-jupyterlab"
 version = "0.1.0"
 description = "JupyterLab syntax highlighting for the Pivotal data transformation DSL"
-readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 requires-python = ">=3.8"
 dependencies = [
     "jupyterlab>=4.0.0,<5",

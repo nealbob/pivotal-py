@@ -19,6 +19,7 @@ Untitled*.ipynb
 # Node / JupyterLab extension build
 editors/jupyterlab/node_modules/
 editors/jupyterlab/lib/
+editors/jupyterlab/.yarn/
 
 # Environment
 .env
