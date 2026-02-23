@@ -1,0 +1,17 @@
+name: pivotal
+channels:
+  - defaults
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+  - https://repo.anaconda.com/pkgs/msys2
+dependencies:
+  - python
+  - pandas
+  - scipy
+  - scikit-learn
+  - statsmodels
+  - plotly
+  - lark
+  - seaborn
+  - notebook
+prefix: C:\Users\hughe\.conda\envs\pivotal

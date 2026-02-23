@@ -1,0 +1,134 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pivotal",
+  "scopeName": "source.pivotal",
+  "fileTypes": ["pivotal"],
+  "patterns": [
+    { "include": "#block-comments" },
+    { "include": "#line-comments" },
+    { "include": "#strings" },
+    { "include": "#python-vars" },
+    { "include": "#numbers" },
+    { "include": "#constants" },
+    { "include": "#keywords-primary" },
+    { "include": "#keywords-clause" },
+    { "include": "#keywords-merge-type" },
+    { "include": "#keywords-comparator" },
+    { "include": "#keywords-logical" },
+    { "include": "#sort-modifiers" },
+    { "include": "#agg-functions" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "block-comments": {
+      "name": "comment.block.pivotal",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    "line-comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.pivotal",
+          "match": "#.*$"
+        },
+        {
+          "name": "comment.line.double-dash.pivotal",
+          "match": "--.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.pivotal",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.pivotal",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.pivotal",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.pivotal",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "python-vars": {
+      "name": "variable.other.pivotal",
+      "match": ":[a-zA-Z][a-zA-Z0-9_]*"
+    },
+    "numbers": {
+      "name": "constant.numeric.pivotal",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.pivotal",
+          "match": "(?i)\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.null.pivotal",
+          "match": "(?i)\\bnone\\b"
+        }
+      ]
+    },
+    "keywords-primary": {
+      "comment": "Statement-opening commands",
+      "name": "keyword.control.pivotal",
+      "match": "\\b(load|df|dataframe|filter|select|set|sort|order|group|merge|join|pivot|python|plot|drop|fillna|dropna|distinct|concat|rename)\\b"
+    },
+    "keywords-clause": {
+      "comment": "Sub-clause and structural keywords",
+      "name": "keyword.other.pivotal",
+      "match": "\\b(from|where|as|on|by|rows|cols|agg)\\b"
+    },
+    "keywords-merge-type": {
+      "comment": "Merge/join type modifiers",
+      "name": "storage.type.pivotal",
+      "match": "\\b(left|right|inner|outer)\\b"
+    },
+    "keywords-comparator": {
+      "comment": "Filter comparison operators — multi-word variants must come first",
+      "patterns": [
+        {
+          "name": "keyword.operator.word.pivotal",
+          "match": "\\bnot\\s+(in|contains|startswith|endswith)\\b"
+        },
+        {
+          "name": "keyword.operator.word.pivotal",
+          "match": "\\b(in|not|between|contains|startswith|endswith)\\b"
+        }
+      ]
+    },
+    "keywords-logical": {
+      "comment": "Boolean logic — case-insensitive per grammar",
+      "name": "keyword.operator.logical.pivotal",
+      "match": "(?i)\\b(and|or)\\b"
+    },
+    "sort-modifiers": {
+      "name": "storage.modifier.pivotal",
+      "match": "\\b(asc|desc)\\b"
+    },
+    "agg-functions": {
+      "comment": "Aggregation functions used in group by, pivot, and agg clauses",
+      "name": "support.function.pivotal",
+      "match": "\\b(mean|min|max|sum|count|avg|median|std)\\b"
+    },
+    "operators": {
+      "comment": "Symbolic comparison and arithmetic operators",
+      "name": "keyword.operator.pivotal",
+      "match": "(==|!=|>=|<=|>|<|\\*\\*|[+\\-*/=])"
+    }
+  }
+}

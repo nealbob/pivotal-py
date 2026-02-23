@@ -1,0 +1,35 @@
+{
+  "name": "pivotal-language",
+  "displayName": "Pivotal",
+  "description": "Syntax highlighting for the Pivotal data transformation DSL (.pivotal files)",
+  "version": "0.1.0",
+  "publisher": "pivotal",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pivotal/pivotal-py"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "pivotal",
+        "aliases": ["Pivotal", "pivotal"],
+        "extensions": [".pivotal"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pivotal",
+        "scopeName": "source.pivotal",
+        "path": "./syntaxes/pivotal.tmLanguage.json"
+      }
+    ]
+  }
+}

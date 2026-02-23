@@ -1,0 +1,24 @@
+{
+  "comments": {
+    "lineComment": "#",
+    "blockComment": ["/*", "*/"]
+  },
+  "brackets": [
+    ["[", "]"]
+  ],
+  "autoClosingPairs": [
+    { "open": "[", "close": "]" },
+    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] },
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] }
+  ],
+  "surroundingPairs": [
+    ["[", "]"],
+    ["\"", "\""],
+    ["'", "'"]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(load|df|dataframe|merge|join|pivot|group\\s+by|plot|python)\\b.*$",
+    "decreaseIndentPattern": "^\\s*(load|df|dataframe|filter|select|set|sort|order|merge|join|pivot|group|python|plot|drop|fillna|dropna|distinct|concat|rename)\\b"
+  },
+  "wordPattern": "[a-zA-Z][a-zA-Z0-9_]*|:[a-zA-Z][a-zA-Z0-9_]*|\\d+(\\.\\d+)?"
+}
