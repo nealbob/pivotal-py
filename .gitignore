@@ -33,3 +33,6 @@ editors/vscode/*.vsix
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude
+.claude/
