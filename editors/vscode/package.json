@@ -50,6 +50,11 @@
         "command": "pivotal.executeInNotebook",
         "title": "Pivotal: Execute in Interactive Notebook",
         "icon": "$(notebook)"
+      },
+      {
+        "command": "pivotal.executeSelectionInNotebook",
+        "title": "Pivotal: Execute Selection in Interactive Notebook",
+        "icon": "$(run-above)"
       }
     ],
     "keybindings": [
@@ -58,6 +63,12 @@
         "key": "ctrl+f5",
         "mac": "cmd+f5",
         "when": "editorLangId == pivotal"
+      },
+      {
+        "command": "pivotal.executeSelectionInNotebook",
+        "key": "ctrl+shift+f5",
+        "mac": "cmd+shift+f5",
+        "when": "editorLangId == pivotal && editorHasSelection"
       }
     ],
     "menus": {
@@ -71,6 +82,13 @@
           "command": "pivotal.executeInNotebook",
           "when": "resourceLangId == pivotal",
           "group": "navigation@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "pivotal.executeSelectionInNotebook",
+          "when": "editorHasSelection",
+          "group": "pivotal@1"
         }
       ]
     }

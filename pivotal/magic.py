@@ -136,8 +136,11 @@ class PivotalMagics(Magics):
         # Ensure pandas is imported in the user namespace
         self.shell.push({'pd': pd})
 
+        if not cell.endswith('\n'):
+            cell += '\n'
+
         results = self.parser.parse(cell)
-        
+
         if isinstance(results, dict) and 'error' in results:
             print(f"Pivotal Parse Error: {results['error']}")
             return

@@ -24,6 +24,8 @@ def main():
     import pandas as pd  # noqa: F401  — available in exec namespace
 
     parser = DSLParser()
+    if not source.endswith('\n'):
+        source += '\n'
     results = parser.parse(source)
 
     if isinstance(results, dict) and "error" in results:

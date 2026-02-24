@@ -2,12 +2,19 @@
 
   ## Current focus
  
-  - [x] Finalise vscode and jupyter lab extensions
+  - [ ] Finalise vscode extension
 
   ## Backlog
 
-  - [ ] I want to Add support for the vs code extention to execute pivotal code. This should include ability to exectue a *.pivotal file via a vs code command / keyboard shortcut. But also I want the ability to execute pivotal code embeded in python files. Fromn our previous discussions this might be possible by putting pivotal code in a notebook cell with the #%% command then putting int the %%pivotal magic command so it can get executed in the interactive notebook enviornment within vs code. I guess this means the vs code interactive notebook needs the jupyter lab extension to be installed. I just tried to do this in cs code but it didnt seem to work (but it did work in jupyer lab standalone running in a browser) perhpas there is something different about the vs code notebook. Could you come up with a plan of required changes here?
-5
+  - [ ] Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
+
+  - [x] Add command to execute current selected text in the editor in pivotal (via vs code interactive python window) rather than executing the whole pivotal file
+
+  - [x] Fix bug where pivotal execution  fails if there is no linebreak / new line on final line (often happens for pivotal code written in a notebook cell) (maybe have the parser apend a linebreak?)
+
+  - [x] Would it be possible to have notebook cell markers "#%%" inside a *.pivotal file so you could hve bits of the file running in different cells, similar to what happens in python files.
+
+
   ## Ideas (not ready to be implemented)
 
   - save - I want to have a save option that involves a is more excel like in that the whole session can be saved as a package (like a workbook). So this would mean by default a save command would save all of the tables in the session (each to csvs) in a folder. My preference is to implement this using the Frictionless data standard, so that means saving the session as a frictionless data package, with csvs in folders and matching metadata in json. Meta data needs to be updated each time a command is executed. In future it would be useful to have a version of the metadata in memory so it could be used for autocomplete or AI prompting (should this use a different format in memoery like TOON?). Does it matter that metadata might be duplicative if there are multiple copies of the same columns in different dataframes... Should there be some form of autosave or only save on command...?

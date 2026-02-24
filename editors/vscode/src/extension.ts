@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext): void {
 
@@ -27,9 +26,10 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   });
 
-  // --- Command: Execute in Interactive Notebook ---
+  // --- Command: Execute File in Interactive Notebook ---
   // Reads the .pivotal file, opens a VS Code Python Interactive Window,
-  // and sends the contents as a %%pivotal cell so DataFrames render interactively.
+  // and sends the contents as %%pivotal cell(s) so DataFrames render interactively.
+  // Supports #%% cell markers to split the file into separate cells.
   const executeInNotebook = vscode.commands.registerCommand('pivotal.executeInNotebook', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -47,14 +47,15 @@ export function activate(context: vscode.ExtensionContext): void {
     await editor.document.save();
 
     const fileContents = fs.readFileSync(filePath, 'utf8');
-    const cellText = `%%pivotal\n${fileContents}`;
+
+    // Split on #%% markers so each section runs as its own cell.
+    // If there are no markers the whole file is treated as one cell.
+    const sections = fileContents.split(/^#%%[^\n]*$/m).map(s => s.trim()).filter(Boolean);
 
     // Open an Interactive Window (requires the Python + Jupyter VS Code extensions).
-    // jupyter.createnewinteractive opens/focuses the interactive window.
     try {
       await vscode.commands.executeCommand('jupyter.createnewinteractive');
     } catch {
-      // If the command doesn't exist, the Jupyter extension may not be installed.
       vscode.window.showErrorMessage(
         'Pivotal: Could not open Interactive Window. ' +
         'Make sure the Python and Jupyter VS Code extensions are installed.'
@@ -65,18 +66,80 @@ export function activate(context: vscode.ExtensionContext): void {
     // Small delay to let the Interactive Window initialise before sending code.
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // jupyter.execSelectionInteractive runs the provided text in the active kernel.
-    try {
-      await vscode.commands.executeCommand('jupyter.execSelectionInteractive', cellText);
-    } catch {
-      vscode.window.showErrorMessage(
-        'Pivotal: Failed to send code to Interactive Window. ' +
-        'Please ensure a Python kernel is running.'
-      );
+    for (const section of sections) {
+      // Use get_ipython().run_cell_magic() to avoid %%pivotal magic syntax issues.
+      // JSON.stringify safely escapes newlines, quotes, and backslashes.
+      const escapedContents = JSON.stringify(section);
+      const cellText =
+        `import pivotal; get_ipython().run_cell_magic('pivotal', '', ${escapedContents})`;
+
+      try {
+        await vscode.commands.executeCommand('jupyter.execSelectionInteractive', cellText);
+      } catch {
+        vscode.window.showErrorMessage(
+          'Pivotal: Failed to send code to Interactive Window. ' +
+          'Please ensure a Python kernel is running.'
+        );
+        return;
+      }
+
+      // Brief pause between cells so the kernel isn't flooded.
+      if (sections.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
     }
   });
 
-  context.subscriptions.push(executeFile, executeInNotebook);
+  // --- Command: Execute Selection in Interactive Notebook ---
+  // Sends the currently selected text to the Interactive Window as a pivotal cell.
+  // Works for any file type (.pivotal or .py with embedded %%pivotal cells).
+  const executeSelectionInNotebook = vscode.commands.registerCommand(
+    'pivotal.executeSelectionInNotebook',
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage('Pivotal: No active editor.');
+        return;
+      }
+
+      const selection = editor.selection;
+      const selectedText = editor.document.getText(selection);
+
+      if (!selectedText.trim()) {
+        vscode.window.showInformationMessage('Pivotal: No text selected.');
+        return;
+      }
+
+      // Open an Interactive Window if one is not already open.
+      try {
+        await vscode.commands.executeCommand('jupyter.createnewinteractive');
+      } catch {
+        vscode.window.showErrorMessage(
+          'Pivotal: Could not open Interactive Window. ' +
+          'Make sure the Python and Jupyter VS Code extensions are installed.'
+        );
+        return;
+      }
+
+      // Small delay to let the Interactive Window initialise.
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const escapedContents = JSON.stringify(selectedText);
+      const cellText =
+        `import pivotal; get_ipython().run_cell_magic('pivotal', '', ${escapedContents})`;
+
+      try {
+        await vscode.commands.executeCommand('jupyter.execSelectionInteractive', cellText);
+      } catch {
+        vscode.window.showErrorMessage(
+          'Pivotal: Failed to send selection to Interactive Window. ' +
+          'Please ensure a Python kernel is running.'
+        );
+      }
+    }
+  );
+
+  context.subscriptions.push(executeFile, executeInNotebook, executeSelectionInNotebook);
 }
 
 export function deactivate(): void { /* nothing to clean up */ }
