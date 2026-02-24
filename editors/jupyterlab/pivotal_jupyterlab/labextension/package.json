@@ -11,17 +11,20 @@
   "license": "MIT",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "style": "",
+  "icon": "style/icons/pivotal_logo.svg",
+  "style": "style/base.css",
   "files": [
     "lib/**/*.{d.ts,js,js.map}",
+    "style/**/*.{css,svg}",
     "pivotal_jupyterlab/labextension/**",
     "install.json"
   ],
   "scripts": {
     "build": "jlpm run build:lib && jlpm run build:labextension",
     "build:prod": "jlpm run build:lib:prod && jlpm run build:labextension",
-    "build:labextension": "jupyter labextension build .",
-    "build:labextension:dev": "jupyter labextension build --development True .",
+    "build:labextension": "jupyter labextension build . && jlpm copy:assets",
+    "build:labextension:dev": "jupyter labextension build --development True . && jlpm copy:assets",
+    "copy:assets": "mkdir -p pivotal_jupyterlab/labextension/style/icons && cp style/icons/pivotal_logo.svg pivotal_jupyterlab/labextension/style/icons/",
     "build:lib": "tsc --sourceMap",
     "build:lib:prod": "tsc",
     "clean": "jlpm run clean:lib && jlpm run clean:labextension",
@@ -37,6 +40,7 @@
     "@codemirror/view": "^6.0.0",
     "@jupyterlab/application": "^4.0.0",
     "@jupyterlab/codemirror": "^4.0.0",
+    "@jupyterlab/ui-components": "^4.0.0",
     "@lezer/highlight": "^1.0.0"
   },
   "devDependencies": {
@@ -49,7 +53,7 @@
     "extension": true,
     "outputDir": "pivotal_jupyterlab/labextension",
     "_build": {
-      "load": "static/remoteEntry.3dd15d28ad5d1d5c7967.js",
+      "load": "static/remoteEntry.928edf42f5873479d2d2.js",
       "extension": "./extension",
       "style": "./style"
     }

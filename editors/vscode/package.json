@@ -55,6 +55,11 @@
         "command": "pivotal.executeSelectionInNotebook",
         "title": "Pivotal: Execute Selection in Interactive Notebook",
         "icon": "$(run-above)"
+      },
+      {
+        "command": "pivotal.compileToFile",
+        "title": "Pivotal: Compile to Python File",
+        "icon": "$(export)"
       }
     ],
     "keybindings": [
@@ -82,6 +87,11 @@
           "command": "pivotal.executeInNotebook",
           "when": "resourceLangId == pivotal",
           "group": "navigation@2"
+        },
+        {
+          "command": "pivotal.compileToFile",
+          "when": "resourceLangId == pivotal",
+          "group": "navigation@3"
         }
       ],
       "editor/context": [

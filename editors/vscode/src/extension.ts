@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import { exec } from 'child_process';
 
 export function activate(context: vscode.ExtensionContext): void {
 
@@ -52,20 +53,6 @@ export function activate(context: vscode.ExtensionContext): void {
     // If there are no markers the whole file is treated as one cell.
     const sections = fileContents.split(/^#%%[^\n]*$/m).map(s => s.trim()).filter(Boolean);
 
-    // Open an Interactive Window (requires the Python + Jupyter VS Code extensions).
-    try {
-      await vscode.commands.executeCommand('jupyter.createnewinteractive');
-    } catch {
-      vscode.window.showErrorMessage(
-        'Pivotal: Could not open Interactive Window. ' +
-        'Make sure the Python and Jupyter VS Code extensions are installed.'
-      );
-      return;
-    }
-
-    // Small delay to let the Interactive Window initialise before sending code.
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     for (const section of sections) {
       // Use get_ipython().run_cell_magic() to avoid %%pivotal magic syntax issues.
       // JSON.stringify safely escapes newlines, quotes, and backslashes.
@@ -110,20 +97,6 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      // Open an Interactive Window if one is not already open.
-      try {
-        await vscode.commands.executeCommand('jupyter.createnewinteractive');
-      } catch {
-        vscode.window.showErrorMessage(
-          'Pivotal: Could not open Interactive Window. ' +
-          'Make sure the Python and Jupyter VS Code extensions are installed.'
-        );
-        return;
-      }
-
-      // Small delay to let the Interactive Window initialise.
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       const escapedContents = JSON.stringify(selectedText);
       const cellText =
         `import pivotal; get_ipython().run_cell_magic('pivotal', '', ${escapedContents})`;
@@ -139,7 +112,47 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   );
 
-  context.subscriptions.push(executeFile, executeInNotebook, executeSelectionInNotebook);
+  // --- Command: Compile .pivotal file to Python ---
+  // Runs `python -m pivotal --compile <file>` and saves a .py file alongside the source.
+  const compileToFile = vscode.commands.registerCommand('pivotal.compileToFile', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Pivotal: No active editor.');
+      return;
+    }
+
+    const filePath = editor.document.uri.fsPath;
+    if (!filePath.endsWith('.pivotal')) {
+      vscode.window.showErrorMessage('Pivotal: Active file is not a .pivotal file.');
+      return;
+    }
+
+    await editor.document.save();
+
+    const pyPath = filePath.replace(/\.pivotal$/, '.py');
+
+    return new Promise<void>(resolve => {
+      exec(`python -m pivotal --compile "${filePath}"`, (error, _stdout, stderr) => {
+        if (error) {
+          vscode.window.showErrorMessage(`Pivotal compile error: ${stderr || error.message}`);
+        } else {
+          vscode.window.showInformationMessage(
+            `Pivotal: Compiled to ${pyPath}`,
+            'Open File'
+          ).then(action => {
+            if (action === 'Open File') {
+              vscode.workspace.openTextDocument(pyPath).then(doc =>
+                vscode.window.showTextDocument(doc)
+              );
+            }
+          });
+        }
+        resolve();
+      });
+    });
+  });
+
+  context.subscriptions.push(executeFile, executeInNotebook, executeSelectionInNotebook, compileToFile);
 }
 
 export function deactivate(): void { /* nothing to clean up */ }

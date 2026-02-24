@@ -7,6 +7,7 @@
 ## Table of Contents
 - [Features](#features)
 - [Installation](#installation)
+- [Editor Integrations](#editor-integrations)
 - [Quick Start](#quick-start)
 - [Language Syntax](#language-syntax)
   - [Loading Data](#loading-data)
@@ -25,12 +26,11 @@
 
 ## Features
 
-✨ **Clean, Readable Syntax** - Write data transformations in an intuitive, English-like language  
-🐼 **Pandas-Powered** - Compiles to efficient pandas operations  
-🔄 **Pipeline-Oriented** - Chain operations naturally with indentation-based blocks  
-📊 **Rich Operations** - Load, filter, select, sort, merge, pivot, and transform data  
-🎯 **Type-Aware** - Intelligent handling of different data types  
-🔍 **Interactive** - Execute code directly in Python REPL with instant feedback  
+✨ **Clean, Readable Syntax** - Write data transformations in an intuitive, English-like language
+🐼 **Pandas-Powered** - Compiles to efficient pandas operations
+🔄 **Pipeline-Oriented** - Chain operations naturally with indentation-based blocks
+🖥️ **VS Code Integration** - Syntax highlighting, run files in one keystroke, compile to Python, and execute in the Interactive Window
+📓 **JupyterLab Integration** - First-class `%%pivotal` cell magic with syntax highlighting and file browser icons
 
 ---
 
@@ -49,50 +49,144 @@ pip install pandas lark-parser
 
 ### Setup
 
-1. Clone or download the Pivotal DSL files
-2. Install the package:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/pivotal/pivotal-py
+   cd pivotal-py
+   ```
+2. Install the core package:
    ```bash
    pip install .
    ```
+
+### VS Code Extension
+
+1. Install the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) extensions for VS Code
+2. Install the Pivotal extension from the VS Code Marketplace, or build it locally:
+   ```bash
+   cd editors/vscode
+   npm install
+   npm run build
+   ```
+   Then install the generated `.vsix` file via **Extensions → Install from VSIX**.
+
+### JupyterLab Extension
+
+```bash
+cd editors/jupyterlab
+jlpm install
+jlpm run build
+pip install -e .
+```
+
+Restart JupyterLab — the extension activates automatically.
+
+---
+
+## Editor Integrations
+
+### VS Code
+
+Open any `.pivotal` file in VS Code to get:
+
+- **Syntax highlighting** for `.pivotal` files and `%%pivotal` blocks embedded in `.py` files
+- **Execute File** (`Ctrl+F5` / `Cmd+F5`) — runs the file via `python -m pivotal` in the integrated terminal
+- **Execute in Interactive Notebook** — sends the file to a VS Code Interactive Window as `%%pivotal` cells, with live DataFrame previews. Sections separated by `#%%` markers run as individual cells. The window opens to the right and is reused on subsequent runs.
+- **Execute Selection** (`Ctrl+Shift+F5` / `Cmd+Shift+F5`) — sends the selected block to the Interactive Window
+- **Compile to Python** — generates a `.py` file from the current `.pivotal` source and saves it alongside it
+
+All commands are also available via the Command Palette (`Ctrl+Shift+P`).
+
+### JupyterLab
+
+Use the `%%pivotal` cell magic in any notebook:
+
+```
+%%pivotal
+load sales data/sales.csv
+
+filter sales
+    amount > 1000
+
+group by region
+    agg sum amount as total
+sort total desc
+```
+
+- Syntax highlighting activates automatically on any cell whose first line is `%%pivotal`
+- `.pivotal` files in the file browser show the Pivotal icon
+- Run the cell normally — results display as interactive DataFrames
 
 ---
 
 ## Quick Start
 
-### Basic Usage
+### In VS Code
+
+1. Create a file named `analysis.pivotal`
+2. Write your Pivotal code:
+   ```
+   load sales data/sales.csv
+
+   filter sales
+       amount > 1000
+
+   select sales
+       customer_id, product, amount
+
+   sort sales
+       amount desc
+   ```
+3. Press `Ctrl+F5` to run in the terminal, or click **Execute in Interactive Notebook** in the title bar to see live DataFrame output
+
+### In JupyterLab
+
+Create a new notebook cell, set its first line to `%%pivotal`, and write your code:
+
+```
+%%pivotal
+load sales data/sales.csv
+
+filter sales
+    amount > 1000
+
+select sales
+    customer_id, product, amount
+
+sort sales
+    amount desc
+```
+
+Run the cell — the resulting DataFrame displays inline.
+
+### From the command line
+
+```bash
+python -m pivotal analysis.pivotal
+```
+
+### Programmatic API
 
 ```python
 import pivotal
 
-# Create parser instance
 parser = pivotal.DSLParser()
 
-# Write Pivotal DSL code
 dsl_code = """
 load sales sales_data.csv
 
-df high_value_sales from sales:
-    filter amount > 1000
-    select customer_id, product, amount
-    sort amount desc
+filter sales
+    amount > 1000
+
+select sales
+    customer_id, product, amount
+
+sort sales
+    amount desc
 """
 
-# Execute the DSL code
 tables = parser.execute(dsl_code, globals())
-
-# Access the resulting DataFrame
-print(high_value_sales)
-```
-
-### Run from File
-
-```python
-# Read from .pivotal file
-with open('analysis.pivotal', 'r') as f:
-    dsl_code = f.read()
-
-parser = pivotal.DSLParser()
-parser.execute(dsl_code, globals())
+print(tables['sales'])
 ```
 
 ---

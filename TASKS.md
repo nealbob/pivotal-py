@@ -6,16 +6,15 @@
 
   ## Backlog
 
-  - [ ] Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
+  - [ ] Make it so that when pivotal code is executed in vs code interactive notebooks, the notebook opens to the right of the text editor. Also when you run the same file twice it should run the code in the same notebook, same as what happens for python. Currently it is creating a new workbook each time.
 
-  - [x] Add command to execute current selected text in the editor in pivotal (via vs code interactive python window) rather than executing the whole pivotal file
+  - [ ] Add a command in vs code extension to compile pivotal file to python code file (and save this file in same folder as the pivotal file)
 
-  - [x] Fix bug where pivotal execution  fails if there is no linebreak / new line on final line (often happens for pivotal code written in a notebook cell) (maybe have the parser apend a linebreak?)
-
-  - [x] Would it be possible to have notebook cell markers "#%%" inside a *.pivotal file so you could hve bits of the file running in different cells, similar to what happens in python files.
-
+  - [ ] Add a readme file to the vs code extension describing the functionality and the commands
 
   ## Ideas (not ready to be implemented)
+  
+  - [ ] Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
 
   - save - I want to have a save option that involves a is more excel like in that the whole session can be saved as a package (like a workbook). So this would mean by default a save command would save all of the tables in the session (each to csvs) in a folder. My preference is to implement this using the Frictionless data standard, so that means saving the session as a frictionless data package, with csvs in folders and matching metadata in json. Meta data needs to be updated each time a command is executed. In future it would be useful to have a version of the metadata in memory so it could be used for autocomplete or AI prompting (should this use a different format in memoery like TOON?). Does it matter that metadata might be duplicative if there are multiple copies of the same columns in different dataframes... Should there be some form of autosave or only save on command...?
 

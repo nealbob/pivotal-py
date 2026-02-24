@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Background -->
+  <rect x="1" y="1" width="14" height="14" rx="2" fill="#616161"/>
+  <!-- Header row -->
+  <rect x="2.5" y="2.5" width="11" height="3.5" rx="0.8" fill="#E8EAED" opacity="0.9"/>
+  <!-- Data cells row 1 -->
+  <rect x="2.5" y="7" width="4.5" height="2.5" rx="0.5" fill="#E8EAED" opacity="0.6"/>
+  <rect x="9"   y="7" width="4.5" height="2.5" rx="0.5" fill="#E8EAED" opacity="0.6"/>
+  <!-- Data cells row 2 -->
+  <rect x="2.5" y="11" width="4.5" height="2.5" rx="0.5" fill="#E8EAED" opacity="0.4"/>
+  <rect x="9"   y="11" width="4.5" height="2.5" rx="0.5" fill="#E8EAED" opacity="0.4"/>
+</svg>
