@@ -4,6 +4,67 @@
 
 **Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing and transformation. It provides a clean, readable syntax for common data operations, compiling to pandas code under the hood.
 
+## At a Glance
+
+The example below is modelled on the [PRQL invoice showcase](https://prql-lang.org) — the same query written in Pivotal, with the pandas it compiles to shown alongside.
+
+**Pivotal**
+
+```
+load invoices "invoices.csv"
+load customers "customers.csv"
+
+-- filter, then add computed columns
+df invoices
+    filter invoice_date >= "1970-01-16"
+    set transaction_fees = 0.8
+    set income = total - transaction_fees
+    filter income > 1
+
+-- aggregate per customer, rank by revenue, join names
+df summary from invoices
+    group by customer_id
+        agg mean total as avg_total, sum income as sum_income, count total as ct
+    sort sum_income desc
+    merge customers on customer_id
+    python summary["name"] = summary["last_name"] + ", " + summary["first_name"]
+    select customer_id, name, sum_income
+```
+
+**Equivalent pandas**
+
+```python
+import pandas as pd
+
+invoices  = pd.read_csv("invoices.csv")
+customers = pd.read_csv("customers.csv")
+
+invoices = invoices[invoices["invoice_date"] >= "1970-01-16"]
+invoices["transaction_fees"] = 0.8
+invoices["income"] = invoices["total"] - invoices["transaction_fees"]
+invoices = invoices[invoices["income"] > 1]
+
+summary = invoices.copy()
+summary = (
+    summary
+    .groupby(["customer_id"])
+    .agg(
+        avg_total  = ("total",  "mean"),
+        sum_income = ("income", "sum"),
+        ct         = ("total",  "count"),
+    )
+    .reset_index()
+)
+summary = summary.sort_values("sum_income", ascending=False)
+summary = pd.merge(summary, customers, on="customer_id", how="inner")
+summary["name"] = summary["last_name"] + ", " + summary["first_name"]
+summary = summary[["customer_id", "name", "sum_income"]]
+```
+
+The `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do.
+
+---
+
 ## Table of Contents
 - [Features](#features)
 - [Installation](#installation)
@@ -26,11 +87,11 @@
 
 ## Features
 
-✨ **Clean, Readable Syntax** - Write data transformations in an intuitive, English-like language
+✨ **Clean, Readable Syntax** - Write data transformations in an intuitive SQL-like language
 🐼 **Pandas-Powered** - Compiles to efficient pandas operations
 🔄 **Pipeline-Oriented** - Chain operations naturally with indentation-based blocks
-🖥️ **VS Code Integration** - Syntax highlighting, run files in one keystroke, compile to Python, and execute in the Interactive Window
-📓 **JupyterLab Integration** - First-class `%%pivotal` cell magic with syntax highlighting and file browser icons
+🖥️ **VS Code Integration** - Syntax highlighting, compile Pivotal to Python, or execute in the Interactive Window
+📓 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
 ---
 
