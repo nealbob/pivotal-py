@@ -1,8 +1,8 @@
 {
   "name": "pivotal-language",
   "displayName": "Pivotal",
-  "description": "Syntax highlighting for the Pivotal data transformation DSL (.pivotal files)",
-  "version": "0.1.0",
+  "description": "Syntax highlighting and execution support for the Pivotal data transformation DSL",
+  "version": "0.2.0",
   "publisher": "pivotal",
   "engines": {
     "vscode": "^1.75.0"
@@ -15,6 +15,10 @@
     "type": "git",
     "url": "https://github.com/pivotal/pivotal-py"
   },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:pivotal"
+  ],
   "contributes": {
     "languages": [
       {
@@ -29,7 +33,55 @@
         "language": "pivotal",
         "scopeName": "source.pivotal",
         "path": "./syntaxes/pivotal.tmLanguage.json"
+      },
+      {
+        "scopeName": "source.pivotal.injection",
+        "path": "./syntaxes/pivotal-injection.tmLanguage.json",
+        "injectTo": ["source.python"]
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "pivotal.executeFile",
+        "title": "Pivotal: Execute File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "pivotal.executeInNotebook",
+        "title": "Pivotal: Execute in Interactive Notebook",
+        "icon": "$(notebook)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pivotal.executeFile",
+        "key": "ctrl+f5",
+        "mac": "cmd+f5",
+        "when": "editorLangId == pivotal"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "pivotal.executeFile",
+          "when": "resourceLangId == pivotal",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pivotal.executeInNotebook",
+          "when": "resourceLangId == pivotal",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
   }
 }

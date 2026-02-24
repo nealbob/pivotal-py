@@ -21,6 +21,11 @@ editors/jupyterlab/node_modules/
 editors/jupyterlab/lib/
 editors/jupyterlab/.yarn/
 
+# Node / VS Code extension build
+editors/vscode/node_modules/
+editors/vscode/out/
+editors/vscode/*.vsix
+
 # Environment
 .env
 .venv/

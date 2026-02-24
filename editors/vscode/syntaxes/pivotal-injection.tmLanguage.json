@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pivotal injection into Python %%pivotal cells",
+  "scopeName": "source.pivotal.injection",
+  "injectionSelector": "L:source.python",
+  "patterns": [
+    { "include": "#pivotal-cell" }
+  ],
+  "repository": {
+    "pivotal-cell": {
+      "comment": "Matches a %%pivotal magic block and highlights the body as Pivotal DSL",
+      "begin": "^(%%pivotal)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.magic.pivotal" }
+      },
+      "end": "^(?=%%|#\\s*%%)",
+      "contentName": "source.pivotal",
+      "patterns": [
+        { "include": "source.pivotal" }
+      ]
+    }
+  }
+}
