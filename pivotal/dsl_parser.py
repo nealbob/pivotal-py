@@ -15,7 +15,7 @@ grammar_indented = r"""
 
     statement: load_statement
                | dataframe_statement
-               | set_statement
+               | assign_statement
                | filter_statement
                | select_statement
                | sort_statement
@@ -57,7 +57,7 @@ grammar_indented = r"""
 
     dataframe_statement: ("df" | "dataframe") table_name ("from" copy_table)? _NL?
 
-    set_statement: "set" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
+    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
 
     filter_statement: "filter" condition_list  _NL?
     
@@ -289,8 +289,8 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
-    def set_statement(self, target, expression, condition_list=None):
-        """Handle set statements to create new columns with optional where clause"""
+    def assign_statement(self, target, expression, condition_list=None):
+        """Handle assign statements to create new columns with optional where clause"""
         target_str = str(target)
         expr_str = str(expression)
         
@@ -308,7 +308,7 @@ class DSLTransformer(Transformer):
                                                     
         
         ast_node = {
-            'type': 'set',
+            'type': 'assign',
             'table_name': self.current_table,
             'target': target_str,
             'expression': expr_str,
@@ -901,7 +901,7 @@ class CodeGenerator:
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{validation}\n{table_name}"
     
-    def generate_set_pandas(self, ast_node):
+    def generate_assign_pandas(self, ast_node):
         if ast_node['conditions']:
             query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
             return (f"condition = {ast_node['table_name']}.eval('{query_str}')\n"

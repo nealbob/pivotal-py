@@ -8,7 +8,7 @@
 
   ## Ideas (not ready to be implemented)
   
-  - [ ] String functions in `set` expressions — see implementation plan below.
+  - [ ] String functions in `assign` expressions — see implementation plan below.
 
   - [ ] Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
 
@@ -18,7 +18,7 @@
 
   - cast / type conversion — type coercion is fiddly and infrequent. Python is the right place for it.
 
-  - load multiple files or a folder and merge or concat, apply type conversion on load (use json metadata or something to guide this). Perhaps simple load then add settings sub command or, modify metadata then reload using settings in metadata??
+  - load multiple files or a folder and merge or concat, apply type conversion on load (use json metadata or something to guide this). Perhaps simple load then add assigntings sub command or, modify metadata then reload using assigntings in metadata??
 
   - describe / sample — pure exploration helpers. One-liners in Python (df.describe(), df.sample(10)), not worth adding to the grammar.
 
@@ -32,26 +32,26 @@
 
 ## Implementation plans
 
-### String functions in `set` expressions
+### String functions in `assign` expressions
 
-**Goal:** Allow SQL-style string operations inside `set` statements without needing the `python` escape hatch.
+**Goal:** Allow SQL-style string operations inside `assign` statements without needing the `python` escape hatch.
 
 **Proposed syntax:**
 ```
-set name = last_name + ", " + first_name   -- concatenation with + operator
-set code = upper(category)
-set abbr = left(name, 3)
-set end  = right(ref, 4)
-set slug = lower(trim(title))
-set note = substr(description, 0, 100)
-set n    = len(name)
-set fixed = replace(notes, "N/A", "")
+assign name = last_name + ", " + first_name   -- concatenation with + operator
+assign code = upper(category)
+assign abbr = left(name, 3)
+assign end  = right(ref, 4)
+assign slug = lower(trim(title))
+assign note = substr(description, 0, 100)
+assign n    = len(name)
+assign fixed = replace(notes, "N/A", "")
 ```
 
 **Design decisions:**
 - Use `+` for string concatenation (Python-style). Disambiguate at code-gen time: if either operand is a quoted string literal, generate direct pandas string addition rather than `df.eval()`.
 - Use SQL-style named functions: `upper`, `lower`, `trim`, `ltrim`, `rtrim`, `left`, `right`, `substr`, `len`, `replace`. Functions can be nested: `upper(left(name, 1))`.
-- Keep existing arithmetic `set` (e.g. `set revenue = price * quantity`) unchanged — still routes through `df.eval()`.
+- Keep existing arithmetic `assign` (e.g. `assign revenue = price * quantity`) unchanged — still routes through `df.eval()`.
 
 **Grammar changes** (`dsl_parser.py`):
 - Extend `expression` rule to add two new branches:
@@ -80,11 +80,11 @@ set fixed = replace(notes, "N/A", "")
 - For nesting (e.g. `upper(left(name, 1))`), each transformer call returns a pandas expression string that can be wrapped by the outer call.
 
 **Tests to add** (`tests/test_commands.py`):
-- `set` with `+` concatenation (col + literal + col)
+- `assign` with `+` concatenation (col + literal + col)
 - Each named function individually
 - Nested functions (`upper(left(...))`)
-- Mixed: existing arithmetic `set` still works unchanged
-- `where` clause combined with a string `set`
+- Mixed: existing arithmetic `assign` still works unchanged
+- `where` clause combined with a string `assign`
 
 **Scope that stays as `python` escape:**
 - f-strings / format strings

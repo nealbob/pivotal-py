@@ -14,17 +14,15 @@ The example below is modelled on the [PRQL invoice showcase](https://prql-lang.o
 load invoices "invoices.csv"
 load customers "customers.csv"
 
--- filter, then add computed columns
 df invoices
     filter invoice_date >= "1970-01-16"
-    set transaction_fees = 0.8
-    set income = total - transaction_fees
+    assign transaction_fees = 0.8
+    assign income = total - transaction_fees
     filter income > 1
 
--- aggregate per customer, rank by revenue, join names
 df summary from invoices
     group by customer_id
-        agg mean total as avg_total, sum income as sum_income, count total as ct
+        agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     merge customers on customer_id
     python summary["name"] = summary["last_name"] + ", " + summary["first_name"]
@@ -355,23 +353,23 @@ df sales_metrics from sales:
 
 ### Creating/Modifying Columns
 
-Create new columns or modify existing ones using the `set` statement:
+Create new columns or modify existing ones using the `assign` statement:
 
 ```pivotal
 # Simple calculation
 df sales:
-    set total = price * quantity
+    assign total = price * quantity
 
 # Conditional assignment
 df products from catalog:
-    set discount_price = price * 0.9
+    assign discount_price = price * 0.9
        where category == "clearance"
 
 # Multiple operations
 df analysis from sales:
-    set revenue = price * quantity
-    set profit = revenue - cost
-    set margin = profit / revenue
+    assign revenue = price * quantity
+    assign profit = revenue - cost
+    assign margin = profit / revenue
        where revenue > 0
 ```
 
@@ -630,8 +628,8 @@ df enriched_sales from high_value:
 
 # Calculate metrics
 df analysis from enriched_sales:
-    set revenue = amount
-    set is_premium = amount > 1000
+    assign revenue = amount
+    assign is_premium = amount > 1000
 
 # Create summary pivot
 df category_summary from analysis:
@@ -650,7 +648,7 @@ load transactions transaction_log.csv
 
 # Calculate customer metrics
 df customer_stats from transactions:
-    set total_spent = amount
+    assign total_spent = amount
 
 # Aggregate by customer
 df customer_summary from customer_stats:
@@ -659,14 +657,14 @@ df customer_summary from customer_stats:
 
 # Segment customers
 df segments from customer_summary:
-    set segment = "low"
+    assign segment = "low"
 
 df high_value from segments:
-    set segment = "high"
+    assign segment = "high"
        where total_spent > 1000
 
 df medium_value from segments:
-    set segment = "medium"
+    assign segment = "medium"
        where total_spent > 500 and total_spent <= 1000
 ```
 
@@ -684,8 +682,8 @@ df recent_data from timeseries:
 
 # Calculate rolling metrics
 df with_metrics from recent_data:
-    set temp_fahrenheit = temperature * 9/5 + 32
-    set comfort_index = temperature * 0.7 + humidity * 0.3
+    assign temp_fahrenheit = temperature * 9/5 + 32
+    assign comfort_index = temperature * 0.7 + humidity * 0.3
 
 # Sort chronologically
 df chronological from with_metrics:
@@ -773,7 +771,7 @@ df t1 from customers:
 df analysis from raw_data:
     filter status == "active"    # First filter
     select id, name, value        # Then select needed columns
-    set normalized = value / 100  # Then calculate
+    assign normalized = value / 100  # Then calculate
     sort normalized desc          # Finally sort
 ```
 

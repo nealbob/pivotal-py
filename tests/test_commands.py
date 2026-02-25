@@ -119,6 +119,25 @@ def test_sort(parser, sample_df):
 
 
 # ---------------------------------------------------------------------------
+# assign
+# ---------------------------------------------------------------------------
+
+def test_assign_new_column(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nassign revenue = price * quantity', ns)
+    assert 'revenue' in ns['sales'].columns
+    assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
+
+
+def test_assign_where(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nassign discounted = price * 0.9\n    where category == "Electronics"', ns)
+    assert 'discounted' in ns['sales'].columns
+    electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
+    assert all(electronics['discounted'].notna())
+
+
+# ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
 

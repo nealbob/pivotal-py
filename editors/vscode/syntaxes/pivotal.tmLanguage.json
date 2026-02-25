@@ -86,7 +86,7 @@
     "keywords-primary": {
       "comment": "Statement-opening commands",
       "name": "keyword.control.pivotal",
-      "match": "\\b(load|df|dataframe|filter|select|set|sort|order|group|merge|join|pivot|python|plot|drop|fillna|dropna|distinct|concat|rename)\\b"
+      "match": "\\b(load|df|dataframe|filter|select|assign|sort|order|group|merge|join|pivot|python|plot|drop|fillna|dropna|distinct|concat|rename)\\b"
     },
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",

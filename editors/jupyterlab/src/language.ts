@@ -24,7 +24,7 @@ const keywords: Record<string, true> = {
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, join: true, pivot: true,
   plot: true, python: true, from: true, where: true,
-  as: true, on: true, rows: true, cols: true, set: true,
+  as: true, on: true, rows: true, cols: true, assign: true,
   agg: true, drop: true, fillna: true, dropna: true,
   distinct: true, concat: true, rename: true,
 };
