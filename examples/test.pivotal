@@ -9,11 +9,11 @@ df testdf4 from testdf
 df gocats from testdf3
    filter price < 200 and quantity > 1
    select product, price, quantity, id
-   set newcol = price * quantity
+   assign newcol = price * quantity
 
 df testdf5 from testdf3
    select product, price, quantity
-   set newcol = price * quantity
+   assign newcol = price * quantity
       where price < 200
 
 df df6 from testdf3

@@ -12,7 +12,7 @@ define(['base/js/namespace', 'codemirror/lib/codemirror'], function(Jupyter, Cod
                 "group": true, "merge": true, "join": true, "pivot": true,
                 "plot": true, "python": true, "from": true, "where": true,
                 "as": true, "on": true, "rows": true, "cols": true,
-                "set": true
+                "assign": true
             };
             
             var builtins = {
