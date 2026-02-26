@@ -6,19 +6,19 @@
 
 ## Features
 
-✨ **Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
+**Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
 
-🐼 **Pandas-Powered** - Compiles to pandas, integrates with python code
+**Pandas-Powered** - Compiles to pandas, integrates with python code
 
-🔄 **Pipeline-Oriented** - Chain operations naturally with indentation blocks
+**Pipeline-Oriented** - Chain operations naturally with indentation blocks
 
-🖥️ **VS Code Integration** - Syntax highlighting, compile to Python or execute directly in interactive window
+**VS Code Integration** - Syntax highlighting, compile to Python or execute directly in interactive window
 
-📓 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
+**JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
 ## At a Glance
 
-The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org) while adopting some aspects of Python/Pandas (i.e., indentation rather than brackets):
+The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating some aspects of Python/Pandas (i.e., indentation rather than brackets):
 
 **Pivotal**
 
