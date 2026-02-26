@@ -10,11 +10,12 @@ importlib.reload(pivotal)
 
 # Use path relative to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(script_dir, 'test.pivotal'), 'r') as f:
+with open(os.path.join(script_dir, 'test2.pivotal'), 'r') as f:
     dsl_code = f.read()
 
 parser = pivotal.DSLParser()
 results = parser.parse(dsl_code)
+
 
 print("\n")
 print("-" * 80)

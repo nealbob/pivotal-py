@@ -48,6 +48,8 @@ rolling cola as colamean, colb as cobmean
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
 
+  - [ ] rationalise commands to only have one per statement
+
 ## Implementation plans
 
 ### Polars backend

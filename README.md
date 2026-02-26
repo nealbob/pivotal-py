@@ -2,11 +2,23 @@
 
 <img src="pivotal_logo.svg" width="120">
 
-**Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing and transformation. It provides a clean, readable syntax for common data operations, compiling to pandas code under the hood.
+**Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-like syntax for common data operations which compiles to Python (pandas) code.
+
+## Features
+
+✨ **Readable, Writable Syntax** - Write data transformations in an intuitive SQL like declarative language
+
+🐼 **Pandas-Powered** - Compiles to pandas, integrates with python code
+
+🔄 **Pipeline-Oriented** - Chain operations naturally with indentation blocks
+
+🖥️ **VS Code Integration** - Syntax highlighting, compile file to Python code, or execute in interactive python window
+
+📓 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
 ## At a Glance
 
-The example below is modelled on the [PRQL invoice showcase](https://prql-lang.org) — the same query written in Pivotal, with the pandas it compiles to shown alongside.
+The example below is modelled on this [PRQL language example](https://prql-lang.org) — the same query written in Pivotal.
 
 **Pivotal**
 
@@ -24,42 +36,12 @@ df summary from invoices
     group by customer_id
         agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
-    merge customers on customer_id
+    left merge customers on customer_id
     python summary["name"] = summary["last_name"] + ", " + summary["first_name"]
     select customer_id, name, sum_income
 ```
 
-**Equivalent pandas**
-
-```python
-import pandas as pd
-
-invoices  = pd.read_csv("invoices.csv")
-customers = pd.read_csv("customers.csv")
-
-invoices = invoices[invoices["invoice_date"] >= "1970-01-16"]
-invoices["transaction_fees"] = 0.8
-invoices["income"] = invoices["total"] - invoices["transaction_fees"]
-invoices = invoices[invoices["income"] > 1]
-
-summary = invoices.copy()
-summary = (
-    summary
-    .groupby(["customer_id"])
-    .agg(
-        avg_total  = ("total",  "mean"),
-        sum_income = ("income", "sum"),
-        ct         = ("total",  "count"),
-    )
-    .reset_index()
-)
-summary = summary.sort_values("sum_income", ascending=False)
-summary = pd.merge(summary, customers, on="customer_id", how="inner")
-summary["name"] = summary["last_name"] + ", " + summary["first_name"]
-summary = summary[["customer_id", "name", "sum_income"]]
-```
-
-The `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do.
+Note the `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do.
 
 ---
 
@@ -82,14 +64,6 @@ The `python` line above is Pivotal's escape hatch for expressions that fall outs
 - [Examples](#examples)
 
 ---
-
-## Features
-
-✨ **Clean, Readable Syntax** - Write data transformations in an intuitive SQL-like language
-🐼 **Pandas-Powered** - Compiles to efficient pandas operations
-🔄 **Pipeline-Oriented** - Chain operations naturally with indentation-based blocks
-🖥️ **VS Code Integration** - Syntax highlighting, compile Pivotal to Python, or execute in the Interactive Window
-📓 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
 ---
 
@@ -173,7 +147,6 @@ sort total desc
 ```
 
 - Syntax highlighting activates automatically on any cell whose first line is `%%pivotal`
-- `.pivotal` files in the file browser show the Pivotal icon
 - Run the cell normally — results display as interactive DataFrames
 
 ---
@@ -377,7 +350,7 @@ df analysis from sales:
 - Use pandas `.eval()` syntax
 - Reference columns directly by name
 - Standard operators: `+`, `-`, `*`, `/`, `**`
-- Functions: Any pandas-compatible function
+- Functions: Any pandas `.eval()` compatible function
 
 ---
 
@@ -526,7 +499,7 @@ df complete from raw:
     dropna price, quantity
 ```
 
-#### Deduplicate
+#### De-duplicate
 
 Remove duplicate rows:
 
@@ -860,12 +833,7 @@ Currently, Pivotal supports pandas. Future versions may support other backends l
 
 ## Contributing
 
-Contributions are welcome! Areas for improvement:
-- Additional aggregation functions
-- More merge options
-- Group-by operations
-- Window functions
-- Integration with more data sources
+Contributions are welcome! 
 
 ---
 
@@ -877,18 +845,17 @@ Contributions are welcome! Areas for improvement:
 
 ## Authors
 
-[Your name/team here]
+Neal Hughes
 
 ---
 
 ## Version History
 
 - **v0.1.0** - Initial release
-  - Basic load, table, filter, select operations
-  - Merge and pivot support
+ 
 
 ---
 
 ## Contact & Support
 
-For questions, issues, or feature requests, please [open an issue] or contact [your contact info].
+For questions, issues, or feature requests, please contact hughes.neal@gmail.com.
