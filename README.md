@@ -12,7 +12,7 @@
 
 **Pipeline-Oriented** - Chain operations naturally with indentation blocks
 
-**VS Code Integration** - Syntax highlighting, compile to Python or execute directly in interactive window
+**VS Code Integration** - Syntax highlighting, compile to Python or execute in interactive window
 
 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
