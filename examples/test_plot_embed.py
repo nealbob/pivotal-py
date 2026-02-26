@@ -1,3 +1,9 @@
+import pandas as pd
+import pivotal
+
+#%%
+%%pivotal
+
 load df "/home/nealh/Code/pivotal-py/examples/data/data.csv"
 
 df df_plot from df
@@ -19,3 +25,4 @@ df df_scatter from df
         y "quantity"
         c "category"
         colormap "viridis"
+#%%
