@@ -6,6 +6,8 @@
 
   - [ ] For pivotal statements that currently have multiple keywords pick and chose one only. Ensure that these changes are reflected in the tests, examples and readme. I think use merge rather than join and df rather than dataframe.
 
+  - [ ] Python function calls in Pivotal — define functions in Python, call them from `assign` and a new `apply` statement — see implementation plan below.
+  
   - [ ] Keyword collision validation — detect when user-defined names clash with Pivotal reserved words and emit clear errors/warnings:
     - **Hard error** at parse time: DataFrame name in `df <name> from ...` is a reserved keyword (e.g. `df filter from sales`)
     - **Hard error** at parse time: column name in `assign <col> = expr` is a reserved keyword (e.g. `assign select = price * 0.9`)
@@ -25,7 +27,6 @@
 
   - [ ] Polars support — see implementation plan below.
   
-  - [ ] Python function calls in Pivotal — define functions in Python, call them from `assign` and a new `apply` statement — see implementation plan below.
 
   - [ ] Enhanced plot syntax — style files, faceted subplots (`by`), `save` param — see implementation plan below.
 
