@@ -46,7 +46,7 @@ Note the `python` line above is Pivotal's escape hatch for expressions that fall
 ---
 
 ## Table of Contents
-- [Features](#features)
+
 - [Installation](#installation)
 - [Editor Integrations](#editor-integrations)
 - [Quick Start](#quick-start)
