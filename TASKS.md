@@ -1,35 +1,41 @@
 # Project: Pivotal
 
   ## Current focus
- 
+
+    <<< saving of charts and code inside the data package>>>
+    <<< display of %%pivotal in vscode interactive cells >>>
+
   ## Backlog
 
-  - [ ] For pivotal statements that currently have multiple keywords pick and chose one only. Ensure that these changes are reflected in the tests, examples and readme. I think use merge rather than join and df rather than dataframe.
+  - [ ] Update python blocks inside pivotal code. What we have currently works for simple non indented python, but cant handle longer python blocks I suggest including an end keyword so that any text in-between is parsed as pure python.
 
-  - [ ] Python function calls in Pivotal — define functions in Python, call them from `assign` and a new `apply` statement — see implementation plan below.
+  python
+    for i in range(1,10):
+      ....
+  end
+
+  and keep this version for single line syntax
+
+  python x = 2
+
+  - [ ] on package save generate code files and save them in the code folder of the data package. Save both a .py file (with pivotal code cells converted to python) and a pivotal file (with python code cells in blocks) both derived from the package .ipynb file. Perhaps we could also save a md or html of the notebook if that is not too hard. I understand that if we take code from a notebook session and put in in a data package at a new path this could cause issues with relative paths if the code is later executed from the new location, but I am not worried about that for now. We can just explain to people that the path references need to be absolute if the code is going to be portable (which is standard practice allreaday I guess). This workflow is assuming that save is executed from a notebook, if it is run from a script then i guess it is a bit redundant and could be ignored. The transformer already has an export command that could be used / built on for this purpose.
+
+  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`), `save` param — see implementation plan below. I am not sure if the plan allready supports it but we should ensure that each plot is named so they can be referenmced later (in save exclude / include for example). I also suggsest that in the grammer we have an option to include label text next to the x,y,by command for example:
+
+  df test
+    plot line sales_line_chart
+    x year "Financial year"
+    y sales "Sales ($m)"
+    by reg "Region"
   
-  - [ ] Keyword collision validation — detect when user-defined names clash with Pivotal reserved words and emit clear errors/warnings:
-    - **Hard error** at parse time: DataFrame name in `df <name> from ...` is a reserved keyword (e.g. `df filter from sales`)
-    - **Hard error** at parse time: column name in `assign <col> = expr` is a reserved keyword (e.g. `assign select = price * 0.9`)
-    - **Warning only** at runtime: a column loaded from data (CSV, Excel etc.) has the same name as a reserved keyword — not the user's fault, but flag it so they know to use `python` if they need to reference it
-
-  - [ ] Save session as a Frictionless Data Package - see implementation plan. (note this is closely realted to below 'start' command session management)
-  
-  - [ ] add a `start` command — declare package membership, create/open package, configure autosave and styles — see implementation plan below. (closely related to save session as data package point above)
-
-  - [ ] Update the README.md language syntax and API sections. I'm not sure if they are complete. I am wondering if we need a standalone documentation page that details each command (either as well as or instead of the content currently in the README)
+- [ ] Context aware auto-complete in jupyter lab and vs code. For example, when editing pivotal text on a new line autocomplet the command keywords, but if you are within a statement then autocomplete the apprioate thing (dataframe name or column name) drawing on the existing .pivotal_autocomple.json file - see implementation plan below 
 
   ## Ideas (not ready to be implemented)
-
-  - [ ] Context aware auto-complete in jupyter lab and vs code. For example, when editing pivotal text on a new line autocomplet the command keywords, but if you are within a statement then autocomplete the apprioate thing (dataframe name or column name) drawing on the existing .pivotal_autocomple.json file - see implementation plan below 
   
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
   - [ ] Polars support — see implementation plan below.
   
-
-  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`), `save` param — see implementation plan below.
-
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
   
   - [ ] Table print/export support, json formating....   
@@ -620,7 +626,19 @@ assign fixed = replace(notes, "N/A", "")
 
 ## Completed
 
+  - [x] Keyword collision validation — detect when user-defined names clash with Pivotal reserved words and emit clear errors/warnings:
+    - **Hard error** at parse time: DataFrame name in `df <name> from ...` is a reserved keyword (e.g. `df filter from sales`)
+    - **Hard error** at parse time: column name in `assign <col> = expr` is a reserved keyword (e.g. `assign select = price * 0.9`)
+    - **Warning only** at runtime: a column loaded from data (CSV, Excel etc.) has the same name as a reserved keyword — not the user's fault, but flag it so they know to use `python` if they need to reference it
+
+  - [x] Save session as a Frictionless Data Package - see implementation plan. (note this is closely realted to below 'start' command session management)
+
+  - [x] add a `start` command — declare package membership, create/open package, configure autosave and styles — see implementation plan below. (closely related to save session as data package point above)
+
+  - [x] Update the README.md language syntax and API sections. I'm not sure if they are complete. I am wondering if we need a standalone documentation page that details each command (either as well as or instead of the content currently in the README)
+  - [x] Python function calls in Pivotal — define functions in Python, call them from `assign` and a new `apply` statement — see implementation plan below.
   
+  - [x] For pivotal statements that currently have multiple keywords pick and chose one only. Ensure that these changes are reflected in the tests, examples and readme. I think use merge rather than join and df rather than dataframe.
 
   - [x] Drop columns e.g., drop colA, colB  -> dfA.drop(["colA", "colB"])
 

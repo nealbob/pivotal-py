@@ -1,4 +1,5 @@
 from .dsl_parser import DSLParser
+from .package import Package
 
 def load_ipython_extension(ipython):
     from .magic import load_ipython_extension as magic_load
@@ -14,4 +15,4 @@ try:
 except NameError:
     pass  # Not running inside IPython
 
-__all__ = ['DSLParser', 'load_ipython_extension']
+__all__ = ['DSLParser', 'Package', 'load_ipython_extension']

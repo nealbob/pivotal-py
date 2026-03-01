@@ -1,19 +1,24 @@
-load df "/home/nealh/Code/pivotal-py/examples/data/data.csv"
+python
+    import os
+    _ppath = os.environ.get('PIVOTAL_PATH', '.')
+    data_path = _ppath + '/examples/data/data.csv'
 
-df df_plot from df
+load temp :data_path
+
+df df_plot from temp
     plot line
         x product
         y price
         title "Product Prices"
         legend False
 
-df df_bar from df
+df df_bar from temp
     plot bar
         x category
         y quantity
         title "Category Quantities"
 
-df df_scatter from df
+df df_scatter from temp
     plot scatter
         x price
         y quantity

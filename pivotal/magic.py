@@ -23,9 +23,12 @@ class PivotalMagics(Magics):
         if hasattr(shell, 'input_transformers_cleanup'):
             shell.input_transformers_cleanup.append(self.input_transform)
             
-        # Register completer
-        self.shell.set_hook('complete_command', self.pivotal_completer, re_key='%%pivotal')
-        self.shell.set_hook('complete_command', self.pivotal_completer, str_key='%pivotal_auto')
+        # Register completer (not supported in all environments, e.g. VS Code notebooks)
+        try:
+            self.shell.set_hook('complete_command', self.pivotal_completer, re_key='%%pivotal')
+            self.shell.set_hook('complete_command', self.pivotal_completer, str_key='%pivotal_auto')
+        except Exception:
+            pass
         
         # Try to register a custom completer for auto mode
         try:
@@ -40,8 +43,8 @@ class PivotalMagics(Magics):
         """Custom completer for Pivotal DSL"""
         # Basic keywords list
         keywords = [
-            'load', 'df', 'dataframe', 'filter', 'select', 'sort',
-            'group by', 'merge', 'pivot', 'plot', 'python',
+            'load', 'df', 'filter', 'select', 'sort',
+            'group by', 'merge', 'pivot', 'plot', 'python', 'apply',
             'drop', 'dropna', 'fillna', 'distinct', 'concat', 'rename',
             'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std',
             'asc', 'desc', 'left', 'right', 'inner', 'outer',

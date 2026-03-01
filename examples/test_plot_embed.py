@@ -4,7 +4,12 @@ import pivotal
 #%%
 %%pivotal
 
-load df "/home/nealh/Code/pivotal-py/examples/data/data.csv"
+python
+    import os
+    _ppath = os.environ.get('PIVOTAL_PATH', '.')
+    data_path = _ppath + '/examples/data/data.csv'
+
+load df :data_path
 
 df df_plot from df
     plot line

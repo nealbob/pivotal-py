@@ -17,8 +17,8 @@
     ["'", "'"]
   ],
   "indentationRules": {
-    "increaseIndentPattern": "^\\s*(load|df|dataframe|merge|join|pivot|group\\s+by|plot|python)\\b.*$",
-    "decreaseIndentPattern": "^\\s*(load|df|dataframe|filter|select|set|sort|order|merge|join|pivot|group|python|plot|drop|fillna|dropna|distinct|concat|rename)\\b"
+    "increaseIndentPattern": "^\\s*(load|df|merge|pivot|group\\s+by|plot|python|start|save)\\b.*$",
+    "decreaseIndentPattern": "^\\s*(load|df|filter|select|assign|sort|order|merge|pivot|group|python|plot|drop|fillna|dropna|distinct|concat|rename|apply|start|save)\\b"
   },
   "wordPattern": "[a-zA-Z][a-zA-Z0-9_]*|:[a-zA-Z][a-zA-Z0-9_]*|\\d+(\\.\\d+)?"
 }

@@ -1,8 +1,13 @@
-load testdf data/data.csv
+python
+    import os
+    _ppath = os.environ.get('PIVOTAL_PATH', '.')
+    data_path = _ppath + '/examples/data/data.csv'
+
+load testdf :data_path
    names ["my", "name", "is", "neal", "hughes"]
    header 0
 
-load testdf3 "data/data.csv"
+load testdf3 :data_path
    
 df testdf4 from testdf
 
@@ -50,7 +55,7 @@ df df11 from testdf3
    select product as prod, price as cost
 
 df df12 from testdf3
-   order by price desc
+   sort price desc
 
 df df13 from testdf3
    python print("Executing python code")

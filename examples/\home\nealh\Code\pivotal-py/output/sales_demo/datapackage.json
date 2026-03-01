@@ -1,0 +1,15 @@
+{
+  "name": "sales_demo",
+  "resources": [],
+  "styles": {
+    "reports": {
+      "figsize": [
+        15,
+        8
+      ],
+      "grid": true
+    }
+  },
+  "title": "Sales Demo Package",
+  "format": "csv"
+}
