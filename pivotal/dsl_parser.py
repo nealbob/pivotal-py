@@ -5,7 +5,27 @@ from lark.lexer import Token
 import pandas as pd
 import json
 import os
+import warnings
 from pathlib import Path
+
+# All reserved words in the Pivotal grammar.  Used for collision validation.
+PIVOTAL_KEYWORDS = frozenset({
+    # Statement keywords (not 'df' — it is unambiguous after its own token)
+    'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
+    'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
+    'dropna', 'distinct', 'concat', 'rename', 'apply',
+    # Clause keywords
+    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg',
+    # Comparators / logic
+    'in', 'not', 'between', 'contains', 'startswith', 'endswith',
+    'and', 'or',
+    # Aggregation functions
+    'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std',
+    # Sort / merge modifiers
+    'asc', 'desc', 'left', 'right', 'inner', 'outer',
+    # Atoms
+    'true', 'false', 'none',
+})
 
 #AGG_DICT: _NL _INDENT IDENTIFIER AGG_FUNCTION ("," AGG_FUNCTION)* _DEDENT (_NL _INDENT IDENTIFIER AGG_FUNCTION ("," AGG_FUNCTION)* _DEDENT)* _NL?
 # Grammar definition using indentation
@@ -30,6 +50,10 @@ grammar_indented = r"""
                | distinct_statement
                | concat_statement
                | rename_statement
+               | apply_statement
+               | save_statement
+
+    apply_statement: "apply" IDENTIFIER _NL?
 
     plot_statement: "plot" (IDENTIFIER | STRING)? (_NL | _NL _INDENT params _DEDENT)?
 
@@ -47,15 +71,29 @@ grammar_indented = r"""
 
     agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
 
-    merge_statement: MERGE_TYPE? ("merge" | "join") RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
+    merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
     MERGE_TYPE: "left" | "right" | "inner" | "outer"
     keys: IDENTIFIER ("," IDENTIFIER)*
     RIGHT_TABLE: IDENTIFIER
 
     load_statement: "load" table_name (STRING | PATH | PYTHON_VAR) (_NL | _NL _INDENT params _DEDENT)?
+                  | "load" "all" _NL?
+                  | "load" table_name _NL?
 
-    dataframe_statement: ("df" | "dataframe") table_name ("from" copy_table)? _NL?
+    save_statement: "save" STRING (_NL _INDENT save_params _DEDENT)? _NL?
+
+    save_params: save_param+
+    save_param: "path" (STRING | PYTHON_VAR) _NL?           -> save_path
+              | "format" IDENTIFIER _NL?                     -> save_format
+              | "tables" save_id_list _NL?                   -> save_tables
+              | "charts" save_id_list _NL?                   -> save_charts
+              | "exclude" "tables" save_id_list _NL?         -> save_exclude_tables
+              | "exclude" "charts" save_id_list _NL?         -> save_exclude_charts
+
+    save_id_list: IDENTIFIER ("," IDENTIFIER)*
+
+    dataframe_statement: "df" table_name ("from" copy_table)? _NL?
 
     assign_statement: "assign" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
 
@@ -222,7 +260,24 @@ class DSLTransformer(Transformer):
         
         return kwargs, kwargs_str
 
-    def load_statement(self, table_name,  source, params=None):
+    def load_statement(self, *args):
+        """Handle all three load forms:
+        - load name "path"  → load_table (existing file)
+        - load all          → load_all (all tables from active package)
+        - load name         → load_package_table (named table from active package)
+        """
+        if len(args) == 0:
+            # "load all" — no named children (both "load" and "all" are anonymous terminals)
+            return {'type': 'load_all'}
+
+        if len(args) == 1:
+            # "load table_name" — package table load (no source path)
+            table_name_str = str(args[0])
+            return {'type': 'load_package_table', 'table_name': table_name_str}
+
+        # len(args) >= 2: "load table_name source [params]"
+        table_name, source = args[0], args[1]
+        params = args[2] if len(args) > 2 else None
 
         if isinstance(source, dict) and source.get('type') == 'var':
             source_val = source
@@ -234,19 +289,87 @@ class DSLTransformer(Transformer):
         else:
             kwargs = ''
             kwargs_str = ''
-        
-        # Source file case
+
         ast_node = {
             'type': 'load_table',
             'table_name': str(table_name),
             'source': source_val,
             'kwargs': kwargs,
-            'kwargs_str': kwargs_str
+            'kwargs_str': kwargs_str,
         }
-        
+
         self.current_table = str(table_name)
-        
         return ast_node
+
+    # ------------------------------------------------------------------
+    # save transformer methods
+    # ------------------------------------------------------------------
+
+    def save_statement(self, *args):
+        """Handle: save "name" [params]"""
+        pkg_name = str(args[0])
+        params_list = args[1] if len(args) > 1 else []
+
+        path = None
+        fmt = None
+        tables = None
+        charts = None
+        exclude_tables = []
+        exclude_charts = []
+
+        for item in (params_list or []):
+            if not isinstance(item, dict):
+                continue
+            key = item.get('key')
+            if key == 'path':
+                path = item['value']
+            elif key == 'format':
+                fmt = item['value']
+            elif key == 'tables':
+                tables = item['value']
+            elif key == 'charts':
+                charts = item['value']
+            elif key == 'exclude_tables':
+                exclude_tables = item['value']
+            elif key == 'exclude_charts':
+                exclude_charts = item['value']
+
+        return {
+            'type': 'save',
+            'name': pkg_name,
+            'path': path,
+            'format': fmt,
+            'tables': tables,
+            'charts': charts,
+            'exclude_tables': exclude_tables,
+            'exclude_charts': exclude_charts,
+        }
+
+    def save_params(self, *params):
+        return list(params)
+
+    def save_path(self, val):
+        if isinstance(val, dict) and val.get('type') == 'var':
+            return {'key': 'path', 'value': val}
+        return {'key': 'path', 'value': str(val)}
+
+    def save_format(self, val):
+        return {'key': 'format', 'value': str(val)}
+
+    def save_tables(self, id_list):
+        return {'key': 'tables', 'value': id_list}
+
+    def save_charts(self, id_list):
+        return {'key': 'charts', 'value': id_list}
+
+    def save_exclude_tables(self, id_list):
+        return {'key': 'exclude_tables', 'value': id_list}
+
+    def save_exclude_charts(self, id_list):
+        return {'key': 'exclude_charts', 'value': id_list}
+
+    def save_id_list(self, *ids):
+        return [str(i) for i in ids]
     
     def dataframe_statement(self, *args):
         """Handle table statements with optional 'from' clause"""
@@ -256,7 +379,7 @@ class DSLTransformer(Transformer):
         
         clean_args = []
         for arg in args:
-            # We used to filter 'df', 'dataframe', 'table' here, but that caused issues
+            # We used to filter 'df', 'table' here, but that caused issues
             # when the table name itself was 'df'.
             # Since these are anonymous terminals in the grammar, they shouldn't appear in args anyway.
             if isinstance(arg, Token) and arg.type == '_NL':
@@ -267,7 +390,12 @@ class DSLTransformer(Transformer):
         copy_table = clean_args[1] if len(clean_args) > 1 else None
         
         table_name_str = str(table_name)
-        
+
+        if table_name_str.lower() in PIVOTAL_KEYWORDS:
+            raise ValueError(
+                f"'{table_name_str}' is a Pivotal reserved keyword and cannot be used as a table name."
+            )
+
         if copy_table is not None:
             # Case: table new_table from existing_table
             copy_table_str = str(copy_table)
@@ -293,6 +421,11 @@ class DSLTransformer(Transformer):
         """Handle assign statements to create new columns with optional where clause"""
         target_str = str(target)
         expr_str = str(expression)
+
+        if target_str.lower() in PIVOTAL_KEYWORDS:
+            raise ValueError(
+                f"'{target_str}' is a Pivotal reserved keyword and cannot be used as a column name."
+            )
         
         # Check if there's a where clause
         conditions = []
@@ -509,6 +642,13 @@ class DSLTransformer(Transformer):
 
     def rename_item(self, old, new):
         return {str(old): str(new)}
+
+    def apply_statement(self, func):
+        return {
+            'type': 'apply',
+            'table_name': self.current_table,
+            'func': str(func)
+        }
 
     def merge_statement(self, *args):
         """Handle merge statements"""
@@ -859,7 +999,18 @@ class CodeGenerator:
             reader = self._reader_for_source(str(source))
             load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
 
-        return f"{load_table}\n{table_name_marker}"
+        kw_set = repr(PIVOTAL_KEYWORDS)
+        tname = ast_node['table_name']
+        kw_check = (
+            f"_kw_cols = [c for c in {tname}.columns if c.lower() in {kw_set}]\n"
+            f"if _kw_cols:\n"
+            f"    import warnings\n"
+            f"    warnings.warn(\n"
+            f"        f\"Table '{tname}' has columns that are Pivotal keywords: {{_kw_cols}}. \"\n"
+            f"        \"Use a 'python' block to reference them.\",\n"
+            f"        UserWarning, stacklevel=2)"
+        )
+        return f"{load_table}\n{kw_check}\n{table_name_marker}"
 
     def generate_load_table_polars(self, ast_node):
         source = ast_node['source']
@@ -901,14 +1052,54 @@ class CodeGenerator:
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
         return f"{validation}\n{table_name}"
     
+    # Built-in function names reserved for future string function support.
+    # User-defined functions must not use these names.
+    _BUILTIN_FUNCS = frozenset({
+        'upper', 'lower', 'trim', 'ltrim', 'rtrim',
+        'left', 'right', 'substr', 'len', 'replace',
+    })
+
+    def _parse_user_func_call(self, expr):
+        """If expr matches 'func(col)' and func is not a built-in, return (func, col).
+        Otherwise return None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)', expr.strip())
+        if m and m.group(1) not in self._BUILTIN_FUNCS:
+            return m.group(1), m.group(2)
+        return None
+
     def generate_assign_pandas(self, ast_node):
+        table = ast_node['table_name']
+        target = ast_node['target']
+        expr = ast_node['expression']
+
+        user_call = self._parse_user_func_call(expr)
+
         if ast_node['conditions']:
             query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
-            return (f"condition = {ast_node['table_name']}.eval('{query_str}')\n"
-                   f"{ast_node['table_name']}.loc[condition, '{ast_node['target']}'] = "
-                   f"{ast_node['table_name']}.eval('{ast_node['expression']}')[condition]")
+            if user_call:
+                func, col = user_call
+                return (f"condition = {table}.eval('{query_str}')\n"
+                        f"{table}.loc[condition, '{target}'] = "
+                        f"{func}({table}['{col}'])[condition]")
+            return (f"condition = {table}.eval('{query_str}')\n"
+                    f"{table}.loc[condition, '{target}'] = "
+                    f"{table}.eval('{expr}')[condition]")
         else:
-            return f"{ast_node['table_name']}['{ast_node['target']}'] = {ast_node['table_name']}.eval('{ast_node['expression']}')"
+            if user_call:
+                func, col = user_call
+                return f"{table}['{target}'] = {func}({table}['{col}'])"
+            return f"{table}['{target}'] = {table}.eval('{expr}')"
+
+    def generate_apply_pandas(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']
+        return f"{table} = {func}({table})"
+
+    def generate_apply_polars(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']
+        return f"{table} = {func}({table})"
     
     def generate_filter_pandas(self, ast_node):
         query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
@@ -1152,19 +1343,23 @@ class CodeGenerator:
     def generate_plot_pandas(self, ast_node):
         kind = ast_node['kind']
         kwargs_str = ast_node['kwargs_str']
-        
+        table = ast_node['table_name']
+
         args_str = ""
         if kind:
             args_str += f"kind='{kind}'"
-        
         if kwargs_str:
             if args_str:
-                args_str += kwargs_str # kwargs_str has leading comma
+                args_str += kwargs_str  # kwargs_str has leading comma
             else:
-                # Remove leading comma if it's the first arg
-                args_str = kwargs_str[2:]
-                
-        return f"{ast_node['table_name']}.plot({args_str})"
+                args_str = kwargs_str[2:]  # remove leading ", "
+
+        chart_key = f"{table}_{kind or 'plot'}"
+        return (
+            f"_ax = {table}.plot({args_str})\n"
+            f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}\n"
+            f"globals()['_pivotal_charts'][{repr(chart_key)}] = _ax.get_figure()"
+        )
 
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators.
@@ -1224,9 +1419,59 @@ class CodeGenerator:
     # Future: Add Spark generators (commented out to avoid import issues)
     # def generate_sort_spark(self, ast_node):
     #     from pyspark.sql import functions as F
-    #     order_cols = [F.col(col).asc() if asc else F.col(col).desc() 
+    #     order_cols = [F.col(col).asc() if asc else F.col(col).desc()
     #                  for col, asc in zip(ast_node['columns'], ast_node['ascending'])]
     #     return f"{ast_node['table_name']} = {ast_node['table_name']}.orderBy({order_cols})"
+
+    # ------------------------------------------------------------------
+    # save / load_all / load_package_table generators
+    # ------------------------------------------------------------------
+
+    def generate_save_pandas(self, ast_node):
+        name = ast_node['name']
+        path = ast_node.get('path')
+        fmt = ast_node.get('format') or 'csv'
+        tables = ast_node.get('tables')
+        charts = ast_node.get('charts')
+        exclude_tables = ast_node.get('exclude_tables') or []
+        exclude_charts = ast_node.get('exclude_charts') or []
+
+        if isinstance(path, dict) and path.get('type') == 'var':
+            path_arg = f", path={path['name']}"
+        elif path:
+            path_arg = f", path={repr(path)}"
+        else:
+            path_arg = ""
+
+        tables_arg = f", tables={repr(tables)}" if tables is not None else ""
+        charts_arg = f", charts={repr(charts)}" if charts is not None else ""
+        excl_t = f", exclude_tables={repr(exclude_tables)}" if exclude_tables else ""
+        excl_c = f", exclude_charts={repr(exclude_charts)}" if exclude_charts else ""
+
+        return (
+            f"from pivotal.package import Package as _PivotalPackage\n"
+            f"_PivotalPackage.export({repr(name)}, globals(){path_arg}, fmt={repr(fmt)}"
+            f"{tables_arg}{charts_arg}{excl_t}{excl_c})"
+        )
+
+    def generate_save_polars(self, ast_node):
+        return self.generate_save_pandas(ast_node)
+
+    def generate_load_all_pandas(self, ast_node):
+        return (
+            f"globals().update(_pivotal_pkg.load_all())\n"
+            f"print(f\"Loaded {{len(_pivotal_pkg.load_all())}} table(s) from '{{_pivotal_pkg.name}}'\")"
+        )
+
+    def generate_load_all_polars(self, ast_node):
+        return self.generate_load_all_pandas(ast_node)
+
+    def generate_load_package_table_pandas(self, ast_node):
+        name = ast_node['table_name']
+        return f"{name} = _pivotal_pkg.load_table({repr(name)})"
+
+    def generate_load_package_table_polars(self, ast_node):
+        return self.generate_load_package_table_pandas(ast_node)
 
 
 class DSLParser:
@@ -1288,24 +1533,58 @@ class DSLParser:
             return self.table_info.get(table_name, {}).get('columns', [])
         return self.table_info
         
+    @staticmethod
+    def _strip_line_comment(line):
+        """Remove a trailing -- or # comment from a single line.
+
+        Respects double-quoted strings so that ``--`` or ``#`` inside a string
+        literal is preserved.  Returns the line with the comment (and any
+        trailing whitespace before it) removed.
+        """
+        in_string = False
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if in_string:
+                if ch == '"':
+                    in_string = False
+            elif ch == '"':
+                in_string = True
+            elif ch == '#':
+                return line[:i]
+            elif ch == '-' and i + 1 < len(line) and line[i + 1] == '-':
+                return line[:i]
+            i += 1
+        return line
+
     def preprocess_code(self, code):
-        """Preprocess DSL code to handle whitespace issues"""
+        """Preprocess DSL code to handle whitespace issues.
+
+        Single-line comments (``--`` and ``#``) are stripped here rather than
+        relying solely on Lark's ``%ignore COMMENT``.  When lark ignores a
+        comment token it still leaves the surrounding newline characters in the
+        token stream, which can split what should be a single ``_NL`` token
+        into two, causing unexpected-token parse errors after indented blocks.
+        """
+        import re
+
+        # Strip multi-line comments (/* ... */) preserving line count.
+        def _replace_multiline(m):
+            return '\n' * m.group(0).count('\n')
+        code = re.sub(r'/\*[\s\S]*?\*/', _replace_multiline, code)
+
+        # Strip single-line comments line-by-line (respects string literals).
+        lines = [self._strip_line_comment(ln) for ln in code.split('\n')]
+        code = '\n'.join(lines)
+
         # Strip leading and trailing whitespace
         code = code.strip()
-        
+
         # Ensure the file ends with a newline if it's not empty
         if code and not code.endswith('\n'):
             code += '\n'
-        
-        # Handle multiple consecutive newlines
-        lines = code.split('\n')
-        processed_lines = []
-        
-        for line in lines:
-            # Keep the line as-is, but ensure consistent spacing
-            processed_lines.append(line)
-        
-        return '\n'.join(processed_lines)
+
+        return code
     
     def parse(self, code):
         """Parse DSL code and return AST + Python code"""
@@ -1314,6 +1593,8 @@ class DSLParser:
             processed_code = self.preprocess_code(code)
             result = self.parser.parse(processed_code)
             return result
+        except ValueError:
+            raise  # Keyword-collision and other validation errors propagate
         except Exception as e:
             return {'error': str(e)}
     

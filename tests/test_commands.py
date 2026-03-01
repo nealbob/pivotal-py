@@ -314,3 +314,267 @@ def test_load_variable_csv(parser, tmp_path, sample_df):
     run(parser, 'load df :my_path', ns)
     assert 'df' in ns
     assert len(ns['df']) == len(sample_df)
+
+
+# ---------------------------------------------------------------------------
+# apply
+# ---------------------------------------------------------------------------
+
+def test_apply_adds_column(parser, sample_df):
+    def add_tax(df):
+        df = df.copy()
+        df['tax'] = df['price'] * 0.2
+        return df
+
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'add_tax': add_tax}
+    run(parser, 'df sales\napply add_tax', ns)
+    assert 'tax' in ns['sales'].columns
+    assert ns['sales'].iloc[0]['tax'] == pytest.approx(999.99 * 0.2)
+
+
+def test_apply_filters_rows(parser, sample_df):
+    def only_electronics(df):
+        return df[df['category'] == 'Electronics'].reset_index(drop=True)
+
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'only_electronics': only_electronics}
+    run(parser, 'df sales\napply only_electronics', ns)
+    assert all(ns['sales']['category'] == 'Electronics')
+
+
+# ---------------------------------------------------------------------------
+# assign: user-defined function calls
+# ---------------------------------------------------------------------------
+
+def test_assign_user_func(parser, sample_df):
+    def double(s):
+        return s * 2
+
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'double': double}
+    run(parser, 'df sales\nassign doubled = double(price)', ns)
+    assert 'doubled' in ns['sales'].columns
+    assert ns['sales'].iloc[0]['doubled'] == pytest.approx(999.99 * 2)
+
+
+def test_assign_user_func_with_where(parser, sample_df):
+    def discount(s):
+        return s * 0.9
+
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'discount': discount}
+    run(parser, 'df sales\nassign discounted = discount(price)\n    where category == "Electronics"', ns)
+    assert 'discounted' in ns['sales'].columns
+    electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
+    assert all(electronics['discounted'].notna())
+
+
+def test_assign_arithmetic_unchanged(parser, sample_df):
+    """Ensure existing arithmetic assign still routes through df.eval(), not user func path."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nassign revenue = price * quantity', ns)
+    assert 'revenue' in ns['sales'].columns
+    assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
+
+
+# ---------------------------------------------------------------------------
+# keyword collision validation
+# ---------------------------------------------------------------------------
+
+def test_keyword_table_name_raises(parser):
+    """df <keyword> should raise a ValueError at parse time."""
+    ns = {'pd': pd}
+    with pytest.raises(Exception, match="reserved keyword"):
+        run(parser, 'df filter', ns)
+
+
+def test_keyword_assign_target_raises(parser, sample_df):
+    """assign <keyword> = expr should raise a ValueError at parse time."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    with pytest.raises(Exception, match="reserved keyword"):
+        run(parser, 'df sales\nassign filter = price * 2', ns)
+
+
+def test_keyword_column_in_loaded_csv_warns(parser, tmp_path, sample_df):
+    """Loading a CSV whose columns include a Pivotal keyword should emit a UserWarning."""
+    df = sample_df.rename(columns={'price': 'min'})
+    csv_path = tmp_path / "kw.csv"
+    df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    with pytest.warns(UserWarning, match="Pivotal keywords"):
+        run(parser, f'load df "{csv_path}"', ns)
+
+
+# ---------------------------------------------------------------------------
+# save / load_all / load_package_table
+# ---------------------------------------------------------------------------
+
+def test_save_creates_package(parser, tmp_path, sample_df):
+    """save creates the package folder structure and datapackage.json."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, f'save "myproj"\n    path "{tmp_path}"', ns)
+    pkg_dir = tmp_path / "myproj"
+    assert pkg_dir.is_dir()
+    assert (pkg_dir / "datapackage.json").is_file()
+    assert (pkg_dir / "data").is_dir()
+    assert (pkg_dir / "charts").is_dir()
+    assert (pkg_dir / "data" / "sales.csv").is_file()
+
+
+def test_save_all_dataframes(parser, tmp_path, sample_df):
+    """save writes all non-underscore DataFrames in the namespace."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'other': sample_df.head(2).copy()}
+    run(parser, f'save "multi"\n    path "{tmp_path}"', ns)
+    assert (tmp_path / "multi" / "data" / "sales.csv").is_file()
+    assert (tmp_path / "multi" / "data" / "other.csv").is_file()
+
+
+def test_save_overwrites(parser, tmp_path, sample_df):
+    """Calling save twice with same name+path overwrites the first."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, f'save "overwrite"\n    path "{tmp_path}"', ns)
+    # Second call with different data
+    ns2 = {'pd': pd, 'summary': sample_df.head(2).copy()}
+    run(parser, f'save "overwrite"\n    path "{tmp_path}"', ns2)
+    pkg_dir = tmp_path / "overwrite"
+    # summary exists, old sales is gone (full wipe)
+    assert (pkg_dir / "data" / "summary.csv").is_file()
+    assert not (pkg_dir / "data" / "sales.csv").is_file()
+
+
+def test_save_with_tables_include(parser, tmp_path, sample_df):
+    """save with tables clause only saves the listed tables."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'other': sample_df.head(2).copy()}
+    run(parser, f'save "filtered"\n    path "{tmp_path}"\n    tables sales', ns)
+    assert (tmp_path / "filtered" / "data" / "sales.csv").is_file()
+    assert not (tmp_path / "filtered" / "data" / "other.csv").is_file()
+
+
+def test_save_with_exclude_tables(parser, tmp_path, sample_df):
+    """save with exclude tables skips the listed tables."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'other': sample_df.head(2).copy()}
+    run(parser, f'save "excluded"\n    path "{tmp_path}"\n    exclude tables other', ns)
+    assert (tmp_path / "excluded" / "data" / "sales.csv").is_file()
+    assert not (tmp_path / "excluded" / "data" / "other.csv").is_file()
+
+
+def test_save_parquet_format(parser, tmp_path, sample_df):
+    """save with format parquet writes .parquet files."""
+    pytest.importorskip('pyarrow')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, f'save "parqtest"\n    path "{tmp_path}"\n    format parquet', ns)
+    assert (tmp_path / "parqtest" / "data" / "sales.parquet").is_file()
+
+
+def test_save_datapackage_json(parser, tmp_path, sample_df):
+    """save writes a valid datapackage.json with resource entries."""
+    import json as _json
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, f'save "dptest"\n    path "{tmp_path}"', ns)
+    dp = _json.loads((tmp_path / "dptest" / "datapackage.json").read_text())
+    assert dp['name'] == 'dptest'
+    assert any(r['name'] == 'sales' for r in dp['resources'])
+
+
+def test_load_package_table(parser, tmp_path, sample_df):
+    """load tablename (no path) loads from the active package."""
+    import pivotal
+    pkg = pivotal.Package.open_or_create("loadtest", base_path=str(tmp_path))
+    # Seed data directly via export
+    pivotal.Package.export("loadtest", {'sales': sample_df}, path=str(tmp_path))
+    pkg = pivotal.Package.open("loadtest", path=str(tmp_path))
+    ns = {'pd': pd, '_pivotal_pkg': pkg}
+    run(parser, 'load sales', ns)
+    assert 'sales' in ns
+    assert len(ns['sales']) == len(sample_df)
+
+
+def test_load_all(parser, tmp_path, sample_df):
+    """load all loads every table from the active package."""
+    import pivotal
+    pivotal.Package.export(
+        "alltest",
+        {'part1': sample_df.iloc[:2].copy(), 'part2': sample_df.iloc[2:].copy()},
+        path=str(tmp_path),
+    )
+    pkg = pivotal.Package.open("alltest", path=str(tmp_path))
+    ns = {'pd': pd, '_pivotal_pkg': pkg}
+    run(parser, 'load all', ns)
+    assert 'part1' in ns
+    assert 'part2' in ns
+
+
+def test_full_pipeline_save_reload(parser, tmp_path, sample_df):
+    """End-to-end: load file → transform → save → reload with load all."""
+    csv_path = tmp_path / "raw.csv"
+    sample_df.to_csv(csv_path, index=False)
+
+    # First session: process and save
+    ns1 = {'pd': pd}
+    dsl = (
+        f'load raw "{csv_path}"\n'
+        'df clean from raw\n'
+        'filter price > 100\n'
+        f'save "e2e"\n    path "{tmp_path}"'
+    )
+    run(parser, dsl, ns1)
+    assert (tmp_path / "e2e" / "data" / "clean.csv").is_file()
+
+    # Second session: open the package and reload
+    import pivotal
+    pkg = pivotal.Package.open("e2e", path=str(tmp_path))
+    ns2 = {'pd': pd, '_pivotal_pkg': pkg}
+    run(parser, 'load all', ns2)
+    assert 'clean' in ns2
+    assert all(ns2['clean']['price'] > 100)
+
+
+# ---------------------------------------------------------------------------
+# Comment handling regression tests
+# ---------------------------------------------------------------------------
+
+def test_comment_between_statements_dash(parser, sample_df):
+    """Comments (-- style) between statements must not cause a parse error.
+
+    Regression test: lark's %ignore COMMENT left surrounding newlines in the
+    token stream, which split a single _NL into two tokens and caused an
+    unexpected-token error after the first statement.
+    """
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = (
+        'df sales\n'
+        'filter price > 0\n'
+        '\n'
+        '-- pick the top rows\n'
+        'df top from sales\n'
+        'sort price desc\n'
+    )
+    run(parser, dsl, ns)
+    assert 'top' in ns
+
+
+def test_comment_between_statements_hash(parser, sample_df):
+    """Comments (# style) between statements must not cause a parse error."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = (
+        'df sales\n'
+        'filter price > 0\n'
+        '\n'
+        '# pick the top rows\n'
+        'df top from sales\n'
+        'sort price desc\n'
+    )
+    run(parser, dsl, ns)
+    assert 'top' in ns
+
+
+def test_comment_after_load(parser, tmp_path, sample_df):
+    """A comment between load and df must parse correctly."""
+    csv_path = tmp_path / "sales.csv"
+    sample_df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    dsl = (
+        f'load sales "{csv_path}"\n'
+        '-- now work on it\n'
+        'df clean from sales\n'
+        'filter price > 0\n'
+    )
+    run(parser, dsl, ns)
+    assert 'clean' in ns
