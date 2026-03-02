@@ -110,20 +110,45 @@ class Package:
 
         return cls(name, pkg_path, config)
 
+    @staticmethod
+    def _df_schema(df: pd.DataFrame) -> dict:
+        """Build a Frictionless Data schema dict from a DataFrame."""
+        _type_map = {
+            "int": "integer",
+            "float": "number",
+            "bool": "boolean",
+            "datetime": "datetime",
+            "date": "date",
+            "object": "string",
+            "category": "string",
+            "str": "string",
+        }
+        fields = []
+        for col, dtype in df.dtypes.items():
+            kind = str(dtype)
+            frictionless_type = "string"
+            for prefix, ft in _type_map.items():
+                if kind.startswith(prefix):
+                    frictionless_type = ft
+                    break
+            fields.append({"name": str(col), "type": frictionless_type})
+        return {"fields": fields}
+
     @classmethod
     def _write_table(cls, pkg_path: str, config: dict, name: str, df: pd.DataFrame, fmt: str) -> None:
         data_dir = os.path.join(pkg_path, "data")
+        schema = cls._df_schema(df)
         if fmt == "parquet":
             fpath = os.path.join(data_dir, f"{name}.parquet")
             df.to_parquet(fpath, index=False)
             config["resources"].append(
-                {"name": name, "path": f"data/{name}.parquet", "mediatype": "application/parquet"}
+                {"name": name, "path": f"data/{name}.parquet", "mediatype": "application/parquet", "schema": schema}
             )
         else:
             fpath = os.path.join(data_dir, f"{name}.csv")
             df.to_csv(fpath, index=False)
             config["resources"].append(
-                {"name": name, "path": f"data/{name}.csv", "mediatype": "text/csv"}
+                {"name": name, "path": f"data/{name}.csv", "mediatype": "text/csv", "schema": schema}
             )
 
     @classmethod
@@ -144,7 +169,8 @@ class Package:
             csv_path = os.path.join(charts_dir, f"{name}.csv")
             data.to_csv(csv_path, index=False)
             config["resources"].append(
-                {"name": f"{name}_data", "path": f"charts/{name}.csv", "mediatype": "text/csv"}
+                {"name": f"{name}_data", "path": f"charts/{name}.csv", "mediatype": "text/csv",
+                 "schema": cls._df_schema(data)}
             )
 
     # ------------------------------------------------------------------
