@@ -2,8 +2,6 @@
 
   ## Current focus
 
-    <<< saving of charts and code inside the data package>>>
-    <<< display of %%pivotal in vscode interactive cells >>>
 
   ## Backlog
 
@@ -20,7 +18,7 @@
 
   - [ ] on package save generate code files and save them in the code folder of the data package. Save both a .py file (with pivotal code cells converted to python) and a pivotal file (with python code cells in blocks) both derived from the package .ipynb file. Perhaps we could also save a md or html of the notebook if that is not too hard. I understand that if we take code from a notebook session and put in in a data package at a new path this could cause issues with relative paths if the code is later executed from the new location, but I am not worried about that for now. We can just explain to people that the path references need to be absolute if the code is going to be portable (which is standard practice allreaday I guess). This workflow is assuming that save is executed from a notebook, if it is run from a script then i guess it is a bit redundant and could be ignored. The transformer already has an export command that could be used / built on for this purpose.
 
-  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`), `save` param — see implementation plan below. I am not sure if the plan allready supports it but we should ensure that each plot is named so they can be referenmced later (in save exclude / include for example). I also suggsest that in the grammer we have an option to include label text next to the x,y,by command for example:
+  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`), `save` param — see implementation plan below. This is not mentioned in the implementation plan but I also suggsest that in the grammer we have an option to include label text next to the x,y,by commands for example:
 
   df test
     plot line sales_line_chart
@@ -30,15 +28,15 @@
   
 - [ ] Context aware auto-complete in jupyter lab and vs code. For example, when editing pivotal text on a new line autocomplet the command keywords, but if you are within a statement then autocomplete the apprioate thing (dataframe name or column name) drawing on the existing .pivotal_autocomple.json file - see implementation plan below 
 
-  ## Ideas (not ready to be implemented)
-  
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
   - [ ] Polars support — see implementation plan below.
+
+  - [ ] In addition to charts I want to support generattion of publication ready tables using the Great Tables package. Can you develop an implementation plan for this.   
+  
+  ## Ideas (not ready to be implemented)
   
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
-  
-  - [ ] Table print/export support, json formating....   
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
 
