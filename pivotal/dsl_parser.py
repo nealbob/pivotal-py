@@ -55,13 +55,16 @@ grammar_indented = r"""
 
     apply_statement: "apply" IDENTIFIER _NL?
 
-    plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT params _DEDENT)?
+    plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
+
+    plot_params: plot_param+
+    plot_param: IDENTIFIER value STRING _NL?   -> plot_labeled_param
+              | IDENTIFIER value _NL?          -> plot_value_param
+              | IDENTIFIER "=" value _NL?      -> plot_value_param
+              | IDENTIFIER "=" list_value _NL? -> plot_list_param
+              | IDENTIFIER list_value _NL?     -> plot_list_param
 
     python_statement: "python" UNQUOTED_STRING _NL?
-                    | "python" _NL _INDENT python_block _DEDENT _NL?
-
-    python_block: python_line+
-    python_line: UNQUOTED_STRING _NL
 
     groupby_statement: "group" "by" group_cols (_NL _INDENT agg_clause _DEDENT)? _NL?
 
@@ -800,12 +803,15 @@ class DSLTransformer(Transformer):
         return str(token)
     
     def python_statement(self, code):
+        raw = str(code).strip()
+        blocks = getattr(self, '_python_blocks', {})
+        resolved = blocks.get(raw, raw)
         return {
             'type': 'python',
-            'code': str(code).strip(),
+            'code': resolved,
             'table_name': self.current_table
         }
-    
+
     def plot_statement(self, *args):
         name = None
         kind = None
@@ -819,7 +825,8 @@ class DSLTransformer(Transformer):
             elif isinstance(arg, str):
                 identifiers.append(arg)
             elif isinstance(arg, list):
-                kwargs, kwargs_str = self._keyword_arg(arg)
+                # plot_params returns list of dicts with key/value/label
+                kwargs, kwargs_str = self._plot_kwargs(arg)
 
         if len(identifiers) == 1:
             name = identifiers[0]
@@ -835,6 +842,43 @@ class DSLTransformer(Transformer):
             'kwargs': kwargs,
             'kwargs_str': kwargs_str
         }
+
+    def plot_params(self, *params):
+        return list(params)
+
+    def plot_labeled_param(self, key, val, label):
+        return {'key': str(key), 'value': self._convert_value(val), 'label': str(label).strip('"').strip("'")}
+
+    def plot_value_param(self, key, val):
+        return {'key': str(key), 'value': self._convert_value(val), 'label': None}
+
+    def plot_list_param(self, key, val):
+        return {'key': str(key), 'value': val if isinstance(val, list) else self._convert_value(val), 'label': None}
+
+    def _plot_kwargs(self, plot_params_list):
+        """Build kwargs dict and string from a list of plot_param dicts."""
+        kwargs = {}
+        label_kwargs = {}
+
+        for p in plot_params_list:
+            if not isinstance(p, dict):
+                continue
+            key = p['key']
+            val = p['value']
+            label = p.get('label')
+            kwargs[key] = val
+            if label is not None:
+                # x → xlabel, y → ylabel; other keys get a best-effort {key}label
+                label_key = {'x': 'xlabel', 'y': 'ylabel'}.get(key, f'{key}label')
+                label_kwargs[label_key] = label
+
+        kwargs.update(label_kwargs)
+
+        parts = []
+        for k, v in kwargs.items():
+            parts.append(f"{k}={repr(v)}" if isinstance(v, str) else f"{k}={v}")
+        kwargs_str = ', '.join(parts)
+        return kwargs, kwargs_str
 
     def python_block(self, *lines):
         return "\n".join(lines)
@@ -1349,15 +1393,13 @@ class CodeGenerator:
         if kind:
             args_str += f"kind='{kind}'"
         if kwargs_str:
-            if args_str:
-                args_str += kwargs_str  # kwargs_str has leading comma
-            else:
-                args_str = kwargs_str[2:]  # remove leading ", "
+            args_str = f"{args_str}, {kwargs_str}" if args_str else kwargs_str
 
         return (
             f"_ax = {table}.plot({args_str})\n"
             f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}\n"
-            f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}"
+            f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}\n"
+            f"{chart_key} = _ax.get_figure()"
         )
 
     def _build_query_string(self, conditions, operators):
@@ -1472,11 +1514,12 @@ class CodeGenerator:
 
 class DSLParser:
     def __init__(self, backend="pandas"):
+        self._transformer = DSLTransformer()
         self.parser = Lark(
-            grammar_indented, 
-            parser='lalr', 
+            grammar_indented,
+            parser='lalr',
             postlex=DSLIndenter(),
-            transformer=DSLTransformer()
+            transformer=self._transformer
         )
         self.code_generator = CodeGenerator(backend)
         self.autocomplete_file = Path('.pivotal_autocomplete.json')
@@ -1568,6 +1611,29 @@ class DSLParser:
         def _replace_multiline(m):
             return '\n' * m.group(0).count('\n')
         code = re.sub(r'/\*[\s\S]*?\*/', _replace_multiline, code)
+
+        # Extract python...end blocks before comment stripping so that
+        # '#' or '--' inside Python code is not incorrectly removed.
+        python_blocks = {}
+
+        def _extract_python_block(m):
+            indent = m.group(1)
+            content = m.group(2)
+            import textwrap
+            content = textwrap.dedent(content)
+            key = f'__PYBLOCK_{len(python_blocks)}__'
+            python_blocks[key] = content
+            return f'{indent}python {key}'
+
+        # Match: <indent>python<optional spaces>\n<content>\n<same-indent>end
+        code = re.sub(
+            r'^([ \t]*)python[ \t]*\n(.*?)\n\1end[ \t]*(?=\n|$)',
+            _extract_python_block,
+            code,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+
+        self._transformer._python_blocks = python_blocks
 
         # Strip single-line comments line-by-line (respects string literals).
         lines = [self._strip_line_comment(ln) for ln in code.split('\n')]
