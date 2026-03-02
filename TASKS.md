@@ -5,18 +5,18 @@
 
   ## Backlog
 
-  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`),  see implementation plan below.  syle file passing (matplotlib? or something else if we want option of other types of chart backends...)
-
 - [ ] Context aware auto-complete in jupyter lab and vs code. For example, when editing pivotal text on a new line autocomplet the command keywords, but if you are within a statement then autocomplete the apprioate thing (dataframe name or column name) drawing on the existing .pivotal_autocomple.json file - see implementation plan below 
 
+  ## Ideas (not ready to be implemented)
+  
+  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`),  see implementation plan below.  
+  
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
   - [ ] Polars support — see implementation plan below.
 
   - [ ] In addition to charts I want to support generattion of publication ready tables using the Great Tables package. Can you develop an implementation plan for this.   
-  
-  ## Ideas (not ready to be implemented)
-  
+
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
@@ -213,12 +213,11 @@ Pandas generators produce string expressions passed to `df.eval()` or `df.query(
 **Proposed syntax:**
 ```
 plot bar
-    x category
-    y quantity
-    by region
+    x category "Category"
+    y quantity "Quantity"
+    by region "Region"
     cols 2
     style reports
-    save category_by_region
 ```
 
 **Rule for what goes where:**
@@ -228,18 +227,8 @@ plot bar
 
 **Style files:**
 
-Named styles are defined in the session's `datapackage.json` under a `styles` key, or referenced as an external JSON file path:
+What format to use for stylye files (matplotlib style files type for now i guess)
 
-```json
-{
-  "styles": {
-    "default": { "figsize": [12, 8], "grid": true },
-    "reports": { "figsize": [15, 10], "tight_layout": true, "xlabel_fontsize": 12 }
-  }
-}
-```
-
-In Pivotal: `style reports` (named) or `style "path/to/style.json"` (file path).
 
 **`by` / faceted subplots:**
 - `by region` creates one subplot per unique value in the `region` column
@@ -273,89 +262,13 @@ plt.show()
 - Requires `hvplot` as an additional dependency
 
 **Grammar changes (`dsl_parser.py`):**
-- `by`, `cols`, `style`, `save` added as recognised structural params in `plot_statement` — intercepted before forwarding remaining kwargs to `df.plot()`
+- `by`, `cols`, `style`, added as recognised structural params in `plot_statement` — intercepted before forwarding remaining kwargs to `df.plot()`
 
 **Code generator changes:**
 - `generate_plot_pandas`: split params into structural (`by`, `cols`, `style`, `save`) vs. cosmetic (everything else); load style JSON if specified; generate loop code when `by` is present; append savefig if `save`
 - `generate_plot_polars`: new method using `df.plot.<kind>(...)` via hvPlot; handle `save` with hvPlot HTML export
 
 
-
-
----
-
-### Python function calls in Pivotal
-
-**Goal:** Allow Python functions defined in the session namespace to be called from Pivotal syntax, without trying to define functions in Pivotal itself. Python defines the tools; Pivotal orchestrates them.
-
-**Design principle:** Function *definition* stays in Python — it's the right tool for that. Pivotal only needs to support function *calling* in two specific contexts.
-
-**Context 1 — Column/Series transforms in `assign`:**
-
-```
-python
-    def clean_price(s):
-        return s.str.replace('£', '').astype(float)
-
-    def initials(s):
-        return s.str[0].str.upper()
-
-df sales
-    assign price = clean_price(price)
-    assign abbr = initials(name)
-```
-
-The code generator detects that `clean_price` is not a known built-in and generates:
-```python
-sales['price'] = clean_price(sales['price'])
-```
-rather than routing through `df.eval()`.
-
-This is a natural extension of the string functions plan — same mechanism, user-defined rather than built-in.
-
-**Context 2 — DataFrame-level transforms with `apply`:**
-
-```
-python
-    def normalize(df):
-        df = df.copy()
-        df['price'] = (df['price'] - df['price'].mean()) / df['price'].std()
-        return df
-
-    def remove_outliers(df):
-        return df[df['price'].between(df['price'].quantile(0.05), df['price'].quantile(0.95))]
-
-df sales
-    apply normalize
-    apply remove_outliers
-    group by category
-        agg mean price
-```
-
-Generates `sales = normalize(sales)` then `sales = remove_outliers(sales)`. The function is expected to take a DataFrame and return a DataFrame. Simple, fits the pipeline model, no grammar complexity.
-
-**What is explicitly out of scope:**
-- Defining functions in Pivotal syntax — the function body would be Python anyway, adding a wrapper syntax buys nothing
-- Custom aggregation functions in `group by` (`agg my_func price`) — requires distinguishing user functions from built-in agg names at parse time; the `python` escape is the right answer here for now
-
-**Grammar changes (`dsl_parser.py`):**
-- `assign` expression: when the expression is of the form `IDENTIFIER "(" IDENTIFIER ")"` and the outer name is not a known built-in string function, treat it as a user function call
-- New `apply_statement: "apply" IDENTIFIER _NL` — single identifier, no sub-params needed
-
-**Code generator changes:**
-- `generate_assign_pandas`: detect user function call pattern; generate `df['col'] = func(df['other_col'])` instead of `df.eval(...)`
-- `generate_apply_pandas`: new method; generates `df_name = func_name(df_name)`
-- `generate_apply_polars`: same pattern — `df_name = func_name(df_name)`
-
-**Tests to add (`tests/test_commands.py`):**
-- `apply` with a function that adds a column
-- `apply` with a function that filters rows
-- `assign col = user_func(col)` where `user_func` is in the namespace
-- Confirm existing built-in string functions (`upper`, `lower` etc.) still resolve correctly and are not mistaken for user functions
-
-**Effort estimate:**
-- ~1–2 hours for Claude Code: grammar is minimal, code generator changes are localised
-- ~8–12 hours for a human developer: most time spent on the user-function detection logic in `assign` and edge case testing
 
 ---
 
@@ -422,40 +335,3 @@ assign fixed = replace(notes, "N/A", "")
 
 ## Completed
 
-  - [x] Keyword collision validation — detect when user-defined names clash with Pivotal reserved words and emit clear errors/warnings:
-    - **Hard error** at parse time: DataFrame name in `df <name> from ...` is a reserved keyword (e.g. `df filter from sales`)
-    - **Hard error** at parse time: column name in `assign <col> = expr` is a reserved keyword (e.g. `assign select = price * 0.9`)
-    - **Warning only** at runtime: a column loaded from data (CSV, Excel etc.) has the same name as a reserved keyword — not the user's fault, but flag it so they know to use `python` if they need to reference it
-
-  - [x] Save session as a Frictionless Data Package - see implementation plan. (note this is closely realted to below 'start' command session management)
-
-  - [x] add a `start` command — declare package membership, create/open package, configure autosave and styles — see implementation plan below. (closely related to save session as data package point above)
-
-  - [x] Update the README.md language syntax and API sections. I'm not sure if they are complete. I am wondering if we need a standalone documentation page that details each command (either as well as or instead of the content currently in the README)
-  - [x] Python function calls in Pivotal — define functions in Python, call them from `assign` and a new `apply` statement — see implementation plan below.
-  
-  - [x] For pivotal statements that currently have multiple keywords pick and chose one only. Ensure that these changes are reflected in the tests, examples and readme. I think use merge rather than join and df rather than dataframe.
-
-  - [x] Drop columns e.g., drop colA, colB  -> dfA.drop(["colA", "colB"])
-
-  - [x] fillna / dropna — missing value handling is arguably the single most common data cleaning step. Having to drop to Python for this every time would be a constant friction point. These belong in the language.
-
-  - [x] dedupe — keyword is `distinct`, consistent with SQL and R/dplyr
-
-  - [x] concat — combining two tables vertically (e.g. appending monthly CSVs)
-
-  - [x] rename — i.e., rename colA as newcol
-
-  - [x] between / contains in filters — `between [lo, hi]`, `contains`, `not contains`, `startswith`, `endswith`
-
-  - [x] load excel and parquet format data sources — file format auto-detected from suffix (.xlsx, .xls, .parquet, .csv). Works for both literal paths and variable paths (runtime detection).
-
-  - [x] VS Code: interactive notebook opens to the right and reuses existing window on re-run
-
-  - [x] VS Code: compile .pivotal file to .py file command (`python -m pivotal --compile`)
-
-  - [x] VS Code: extension README
-
-  - [x] JupyterLab: file browser icon for .pivotal files
-
-  - [x] JupyterLab: extension manager icon (pivotal_logo.svg)
