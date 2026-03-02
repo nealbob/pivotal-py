@@ -6,20 +6,20 @@ python
 load temp :data_path
 
 df df_plot from temp
-    plot line
+    plot line price_chart
         x product
         y price
         title "Product Prices"
         legend False
 
 df df_bar from temp
-    plot bar
+    plot bar category_chart
         x category
         y quantity
         title "Category Quantities"
 
 df df_scatter from temp
-    plot scatter
+    plot scatter scatter_chart
         x price
         y quantity
         c category

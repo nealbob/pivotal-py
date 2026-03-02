@@ -62,6 +62,7 @@ Note the `python` line above is Pivotal's escape hatch for expressions that fall
   - [Pivot Tables](#pivot-tables)
   - [Data Cleaning](#data-cleaning)
   - [Applying Python Functions](#applying-python-functions)
+  - [Plotting](#plotting)
   - [Package Management](#package-management)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -618,6 +619,55 @@ group by category
 
 ---
 
+### Plotting
+
+Create charts from the active table using `plot`. Each plot must be given a name so it
+can be referenced in `save` include/exclude lists.
+
+```pivotal
+# Basic plot (name only, chart type set via params)
+df summary
+plot revenue_chart
+    kind "bar"
+    x category
+    y total_revenue
+    title "Revenue by Category"
+
+# Shorthand: chart type as the first argument, name second
+df summary
+plot bar revenue_chart
+    x category
+    y total_revenue
+    title "Revenue by Category"
+
+# Line chart
+df trends
+plot line price_trend
+    x date
+    y price
+    legend False
+
+# Scatter chart
+df raw
+plot scatter price_vs_qty
+    x price
+    y quantity
+    c category
+    colormap "viridis"
+```
+
+All keyword arguments accepted by `DataFrame.plot()` can be passed as indented
+parameters (e.g. `figsize`, `title`, `xlabel`, `ylabel`, `legend`, `colormap`, etc.).
+
+Charts are stored in the session and exported automatically by `save`.  Each chart is
+saved as both an image (`charts/<name>.png`) and a CSV snapshot of the source data
+(`charts/<name>.csv`).
+
+> **Naming constraint:** chart names must not duplicate any table name in the session,
+> since both share the same identifier namespace in `include`/`exclude` lists.
+
+---
+
 ### Package Management
 
 A **package** is a self-contained folder of exported data tables and charts:
@@ -629,7 +679,8 @@ my_analysis/
     sales.csv
     summary.parquet
   charts/
-    summary_bar.png
+    revenue_chart.png    ← chart image
+    revenue_chart.csv    ← chart source data (snapshot of the DataFrame at plot time)
 ```
 
 Code lives wherever it lives — the package is output only.
@@ -641,26 +692,25 @@ Code lives wherever it lives — the package is output only.
 save "my_analysis"
     path "~/projects/output"
 
-# Parquet format
+# Parquet format for tables
 save "my_analysis"
     path "~/projects/output"
     format parquet
 
-# Include only specific tables
+# Include only specific tables and/or charts (names are shared across both)
 save "my_analysis"
     path "~/projects/output"
-    tables sales, summary
-
-# Include only specific charts
-save "my_analysis"
-    path "~/projects/output"
-    charts summary_bar
+    include sales, summary, revenue_chart
 
 # Exclude specific tables or charts
 save "my_analysis"
     path "~/projects/output"
-    exclude tables raw_import, temp
-    exclude charts debug_plot
+    exclude raw_import, debug_plot
+
+# Change chart image format (default: png)
+save "my_analysis"
+    path "~/projects/output"
+    chart_format svg
 ```
 
 `save` is a **snapshot export** — each call wipes and recreates the package folder,
@@ -677,18 +727,22 @@ save "sales_v1_enriched"
     path "~/output"
 ```
 
-Charts created by `plot` are tracked automatically and included in the export:
+Charts created by `plot` are tracked automatically and included in the export.
+Each chart is saved as both an image and a CSV of the underlying data:
 
 ```pivotal
 df summary
-plot bar
+plot bar revenue_chart
     x category
     y total_revenue
 
 save "my_analysis"
     path "~/output"
-    -- saves the summary table and the summary_bar chart
+    -- saves summary table, revenue_chart.png, and revenue_chart.csv
 ```
+
+> **Note:** chart names and table names share the same namespace in `include`/`exclude`
+> lists, so they must be unique across both within a session.
 
 #### `load` from a package
 
@@ -722,9 +776,15 @@ group by category
     agg sum amount as total, count amount as n
 sort total desc
 
+plot bar revenue_chart
+    x category
+    y total
+    title "Revenue by Category"
+
 save "sales_pipeline"
     path "~/projects/output"
     format parquet
+    -- saves clean, summary tables and revenue_chart image + data CSV
 ```
 
 ```pivotal
@@ -812,16 +872,19 @@ Convenience wrapper: read a `.pivotal` file and return its AST.
 pkg = pivotal.Package.export(
     name="my_analysis",
     namespace=globals(),
-    path="~/projects/output",   # optional, defaults to CWD
-    fmt="csv",                  # "csv" (default) or "parquet"
-    tables=["sales", "summary"],  # optional include list
-    charts=["summary_bar"],       # optional include list
-    exclude_tables=["raw"],       # optional exclude list
-    exclude_charts=[],            # optional exclude list
+    path="~/projects/output",        # optional, defaults to CWD
+    fmt="csv",                       # "csv" (default) or "parquet"
+    chart_fmt="png",                 # image format: "png" (default), "svg", "pdf", etc.
+    include=["sales", "revenue_chart"],  # optional: names of tables and/or charts to include
+    exclude=["raw", "debug_plot"],       # optional: names to skip
 )
 ```
 
 Each call wipes and recreates the package folder (Save-As semantics).
+
+Charts are stored as `{'fig': figure, 'data': dataframe}` in the session's
+`_pivotal_charts` dict.  `export()` writes each chart as both an image file
+and a CSV of the source data.
 
 #### `Package.open()` — open an existing package for loading
 
@@ -831,7 +894,7 @@ pkg = pivotal.Package.open("my_analysis", path="~/projects/output")
 
 | Method | Description |
 |---|---|
-| `export(name, namespace, path, fmt, tables, charts, ...)` | Export a fresh package snapshot |
+| `export(name, namespace, path, fmt, chart_fmt, include, exclude)` | Export a fresh package snapshot |
 | `open(name, path)` | Open an existing package for loading |
 | `load_table(name)` | Load one table from `data/` (parquet preferred over CSV) |
 | `load_all()` | Return a `{name: DataFrame}` dict of all tables in `data/` |
@@ -1099,6 +1162,8 @@ pkg = pivotal.Package.export(
     namespace={"sales": sales, "summary": summary},
     path="~/projects/output",
     fmt="parquet",
+    chart_fmt="png",           # optional, default is "png"
+    include=["sales", "summary"],  # optional include list
 )
 
 # Open a previously saved package and load tables

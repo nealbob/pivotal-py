@@ -27,7 +27,7 @@ df summary from clean
         agg sum revenue as total_revenue, mean revenue as avg_revenue, count revenue as n
 
 df summary
-    plot bar
+    plot bar revenue_chart
         x category
         y total_revenue
         title "Total Revenue by Category"

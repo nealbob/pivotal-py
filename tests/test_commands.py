@@ -439,18 +439,18 @@ def test_save_overwrites(parser, tmp_path, sample_df):
     assert not (pkg_dir / "data" / "sales.csv").is_file()
 
 
-def test_save_with_tables_include(parser, tmp_path, sample_df):
-    """save with tables clause only saves the listed tables."""
+def test_save_with_include(parser, tmp_path, sample_df):
+    """save with include clause only saves the listed tables."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'other': sample_df.head(2).copy()}
-    run(parser, f'save "filtered"\n    path "{tmp_path}"\n    tables sales', ns)
+    run(parser, f'save "filtered"\n    path "{tmp_path}"\n    include sales', ns)
     assert (tmp_path / "filtered" / "data" / "sales.csv").is_file()
     assert not (tmp_path / "filtered" / "data" / "other.csv").is_file()
 
 
-def test_save_with_exclude_tables(parser, tmp_path, sample_df):
-    """save with exclude tables skips the listed tables."""
+def test_save_with_exclude(parser, tmp_path, sample_df):
+    """save with exclude skips the listed tables."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'other': sample_df.head(2).copy()}
-    run(parser, f'save "excluded"\n    path "{tmp_path}"\n    exclude tables other', ns)
+    run(parser, f'save "excluded"\n    path "{tmp_path}"\n    exclude other', ns)
     assert (tmp_path / "excluded" / "data" / "sales.csv").is_file()
     assert not (tmp_path / "excluded" / "data" / "other.csv").is_file()
 

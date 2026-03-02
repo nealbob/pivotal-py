@@ -37,10 +37,9 @@ class Package:
         namespace: dict,
         path: str | None = None,
         fmt: str = "csv",
-        tables: list | None = None,
-        charts: list | None = None,
-        exclude_tables: list | None = None,
-        exclude_charts: list | None = None,
+        chart_fmt: str = "png",
+        include: list | None = None,
+        exclude: list | None = None,
     ) -> "Package":
         """Export a fresh package snapshot to disk.
 
@@ -55,15 +54,14 @@ class Package:
             Parent directory for the package folder.  Defaults to CWD.
         fmt:
             Table format: ``'csv'`` (default) or ``'parquet'``.
-        tables:
-            Explicit list of table names to include.  ``None`` = all.
-        charts:
-            Explicit list of chart keys to include from ``_pivotal_charts``.
-            ``None`` = all.
-        exclude_tables:
-            Table names to skip (applied after *tables* filter).
-        exclude_charts:
-            Chart keys to skip (applied after *charts* filter).
+        chart_fmt:
+            Image format for chart files: ``'png'`` (default), ``'svg'``,
+            ``'pdf'``, etc.  Any format supported by matplotlib savefig.
+        include:
+            Explicit list of names (tables or charts) to include.  ``None`` = all.
+            Chart names and table names must be unique across both.
+        exclude:
+            Names (tables or charts) to skip (applied after *include* filter).
 
         Each call wipes and recreates the package folder, so calling
         ``save`` twice with the same name and path is equivalent to Save-As.
@@ -79,27 +77,27 @@ class Package:
 
         config = {"name": name.lower().replace(" ", "-"), "resources": []}
 
-        exclude_t = set(exclude_tables or [])
-        exclude_c = set(exclude_charts or [])
+        include_set = set(include) if include is not None else None
+        exclude_set = set(exclude or [])
 
         # --- Save tables ---
         for var_name, obj in namespace.items():
             if var_name.startswith("_") or not isinstance(obj, pd.DataFrame):
                 continue
-            if tables is not None and var_name not in tables:
+            if include_set is not None and var_name not in include_set:
                 continue
-            if var_name in exclude_t:
+            if var_name in exclude_set:
                 continue
             cls._write_table(pkg_path, config, var_name, obj, fmt)
 
         # --- Save charts ---
         chart_dict = namespace.get("_pivotal_charts", {})
-        for chart_name, fig in chart_dict.items():
-            if charts is not None and chart_name not in charts:
+        for chart_name, entry in chart_dict.items():
+            if include_set is not None and chart_name not in include_set:
                 continue
-            if chart_name in exclude_c:
+            if chart_name in exclude_set:
                 continue
-            cls._write_chart(pkg_path, config, chart_name, fig)
+            cls._write_chart(pkg_path, config, chart_name, entry, chart_fmt)
 
         # Write datapackage.json
         dp_path = os.path.join(pkg_path, "datapackage.json")
@@ -129,13 +127,25 @@ class Package:
             )
 
     @classmethod
-    def _write_chart(cls, pkg_path: str, config: dict, name: str, fig) -> None:
+    def _write_chart(cls, pkg_path: str, config: dict, name: str, entry: dict, chart_fmt: str = "png") -> None:
         charts_dir = os.path.join(pkg_path, "charts")
-        fpath = os.path.join(charts_dir, f"{name}.png")
-        fig.savefig(fpath, bbox_inches="tight")
+        fig = entry["fig"]
+        data = entry.get("data")
+
+        # Write image file
+        img_path = os.path.join(charts_dir, f"{name}.{chart_fmt}")
+        fig.savefig(img_path, bbox_inches="tight")
         config["resources"].append(
-            {"name": name, "path": f"charts/{name}.png", "mediatype": "image/png"}
+            {"name": name, "path": f"charts/{name}.{chart_fmt}", "mediatype": f"image/{chart_fmt}"}
         )
+
+        # Write chart data as CSV alongside the image
+        if data is not None:
+            csv_path = os.path.join(charts_dir, f"{name}.csv")
+            data.to_csv(csv_path, index=False)
+            config["resources"].append(
+                {"name": f"{name}_data", "path": f"charts/{name}.csv", "mediatype": "text/csv"}
+            )
 
     # ------------------------------------------------------------------
     # Open / load

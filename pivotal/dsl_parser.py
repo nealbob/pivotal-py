@@ -15,7 +15,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply',
     # Clause keywords
-    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg',
+    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
     'in', 'not', 'between', 'contains', 'startswith', 'endswith',
     'and', 'or',
@@ -55,7 +55,7 @@ grammar_indented = r"""
 
     apply_statement: "apply" IDENTIFIER _NL?
 
-    plot_statement: "plot" (IDENTIFIER | STRING)? (_NL | _NL _INDENT params _DEDENT)?
+    plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT params _DEDENT)?
 
     python_statement: "python" UNQUOTED_STRING _NL?
                     | "python" _NL _INDENT python_block _DEDENT _NL?
@@ -86,10 +86,9 @@ grammar_indented = r"""
     save_params: save_param+
     save_param: "path" (STRING | PYTHON_VAR) _NL?           -> save_path
               | "format" IDENTIFIER _NL?                     -> save_format
-              | "tables" save_id_list _NL?                   -> save_tables
-              | "charts" save_id_list _NL?                   -> save_charts
-              | "exclude" "tables" save_id_list _NL?         -> save_exclude_tables
-              | "exclude" "charts" save_id_list _NL?         -> save_exclude_charts
+              | "chart_format" IDENTIFIER _NL?               -> save_chart_format
+              | "include" save_id_list _NL?                  -> save_include
+              | "exclude" save_id_list _NL?                  -> save_exclude
 
     save_id_list: IDENTIFIER ("," IDENTIFIER)*
 
@@ -312,10 +311,9 @@ class DSLTransformer(Transformer):
 
         path = None
         fmt = None
-        tables = None
-        charts = None
-        exclude_tables = []
-        exclude_charts = []
+        chart_fmt = None
+        include = None
+        exclude = []
 
         for item in (params_list or []):
             if not isinstance(item, dict):
@@ -325,24 +323,21 @@ class DSLTransformer(Transformer):
                 path = item['value']
             elif key == 'format':
                 fmt = item['value']
-            elif key == 'tables':
-                tables = item['value']
-            elif key == 'charts':
-                charts = item['value']
-            elif key == 'exclude_tables':
-                exclude_tables = item['value']
-            elif key == 'exclude_charts':
-                exclude_charts = item['value']
+            elif key == 'chart_format':
+                chart_fmt = item['value']
+            elif key == 'include':
+                include = item['value']
+            elif key == 'exclude':
+                exclude = item['value']
 
         return {
             'type': 'save',
             'name': pkg_name,
             'path': path,
             'format': fmt,
-            'tables': tables,
-            'charts': charts,
-            'exclude_tables': exclude_tables,
-            'exclude_charts': exclude_charts,
+            'chart_format': chart_fmt,
+            'include': include,
+            'exclude': exclude,
         }
 
     def save_params(self, *params):
@@ -356,17 +351,14 @@ class DSLTransformer(Transformer):
     def save_format(self, val):
         return {'key': 'format', 'value': str(val)}
 
-    def save_tables(self, id_list):
-        return {'key': 'tables', 'value': id_list}
+    def save_chart_format(self, val):
+        return {'key': 'chart_format', 'value': str(val)}
 
-    def save_charts(self, id_list):
-        return {'key': 'charts', 'value': id_list}
+    def save_include(self, id_list):
+        return {'key': 'include', 'value': id_list}
 
-    def save_exclude_tables(self, id_list):
-        return {'key': 'exclude_tables', 'value': id_list}
-
-    def save_exclude_charts(self, id_list):
-        return {'key': 'exclude_charts', 'value': id_list}
+    def save_exclude(self, id_list):
+        return {'key': 'exclude', 'value': id_list}
 
     def save_id_list(self, *ids):
         return [str(i) for i in ids]
@@ -815,23 +807,30 @@ class DSLTransformer(Transformer):
         }
     
     def plot_statement(self, *args):
+        name = None
         kind = None
         kwargs = {}
         kwargs_str = ""
-        
+
+        identifiers = []
         for arg in args:
             if isinstance(arg, Token) and arg.type != '_NL':
-                kind = str(arg)
+                identifiers.append(str(arg))
             elif isinstance(arg, str):
-                 # Sometimes lark passes strings directly if they are terminals
-                 kind = arg
+                identifiers.append(arg)
             elif isinstance(arg, list):
-                # params
                 kwargs, kwargs_str = self._keyword_arg(arg)
-        
+
+        if len(identifiers) == 1:
+            name = identifiers[0]
+        elif len(identifiers) >= 2:
+            kind = identifiers[0]
+            name = identifiers[1]
+
         return {
             'type': 'plot',
             'table_name': self.current_table,
+            'name': name,
             'kind': kind,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str
@@ -1344,6 +1343,7 @@ class CodeGenerator:
         kind = ast_node['kind']
         kwargs_str = ast_node['kwargs_str']
         table = ast_node['table_name']
+        chart_key = ast_node['name']
 
         args_str = ""
         if kind:
@@ -1354,11 +1354,10 @@ class CodeGenerator:
             else:
                 args_str = kwargs_str[2:]  # remove leading ", "
 
-        chart_key = f"{table}_{kind or 'plot'}"
         return (
             f"_ax = {table}.plot({args_str})\n"
             f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}\n"
-            f"globals()['_pivotal_charts'][{repr(chart_key)}] = _ax.get_figure()"
+            f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}"
         )
 
     def _build_query_string(self, conditions, operators):
@@ -1431,10 +1430,9 @@ class CodeGenerator:
         name = ast_node['name']
         path = ast_node.get('path')
         fmt = ast_node.get('format') or 'csv'
-        tables = ast_node.get('tables')
-        charts = ast_node.get('charts')
-        exclude_tables = ast_node.get('exclude_tables') or []
-        exclude_charts = ast_node.get('exclude_charts') or []
+        chart_fmt = ast_node.get('chart_format') or 'png'
+        include = ast_node.get('include')
+        exclude = ast_node.get('exclude') or []
 
         if isinstance(path, dict) and path.get('type') == 'var':
             path_arg = f", path={path['name']}"
@@ -1443,15 +1441,13 @@ class CodeGenerator:
         else:
             path_arg = ""
 
-        tables_arg = f", tables={repr(tables)}" if tables is not None else ""
-        charts_arg = f", charts={repr(charts)}" if charts is not None else ""
-        excl_t = f", exclude_tables={repr(exclude_tables)}" if exclude_tables else ""
-        excl_c = f", exclude_charts={repr(exclude_charts)}" if exclude_charts else ""
+        include_arg = f", include={repr(include)}" if include is not None else ""
+        exclude_arg = f", exclude={repr(exclude)}" if exclude else ""
 
         return (
             f"from pivotal.package import Package as _PivotalPackage\n"
             f"_PivotalPackage.export({repr(name)}, globals(){path_arg}, fmt={repr(fmt)}"
-            f"{tables_arg}{charts_arg}{excl_t}{excl_c})"
+            f", chart_fmt={repr(chart_fmt)}{include_arg}{exclude_arg})"
         )
 
     def generate_save_polars(self, ast_node):
@@ -1692,8 +1688,8 @@ class DSLParser:
             print(f"Executing: {python_code}")
             try:
                 exec(python_code, globals_dict)
-                table_name = results[i]['table_name']
-                if verbose:
+                table_name = results[i].get('table_name')
+                if verbose and table_name and table_name in globals_dict:
                     df = globals_dict[table_name]
                     print(f"\nTable '{table_name}':")
                     print(f"Shape: {df.shape}\n")
