@@ -12,13 +12,12 @@ import {
 import { LanguageSupport } from '@codemirror/language';
 import { Compartment, Prec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-
 import {
-  ICompletionProviderManager,
-  ICompletionProvider,
-  ICompletionContext,
-  CompletionHandler,
-} from '@jupyterlab/completer';
+  autocompletion,
+  CompletionContext,
+  CompletionResult,
+  Completion,
+} from '@codemirror/autocomplete';
 
 import { pivotalLanguage } from './language';
 
@@ -99,6 +98,19 @@ async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | nu
   }
 }
 
+function getNotebookDir(app: JupyterFrontEnd): string {
+  const widget = app.shell.currentWidget;
+  if (widget && 'context' in widget) {
+    const ctxPath = (widget as any).context?.path as string | undefined;
+    if (ctxPath) {
+      return ctxPath.includes('/')
+        ? ctxPath.slice(0, ctxPath.lastIndexOf('/'))
+        : '';
+    }
+  }
+  return '';
+}
+
 // ---------------------------------------------------------------------------
 // Context detection
 // ---------------------------------------------------------------------------
@@ -166,13 +178,10 @@ function detectContext(
 }
 
 // ---------------------------------------------------------------------------
-// Build completion items (JupyterLab format)
+// Build completion items
 // ---------------------------------------------------------------------------
 
-function buildItems(
-  ctx: CompletionCtx,
-  ac: AutocompleteData | null,
-): CompletionHandler.ICompletionItem[] {
+function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Completion[] {
   switch (ctx.type) {
     case 'command':
       return COMMAND_KEYWORDS.map(kw => ({ label: kw, type: 'keyword' }));
@@ -186,7 +195,7 @@ function buildItems(
       return info.columns.map(col => {
         const label = Array.isArray(col) ? col.join('.') : String(col);
         const dtype = info.dtypes?.[label];
-        return { label, type: 'field', documentation: dtype };
+        return { label, type: 'property', detail: dtype };
       });
     }
     case 'agg':
@@ -199,85 +208,43 @@ function buildItems(
 }
 
 // ---------------------------------------------------------------------------
-// Helper: find word start/end around a character offset
+// CompletionSource
 // ---------------------------------------------------------------------------
 
-function wordBounds(text: string, offset: number): { start: number; end: number } {
-  let start = offset;
-  while (start > 0 && /\w/.test(text[start - 1])) start--;
-  let end = offset;
-  while (end < text.length && /\w/.test(text[end])) end++;
-  return { start, end };
-}
+function makePivotalCompletionSource(app: JupyterFrontEnd) {
+  return async function pivotalCompletionSource(
+    context: CompletionContext
+  ): Promise<CompletionResult | null> {
+    const state = context.state;
 
-// ---------------------------------------------------------------------------
-// JupyterLab ICompletionProvider
-// ---------------------------------------------------------------------------
-
-class PivotalCompletionProvider implements ICompletionProvider {
-  readonly identifier = 'pivotal-completer';
-
-  async isApplicable(context: ICompletionContext): Promise<boolean> {
-    const editor = context.editor;
-    if (!editor) return false;
-    const firstLine = editor.model.sharedModel.getSource().split('\n')[0] ?? '';
-    return MAGIC_RE.test(firstLine);
-  }
-
-  async fetch(
-    request: CompletionHandler.IRequest,
-    context: ICompletionContext,
-  ): Promise<CompletionHandler.ICompletionItemsReply> {
-    const empty: CompletionHandler.ICompletionItemsReply = {
-      start: request.offset, end: request.offset, items: [],
-    };
-
-    const { text, offset } = request;
-    const allLines = text.split('\n');
-    const lineOffset = MAGIC_RE.test(allLines[0] ?? '') ? 1 : 0;
-
-    // Convert character offset to line/col
-    let remaining = offset;
-    let lineIdx = 0;
-    for (let i = 0; i < allLines.length; i++) {
-      if (remaining <= allLines[i].length) { lineIdx = i; break; }
-      remaining -= allLines[i].length + 1; // +1 for \n
-      lineIdx = i + 1;
+    const lines: string[] = [];
+    for (let i = 1; i <= state.doc.lines; i++) {
+      lines.push(state.doc.line(i).text);
     }
-    const col = remaining;
-    const cursorLine = lineIdx - lineOffset;
 
-    if (cursorLine < 0) return empty;
+    // Skip the %%pivotal magic line in notebook cells
+    const lineOffset = MAGIC_RE.test(lines[0] ?? '') ? 1 : 0;
 
-    const effectiveLines = allLines.slice(lineOffset);
-    const dir = this._notebookDir(context);
+    const lineInfo = state.doc.lineAt(context.pos);
+    const cursorLine = lineInfo.number - 1 - lineOffset;
+    const cursorCol = context.pos - lineInfo.from;
+
+    if (cursorLine < 0) return null;
+
+    const effectiveLines = lines.slice(lineOffset);
+    const dir = getNotebookDir(app);
     const ac = await fetchAutocompleteData(dir);
 
-    const ctx = detectContext(effectiveLines, cursorLine, col, ac);
-    const items = buildItems(ctx, ac);
+    const ctx = detectContext(effectiveLines, cursorLine, cursorCol, ac);
+    const options = buildCompletions(ctx, ac);
 
-    if (!items.length) return empty;
+    if (!options.length && !context.explicit) return null;
 
-    const { start, end } = wordBounds(text, offset);
-    return { start, end, items };
-  }
+    const word = context.matchBefore(/\w*/);
+    const from = word ? word.from : context.pos;
 
-  shouldShowContinuousHint(): boolean {
-    return true;
-  }
-
-  private _notebookDir(context: ICompletionContext): string {
-    const widget = context.widget;
-    if ('context' in widget) {
-      const ctxPath = (widget as any).context?.path as string | undefined;
-      if (ctxPath) {
-        return ctxPath.includes('/')
-          ? ctxPath.slice(0, ctxPath.lastIndexOf('/'))
-          : '';
-      }
-    }
-    return '';
-  }
+    return { from, options, validFor: /^\w*$/ };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,14 +255,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: '@pivotal/jupyterlab:language',
   description: 'Syntax highlighting and autocomplete for the Pivotal data transformation DSL',
   autoStart: true,
-  requires: [IEditorLanguageRegistry, IEditorExtensionRegistry, ICompletionProviderManager],
+  requires: [IEditorLanguageRegistry, IEditorExtensionRegistry],
   activate: (
     app: JupyterFrontEnd,
     languages: IEditorLanguageRegistry,
     extensions: IEditorExtensionRegistry,
-    completionManager: ICompletionProviderManager,
   ) => {
-    // Register the file type
+    const completionSource = makePivotalCompletionSource(app);
+    const completionExt = autocompletion({ override: [completionSource] });
+
     app.docRegistry.addFileType({
       name: 'pivotal',
       displayName: 'Pivotal',
@@ -306,15 +274,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
       fileFormat: 'text',
     });
 
-    // Register the language for standalone .pivotal files
     languages.addLanguage({
       name: 'pivotal',
       mime: 'text/x-pivotal',
       extensions: ['.pivotal'],
-      load: async () => new LanguageSupport(pivotalLanguage),
+      load: async () => new LanguageSupport(pivotalLanguage, completionExt),
     });
 
-    // For notebook cells: switch to Pivotal highlighting when %%pivotal is detected
     extensions.addExtension({
       name: '@pivotal/jupyterlab:magic-highlight',
       factory: () => {
@@ -332,7 +298,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
             update.view.dispatch({
               effects: compartment.reconfigure(
-                isPivotal ? Prec.highest(new LanguageSupport(pivotalLanguage)) : []
+                isPivotal
+                  ? Prec.highest(new LanguageSupport(pivotalLanguage, completionExt))
+                  : []
               ),
             });
           }),
@@ -341,9 +309,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         return { instance: () => ext, reconfigure: () => null };
       },
     });
-
-    // Register with JupyterLab's completion system (handles Tab / Ctrl+Space)
-    completionManager.registerProvider(new PivotalCompletionProvider());
   },
 };
 

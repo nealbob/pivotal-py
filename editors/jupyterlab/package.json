@@ -41,7 +41,6 @@
     "@codemirror/view": "^6.0.0",
     "@jupyterlab/application": "^4.0.0",
     "@jupyterlab/codemirror": "^4.0.0",
-    "@jupyterlab/completer": "^4.0.0",
     "@jupyterlab/ui-components": "^4.0.0",
     "@lezer/highlight": "^1.0.0"
   },

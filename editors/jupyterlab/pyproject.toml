@@ -23,6 +23,7 @@ Repository = "https://github.com/pivotal/pivotal-py"
 [tool.hatch.build.targets.wheel.shared-data]
 "install.json" = "share/jupyter/labextensions/@pivotal/jupyterlab/install.json"
 "pivotal_jupyterlab/labextension" = "share/jupyter/labextensions/@pivotal/jupyterlab"
+"pivotal_jupyterlab/ipython_config.d/pivotal.py" = "etc/ipython/ipython_config.d/pivotal.py"
 
 [tool.hatch.build.targets.sdist]
 artifacts = ["pivotal_jupyterlab/labextension"]
