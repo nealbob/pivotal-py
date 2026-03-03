@@ -289,8 +289,19 @@ class DSLTransformer(Transformer):
         if params:
             kwargs, kwargs_str = self._keyword_arg(params)
         else:
-            kwargs = ''
+            kwargs = {}
             kwargs_str = ''
+
+        # Extract sql_query before building kwargs_str so it doesn't leak
+        # into pandas reader calls
+        sql_query = kwargs.pop('query', None) if isinstance(kwargs, dict) else None
+        if sql_query is not None:
+            kwargs_str = ', '.join(
+                f"{k}='{v}'" if isinstance(v, str) else f"{k}={v}"
+                for k, v in kwargs.items()
+            )
+            if kwargs_str:
+                kwargs_str = ', ' + kwargs_str
 
         ast_node = {
             'type': 'load_table',
@@ -298,6 +309,7 @@ class DSLTransformer(Transformer):
             'source': source_val,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str,
+            'sql_query': sql_query,
         }
 
         self.current_table = str(table_name)
@@ -1028,19 +1040,36 @@ class CodeGenerator:
             # Runtime format detection for variable file paths
             var = source['name']
             kw = ast_node['kwargs_str']
+            tname = ast_node['table_name']
+            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
             load_table = (
                 f"_src = {var}\n"
                 f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
                 f"if _ext in ('xlsx', 'xls'):\n"
-                f"    {ast_node['table_name']} = pd.read_excel(_src{kw})\n"
+                f"    {tname} = pd.read_excel(_src{kw})\n"
                 f"elif _ext == 'parquet':\n"
-                f"    {ast_node['table_name']} = pd.read_parquet(_src{kw})\n"
+                f"    {tname} = pd.read_parquet(_src{kw})\n"
+                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
+                f"    import sqlite3 as _sqlite3\n"
+                f"    with _sqlite3.connect(_src) as _conn:\n"
+                f"        {tname} = pd.read_sql({repr(sql_query)}, _conn)\n"
                 f"else:\n"
-                f"    {ast_node['table_name']} = pd.read_csv(_src{kw})"
+                f"    {tname} = pd.read_csv(_src{kw})"
             )
         else:
-            reader = self._reader_for_source(str(source))
-            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+            source_str = str(source)
+            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+            if ext in ('sqlite', 'db', 'sqlite3'):
+                tname = ast_node['table_name']
+                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
+                load_table = (
+                    f"import sqlite3 as _sqlite3\n"
+                    f"with _sqlite3.connect('{source_str}') as _conn:\n"
+                    f"    {tname} = pd.read_sql({repr(sql_query)}, _conn)"
+                )
+            else:
+                reader = self._reader_for_source(source_str)
+                load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
 
         kw_set = repr(PIVOTAL_KEYWORDS)
         tname = ast_node['table_name']
