@@ -12,20 +12,22 @@ import {
 import { LanguageSupport } from '@codemirror/language';
 import { Compartment, Prec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+
 import {
-  autocompletion,
-  CompletionContext,
-  CompletionResult,
-  Completion,
-} from '@codemirror/autocomplete';
+  ICompletionProviderManager,
+  ICompletionProvider,
+  ICompletionContext,
+  CompletionHandler,
+} from '@jupyterlab/completer';
 
 import { pivotalLanguage } from './language';
 
 const MAGIC_RE = /^%%pivotal(\s|$)/;
 
-// Inline SVG so no raw-loader/webpack config is needed.
-// JupyterLab replaces #616161 → contrast colour and #E8EAED → light colour
-// automatically when switching between light/dark themes.
+// ---------------------------------------------------------------------------
+// Icon
+// ---------------------------------------------------------------------------
+
 const PIVOTAL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
   <rect x="1" y="1" width="14" height="14" rx="2" fill="#616161"/>
   <rect x="2.5" y="2.5" width="11" height="3.5" rx="0.8" fill="#E8EAED" opacity="0.9"/>
@@ -74,7 +76,7 @@ const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'av
 const CHART_TYPES = ['line', 'bar', 'scatter', 'hist', 'box', 'area'];
 
 // ---------------------------------------------------------------------------
-// Autocomplete file fetching — last_modified-cached so each keystroke is cheap
+// Autocomplete file fetching — last_modified-cached
 // ---------------------------------------------------------------------------
 
 let _acCache: { path: string; lastModified: string; data: AutocompleteData } | null = null;
@@ -97,21 +99,8 @@ async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | nu
   }
 }
 
-function getNotebookDir(app: JupyterFrontEnd): string {
-  const widget = app.shell.currentWidget;
-  if (widget && 'context' in widget) {
-    const ctxPath = (widget as any).context?.path as string | undefined;
-    if (ctxPath) {
-      return ctxPath.includes('/')
-        ? ctxPath.slice(0, ctxPath.lastIndexOf('/'))
-        : '';
-    }
-  }
-  return '';
-}
-
 // ---------------------------------------------------------------------------
-// Context detection (same algorithm as VS Code extension)
+// Context detection
 // ---------------------------------------------------------------------------
 
 function findActiveTable(
@@ -140,29 +129,22 @@ function detectContext(
   const trimmed = upToCursor.trimStart();
   const indent = upToCursor.length - trimmed.length;
 
-  // Empty root-level line → command keywords
   if (trimmed === '' && indent === 0) return { type: 'command' };
 
-  // `df <word>` or `df <word> from <word>` → table names
   if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
-
-  // After merge / concat → table names
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
 
-  // After `plot` → chart types
   if (/^plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
 
-  // After `agg` → agg functions; after `agg <func>` → columns
   if (/^agg\s+\w*$/.test(trimmed)) return { type: 'agg' };
   if (/^agg\s+\w+\s+\w*$/.test(trimmed)) {
     const table = findActiveTable(lines, cursorLine, ac);
     return table ? { type: 'column', table } : { type: 'none' };
   }
 
-  // Column contexts — need an active table
   const table = findActiveTable(lines, cursorLine, ac);
   if (table) {
     if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
@@ -179,25 +161,24 @@ function detectContext(
     }
   }
 
-  // Partial keyword at root level → command keywords
   if (indent === 0) return { type: 'command' };
-
   return { type: 'none' };
 }
 
 // ---------------------------------------------------------------------------
-// Build completion items
+// Build completion items (JupyterLab format)
 // ---------------------------------------------------------------------------
 
-function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Completion[] {
+function buildItems(
+  ctx: CompletionCtx,
+  ac: AutocompleteData | null,
+): CompletionHandler.ICompletionItem[] {
   switch (ctx.type) {
     case 'command':
       return COMMAND_KEYWORDS.map(kw => ({ label: kw, type: 'keyword' }));
-
     case 'table':
       if (!ac) return [];
       return Object.keys(ac.tables).map(t => ({ label: t, type: 'variable' }));
-
     case 'column': {
       if (!ac) return [];
       const info = ac.tables[ctx.table];
@@ -205,66 +186,98 @@ function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Comp
       return info.columns.map(col => {
         const label = Array.isArray(col) ? col.join('.') : String(col);
         const dtype = info.dtypes?.[label];
-        return { label, type: 'property', detail: dtype };
+        return { label, type: 'field', documentation: dtype };
       });
     }
-
     case 'agg':
       return AGG_KEYWORDS.map(kw => ({ label: kw, type: 'function' }));
-
     case 'charttype':
       return CHART_TYPES.map(ct => ({ label: ct, type: 'enum' }));
-
     case 'none':
       return [];
   }
 }
 
 // ---------------------------------------------------------------------------
-// CompletionSource factory
+// Helper: find word start/end around a character offset
 // ---------------------------------------------------------------------------
 
-function makePivotalCompletionSource(app: JupyterFrontEnd) {
-  return async function pivotalCompletionSource(
-    context: CompletionContext
-  ): Promise<CompletionResult | null> {
-    const state = context.state;
+function wordBounds(text: string, offset: number): { start: number; end: number } {
+  let start = offset;
+  while (start > 0 && /\w/.test(text[start - 1])) start--;
+  let end = offset;
+  while (end < text.length && /\w/.test(text[end])) end++;
+  return { start, end };
+}
 
-    // Build lines array from the document
-    const lines: string[] = [];
-    for (let i = 1; i <= state.doc.lines; i++) {
-      lines.push(state.doc.line(i).text);
+// ---------------------------------------------------------------------------
+// JupyterLab ICompletionProvider
+// ---------------------------------------------------------------------------
+
+class PivotalCompletionProvider implements ICompletionProvider {
+  readonly identifier = 'pivotal-completer';
+
+  async isApplicable(context: ICompletionContext): Promise<boolean> {
+    const editor = context.editor;
+    if (!editor) return false;
+    const firstLine = editor.model.sharedModel.getSource().split('\n')[0] ?? '';
+    return MAGIC_RE.test(firstLine);
+  }
+
+  async fetch(
+    request: CompletionHandler.IRequest,
+    context: ICompletionContext,
+  ): Promise<CompletionHandler.ICompletionItemsReply> {
+    const empty: CompletionHandler.ICompletionItemsReply = {
+      start: request.offset, end: request.offset, items: [],
+    };
+
+    const { text, offset } = request;
+    const allLines = text.split('\n');
+    const lineOffset = MAGIC_RE.test(allLines[0] ?? '') ? 1 : 0;
+
+    // Convert character offset to line/col
+    let remaining = offset;
+    let lineIdx = 0;
+    for (let i = 0; i < allLines.length; i++) {
+      if (remaining <= allLines[i].length) { lineIdx = i; break; }
+      remaining -= allLines[i].length + 1; // +1 for \n
+      lineIdx = i + 1;
     }
+    const col = remaining;
+    const cursorLine = lineIdx - lineOffset;
 
-    // In %%pivotal cells the first line is the magic — skip it
-    let lineOffset = 0;
-    if (lines.length > 0 && MAGIC_RE.test(lines[0])) {
-      lineOffset = 1;
-    }
+    if (cursorLine < 0) return empty;
 
-    const lineInfo = state.doc.lineAt(context.pos);
-    const cursorLine = lineInfo.number - 1 - lineOffset;
-    const cursorCol = context.pos - lineInfo.from;
-
-    // Cursor is on the magic line itself — nothing to complete
-    if (cursorLine < 0) return null;
-
-    const effectiveLines = lines.slice(lineOffset);
-
-    // Fetch autocomplete data (cached by last_modified)
-    const dir = getNotebookDir(app);
+    const effectiveLines = allLines.slice(lineOffset);
+    const dir = this._notebookDir(context);
     const ac = await fetchAutocompleteData(dir);
 
-    const ctx = detectContext(effectiveLines, cursorLine, cursorCol, ac);
-    const options = buildCompletions(ctx, ac);
+    const ctx = detectContext(effectiveLines, cursorLine, col, ac);
+    const items = buildItems(ctx, ac);
 
-    if (!options.length && !context.explicit) return null;
+    if (!items.length) return empty;
 
-    const word = context.matchBefore(/\w*/);
-    const from = word ? word.from : context.pos;
+    const { start, end } = wordBounds(text, offset);
+    return { start, end, items };
+  }
 
-    return { from, options, validFor: /^\w*$/ };
-  };
+  shouldShowContinuousHint(): boolean {
+    return true;
+  }
+
+  private _notebookDir(context: ICompletionContext): string {
+    const widget = context.widget;
+    if ('context' in widget) {
+      const ctxPath = (widget as any).context?.path as string | undefined;
+      if (ctxPath) {
+        return ctxPath.includes('/')
+          ? ctxPath.slice(0, ctxPath.lastIndexOf('/'))
+          : '';
+      }
+    }
+    return '';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -275,17 +288,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: '@pivotal/jupyterlab:language',
   description: 'Syntax highlighting and autocomplete for the Pivotal data transformation DSL',
   autoStart: true,
-  requires: [IEditorLanguageRegistry, IEditorExtensionRegistry],
+  requires: [IEditorLanguageRegistry, IEditorExtensionRegistry, ICompletionProviderManager],
   activate: (
     app: JupyterFrontEnd,
     languages: IEditorLanguageRegistry,
-    extensions: IEditorExtensionRegistry
+    extensions: IEditorExtensionRegistry,
+    completionManager: ICompletionProviderManager,
   ) => {
-    const completionSource = makePivotalCompletionSource(app);
-    const completionExt = autocompletion({ override: [completionSource] });
-
-    // Register the file type so .pivotal files get the Pivotal icon in the
-    // file browser instead of the generic text-file icon.
+    // Register the file type
     app.docRegistry.addFileType({
       name: 'pivotal',
       displayName: 'Pivotal',
@@ -296,20 +306,18 @@ const plugin: JupyterFrontEndPlugin<void> = {
       fileFormat: 'text',
     });
 
-    // Register the language for standalone .pivotal files — include autocomplete
+    // Register the language for standalone .pivotal files
     languages.addLanguage({
       name: 'pivotal',
       mime: 'text/x-pivotal',
       extensions: ['.pivotal'],
-      load: async () => new LanguageSupport(pivotalLanguage, completionExt),
+      load: async () => new LanguageSupport(pivotalLanguage),
     });
 
-    // For notebook cells: watch each editor's first line and switch to Pivotal
-    // highlighting (and autocomplete) when it contains the %%pivotal cell magic.
+    // For notebook cells: switch to Pivotal highlighting when %%pivotal is detected
     extensions.addExtension({
       name: '@pivotal/jupyterlab:magic-highlight',
       factory: () => {
-        // Each editor instance gets its own Compartment via this closure.
         const compartment = new Compartment();
         let active = false;
 
@@ -324,9 +332,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
             update.view.dispatch({
               effects: compartment.reconfigure(
-                isPivotal
-                  ? Prec.highest(new LanguageSupport(pivotalLanguage, completionExt))
-                  : []
+                isPivotal ? Prec.highest(new LanguageSupport(pivotalLanguage)) : []
               ),
             });
           }),
@@ -335,6 +341,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         return { instance: () => ext, reconfigure: () => null };
       },
     });
+
+    // Register with JupyterLab's completion system (handles Tab / Ctrl+Space)
+    completionManager.registerProvider(new PivotalCompletionProvider());
   },
 };
 
