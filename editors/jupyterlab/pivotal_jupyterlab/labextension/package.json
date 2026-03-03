@@ -8,7 +8,7 @@
     "jupyterlab-extension",
     "pivotal"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "icon": "style/icons/pivotal_logo.svg",
@@ -35,6 +35,7 @@
     "watch:labextension": "jupyter labextension watch ."
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.0.0",
     "@codemirror/language": "^6.0.0",
     "@codemirror/state": "^6.0.0",
     "@codemirror/view": "^6.0.0",
@@ -53,7 +54,7 @@
     "extension": true,
     "outputDir": "pivotal_jupyterlab/labextension",
     "_build": {
-      "load": "static/remoteEntry.928edf42f5873479d2d2.js",
+      "load": "static/remoteEntry.986bf1302a4db145b625.js",
       "extension": "./extension",
       "style": "./style"
     }
