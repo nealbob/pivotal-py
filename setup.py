@@ -9,6 +9,11 @@ setup(
         "lark",
         "pandas",
     ],
+    license="MIT",
+    classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+    ],
     author="User",
     description="A DSL parser for pivotal-py",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
