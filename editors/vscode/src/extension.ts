@@ -34,7 +34,7 @@ let _acCache: { filePath: string; mtime: number; data: AutocompleteData } | null
 
 function loadAutocompleteFile(documentUri: vscode.Uri): AutocompleteData | null {
   const dir = path.dirname(documentUri.fsPath);
-  const filePath = path.join(dir, '.pivotal_autocomplete.json');
+  const filePath = path.join(dir, 'pivotal_autocomplete.json');
   try {
     const mtime = fs.statSync(filePath).mtimeMs;
     if (_acCache && _acCache.filePath === filePath && _acCache.mtime === mtime) {

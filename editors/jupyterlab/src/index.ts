@@ -81,7 +81,7 @@ const CHART_TYPES = ['line', 'bar', 'scatter', 'hist', 'box', 'area'];
 let _acCache: { path: string; lastModified: string; data: AutocompleteData } | null = null;
 
 async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | null> {
-  const acPath = dir ? `${dir}/.pivotal_autocomplete.json` : '.pivotal_autocomplete.json';
+  const acPath = dir ? `${dir}/pivotal_autocomplete.json` : 'pivotal_autocomplete.json';
   try {
     const resp = await fetch(`/api/contents/${acPath}`);
     if (!resp.ok) return null;

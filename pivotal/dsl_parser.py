@@ -1522,7 +1522,7 @@ class DSLParser:
             transformer=self._transformer
         )
         self.code_generator = CodeGenerator(backend)
-        self.autocomplete_file = Path('.pivotal_autocomplete.json')
+        self.autocomplete_file = Path('pivotal_autocomplete.json')
         self.table_info = {}
         
     def update_autocomplete_info(self, globals_dict=None):
