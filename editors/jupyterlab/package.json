@@ -8,7 +8,7 @@
     "jupyterlab-extension",
     "pivotal"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "icon": "style/icons/pivotal_logo.svg",
