@@ -168,5 +168,8 @@ class PivotalMagics(Magics):
                         print(f"Table '{table_name}' shape: {obj.shape}")
                         display(obj.head())
 
+        # Update autocomplete file so the next cell can offer column/table names
+        self.parser.update_autocomplete_info(self.shell.user_ns)
+
 def load_ipython_extension(ipython):
     ipython.register_magics(PivotalMagics)
