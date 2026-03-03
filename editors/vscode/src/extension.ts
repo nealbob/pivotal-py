@@ -132,9 +132,7 @@ function detectContext(
   }
 
   // Partial keyword at root level → command keywords
-  if (indent === 0) return { type: 'command' };
-
-  return { type: 'none' };
+  return { type: 'command' };
 }
 
 // ---------------------------------------------------------------------------

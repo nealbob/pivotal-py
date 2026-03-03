@@ -173,8 +173,7 @@ function detectContext(
     }
   }
 
-  if (indent === 0) return { type: 'command' };
-  return { type: 'none' };
+  return { type: 'command' };
 }
 
 // ---------------------------------------------------------------------------
