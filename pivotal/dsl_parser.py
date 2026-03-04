@@ -1636,6 +1636,9 @@ class DSLParser:
         """
         import re
 
+        # Normalize Windows line endings so regexes always see \n.
+        code = code.replace('\r\n', '\n').replace('\r', '\n')
+
         # Strip multi-line comments (/* ... */) preserving line count.
         def _replace_multiline(m):
             return '\n' * m.group(0).count('\n')

@@ -32,9 +32,23 @@ type CompletionCtx =
 
 let _acCache: { filePath: string; mtime: number; data: AutocompleteData } | null = null;
 
+function findAutocompleteFilePath(documentUri: vscode.Uri): string | null {
+  const candidates: string[] = [
+    path.join(path.dirname(documentUri.fsPath), 'pivotal_autocomplete.json'),
+  ];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    const p = path.join(folder.uri.fsPath, 'pivotal_autocomplete.json');
+    if (!candidates.includes(p)) candidates.push(p);
+  }
+  for (const p of candidates) {
+    try { fs.statSync(p); return p; } catch { /* not found */ }
+  }
+  return null;
+}
+
 function loadAutocompleteFile(documentUri: vscode.Uri): AutocompleteData | null {
-  const dir = path.dirname(documentUri.fsPath);
-  const filePath = path.join(dir, 'pivotal_autocomplete.json');
+  const filePath = findAutocompleteFilePath(documentUri);
+  if (!filePath) return null;
   try {
     const mtime = fs.statSync(filePath).mtimeMs;
     if (_acCache && _acCache.filePath === filePath && _acCache.mtime === mtime) {

@@ -2,6 +2,7 @@ python
     import os
     _ppath = os.environ.get('PIVOTAL_PATH', '.')
     data_path = _ppath + '/examples/data/data.csv'
+end
 
 load temp :data_path
 

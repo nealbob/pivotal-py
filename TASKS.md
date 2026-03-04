@@ -5,11 +5,10 @@
 
   ## Backlog
 
-- [ ] Context aware auto-complete in jupyter lab and vs code. For example, when editing pivotal text on a new line autocomplet the command keywords, but if you are within a statement then autocomplete the apprioate thing (dataframe name or column name) drawing on the existing .pivotal_autocomple.json file - see implementation plan below 
 
   ## Ideas (not ready to be implemented)
-  
-  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`),  see implementation plan below.  
+
+  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`) and style files see implementation plan below.  
   
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
@@ -43,110 +42,6 @@ rolling cola as colamean, colb as cobmean
 
 ## Implementation plans
 
-### Context-aware autocomplete
-
-**Goal:** Provide intelligent completions in VS Code and JupyterLab that are aware of (1) where the cursor is in the Pivotal grammar and (2) what tables and columns exist in the session — drawing on the existing `.pivotal_autocomplete.json` file.
-
-**The autocomplete file:**
-
-`.pivotal_autocomplete.json` already exists and is written by the Pivotal engine after each run. Its current shape:
-```json
-{
-  "tables": {
-    "sales": {
-      "columns": ["id", "product", "price", "quantity", "category"],
-      "dtypes":  { "price": "float64", ... },
-      "shape":   [100, 5]
-    }
-  },
-  "current_table": "sales",
-  "timestamp": "..."
-}
-```
-No changes to the file format are needed — it already has everything required.
-
-**Approach — editor-side context parsing (no Language Server):**
-
-Context detection is implemented in TypeScript inside each editor extension, reading the autocomplete file from disk. A full Language Server Protocol (LSP) server would be more powerful but is significantly more complex and overkill for this use case. Both editors share the same context-detection logic (extracted into a shared module where possible).
-
-**Context detection algorithm:**
-
-Walk backwards from the cursor line to find the current table in scope (nearest `df <name>` or `load <name>`). Then inspect the current line's indentation and first keyword to decide what to offer:
-
-| Position | Offer |
-|---|---|
-| Line start, no indent | Command keywords: `df`, `load`, `filter`, `select`, `sort`, `assign`, `group`, `merge`, `concat`, `pivot`, `plot`, `drop`, `rename`, `fillna`, `dropna`, `distinct`, `python` |
-| After `df` | Existing table names from autocomplete file |
-| After `df <name> from` | Existing table names |
-| After `select`, `drop`, `rename`, `sort`, `distinct`, `filter` (column position) | Column names for current table |
-| After `assign` (expression position, after `=`) | Column names for current table |
-| After `group by` | Column names for current table |
-| After `agg` | Agg keywords: `mean`, `sum`, `count`, `min`, `max`, `median`, `std` |
-| After `agg <func>` | Column names for current table |
-| After `merge`, `join`, `concat` | Existing table names |
-| After `plot` | Chart types: `line`, `bar`, `scatter`, `hist`, `box`, `area` |
-| After plot sub-params `x`, `y`, `by`, `c` | Column names for current table |
-| After `load` | Nothing (free-form path) |
-
-**VS Code implementation (`editors/vscode/src/extension.ts`):**
-
-Register a `CompletionItemProvider` for the `pivotal` language:
-```typescript
-vscode.languages.registerCompletionItemProvider(
-  { language: 'pivotal' },
-  { provideCompletionItems(document, position) {
-      const autocomplete = loadAutocompleteFile(document.uri);
-      const ctx = detectContext(document, position, autocomplete);
-      return buildCompletionItems(ctx);
-  }},
-  ' ', '\n'  // trigger characters
-);
-```
-
-- `loadAutocompleteFile()` reads `.pivotal_autocomplete.json` from the same directory as the open file, with a simple in-memory cache invalidated by file `mtime`
-- `detectContext()` walks the document text to determine table in scope and what kind of completion is needed
-- `buildCompletionItems()` returns `vscode.CompletionItem[]` with appropriate `kind` (Keyword, Field, Value)
-
-**JupyterLab implementation (`editors/jupyterlab/src/index.ts`):**
-
-CodeMirror 6's `@codemirror/autocomplete` package is already in the project's yarn cache. Register a `CompletionSource`:
-```typescript
-import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
-
-function pivotalCompletions(context: CompletionContext) {
-  const autocomplete = await fetchAutocompleteFile();  // JupyterLab Contents API
-  const ctx = detectContext(context.state, context.pos, autocomplete);
-  if (!ctx.options.length) return null;
-  return { from: context.pos - ctx.wordSoFar.length, options: ctx.options };
-}
-```
-
-Add `autocompletion({ override: [pivotalCompletions] })` to the CodeMirror extension list. For `%%pivotal` notebook cells, the same extension is added via the existing `magic-highlight` compartment mechanism.
-
-Reading the autocomplete file in JupyterLab: use `fetch('/api/contents/.pivotal_autocomplete.json')` against the JupyterLab Contents API, with the path relative to the notebook's directory.
-
-**Shared context detection module:**
-
-Extract `detectContext()` into `editors/shared/context.ts` (or duplicate with identical logic if the build setup makes sharing awkward). Inputs: document text as a string, cursor offset, parsed autocomplete data. Output: `{ type: 'command' | 'column' | 'table' | 'agg' | 'charttype', options: string[], wordSoFar: string }`.
-
-**Files to create / change:**
-- `editors/vscode/src/extension.ts` — add `registerCompletionItemProvider` and helper functions
-- `editors/jupyterlab/src/index.ts` — add `autocompletion()` extension and `pivotalCompletions` source
-- `editors/jupyterlab/package.json` — add `@codemirror/autocomplete` to dependencies (already cached)
-- `editors/shared/context.ts` *(new)* — shared context detection logic (optional, depends on build setup)
-
-**What triggers a refresh of the autocomplete file:**
-
-The file is already written by `pivotal/__main__.py` after each execution. No changes needed there. Completions are as fresh as the last run — acceptable, and consistent with how Python type stubs work. A future improvement could be a `--watch` mode that updates the file on save without a full run.
-
-**Effort estimate:**
-- ~3–4 hours for Claude Code: context detection logic is the main work; editor registration is boilerplate
-- ~20–30 hours for a human developer: unfamiliar VS Code and CodeMirror 6 APIs add significant ramp-up time
-
-**Biggest risk:** JupyterLab — fetching the autocomplete file path correctly relative to the notebook's working directory, especially when notebooks are opened from different locations. Start with VS Code (simpler file access) and validate the context detection logic there first. **Note:** If the `start` command is implemented first, this risk largely disappears — the extension scans for `start` in the file to find the package path, and the autocomplete file lives at a known location inside the package.
-
----
-
 ### Polars backend
 
 **Goal:** Generate Polars code instead of (or alongside) pandas, giving users who prefer Polars the same high-level DSL experience.
@@ -159,6 +54,7 @@ The file is already written by `pivotal/__main__.py` after each execution. No ch
 
 **Core challenge — expression conversion:**
 Pandas generators produce string expressions passed to `df.eval()` or `df.query()`. Polars requires `pl.col('name')` expression objects. A shared helper `_expr_to_polars(expr_str)` that walks a simple AST (or uses a regex substitution) to turn identifier tokens into `pl.col('identifier')` will be needed for `filter` and `assign`.
+
 
 **Statement-by-statement implementation plan:**
 
@@ -188,6 +84,22 @@ Pandas generators produce string expressions passed to `df.eval()` or `df.query(
 - For `filter` conditions with `and`/`or`, wrap each side and combine with `&`/`|`.
 - For `between [lo, hi]`: generate `pl.col('x').is_between(lo, hi)`.
 - For `contains`/`startswith`/`endswith`: generate `pl.col('x').str.contains(...)` etc.
+
+**Polars plot backend:**
+- Polars `.plot` accessor uses hvPlot (Bokeh-based), not matplotlib
+- Chart type becomes a method rather than a `kind=` kwarg: `df.plot.bar(x='category', y='quantity')`
+- Output is interactive HTML (self-contained) rather than a static matplotlib figure — a feature, not a limitation
+- `save` for Polars uses hvPlot's export to write standalone HTML
+- Requires `hvplot` as an additional dependency
+
+**Grammar changes (`dsl_parser.py`):**
+- `by`, `cols`, `style`, added as recognised structural params in `plot_statement` — intercepted before forwarding remaining kwargs to `df.plot()`
+
+**Code generator changes:**
+- `generate_plot_pandas`: split params into structural (`by`, `cols`, `style`, `save`) vs. cosmetic (everything else); load style JSON if specified; generate loop code when `by` is present; append savefig if `save`
+- `generate_plot_polars`: new method using `df.plot.<kind>(...)` via hvPlot; handle `save` with hvPlot HTML export
+
+
 
 **New files / changes:**
 - `pivotal/dsl_parser.py`: Add `generate_*_polars` methods for every statement type listed above; add `_expr_to_polars()` private helper.
@@ -227,7 +139,7 @@ plot bar
 
 **Style files:**
 
-What format to use for stylye files (matplotlib style files type for now i guess)
+What format to use for style files (matplotlib style files type for now i guess)
 
 
 **`by` / faceted subplots:**
@@ -253,20 +165,6 @@ plt.tight_layout()
 plt.show()
 ```
 
-
-**Polars plot backend:**
-- Polars `.plot` accessor uses hvPlot (Bokeh-based), not matplotlib
-- Chart type becomes a method rather than a `kind=` kwarg: `df.plot.bar(x='category', y='quantity')`
-- Output is interactive HTML (self-contained) rather than a static matplotlib figure — a feature, not a limitation
-- `save` for Polars uses hvPlot's export to write standalone HTML
-- Requires `hvplot` as an additional dependency
-
-**Grammar changes (`dsl_parser.py`):**
-- `by`, `cols`, `style`, added as recognised structural params in `plot_statement` — intercepted before forwarding remaining kwargs to `df.plot()`
-
-**Code generator changes:**
-- `generate_plot_pandas`: split params into structural (`by`, `cols`, `style`, `save`) vs. cosmetic (everything else); load style JSON if specified; generate loop code when `by` is present; append savefig if `save`
-- `generate_plot_polars`: new method using `df.plot.<kind>(...)` via hvPlot; handle `save` with hvPlot HTML export
 
 
 

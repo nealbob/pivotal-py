@@ -12,7 +12,7 @@
 
 **Pipeline-Oriented** - Chain operations naturally with indentation blocks
 
-**VS Code Integration** - Syntax highlighting, compile to Python or execute in interactive window
+**VS Code Integration** - Syntax highlighting, autocomplete, compile to Python or execute in interactive window
 
 **JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
 
@@ -41,7 +41,7 @@ df summary from invoices
     select customer_id, name, sum_income
 ```
 
-Note the `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do.
+Note the `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do. For multi-line Python code, use an indented block closed with `end`.
 
 ---
 
@@ -131,6 +131,7 @@ Open any `.pivotal` file in VS Code to get:
 - **Execute in Interactive Notebook** — sends the file to a VS Code Interactive Window as `%%pivotal` cells, with live DataFrame previews. Sections separated by `#%%` markers run as individual cells. The window opens to the right and is reused on subsequent runs.
 - **Execute Selection** (`Ctrl+Shift+F5` / `Cmd+Shift+F5`) — sends the selected block to the Interactive Window
 - **Compile to Python** — generates a `.py` file from the current `.pivotal` source and saves it alongside it
+- **Autocomplete** — context-aware completions for commands, table names, column names, aggregation functions, and chart types (see [Autocomplete](#autocomplete) below)
 
 All commands are also available via the Command Palette (`Ctrl+Shift+P`).
 
@@ -151,6 +152,20 @@ sort total desc
 
 - Syntax highlighting activates automatically on any cell whose first line is `%%pivotal`
 - Run the cell normally — results display as interactive DataFrames
+
+### Autocomplete
+
+The VS Code extension provides context-aware completions for `.pivotal` files. Completions are triggered automatically as you type (after a space or tab).
+
+| Context | Completions |
+|---|---|
+| Start of line | All Pivotal commands (`load`, `df`, `filter`, `sort`, …) |
+| After `df` | Table names from the active session |
+| After `filter`, `select`, `sort`, etc. | Column names for the active table |
+| After `plot` | Chart types (`bar`, `line`, `scatter`, …) |
+| After `agg` | Aggregation functions (`sum`, `mean`, `count`, …) |
+
+Column names and table names are sourced from a `pivotal_autocomplete.json` file that the runtime writes to the working directory whenever a table is created or modified. The extension watches the file and reloads it automatically — no restart required.
 
 ---
 
@@ -581,6 +596,33 @@ concat q2, q3, q4
 
 Define functions in a `python` block and call them from `assign` or `apply`.
 
+#### Python block syntax
+
+A `python` line can be used in two ways:
+
+**Single-line** — put the code directly on the same line:
+```pivotal
+df sales
+python sales["full_name"] = sales["last"] + ", " + sales["first"]
+```
+
+**Multi-line block** — write an indented block and close it with `end`:
+```pivotal
+python
+    def clean_price(s):
+        return s.str.replace("$", "").astype(float)
+
+    def initials(s):
+        return s.str[0].str.upper()
+end
+
+df sales
+assign price = clean_price(price)
+assign abbr  = initials(name)
+```
+
+The `end` keyword is required to close a multi-line `python` block. It must appear at the same indentation level as the opening `python` keyword.
+
 #### `assign` with a user function
 
 When the expression is a user-defined function call `func(col)`, Pivotal generates
@@ -593,6 +635,7 @@ python
 
     def initials(s):
         return s.str[0].str.upper()
+end
 
 df sales
 assign price = clean_price(price)
@@ -610,6 +653,7 @@ python
         lo = df["price"].quantile(0.05)
         hi = df["price"].quantile(0.95)
         return df[df["price"].between(lo, hi)]
+end
 
 df sales
 apply remove_outliers
@@ -753,6 +797,7 @@ To load from a previously saved package, open it via a `python` block and then u
 python
     from pivotal import Package
     _pivotal_pkg = Package.open("my_analysis", path="~/projects/output")
+end
 
 load all
 
@@ -792,6 +837,7 @@ save "sales_pipeline"
 python
     from pivotal import Package
     _pivotal_pkg = Package.open("sales_pipeline", path="~/projects/output")
+end
 
 load all
 

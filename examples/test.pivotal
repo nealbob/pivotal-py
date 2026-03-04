@@ -2,6 +2,7 @@ python
     import os
     _ppath = os.environ.get('PIVOTAL_PATH', '.')
     data_path = _ppath + '/examples/data/data.csv'
+end
 
 load testdf :data_path
    names ["my", "name", "is", "neal", "hughes"]
@@ -66,6 +67,7 @@ df df14 from testdf3
       print("Multiline python start")
       df14['multi_col'] = 200
       print("Multiline python end")
+   end
 
 df df15 from testdf3
    python varlist = ["product", "price"]
