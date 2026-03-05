@@ -25,3 +25,16 @@ df df_scatter from temp
         y quantity
         c category
         colormap "viridis"
+
+df df_facet from temp
+    plot bar facet_chart
+        x product
+        y price
+        by category
+        cols 2
+
+df df_styled from temp
+    plot line styled_chart
+        x product
+        y price
+        style ggplot

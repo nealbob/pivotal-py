@@ -58,6 +58,7 @@ df df11 from testdf3
 df df12 from testdf3
    sort price desc
 
+
 df df13 from testdf3
    python print("Executing python code")
    python df13['new_col'] = 100
@@ -68,6 +69,8 @@ df df14 from testdf3
       df14['multi_col'] = 200
       print("Multiline python end")
    end
+ 
+df temp 
 
 df df15 from testdf3
    python varlist = ["product", "price"]

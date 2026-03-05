@@ -8,7 +8,7 @@
 
   ## Ideas (not ready to be implemented)
 
-  - [ ] Enhanced plot syntax — style files, faceted subplots (`by`) and style files see implementation plan below.  
+  - [x] Enhanced plot syntax — style files, faceted subplots (`by`) and style files see implementation plan below.
   
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
@@ -232,4 +232,6 @@ assign fixed = replace(notes, "N/A", "")
 ---
 
 ## Completed
+
+- Enhanced plot syntax: `by <col>` for faceted subplots, `cols <n>` for column count, `style <name>` for matplotlib style files.
 

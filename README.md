@@ -10,11 +10,11 @@
 
 **Pandas-Powered** - Compiles to pandas, integrates with python code
 
-**Pipeline-Oriented** - Chain operations naturally with indentation blocks
+**Pipeline-Oriented** - Piped by default. Chain operations naturally with indentation blocks
 
-**VS Code Integration** - Syntax highlighting, autocomplete, compile to Python or execute in interactive window
+**VS Code Integration** - Syntax highlighting, autocomplete, interactive execution, Python code export
 
-**JupyterLab Integration** - `%%pivotal` cell magic with syntax highlighting 
+**JupyterLab Integration** - `%%pivotal` cell magic with autocomplete and syntax highlighting 
 
 ## At a Glance
 
@@ -702,6 +702,54 @@ plot scatter price_vs_qty
 
 All keyword arguments accepted by `DataFrame.plot()` can be passed as indented
 parameters (e.g. `figsize`, `title`, `xlabel`, `ylabel`, `legend`, `colormap`, etc.).
+
+#### Faceted subplots with `by`
+
+Use `by <column>` to create one subplot per unique value of a column. `cols` sets the
+number of columns in the grid (rows are calculated automatically):
+
+```pivotal
+df sales
+plot bar regional_chart
+    x category
+    y revenue
+    by region
+    cols 2
+```
+
+Empty subplot cells are hidden automatically and `tight_layout()` is applied.
+
+#### Style files
+
+Use `style <name>` to apply a matplotlib style before rendering the chart:
+
+```pivotal
+df summary
+plot bar revenue_chart
+    x category
+    y total
+    style reports
+```
+
+The `<name>` is resolved in this order:
+
+1. `<name>.mplstyle` in the current working directory
+2. `styles/<name>.mplstyle` relative to the current working directory
+3. A built-in matplotlib style name (e.g. `ggplot`, `seaborn-v0_8`, `bmh`, `dark_background`)
+
+A `.mplstyle` file is a plain text file of matplotlib rcParams:
+
+```ini
+figure.figsize: 10, 6
+axes.titlesize: 14
+axes.labelsize: 12
+font.family: serif
+axes.grid: True
+grid.alpha: 0.3
+```
+
+Run `import matplotlib.pyplot as plt; print(plt.style.available)` in Python to see all
+built-in style names.
 
 Charts are stored in the session and exported automatically by `save`.  Each chart is
 saved as both an image (`charts/<name>.png`) and a CSV snapshot of the source data

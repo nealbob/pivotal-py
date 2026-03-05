@@ -58,7 +58,9 @@ grammar_indented = r"""
     plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
 
     plot_params: plot_param+
-    plot_param: IDENTIFIER value STRING _NL?   -> plot_labeled_param
+    plot_param: "by" IDENTIFIER _NL?           -> plot_by_param
+              | "cols" value _NL?              -> plot_cols_param
+              | IDENTIFIER value STRING _NL?   -> plot_labeled_param
               | IDENTIFIER value _NL?          -> plot_value_param
               | IDENTIFIER "=" value _NL?      -> plot_value_param
               | IDENTIFIER "=" list_value _NL? -> plot_list_param
@@ -846,17 +848,38 @@ class DSLTransformer(Transformer):
             kind = identifiers[0]
             name = identifiers[1]
 
+        # Extract structural params so they don't get forwarded to df.plot()
+        by_col = kwargs.pop('by', None)
+        n_cols = kwargs.pop('cols', None)
+        style = kwargs.pop('style', None)
+
+        # Rebuild kwargs_str if any structural params were removed
+        if any(p is not None for p in [by_col, n_cols, style]):
+            parts = []
+            for k, v in kwargs.items():
+                parts.append(f"{k}={repr(v)}" if isinstance(v, str) else f"{k}={v}")
+            kwargs_str = ', '.join(parts)
+
         return {
             'type': 'plot',
             'table_name': self.current_table,
             'name': name,
             'kind': kind,
             'kwargs': kwargs,
-            'kwargs_str': kwargs_str
+            'kwargs_str': kwargs_str,
+            'by': by_col,
+            'cols': n_cols,
+            'style': style,
         }
 
     def plot_params(self, *params):
         return list(params)
+
+    def plot_by_param(self, col):
+        return {'key': 'by', 'value': str(col), 'label': None}
+
+    def plot_cols_param(self, val):
+        return {'key': 'cols', 'value': self._convert_value(val), 'label': None}
 
     def plot_labeled_param(self, key, val, label):
         return {'key': str(key), 'value': self._convert_value(val), 'label': str(label).strip('"').strip("'")}
@@ -1417,6 +1440,9 @@ class CodeGenerator:
         kwargs_str = ast_node['kwargs_str']
         table = ast_node['table_name']
         chart_key = ast_node['name']
+        by_col = ast_node.get('by')
+        n_cols = int(ast_node.get('cols') or 2)
+        style = ast_node.get('style')
 
         args_str = ""
         if kind:
@@ -1424,12 +1450,44 @@ class CodeGenerator:
         if kwargs_str:
             args_str = f"{args_str}, {kwargs_str}" if args_str else kwargs_str
 
-        return (
-            f"_ax = {table}.plot({args_str})\n"
-            f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}\n"
-            f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}\n"
-            f"{chart_key} = _ax.get_figure()"
-        )
+        lines = ["import matplotlib.pyplot as plt"]
+
+        # Style file: look for <name>.mplstyle locally, then styles/<name>.mplstyle,
+        # otherwise pass the name directly to plt.style.use() for built-in styles.
+        if style:
+            lines += [
+                f"_style_candidates = [{repr(style + '.mplstyle')}, {repr('styles/' + style + '.mplstyle')}]",
+                f"_style_path = next((_p for _p in _style_candidates if __import__('os').path.exists(_p)), {repr(style)})",
+                f"plt.style.use(_style_path)",
+            ]
+
+        if not by_col:
+            # Simple plot — existing behaviour
+            lines += [
+                f"_ax = {table}.plot({args_str})",
+                f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
+                f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}",
+                f"{chart_key} = _ax.get_figure()",
+            ]
+        else:
+            # Faceted subplots: one per unique value of by_col
+            lines += [
+                f"_by_vals = {table}[{repr(by_col)}].unique()",
+                f"_n_cols = {n_cols}",
+                f"_n_rows = -(-len(_by_vals) // _n_cols)",
+                f"_fig, _axes = plt.subplots(_n_rows, _n_cols, figsize=(7 * _n_cols, 5 * _n_rows))",
+                f"_axes = _axes.flatten() if hasattr(_axes, 'flatten') else [_axes]",
+                f"for _i, _val in enumerate(_by_vals):",
+                f"    {table}[{table}[{repr(by_col)}] == _val].plot({args_str}, ax=_axes[_i], title=str(_val))",
+                f"for _ax in _axes[len(_by_vals):]:",
+                f"    _ax.set_visible(False)",
+                f"plt.tight_layout()",
+                f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
+                f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _fig, 'data': {table}.copy()}}",
+                f"{chart_key} = _fig",
+            ]
+
+        return "\n".join(lines)
 
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators.
