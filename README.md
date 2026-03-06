@@ -20,26 +20,7 @@
 
 The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating some aspects of Python/Pandas (i.e., indentation rather than brackets):
 
-**Pivotal**
-
-```
-load invoices "invoices.csv"
-load customers "customers.csv"
-
-df invoices
-    filter invoice_date >= "1970-01-16"
-    assign transaction_fees = 0.8
-    assign income = total - transaction_fees
-    filter income > 1
-
-df summary from invoices
-    group by customer_id
-        agg mean total, sum income as sum_income, count total as ct
-    sort sum_income desc
-    left merge customers on customer_id
-    python summary["name"] = summary["last_name"] + ", " + summary["first_name"]
-    select customer_id, name, sum_income
-```
+<img src="examples/ataglance.png" width="600">
 
 Note the `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do. For multi-line Python code, use an indented block closed with `end`.
 
