@@ -1,0 +1,48 @@
+{
+  "tables": {
+    "sales": {
+      "columns": [
+        "id",
+        "product",
+        "price",
+        "quantity",
+        "category"
+      ],
+      "shape": [
+        5,
+        5
+      ],
+      "dtypes": {
+        "id": "int64",
+        "product": "str",
+        "price": "float64",
+        "quantity": "int64",
+        "category": "str"
+      },
+      "has_multiindex_columns": false
+    },
+    "clean": {
+      "columns": [
+        "id",
+        "product",
+        "price",
+        "quantity",
+        "category"
+      ],
+      "shape": [
+        5,
+        5
+      ],
+      "dtypes": {
+        "id": "int64",
+        "product": "str",
+        "price": "float64",
+        "quantity": "int64",
+        "category": "str"
+      },
+      "has_multiindex_columns": false
+    }
+  },
+  "timestamp": "2026-03-06T12:17:38.125116",
+  "current_table": "clean"
+}

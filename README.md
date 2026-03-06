@@ -663,7 +663,7 @@ group by category
 
 ---
 
-### Plotting
+### plotting
 
 Create charts from the active table using `plot`. Each plot must be given a name so it
 can be referenced in `save` include/exclude lists.
