@@ -127,6 +127,8 @@ grammar_indented = r"""
     expression: UNQUOTED_STRING | STRING
 
     condition: IDENTIFIER COMPARATOR (value | list_value)
+             | IDENTIFIER "in" PYTHON_VAR       -> condition_in_var
+             | IDENTIFIER "not" "in" PYTHON_VAR -> condition_not_in_var
 
     condition_list: condition (AOR condition)*
 
@@ -928,6 +930,12 @@ class DSLTransformer(Transformer):
             'comparator': str(comparator),
             'value': self._convert_value(value) if not isinstance(value, list) else value
         }
+
+    def condition_in_var(self, column, var):
+        return {'column': str(column), 'comparator': 'in', 'value': var}
+
+    def condition_not_in_var(self, column, var):
+        return {'column': str(column), 'comparator': 'not in', 'value': var}
     
     def AOR(self, token):
         return str(token)
@@ -1322,8 +1330,8 @@ class CodeGenerator:
             
         pivot_args.append(f"aggfunc={aggfunc_str}")
         
-        pivot_call = f"{table_name} = pd.pivot_table({table_name}, {', '.join(pivot_args)})"
-        
+        pivot_call = f"{table_name} = pd.pivot_table({table_name}, {', '.join(pivot_args)}).reset_index()"
+
         if has_vars_in_agg:
             return "\n".join(code_lines + [pivot_call])
         else:
