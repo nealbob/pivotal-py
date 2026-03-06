@@ -127,12 +127,14 @@ grammar_indented = r"""
     expression: UNQUOTED_STRING | STRING
 
     condition: IDENTIFIER COMPARATOR (value | list_value)
+             | IDENTIFIER "in" list_value       -> condition_in_list
              | IDENTIFIER "in" PYTHON_VAR       -> condition_in_var
+             | IDENTIFIER "not" "in" list_value -> condition_not_in_list
              | IDENTIFIER "not" "in" PYTHON_VAR -> condition_not_in_var
 
     condition_list: condition (AOR condition)*
 
-    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "in" | "not in" | "between" | "contains" | "not contains" | "startswith" | "endswith"
+    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "between" | "contains" | "not contains" | "startswith" | "endswith"
 
     drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
 
@@ -931,8 +933,14 @@ class DSLTransformer(Transformer):
             'value': self._convert_value(value) if not isinstance(value, list) else value
         }
 
+    def condition_in_list(self, column, lst):
+        return {'column': str(column), 'comparator': 'in', 'value': lst}
+
     def condition_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'in', 'value': var}
+
+    def condition_not_in_list(self, column, lst):
+        return {'column': str(column), 'comparator': 'not in', 'value': lst}
 
     def condition_not_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'not in', 'value': var}
@@ -1532,9 +1540,12 @@ class CodeGenerator:
                 query_parts.append(f"{column} {comparator} {value_str}")
             elif comparator in ['in', 'not in']:
                 if isinstance(value, list):
-                    value_str = str(value)
+                    # Use double-quoted strings so they don't clash with the
+                    # outer single-quoted .query('...') call.
+                    items = ', '.join(f'"{v}"' if isinstance(v, str) else str(v) for v in value)
+                    value_str = f"[{items}]"
                 else:
-                    value_str = f"[{value}]"
+                    value_str = f'["{value}"]' if isinstance(value, str) else f"[{value}]"
                 query_parts.append(f"{column} {comparator} {value_str}")
             elif isinstance(value, str):
                 query_parts.append(f'{column} {comparator} "{value}"')

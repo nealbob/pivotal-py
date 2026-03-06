@@ -303,6 +303,37 @@ def test_filter_endswith(parser, sample_df):
     assert len(ns['sales']) == 2  # Chair, Monitor
 
 
+def test_filter_in_literal_list(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nfilter category in ["Electronics"]', ns)
+    assert len(ns['sales']) == 3
+    assert all(ns['sales']['category'] == 'Electronics')
+
+
+def test_filter_in_python_var(parser, sample_df):
+    """filter col in :var — variable holds a list of allowed values."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'cats': ['Electronics']}
+    run(parser, 'df sales\nfilter category in :cats', ns)
+    assert len(ns['sales']) == 3
+    assert all(ns['sales']['category'] == 'Electronics')
+
+
+def test_filter_not_in_python_var(parser, sample_df):
+    """filter col not in :var — variable holds a list of excluded values."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'excl': ['Furniture']}
+    run(parser, 'df sales\nfilter category not in :excl', ns)
+    assert len(ns['sales']) == 3
+    assert all(ns['sales']['category'] == 'Electronics')
+
+
+def test_filter_in_python_var_combined(parser, sample_df):
+    """filter col in :var combined with another condition."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'prods': ['Laptop', 'Monitor']}
+    run(parser, 'df sales\nfilter product in :prods and price > 300', ns)
+    assert len(ns['sales']) == 2
+    assert set(ns['sales']['product']) == {'Laptop', 'Monitor'}
+
+
 # ---------------------------------------------------------------------------
 # load: runtime variable path (format detection)
 # ---------------------------------------------------------------------------
