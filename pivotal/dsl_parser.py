@@ -915,7 +915,12 @@ class DSLTransformer(Transformer):
 
         parts = []
         for k, v in kwargs.items():
-            parts.append(f"{k}={repr(v)}" if isinstance(v, str) else f"{k}={v}")
+            if isinstance(v, dict) and v.get('type') == 'var':
+                parts.append(f"{k}={v['name']}")
+            elif isinstance(v, str):
+                parts.append(f"{k}={repr(v)}")
+            else:
+                parts.append(f"{k}={v}")
         kwargs_str = ', '.join(parts)
         return kwargs, kwargs_str
 
