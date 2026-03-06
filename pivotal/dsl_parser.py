@@ -1184,6 +1184,19 @@ class CodeGenerator:
             return m.group(1), m.group(2)
         return None
 
+    @staticmethod
+    def _is_scalar_expr(expr):
+        """Return True if expr is a literal scalar (number, quoted string, bool, None)."""
+        import re
+        s = expr.strip()
+        if re.match(r'^\d+(\.\d+)?$', s):
+            return True
+        if re.match(r'^"[^"]*"$', s) or re.match(r"^'[^']*'$", s):
+            return True
+        if s in ('True', 'False', 'true', 'false', 'None', 'none'):
+            return True
+        return False
+
     def generate_assign_pandas(self, ast_node):
         table = ast_node['table_name']
         target = ast_node['target']
@@ -1198,9 +1211,12 @@ class CodeGenerator:
                 return (f"condition = {table}.eval('{query_str}')\n"
                         f"{table}.loc[condition, '{target}'] = "
                         f"{func}({table}['{col}'])[condition]")
+            if self._is_scalar_expr(expr):
+                rhs = expr
+            else:
+                rhs = f"{table}.eval('{expr}')[condition]"
             return (f"condition = {table}.eval('{query_str}')\n"
-                    f"{table}.loc[condition, '{target}'] = "
-                    f"{table}.eval('{expr}')[condition]")
+                    f"{table}.loc[condition, '{target}'] = {rhs}")
         else:
             if user_call:
                 func, col = user_call

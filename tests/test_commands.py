@@ -137,6 +137,18 @@ def test_assign_where(parser, sample_df):
     assert all(electronics['discounted'].notna())
 
 
+def test_assign_where_scalar(parser, sample_df):
+    """Scalar rhs (int/float/string) with where clause must not subscript the scalar."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nassign flag = 1\n    where category == "Electronics"', ns)
+    assert 'flag' in ns['sales'].columns
+    electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
+    assert all(electronics['flag'] == 1)
+    non_electronics = ns['sales'][ns['sales']['category'] != 'Electronics']
+    # rows outside the condition are untouched (NaN since column is new)
+    assert all(non_electronics['flag'].isna())
+
+
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
