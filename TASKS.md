@@ -14,7 +14,9 @@
 
   - [ ] Polars support — see implementation plan below.
 
-  - [ ] In addition to charts I want to support generattion of publication ready tables using the Great Tables package. Can you develop an implementation plan for this.   
+  - [ ] Object Viewer panel — see implementation plan below.
+
+  - [ ] In addition to charts I want to support generattion of publication ready tables using the Great Tables package. Can you develop an implementation plan for this.
 
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
 
@@ -228,6 +230,239 @@ assign fixed = replace(notes, "N/A", "")
 - f-strings / format strings
 - Regex operations
 - Multi-column conditional string logic
+
+---
+
+---
+
+### Object Viewer Panel
+
+**Goal:** A persistent right-side panel in JupyterLab that receives DataFrames and charts from every `%%pivotal` cell execution and displays them interactively — an alternative to inline cell output. Navigable history lets the user cycle through previous outputs without re-running cells.
+
+---
+
+#### User experience
+
+- Panel opens automatically (or via command/shortcut) and docks to the right side of the JupyterLab workspace.
+- After each `%%pivotal` cell runs, the panel updates once per object produced, in execution order. If a cell produces a DataFrame then a chart, the panel shows the DataFrame briefly then the chart — the chart is visible at cell completion because it was produced last. The DataFrame is one step back in history.
+- If a cell modifies an existing object (same variable name, new content), the updated version is pushed as a new history entry — so the old version remains accessible via Back, but the panel always shows the freshest state at completion.
+- Panel header shows: object name, type (`DataFrame` / `Chart`), shape or chart kind, and a position indicator (e.g. `4 / 7`).
+- Back / Forward buttons (and keyboard shortcuts) cycle through the cached history.
+- Only one object is shown at a time. Cache holds the last 50 outputs (configurable constant).
+
+---
+
+#### Data flow
+
+```
+%%pivotal cell executes
+    → magic.py sends comm message to frontend
+        → JupyterLab extension receives message
+            → Panel widget renders DataFrame or chart
+```
+
+---
+
+#### Grid library choice
+
+**Recommended: `@lumino/datagrid`** — ships with JupyterLab 4, zero extra npm dependencies, virtual scrolling for large tables, column sorting on header click. This is the same grid used by JupyterLab's built-in CSV viewer.
+
+Alternative: **AG Grid Community** (MIT) — richer filtering/grouping UI, adds ~500 KB to bundle. Worth revisiting if column filtering becomes a requirement.
+
+#### Row rendering and transfer limit
+
+`@lumino/datagrid` uses **virtual rendering** — it only paints the rows currently in the viewport, so there is no inherent rendering limit. A 500 000-row DataFrame renders just as smoothly as a 100-row one from the grid's perspective.
+
+The practical constraint is the **comm payload** (JSON serialisation over the WebSocket). Sending a very wide or very long DataFrame as JSON can be slow and memory-heavy. The plan:
+
+- Default transfer limit: **10 000 rows**. This is large enough to be useful for most exploratory work and fast enough to feel instant.
+- A **row limit control** is surfaced in the panel footer (e.g. a small input: `Show: [10000] rows`). The user can raise or lower it; changing the value re-requests data from the kernel via a reply comm message.
+- If the DataFrame is truncated, the footer shows a clear notice: `Showing 10 000 of 284 391 rows`.
+- The `MAX_ROWS` constant in `_PivotalViewer` becomes the default; the panel can override it per request.
+
+---
+
+#### Chart interactivity
+
+Matplotlib figures are static; the panel will render them as high-res base64 PNG with:
+- Zoom in / out buttons (CSS `transform: scale()`)
+- Click-and-drag pan when zoomed (pointer events on a `<canvas>` or `<div>`)
+
+Optional V2 upgrade: use **mpld3** (`pip install mpld3`) to convert a matplotlib figure to an interactive D3.js chart. Richer but requires an extra Python dependency and larger payloads.
+
+---
+
+#### Python side — `magic.py`
+
+Add a `_PivotalViewer` helper class (instantiated once per `PivotalMagics` instance):
+
+```python
+class _PivotalViewer:
+    MAX_ROWS = 2000   # rows sent to frontend
+
+    def __init__(self, shell):
+        self._shell = shell
+        self._comm = None
+
+    def _ensure_comm(self):
+        if self._comm is not None:
+            return
+        try:
+            from ipykernel.comm import Comm
+            self._comm = Comm(target_name='pivotal_viewer')
+            self._comm.open()
+        except Exception:
+            pass   # viewer not installed or not in a kernel context
+
+    def send_dataframe(self, name: str, df):
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        import pandas as pd
+        truncated = len(df) > self.MAX_ROWS
+        payload = df.head(self.MAX_ROWS)
+        self._comm.send({
+            'type': 'dataframe',
+            'name': name,
+            'records': payload.to_dict('records'),
+            'columns': list(payload.columns),
+            'dtypes': {c: str(t) for c, t in payload.dtypes.items()},
+            'shape': list(df.shape),
+            'truncated': truncated,
+        })
+
+    def send_chart(self, name: str, fig):
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        import io, base64
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+        self._comm.send({
+            'type': 'chart',
+            'name': name,
+            'data': base64.b64encode(buf.getvalue()).decode(),
+        })
+```
+
+Wire into the `pivotal()` cell magic after `run_cell`. Walk the AST result list in execution order and for each node:
+- If the node produces a DataFrame (any statement that sets `table_name`): call `send_dataframe(name, df)`.
+- If the node is a `plot` statement: call `send_chart(name, fig)`.
+
+This strict AST-order traversal ensures the panel reflects execution order within the cell. The last item sent is always visible at cell completion.
+
+**Modified objects:** always push a new history entry even if the name already exists in the cache. This means re-running a cell that modifies `df` appends a fresh snapshot rather than overwriting, so the previous state is still reachable via Back.
+
+---
+
+#### Frontend side — new file `editors/jupyterlab/src/viewer.ts`
+
+**`PivotalViewerWidget`** extends `Widget`:
+
+```
+┌─────────────────────────────────────┐
+│ ◀  goal_chart · Chart  3/7  ▶  ✕   │  ← header bar
+├─────────────────────────────────────┤
+│                                     │
+│   [DataFrame grid / chart image]    │
+│                                     │
+│   shape: 1 248 × 7 (truncated)      │  ← footer (DF only)
+└─────────────────────────────────────┘
+```
+
+Internal state:
+```ts
+interface ViewerItem {
+  type: 'dataframe' | 'chart';
+  name: string;
+  payload: DataFramePayload | ChartPayload;
+}
+
+private _items: ViewerItem[] = [];
+private _index = -1;            // currently displayed
+private _grid: DataGrid | null; // Lumino DataGrid instance
+private _img: HTMLImageElement; // chart image element
+```
+
+Key methods:
+- `push(item)` — append to cache (cap at 50), advance `_index`, call `render()`
+- `back()` / `forward()` — decrement/increment `_index`, call `render()`
+- `render()` — swap between grid and img views depending on item type
+
+**DataFrame rendering** using `@lumino/datagrid`:
+- Implement a lightweight `BasicDataModel extends DataModel` that wraps the JSON records array.
+- Supports column sorting on header click via `SortedModel` (Lumino built-in).
+- Numeric columns right-aligned; string columns left-aligned (via `CellRenderer`).
+- Frozen first column when more than 6 columns present (nice-to-have).
+
+**Chart rendering:**
+- `<img>` element with `src = 'data:image/png;base64,...'`
+- Zoom toolbar: `+`, `-`, `1:1` buttons that adjust a CSS `transform: scale()`.
+- Pan: `pointerdown` / `pointermove` on a wrapping `<div>` with `overflow: hidden`.
+
+---
+
+#### `index.ts` changes
+
+1. **Comm registration** — on every kernel connection, register the `pivotal_viewer` comm target and wire incoming messages to the panel widget:
+
+```ts
+app.serviceManager.sessions.runningChanged.connect(() => {
+  // re-register when kernel restarts
+});
+kernel.registerCommTarget('pivotal_viewer', (comm, _msg) => {
+  comm.onMsg = msg => {
+    const data = msg.content.data as ViewerMessage;
+    viewerWidget.push(data);
+  };
+});
+```
+
+2. **Widget creation** — create `PivotalViewerWidget` once, add to `app.shell` at `'right'`.
+
+3. **Commands**:
+
+| Command ID | Default shortcut | Action |
+|---|---|---|
+| `pivotal:show-viewer` | `Alt+Shift+P` | Focus / open viewer panel |
+| `pivotal:viewer-back` | `Alt+[` | Navigate back |
+| `pivotal:viewer-forward` | `Alt+]` | Navigate forward |
+
+4. **`package.json`** — add `@lumino/datagrid` and `@lumino/widgets` as dependencies (both ship with JupyterLab 4; peer-dep approach keeps bundle size neutral).
+
+---
+
+#### New / changed files
+
+| File | Change |
+|---|---|
+| `pivotal/magic.py` | Add `_PivotalViewer` class; call from `pivotal()` magic |
+| `editors/jupyterlab/src/viewer.ts` | New — `PivotalViewerWidget`, `BasicDataModel` |
+| `editors/jupyterlab/src/index.ts` | Register viewer plugin, comm target, commands, shortcuts |
+| `editors/jupyterlab/package.json` | Add `@lumino/datagrid`, `@lumino/widgets` deps |
+| `editors/jupyterlab/style/base.css` | Add viewer panel styles |
+
+---
+
+#### Implementation sequence
+
+1. `magic.py`: add `_PivotalViewer`, wire `send_dataframe` / `send_chart` into magic.
+2. `viewer.ts`: skeleton widget, header bar, back/forward wired to stub.
+3. `index.ts`: register comm target, connect to widget, register commands.
+4. Build and verify comm messages arrive in browser console.
+5. `viewer.ts`: implement `BasicDataModel` + `DataGrid` for DataFrame rendering.
+6. `viewer.ts`: implement chart PNG display + zoom/pan.
+7. Polish: header/footer info, keyboard shortcuts, cache limit, truncation notice.
+8. CSS styling.
+
+---
+
+#### Open questions
+
+- **Comm registration timing**: the comm target must be registered before the kernel sends — add a small retry queue on the Python side (store unsent payloads and flush on first successful open).
+- **Multiple kernels**: track one comm per kernel; clean up on kernel death / restart.
+- **Bidirectional comm for row limit changes**: when the user edits the row limit in the panel footer, the frontend sends a reply comm message (`{type: 'request', name, limit}`) back to the kernel, which re-sends the DataFrame at the new limit. This requires the Python `_PivotalViewer` to register an `on_msg` handler and cache the last-seen DataFrame per name.
+- **mpld3**: Make chart interactivity opt-in via a `%%pivotal` option or a Jupyter setting rather than a hard dependency.
 
 ---
 

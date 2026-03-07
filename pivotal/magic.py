@@ -126,6 +126,104 @@ class PivotalMagics(Magics):
         except Exception:
             return lines
 
+    @staticmethod
+    def _clean_code(code_block):
+        """Strip internal markers and boilerplate for display, keeping meaningful pandas code."""
+        import re
+        lines = code_block.split('\n')
+        result = []
+        skip_pivot = False
+        # Stack entries: (mode, base_indent, replacements)
+        # mode='skip'   → drop all lines in block
+        # mode='dedent' → emit body lines with one indent level removed
+        #                  replacements: dict of str→str substitutions in body lines
+        block_stack = []
+
+        for raw_line in lines:
+            lstripped = raw_line.lstrip()
+            indent = len(raw_line) - len(lstripped)
+            stripped = lstripped.rstrip()
+
+            # #__pivotal__ marker blocks
+            if '#__pivotal__' in raw_line:
+                skip_pivot = not skip_pivot
+                continue
+            if skip_pivot:
+                continue
+
+            # Pop finished blocks when a non-empty line returns to base indent
+            if stripped:
+                while block_stack and indent <= block_stack[-1][1]:
+                    block_stack.pop()
+
+            # Apply current block mode
+            if block_stack:
+                mode, base_indent, replacements = block_stack[-1]
+                if mode == 'skip':
+                    continue
+                elif mode == 'dedent':
+                    body = raw_line[base_indent + 4:]
+                    for old, new in replacements.items():
+                        body = body.replace(old, new)
+                    result.append(body)
+                    continue
+
+            # === Line-level filter rules ===
+
+            # Known guard patterns
+            if 'not in locals() and' in stripped and 'raise NameError' in stripped:
+                continue
+            if stripped.startswith('if not isinstance(') and 'raise TypeError' in stripped:
+                continue
+
+            # Anything referencing _pivotal_charts
+            if '_pivotal_charts' in stripped:
+                continue
+
+            # import X as _Y
+            if re.match(r'import\s+\S+\s+as\s+_', stripped):
+                continue
+
+            # with _X...: → show body dedented (e.g. sqlite3 connection wrapper)
+            if re.match(r'with\s+_[a-zA-Z]', stripped):
+                # Extract connection path to replace _conn in body lines
+                replacements = {}
+                m = re.search(r'connect\(([^)]+)\)', stripped)
+                alias = re.search(r'\bas\s+(\w+)', stripped)
+                if m and alias:
+                    replacements[alias.group(1)] = m.group(1)
+                block_stack.append(('dedent', indent, replacements))
+                continue
+
+            # if/elif _identifier: or if/elif '_identifier'... → skip block
+            if re.match(r'(if|elif)\s+(_[a-zA-Z]|[\'"]_)', stripped):
+                if stripped.endswith(':'):
+                    block_stack.append(('skip', indent, {}))
+                continue
+
+            # for _identifier...: → skip block (e.g. faceted subplot loops)
+            if re.match(r'for\s+_[a-zA-Z]', stripped):
+                block_stack.append(('skip', indent, {}))
+                continue
+
+            # Lines whose first token starts with _ (internal variables)
+            if re.match(r'_[a-zA-Z]', stripped):
+                # If it's `_var = obj.method(...)`, show just the RHS
+                m = re.match(r'_\w+\s*=\s*(.+)', stripped)
+                if m:
+                    rhs = m.group(1).strip()
+                    if re.match(r'[a-zA-Z]\w*[.\[]', rhs):
+                        result.append(' ' * indent + rhs)
+                continue
+
+            # Non-_ LHS assigned from a _ RHS (e.g. chart_var = _ax.get_figure())
+            if re.match(r'\w+\s*=\s*_[a-zA-Z]', stripped):
+                continue
+
+            result.append(raw_line)
+
+        return '\n'.join(result).strip()
+
     @cell_magic
     def pivotal(self, line, cell):
         """
@@ -149,24 +247,13 @@ class PivotalMagics(Magics):
             return
 
         python_code_list = self.parser.generate_code(results)
-        
-        for i, code_block in enumerate(python_code_list):
-            # Execute the code in the shell's user namespace
-            result = self.shell.run_cell(code_block)
-            
-            if result.error_in_exec:
-                return # Stop on error
 
-            # Try to display the table info if a table was created/modified
-            # We look at the AST result to see which table was affected
-            if i < len(results) and 'table_name' in results[i]:
-                table_name = results[i]['table_name']
-                # Check if it exists in user_ns
-                if table_name in self.shell.user_ns:
-                    obj = self.shell.user_ns[table_name]
-                    if isinstance(obj, pd.DataFrame):
-                        print(f"Table '{table_name}' shape: {obj.shape}")
-                        display(obj.head())
+        combined = '\n\n'.join(python_code_list)
+        result = self.shell.run_cell(combined)
+        if not result.error_in_exec:
+            cleaned = self._clean_code(combined)
+            if cleaned:
+                print(cleaned)
 
         # Update autocomplete file so the next cell can offer column/table names
         self.parser.update_autocomplete_info(self.shell.user_ns)

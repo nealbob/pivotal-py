@@ -83,7 +83,7 @@ let _acCache: { path: string; lastModified: string; data: AutocompleteData } | n
 async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | null> {
   const acPath = dir ? `${dir}/pivotal_autocomplete.json` : 'pivotal_autocomplete.json';
   try {
-    const resp = await fetch(`/api/contents/${acPath}`);
+    const resp = await fetch(`/api/contents/${acPath}`, { cache: 'no-store' });
     if (!resp.ok) return null;
     const json = await resp.json() as { content: string; last_modified: string };
     const lastModified = json.last_modified ?? '';

@@ -861,7 +861,12 @@ class DSLTransformer(Transformer):
         if any(p is not None for p in [by_col, n_cols, style]):
             parts = []
             for k, v in kwargs.items():
-                parts.append(f"{k}={repr(v)}" if isinstance(v, str) else f"{k}={v}")
+                if isinstance(v, dict) and v.get('type') == 'var':
+                    parts.append(f"{k}={v['name']}")
+                elif isinstance(v, str):
+                    parts.append(f"{k}={repr(v)}")
+                else:
+                    parts.append(f"{k}={v}")
             kwargs_str = ', '.join(parts)
 
         return {
@@ -1491,11 +1496,23 @@ class CodeGenerator:
 
         # Style file: look for <name>.mplstyle locally, then styles/<name>.mplstyle,
         # otherwise pass the name directly to plt.style.use() for built-in styles.
+        # Custom keys not supported by matplotlib (e.g. xtick.labelrotation) are
+        # extracted and applied manually after plotting.
+        _CUSTOM_STYLE_KEYS = frozenset((
+            'xtick.labelrotation', 'ytick.labelrotation',
+            'xtick.labelalignment', 'ytick.labelalignment',
+        ))
         if style:
             lines += [
                 f"_style_candidates = [{repr(style + '.mplstyle')}, {repr('styles/' + style + '.mplstyle')}]",
                 f"_style_path = next((_p for _p in _style_candidates if __import__('os').path.exists(_p)), {repr(style)})",
+                f"_custom_style = {{}}",
+                f"_PKEYS = {_CUSTOM_STYLE_KEYS!r}",
+                f"_custom_style.update({{_k.strip(): _v.strip() for _ln in (open(_style_path).readlines() if __import__('os').path.isfile(_style_path) else []) if (_ln.strip() and not _ln.strip().startswith('#') and ':' in _ln) for _k, _, _v in [_ln.partition(':')]  if _k.strip() in _PKEYS}})",
+                f"import warnings as _warnings",
+                f"_warnings.filterwarnings('ignore', message='Bad key')",
                 f"plt.style.use(_style_path)",
+                f"_warnings.filterwarnings('default', message='Bad key')",
             ]
 
         if not by_col:
@@ -1522,6 +1539,16 @@ class CodeGenerator:
                 f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _fig, 'data': {table}.copy()}}",
                 f"{chart_key} = _fig",
+            ]
+
+        # Apply custom style keys that matplotlib doesn't support natively
+        if style:
+            lines += [
+                f"for _a in plt.gcf().get_axes():",
+                f"    if 'xtick.labelrotation' in _custom_style: _a.tick_params(axis='x', labelrotation=float(_custom_style['xtick.labelrotation']))",
+                f"    if 'ytick.labelrotation' in _custom_style: _a.tick_params(axis='y', labelrotation=float(_custom_style['ytick.labelrotation']))",
+                f"    if 'xtick.labelalignment' in _custom_style: plt.setp(_a.xaxis.get_majorticklabels(), ha=_custom_style['xtick.labelalignment'])",
+                f"    if 'ytick.labelalignment' in _custom_style: plt.setp(_a.yaxis.get_majorticklabels(), ha=_custom_style['ytick.labelalignment'])",
             ]
 
         return "\n".join(lines)
