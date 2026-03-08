@@ -70,19 +70,16 @@ class _PivotalViewer:
         except Exception:
             pass
 
-    def send_chart(self, name: str, fig):
+    def send_chart_png(self, name: str, png_b64: str):
+        """Send a pre-rendered base64 PNG string to the viewer."""
         self._ensure_comm()
         if self._comm is None:
             return
-        import io
-        import base64
-        buf = io.BytesIO()
         try:
-            fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
             self._comm.send({
                 'type': 'chart',
                 'name': name,
-                'data': base64.b64encode(buf.getvalue()).decode(),
+                'data': png_b64,
             })
         except Exception:
             pass
@@ -92,48 +89,42 @@ class _PivotalViewer:
 # Walk AST results and send objects to viewer in execution order
 # ---------------------------------------------------------------------------
 
-def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict):
+def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict,
+                             captured_charts: list):
     """Send the final state of each named object to the viewer.
 
-    The viewer keeps one slot per name (latest wins), so we collect the unique
-    table names touched in this cell and send each once — reflecting the state
-    after all operations have run. Charts are sent last so they are visible at
-    cell completion.
+    captured_charts: list of base64 PNG strings, one per plot statement in
+    execution order (captured before plt.show() closes the figures).
     """
     try:
-        import matplotlib.pyplot as plt
         import pandas as pd
     except ImportError:
         return
 
-    # Collect touched table names and whether there was a plot, preserving order
-    seen_tables: dict[str, bool] = {}   # name → True (ordered, dedup)
-    has_plot = False
-    last_plot_node = None
+    seen_tables: dict = {}   # ordered, dedup
+    plot_nodes: list = []
 
     for node in results:
         if not isinstance(node, dict):
             continue
-        node_type = node.get('type')
-        if node_type == 'plot':
-            has_plot = True
-            last_plot_node = node
+        if node.get('type') == 'plot':
+            plot_nodes.append(node)
         else:
-            table_name = node.get('table_name')
-            if table_name:
-                seen_tables[table_name] = True
+            name = node.get('table_name')
+            if name:
+                seen_tables[name] = True
 
-    # Send each table's current (post-execution) state
+    # Send each table's post-execution state
     for name in seen_tables:
         obj = ns.get(name)
         if isinstance(obj, pd.DataFrame):
             viewer.send_dataframe(name, obj)
 
-    # Send chart last (so it's visible at cell completion)
-    if has_plot and last_plot_node is not None:
-        fig = plt.gcf()
-        chart_name = last_plot_node.get('table_name', 'chart')
-        viewer.send_chart(chart_name, fig)
+    # Send charts matched by order; use node 'name' field (user-specified chart name)
+    for i, node in enumerate(plot_nodes):
+        chart_name = node.get('name') or node.get('table_name') or 'chart'
+        if i < len(captured_charts):
+            viewer.send_chart_png(chart_name, captured_charts[i])
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +369,30 @@ class PivotalMagics(Magics):
         python_code_list = self.parser.generate_code(results)
 
         combined = '\n\n'.join(python_code_list)
-        result = self.shell.run_cell(combined)
+
+        # Capture each figure's PNG at the moment plt.show() is called,
+        # before the inline backend clears the figure.
+        captured_charts: list = []
+        try:
+            import io, base64, matplotlib.pyplot as _plt
+            _orig_show = _plt.show
+            def _capture_show(*args, **kwargs):
+                fig = _plt.gcf()
+                if fig.get_axes():
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+                    captured_charts.append(base64.b64encode(buf.getvalue()).decode())
+                _orig_show(*args, **kwargs)
+            _plt.show = _capture_show
+        except Exception:
+            _orig_show = None
+
+        try:
+            result = self.shell.run_cell(combined)
+        finally:
+            if _orig_show is not None:
+                _plt.show = _orig_show
+
         if not result.error_in_exec:
             cleaned = self._clean_code(combined)
             if cleaned:
@@ -386,7 +400,8 @@ class PivotalMagics(Magics):
 
             # Send objects to the viewer panel (best-effort; silently skipped if comm not open)
             try:
-                _send_results_to_viewer(self._viewer, results, self.shell.user_ns)
+                _send_results_to_viewer(self._viewer, results, self.shell.user_ns,
+                                        captured_charts)
             except Exception:
                 pass
 
