@@ -70,16 +70,19 @@ class _PivotalViewer:
         except Exception:
             pass
 
-    def send_chart_png(self, name: str, png_b64: str):
-        """Send a pre-rendered base64 PNG string to the viewer."""
+    def send_chart(self, name: str, fig):
+        """Render fig to PNG and send to the viewer."""
         self._ensure_comm()
         if self._comm is None:
             return
+        import io, base64
+        buf = io.BytesIO()
         try:
+            fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
             self._comm.send({
                 'type': 'chart',
                 'name': name,
-                'data': png_b64,
+                'data': base64.b64encode(buf.getvalue()).decode(),
             })
         except Exception:
             pass
@@ -89,19 +92,21 @@ class _PivotalViewer:
 # Walk AST results and send objects to viewer in execution order
 # ---------------------------------------------------------------------------
 
-def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict,
-                             captured_charts: list):
+def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict):
     """Send the final state of each named object to the viewer.
 
-    captured_charts: list of base64 PNG strings, one per plot statement in
-    execution order (captured before plt.show() closes the figures).
+    The generated code stores each chart figure in the user namespace under
+    the chart's name (e.g. `myplot = ax.get_figure()`), so we can retrieve
+    it by name after run_cell() completes — even if the inline backend has
+    already rendered it, the Figure object is still valid for savefig().
     """
     try:
         import pandas as pd
+        import matplotlib.figure as mfig
     except ImportError:
         return
 
-    seen_tables: dict = {}   # ordered, dedup
+    seen_tables: dict = {}
     plot_nodes: list = []
 
     for node in results:
@@ -120,11 +125,12 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict,
         if isinstance(obj, pd.DataFrame):
             viewer.send_dataframe(name, obj)
 
-    # Send charts matched by order; use node 'name' field (user-specified chart name)
-    for i, node in enumerate(plot_nodes):
+    # Send charts: look up the figure stored in the namespace by chart name
+    for node in plot_nodes:
         chart_name = node.get('name') or node.get('table_name') or 'chart'
-        if i < len(captured_charts):
-            viewer.send_chart_png(chart_name, captured_charts[i])
+        fig = ns.get(chart_name)
+        if isinstance(fig, mfig.Figure):
+            viewer.send_chart(chart_name, fig)
 
 
 # ---------------------------------------------------------------------------
@@ -369,29 +375,7 @@ class PivotalMagics(Magics):
         python_code_list = self.parser.generate_code(results)
 
         combined = '\n\n'.join(python_code_list)
-
-        # Capture each figure's PNG at the moment plt.show() is called,
-        # before the inline backend clears the figure.
-        captured_charts: list = []
-        try:
-            import io, base64, matplotlib.pyplot as _plt
-            _orig_show = _plt.show
-            def _capture_show(*args, **kwargs):
-                fig = _plt.gcf()
-                if fig.get_axes():
-                    buf = io.BytesIO()
-                    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
-                    captured_charts.append(base64.b64encode(buf.getvalue()).decode())
-                _orig_show(*args, **kwargs)
-            _plt.show = _capture_show
-        except Exception:
-            _orig_show = None
-
-        try:
-            result = self.shell.run_cell(combined)
-        finally:
-            if _orig_show is not None:
-                _plt.show = _orig_show
+        result = self.shell.run_cell(combined)
 
         if not result.error_in_exec:
             cleaned = self._clean_code(combined)
@@ -400,8 +384,7 @@ class PivotalMagics(Magics):
 
             # Send objects to the viewer panel (best-effort; silently skipped if comm not open)
             try:
-                _send_results_to_viewer(self._viewer, results, self.shell.user_ns,
-                                        captured_charts)
+                _send_results_to_viewer(self._viewer, results, self.shell.user_ns)
             except Exception:
                 pass
 
