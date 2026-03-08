@@ -18,8 +18,10 @@ import {
   CompletionResult,
   Completion,
 } from '@codemirror/autocomplete';
+import { INotebookTracker } from '@jupyterlab/notebook';
 
 import { pivotalLanguage } from './language';
+import { PivotalViewerWidget, ViewerMessage } from './viewer';
 
 const MAGIC_RE = /^%%pivotal(\s|$)/;
 
@@ -311,4 +313,95 @@ const plugin: JupyterFrontEndPlugin<void> = {
   },
 };
 
-export default plugin;
+// ---------------------------------------------------------------------------
+// Viewer plugin
+// ---------------------------------------------------------------------------
+
+let _viewerWidget: PivotalViewerWidget | null = null;
+
+function getViewer(): PivotalViewerWidget {
+  if (!_viewerWidget) {
+    _viewerWidget = new PivotalViewerWidget();
+  }
+  return _viewerWidget;
+}
+
+const viewerPlugin: JupyterFrontEndPlugin<void> = {
+  id: '@pivotal/jupyterlab:viewer',
+  description: 'Object Viewer panel for DataFrames and charts from Pivotal cells',
+  autoStart: true,
+  requires: [INotebookTracker],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
+    const viewer = getViewer();
+
+    // Add to the right sidebar
+    app.shell.add(viewer, 'right', { rank: 900 });
+
+    // Register commands
+    app.commands.addCommand('pivotal:show-viewer', {
+      label: 'Show Pivotal Viewer',
+      execute: () => {
+        app.shell.activateById(viewer.id);
+      },
+    });
+
+    app.commands.addCommand('pivotal:viewer-back', {
+      label: 'Pivotal Viewer: Back',
+      execute: () => viewer.back(),
+    });
+
+    app.commands.addCommand('pivotal:viewer-forward', {
+      label: 'Pivotal Viewer: Forward',
+      execute: () => viewer.forward(),
+    });
+
+    // Keyboard shortcuts
+    app.commands.addKeyBinding({
+      command: 'pivotal:show-viewer',
+      keys: ['Alt Shift P'],
+      selector: 'body',
+    });
+    app.commands.addKeyBinding({
+      command: 'pivotal:viewer-back',
+      keys: ['Alt ['],
+      selector: 'body',
+    });
+    app.commands.addKeyBinding({
+      command: 'pivotal:viewer-forward',
+      keys: ['Alt ]'],
+      selector: 'body',
+    });
+
+    // Wire comm target whenever a kernel is connected
+    function registerCommOnKernel(kernel: { registerCommTarget?: Function } | null | undefined) {
+      if (!kernel || typeof kernel.registerCommTarget !== 'function') return;
+      kernel.registerCommTarget('pivotal_viewer', (comm: any) => {
+        viewer.setComm(comm);
+        comm.onMsg = (msg: any) => {
+          const data = msg?.content?.data as ViewerMessage | undefined;
+          if (data?.type === 'dataframe' || data?.type === 'chart') {
+            viewer.push(data);
+            // Show panel when new data arrives
+            app.shell.activateById(viewer.id);
+          }
+        };
+      });
+    }
+
+    // Register on existing notebook
+    const attachToPanel = (panel: any) => {
+      if (!panel) return;
+      const ctx = panel.sessionContext;
+      if (!ctx) return;
+      registerCommOnKernel(ctx.session?.kernel);
+      ctx.kernelChanged.connect((_: any, args: any) => {
+        registerCommOnKernel(args.newValue);
+      });
+    };
+
+    tracker.currentChanged.connect((_, panel) => attachToPanel(panel));
+    tracker.forEach(panel => attachToPanel(panel));
+  },
+};
+
+export default [plugin, viewerPlugin];
