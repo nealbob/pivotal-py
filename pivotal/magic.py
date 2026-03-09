@@ -488,3 +488,13 @@ def _display_inline(results: list, ns: dict):
 
 def load_ipython_extension(ipython):
     ipython.register_magics(PivotalMagics)
+    # Clear any stale autocomplete file from a previous session so completions
+    # don't offer tables/columns that no longer exist in the fresh kernel.
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        _ac = _Path('pivotal_autocomplete.json')
+        if _ac.exists():
+            _ac.write_text(_json.dumps({'tables': {}, 'current_table': None}))
+    except Exception:
+        pass
