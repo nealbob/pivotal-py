@@ -144,6 +144,7 @@ class PivotalMagics(Magics):
         self.parser = DSLParser()
         self.auto_pivotal = False
         self._viewer = _PivotalViewer(shell)
+        self.settings = dict(self.DEFAULT_SETTINGS)
 
         # Register input transformer
         if hasattr(shell, 'input_transformers_cleanup'):
@@ -350,17 +351,69 @@ class PivotalMagics(Magics):
 
         return '\n'.join(result).strip()
 
+    # -------------------------------------------------------------------------
+    # Settings
+    # -------------------------------------------------------------------------
+
+    # Defaults — can be changed via %pivotal_set or overridden per-cell
+    DEFAULT_SETTINGS = {
+        'output_type': 'viewer',   # viewer | inline | both
+        'output_code': False,       # print generated Python code inline
+    }
+
+    def _parse_line_args(self, line: str) -> dict:
+        """Parse 'key=value ...' from the magic line into a settings dict."""
+        overrides = {}
+        for part in (line or '').split():
+            k, _, v = part.partition('=')
+            k, v = k.strip(), v.strip().lower()
+            if k == 'output_type' and v in ('viewer', 'inline', 'both'):
+                overrides['output_type'] = v
+            elif k == 'output_code':
+                overrides['output_code'] = v in ('true', '1', 'yes')
+        return overrides
+
+    def _effective_settings(self, line: str) -> dict:
+        """Merge instance settings with any per-cell overrides from the magic line."""
+        s = dict(self.settings)
+        s.update(self._parse_line_args(line))
+        return s
+
+    @line_magic
+    def pivotal_set(self, line):
+        """Set persistent Pivotal output options.
+
+        Usage:
+            %pivotal_set output_type=viewer   # viewer | inline | both
+            %pivotal_set output_code=true     # print generated Python code
+            %pivotal_set output_type=inline output_code=false
+        """
+        updates = self._parse_line_args(line)
+        if not updates:
+            print(f"Current settings: {self.settings}")
+            print("Usage: %pivotal_set output_type=viewer|inline|both output_code=true|false")
+            return
+        self.settings.update(updates)
+        print(f"Pivotal settings: {self.settings}")
+
+    # -------------------------------------------------------------------------
+    # Cell magic
+    # -------------------------------------------------------------------------
+
     @cell_magic
     def pivotal(self, line, cell):
+        """Execute Pivotal DSL code.
+
+        Per-cell options (override persistent settings for this cell only):
+            %%pivotal output_type=inline
+            %%pivotal output_code=true
+
+        Persistent settings: use %pivotal_set
         """
-        Execute Pivotal DSL code.
-        Usage:
-            %%pivotal
-            load df "data.csv"
-            filter df
-                col > 5
-        """
-        # Ensure pandas is imported in the user namespace
+        s = self._effective_settings(line)
+        output_type = s['output_type']
+        output_code = s['output_code']
+
         self.shell.push({'pd': pd})
 
         if not cell.endswith('\n'):
@@ -373,23 +426,65 @@ class PivotalMagics(Magics):
             return
 
         python_code_list = self.parser.generate_code(results)
-
         combined = '\n\n'.join(python_code_list)
+
+        # In viewer-only mode, close each chart figure within the cell code so the
+        # inline backend's post-execute hook has nothing to render.
+        if output_type == 'viewer':
+            close_stmts = []
+            for node in results:
+                if isinstance(node, dict) and node.get('type') == 'plot':
+                    chart_name = node.get('name') or node.get('table_name') or 'chart'
+                    close_stmts.append(
+                        f'import matplotlib.pyplot as _mpl; _mpl.close({chart_name})'
+                    )
+            if close_stmts:
+                combined += '\n\n' + '\n'.join(close_stmts)
+
         result = self.shell.run_cell(combined)
 
         if not result.error_in_exec:
-            cleaned = self._clean_code(combined)
-            if cleaned:
-                print(cleaned)
+            if output_code:
+                cleaned = self._clean_code(combined)
+                if cleaned:
+                    print(cleaned)
 
-            # Send objects to the viewer panel (best-effort; silently skipped if comm not open)
-            try:
-                _send_results_to_viewer(self._viewer, results, self.shell.user_ns)
-            except Exception:
-                pass
+            if output_type in ('viewer', 'both'):
+                try:
+                    _send_results_to_viewer(self._viewer, results, self.shell.user_ns)
+                except Exception:
+                    pass
 
-        # Update autocomplete file so the next cell can offer column/table names
+            if output_type in ('inline', 'both'):
+                _display_inline(results, self.shell.user_ns)
+
         self.parser.update_autocomplete_info(self.shell.user_ns)
+
+
+# ---------------------------------------------------------------------------
+# Inline display helper (used when output_type is 'inline' or 'both')
+# ---------------------------------------------------------------------------
+
+def _display_inline(results: list, ns: dict):
+    """Display DataFrame heads inline for inline/both modes."""
+    try:
+        from IPython.display import display as ipy_display
+        import pandas as pd
+    except ImportError:
+        return
+
+    seen: set = set()
+    for node in results:
+        if not isinstance(node, dict) or node.get('type') == 'plot':
+            continue
+        name = node.get('table_name')
+        if name and name not in seen:
+            seen.add(name)
+            obj = ns.get(name)
+            if isinstance(obj, pd.DataFrame):
+                print(f"'{name}'  {obj.shape[0]:,} rows × {obj.shape[1]} cols")
+                ipy_display(obj.head())
+
 
 def load_ipython_extension(ipython):
     ipython.register_magics(PivotalMagics)

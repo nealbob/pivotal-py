@@ -1522,7 +1522,6 @@ class CodeGenerator:
                 f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}",
                 f"{chart_key} = _ax.get_figure()",
-                f"plt.close({chart_key})",  # suppress inline cell output (viewer is the display)
             ]
         else:
             # Faceted subplots: one per unique value of by_col
@@ -1540,7 +1539,6 @@ class CodeGenerator:
                 f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _fig, 'data': {table}.copy()}}",
                 f"{chart_key} = _fig",
-                f"plt.close({chart_key})",  # suppress inline cell output (viewer is the display)
             ]
 
         # Apply custom style keys that matplotlib doesn't support natively
