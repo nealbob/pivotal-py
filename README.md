@@ -132,7 +132,41 @@ sort total desc
 ```
 
 - Syntax highlighting activates automatically on any cell whose first line is `%%pivotal`
-- Run the cell normally — results display as interactive DataFrames
+- Run the cell normally — results are sent to the **Object Viewer** panel
+
+#### Object Viewer
+
+The Object Viewer is a persistent panel in the JupyterLab right sidebar. Each time a `%%pivotal` cell runs, the resulting DataFrames and charts are sent there automatically.
+
+- **DataFrames** are displayed as a scrollable table with a sticky header and row index. Large tables use virtual scrolling so only visible rows are rendered — fast even with hundreds of thousands of rows.
+- **Charts** are displayed as PNG images with zoom (+/−/1:1 buttons) and drag-to-pan.
+- **Navigation** — use the ◀ / ▶ buttons or keyboard shortcuts to move between objects:
+  - `Alt+[` — back, `Alt+]` — forward, `Alt+Shift+P` — show the panel
+
+#### Output settings
+
+Control where results appear using `%pivotal_set` (persistent) or per-cell overrides on the `%%pivotal` line:
+
+```python
+%pivotal_set output_type=viewer    # viewer (default) | inline | both
+%pivotal_set output_code=true      # print the generated Python code
+```
+
+| Option | Values | Description |
+|---|---|---|
+| `output_type` | `viewer` (default) | Send DataFrames and charts to the Object Viewer only |
+| | `inline` | Display results inline in the notebook cell output |
+| | `both` | Send to viewer and display inline |
+| `output_code` | `false` (default) | Do not print generated code |
+| | `true` | Print the generated pandas code below the cell |
+
+Override for a single cell:
+
+```
+%%pivotal output_type=inline output_code=true
+df sales
+filter amount > 1000
+```
 
 ### Autocomplete
 

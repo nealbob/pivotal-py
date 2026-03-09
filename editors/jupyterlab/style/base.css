@@ -1,1 +1,211 @@
 /* Pivotal JupyterLab extension styles */
+
+/* ---------------------------------------------------------------------------
+   Object Viewer Panel
+   --------------------------------------------------------------------------- */
+
+.pv-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--jp-ui-font-family);
+  font-size: var(--jp-ui-font-size1);
+  background: var(--jp-layout-color1);
+  color: var(--jp-ui-font-color1);
+}
+
+/* Header bar */
+.pv-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--jp-layout-color2);
+  border-bottom: 1px solid var(--jp-border-color2);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.pv-title {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-counter {
+  color: var(--jp-ui-font-color2);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* Generic button style */
+.pv-btn {
+  background: none;
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 3px;
+  color: var(--jp-ui-font-color1);
+  cursor: pointer;
+  font-size: 0.85em;
+  padding: 2px 6px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.pv-btn:hover:not(:disabled) {
+  background: var(--jp-layout-color3);
+}
+
+.pv-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Body — grows to fill panel */
+.pv-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Footer */
+.pv-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--jp-border-color2);
+}
+
+.pv-footer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  color: var(--jp-ui-font-color2);
+}
+
+.pv-shape {
+  flex: 1;
+}
+
+.pv-limit-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--jp-ui-font-color1);
+}
+
+.pv-limit {
+  width: 72px;
+  padding: 1px 4px;
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 3px;
+  background: var(--jp-layout-color1);
+  color: var(--jp-ui-font-color1);
+  font-size: 0.9em;
+}
+
+/* ---------------------------------------------------------------------------
+   DataFrame table — virtual scrolling (single-table spacer-row technique)
+   --------------------------------------------------------------------------- */
+
+/* Outer scroll container — fills body */
+.pv-table-scroll {
+  flex: 1;
+  overflow: auto;
+  width: 100%;
+}
+
+.pv-table {
+  border-collapse: collapse;
+  font-size: 0.82em;
+  white-space: nowrap;
+  width: max-content;
+  min-width: 100%;
+}
+
+.pv-table th,
+.pv-table td {
+  border: 1px solid var(--jp-border-color2);
+  padding: 2px 8px;
+}
+
+.pv-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.pv-table thead th {
+  background: var(--jp-layout-color2);
+  font-weight: 600;
+  border-bottom: 2px solid var(--jp-border-color1);
+}
+
+.pv-table tbody tr:nth-child(even) {
+  background: var(--jp-layout-color0);
+}
+
+.pv-table tbody tr:hover {
+  background: var(--jp-layout-color3);
+}
+
+/* Numeric alignment */
+.pv-table th.pv-num,
+.pv-table td.pv-num {
+  text-align: right;
+}
+
+/* Row-index column */
+.pv-table th.pv-idx,
+.pv-table td.pv-idx {
+  color: var(--jp-ui-font-color2);
+  text-align: right;
+  padding-right: 10px;
+  background: var(--jp-layout-color2);
+  border-right: 2px solid var(--jp-border-color1);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.pv-table thead th.pv-idx {
+  z-index: 2;
+}
+
+/* ---------------------------------------------------------------------------
+   Chart display
+   --------------------------------------------------------------------------- */
+
+.pv-chart-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--jp-layout-color2);
+  border-bottom: 1px solid var(--jp-border-color2);
+  flex-shrink: 0;
+}
+
+.pv-chart-scroll {
+  flex: 1;
+  overflow: auto;
+  cursor: grab;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.pv-chart-scroll:active {
+  cursor: grabbing;
+}
+
+.pv-chart-img {
+  display: block;
+  max-width: none;
+  transform-origin: top left;
+  user-select: none;
+  -webkit-user-drag: none;
+}
