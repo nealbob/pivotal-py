@@ -195,6 +195,11 @@ class DSLIndenter(Indenter):
     DEDENT_type = '_DEDENT'
     tab_len = 4
 
+class _LiteralStr(str):
+    """A quoted string literal value — distinct from an unquoted identifier (column reference)."""
+    pass
+
+
 @v_args(inline=True)
 class DSLTransformer(Transformer):
     """Transform parse tree into AST"""
@@ -508,8 +513,11 @@ class DSLTransformer(Transformer):
                         else:
                             value_str = f"[{value}]"
                         query_parts.append(f"{column} {comparator} {value_str}")
+                    elif isinstance(value, _LiteralStr):
+                        query_parts.append(f'{column} {comparator} "{value}"')
                     elif isinstance(value, str):
-                        query_parts.append(f"{column} {comparator} '{value}'")
+                        # Unquoted identifier — treat as column reference (no quotes)
+                        query_parts.append(f"{column} {comparator} {value}")
                     else:
                         query_parts.append(f"{column} {comparator} {value}")
                     
@@ -995,8 +1003,9 @@ class DSLTransformer(Transformer):
         return str(token)
     
     def STRING(self, token):
-        # Remove quotes
-        return str(token)[1:-1]
+        # Remove quotes; wrap in _LiteralStr so it can be distinguished from
+        # unquoted IDENTIFIER tokens (column references) when building queries.
+        return _LiteralStr(str(token)[1:-1])
     
     def UNQUOTED_STRING(self, token):
         return str(token).strip()
@@ -1012,6 +1021,9 @@ class DSLTransformer(Transformer):
     def _convert_value(self, val):
         """Convert parsed value to appropriate Python type"""
         if isinstance(val, (int, float, list, dict)) or val is None:
+            return val
+        # Preserve _LiteralStr (quoted string) — don't try numeric conversion
+        if isinstance(val, _LiteralStr):
             return val
         val_str = str(val)
         # Try to convert to number
@@ -1595,8 +1607,11 @@ class CodeGenerator:
                 else:
                     value_str = f'["{value}"]' if isinstance(value, str) else f"[{value}]"
                 query_parts.append(f"{column} {comparator} {value_str}")
-            elif isinstance(value, str):
+            elif isinstance(value, _LiteralStr):
                 query_parts.append(f'{column} {comparator} "{value}"')
+            elif isinstance(value, str):
+                # Unquoted identifier — treat as column reference (no quotes)
+                query_parts.append(f"{column} {comparator} {value}")
             else:
                 query_parts.append(f"{column} {comparator} {value}")
 
