@@ -12,9 +12,9 @@
 
 **Pipeline-Oriented** - Piped by default. Chain operations naturally with indentation blocks
 
-**VS Code Integration** - Syntax highlighting, autocomplete, interactive execution, Python code export
+**JupyterLab Integration** - `%%pivotal` cell magic with autocomplete and syntax highlighting, interactive dataframe and chart viewer
 
-**JupyterLab Integration** - `%%pivotal` cell magic with autocomplete and syntax highlighting 
+**VS Code Integration** - Syntax highlighting, autocomplete, interactive execution, Python code export
 
 ## At a Glance
 
@@ -22,7 +22,6 @@ The syntax of Pivotal has some similarites with "piped-SQL" varients including [
 
 <img src="examples/ataglance.png" width="600">
 
-Note the `python` line above is Pivotal's escape hatch for expressions that fall outside the grammar — string formatting, custom functions, anything pandas can do. For multi-line Python code, use an indented block closed with `end`.
 
 ---
 
@@ -389,10 +388,34 @@ assign margin = profit / revenue
     where revenue > 0
 ```
 
-**Expression Syntax:**
+**Arithmetic expressions:**
 - Reference columns directly by name
 - Standard arithmetic operators: `+`, `-`, `*`, `/`, `**`
-- Expressions that don't involve user-defined functions are evaluated via pandas `.eval()`
+
+**Built-in string functions:**
+
+| Function | Description | Example |
+|---|---|---|
+| `upper(col)` | Upper-case | `assign code = upper(category)` |
+| `lower(col)` | Lower-case | `assign slug = lower(name)` |
+| `trim(col)` | Strip leading and trailing whitespace | `assign name = trim(name)` |
+| `ltrim(col)` | Strip leading whitespace | `assign name = ltrim(name)` |
+| `rtrim(col)` | Strip trailing whitespace | `assign name = rtrim(name)` |
+| `left(col, n)` | First *n* characters | `assign abbr = left(name, 3)` |
+| `right(col, n)` | Last *n* characters | `assign ext = right(filename, 4)` |
+| `substr(col, start, n)` | Substring from *start*, length *n* | `assign mid = substr(code, 2, 5)` |
+| `len(col)` | String length | `assign n = len(name)` |
+| `replace(col, from, to)` | Replace substring | `assign clean = replace(notes, "N/A", "")` |
+
+Functions can be nested: `assign up3 = upper(left(name, 3))`
+
+**String concatenation** — use `+` with at least one quoted literal:
+
+```pivotal
+df customers
+assign full_name = last_name + ", " + first_name
+assign label     = upper(left(first_name, 1)) + ". " + last_name
+```
 
 **Calling a Python function** (function must be in the session namespace):
 
