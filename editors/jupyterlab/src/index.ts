@@ -395,8 +395,18 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       if (!ctx) return;
       registerCommOnKernel(ctx.session?.kernel);
       ctx.kernelChanged.connect((_: any, args: any) => {
-        registerCommOnKernel(args.newValue);
+        // Kernel replaced (restart or new kernel) — clear stale viewer content
+        viewer.clear();
+        if (args.newValue) registerCommOnKernel(args.newValue);
       });
+      ctx.statusChanged.connect((_: any, status: string) => {
+        if (status === 'restarting' || status === 'autorestarting' ||
+            status === 'terminating' || status === 'dead') {
+          viewer.clear();
+        }
+      });
+      // Clear when the notebook is closed
+      panel.disposed.connect(() => viewer.clear());
     };
 
     tracker.currentChanged.connect((_, panel) => attachToPanel(panel));

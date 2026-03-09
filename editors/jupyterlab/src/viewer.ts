@@ -105,6 +105,18 @@ export class PivotalViewerWidget extends Widget {
     if (this._index < this._names.length - 1) { this._index++; this._render(); }
   }
 
+  clear(): void {
+    this._latest.clear();
+    this._names = [];
+    this._index = -1;
+    this._titleEl.textContent = '—';
+    this._counterEl.textContent = '';
+    this._backBtn.disabled = true;
+    this._fwdBtn.disabled = true;
+    this._body.innerHTML = '';
+    this._footer.innerHTML = '';
+  }
+
   // -------------------------------------------------------------------------
   // Top-level render dispatch
   // -------------------------------------------------------------------------
