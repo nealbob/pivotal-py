@@ -18,8 +18,6 @@
 
   - [ ] Pivot charts / tables - graphical low code option to make charts and tables 
 
-  - [ ] String functions in `assign` expressions — see implementation plan below.
-
   - [ ] Polars support — see implementation plan below.
 
   - [ ] Generate publication ready tables using the Great Tables package. Need to develop an implementation plan for this.
@@ -170,66 +168,6 @@ plt.show()
 
 ---
 
-### String functions in `assign` expressions
-
-**Goal:** Allow SQL-style string operations inside `assign` statements without needing the `python` escape hatch.
-
-**Proposed syntax:**
-```
-assign name = last_name + ", " + first_name   -- concatenation with + operator
-assign code = upper(category)
-assign abbr = left(name, 3)
-assign end  = right(ref, 4)
-assign slug = lower(trim(title))
-assign note = substr(description, 0, 100)
-assign n    = len(name)
-assign fixed = replace(notes, "N/A", "")
-```
-
-**Design decisions:**
-- Use `+` for string concatenation (Python-style). Disambiguate at code-gen time: if either operand is a quoted string literal, generate direct pandas string addition rather than `df.eval()`.
-- Use SQL-style named functions: `upper`, `lower`, `trim`, `ltrim`, `rtrim`, `left`, `right`, `substr`, `len`, `replace`. Functions can be nested: `upper(left(name, 1))`.
-- Keep existing arithmetic `assign` (e.g. `assign revenue = price * quantity`) unchanged — still routes through `df.eval()`.
-
-**Grammar changes** (`dsl_parser.py`):
-- Extend `expression` rule to add two new branches:
-  - `string_concat_expr: string_arg ("+" string_arg)+` where `string_arg: IDENTIFIER | STRING`
-  - `string_func_expr: STRING_FUNC "(" string_func_arg ("," string_func_arg)* ")"` (supports nesting by making `string_func_arg` recursive)
-- Add terminal: `STRING_FUNC: "upper" | "lower" | "trim" | "ltrim" | "rtrim" | "left" | "right" | "substr" | "len" | "replace"`
-- Add `STRING_FUNC` to the JupyterLab and VS Code syntax highlighter keyword lists as builtins.
-
-**Code generator changes** (`dsl_parser.py` Transformer):
-- Add `string_concat_expr` transformer: iterate operands, wrap `IDENTIFIER` tokens as `df['col']`, leave `STRING` tokens as Python string literals, join with ` + `.
-- Add `string_func_expr` transformer: map each `STRING_FUNC` to its pandas equivalent:
-
-  | Function | Generated pandas |
-  |---|---|
-  | `upper(col)` | `df['col'].str.upper()` |
-  | `lower(col)` | `df['col'].str.lower()` |
-  | `trim(col)` | `df['col'].str.strip()` |
-  | `ltrim(col)` | `df['col'].str.lstrip()` |
-  | `rtrim(col)` | `df['col'].str.rstrip()` |
-  | `left(col, n)` | `df['col'].str[:n]` |
-  | `right(col, n)` | `df['col'].str[-n:]` |
-  | `substr(col, s, n)` | `df['col'].str[s:s+n]` |
-  | `len(col)` | `df['col'].str.len()` |
-  | `replace(col, a, b)` | `df['col'].str.replace('a', 'b', regex=False)` |
-
-- For nesting (e.g. `upper(left(name, 1))`), each transformer call returns a pandas expression string that can be wrapped by the outer call.
-
-**Tests to add** (`tests/test_commands.py`):
-- `assign` with `+` concatenation (col + literal + col)
-- Each named function individually
-- Nested functions (`upper(left(...))`)
-- Mixed: existing arithmetic `assign` still works unchanged
-- `where` clause combined with a string `assign`
-
-**Scope that stays as `python` escape:**
-- f-strings / format strings
-- Regex operations
-- Multi-column conditional string logic
-
----
 
 
 ## Completed
