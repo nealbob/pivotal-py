@@ -209,3 +209,38 @@
   user-select: none;
   -webkit-user-drag: none;
 }
+
+.pv-canvas-label {
+  margin-left: auto;
+  font-size: 0.8em;
+  color: var(--jp-ui-font-color2);
+  align-self: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Page-layout view
+   --------------------------------------------------------------------------- */
+
+.pv-page-view {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  background: #888;
+}
+
+.pv-page {
+  position: relative;
+  background: white;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.pv-page-chart-img {
+  position: absolute;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
