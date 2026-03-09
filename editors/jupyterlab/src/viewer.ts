@@ -48,6 +48,8 @@ export class PivotalViewerWidget extends Widget {
   private _counterEl!: HTMLElement;
   private _backBtn!: HTMLButtonElement;
   private _fwdBtn!: HTMLButtonElement;
+  private _delBtn!: HTMLButtonElement;
+  private _clearBtn!: HTMLButtonElement;
   private _body!: HTMLElement;
   private _footer!: HTMLElement;
 
@@ -61,10 +63,12 @@ export class PivotalViewerWidget extends Widget {
 
     this.node.innerHTML = `
       <div class="pv-header">
-        <button class="pv-btn pv-back" title="Back (Alt+[)">&#9664;</button>
+        <button class="pv-btn pv-back"  title="Back (Alt+[)">&#9664;</button>
         <span class="pv-title">—</span>
         <span class="pv-counter"></span>
-        <button class="pv-btn pv-fwd" title="Forward (Alt+])">&#9654;</button>
+        <button class="pv-btn pv-fwd"   title="Forward (Alt+])">&#9654;</button>
+        <button class="pv-btn pv-del"   title="Delete current">&#10005;</button>
+        <button class="pv-btn pv-clear" title="Clear all">&#128465;</button>
       </div>
       <div class="pv-body"></div>
       <div class="pv-footer"></div>
@@ -74,11 +78,20 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl = this.node.querySelector('.pv-counter') as HTMLElement;
     this._backBtn   = this.node.querySelector('.pv-back')   as HTMLButtonElement;
     this._fwdBtn    = this.node.querySelector('.pv-fwd')    as HTMLButtonElement;
+    this._delBtn    = this.node.querySelector('.pv-del')    as HTMLButtonElement;
+    this._clearBtn  = this.node.querySelector('.pv-clear')  as HTMLButtonElement;
     this._body      = this.node.querySelector('.pv-body')   as HTMLElement;
     this._footer    = this.node.querySelector('.pv-footer') as HTMLElement;
 
+    this._backBtn.disabled  = true;
+    this._fwdBtn.disabled   = true;
+    this._delBtn.disabled   = true;
+    this._clearBtn.disabled = true;
+
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
+    this._delBtn.addEventListener('click', () => this.deleteCurrent());
+    this._clearBtn.addEventListener('click', () => this.clear());
   }
 
   setComm(comm: { send(data: unknown): void }): void {
@@ -105,6 +118,20 @@ export class PivotalViewerWidget extends Widget {
     if (this._index < this._names.length - 1) { this._index++; this._render(); }
   }
 
+  deleteCurrent(): void {
+    if (this._index < 0 || !this._names.length) return;
+    const name = this._names[this._index];
+    this._latest.delete(name);
+    this._names.splice(this._index, 1);
+    // Move index to the previous item, or stay at 0
+    this._index = Math.min(this._index, this._names.length - 1);
+    if (this._names.length === 0) {
+      this.clear();
+    } else {
+      this._render();
+    }
+  }
+
   clear(): void {
     this._latest.clear();
     this._names = [];
@@ -113,6 +140,8 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl.textContent = '';
     this._backBtn.disabled = true;
     this._fwdBtn.disabled = true;
+    this._delBtn.disabled = true;
+    this._clearBtn.disabled = true;
     this._body.innerHTML = '';
     this._footer.innerHTML = '';
   }
@@ -128,8 +157,10 @@ export class PivotalViewerWidget extends Widget {
 
     this._titleEl.textContent   = `${p.name} · ${p.type === 'dataframe' ? 'DataFrame' : 'Chart'}`;
     this._counterEl.textContent = `${this._index + 1} / ${this._names.length}`;
-    this._backBtn.disabled = this._index === 0;
-    this._fwdBtn.disabled  = this._index === this._names.length - 1;
+    this._backBtn.disabled  = this._index === 0;
+    this._fwdBtn.disabled   = this._index === this._names.length - 1;
+    this._delBtn.disabled   = false;
+    this._clearBtn.disabled = false;
 
     this._body.innerHTML   = '';
     this._footer.innerHTML = '';
