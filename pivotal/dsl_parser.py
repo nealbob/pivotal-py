@@ -1201,6 +1201,136 @@ class CodeGenerator:
             return m.group(1), m.group(2)
         return None
 
+    # -------------------------------------------------------------------------
+    # String expression helpers
+    # -------------------------------------------------------------------------
+
+    def _parse_string_expr(self, expr, table):
+        """Return a pandas code string if expr is a string function call or
+        string concatenation, otherwise return None (fall through to eval)."""
+        expr = expr.strip()
+        result = self._try_string_func(expr, table)
+        if result is not None:
+            return result
+        # Only attempt concat detection when + and a quoted literal are present
+        if '+' in expr and ('"' in expr or "'" in expr):
+            return self._try_string_concat(expr, table)
+        return None
+
+    def _try_string_func(self, expr, table):
+        """Parse STRING_FUNC(col, ...) and return pandas .str code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._BUILTIN_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        first = args[0].strip()
+        # First arg may itself be a nested string function call
+        nested = self._try_string_func(first, table)
+        base = nested if nested is not None else f"{table}['{first}']"
+        rest = [a.strip() for a in args[1:]]
+        _simple = {'upper': 'upper', 'lower': 'lower',
+                   'trim': 'strip', 'ltrim': 'lstrip', 'rtrim': 'rstrip'}
+        if func in _simple:
+            return f"{base}.str.{_simple[func]}()"
+        if func == 'len':
+            return f"{base}.str.len()"
+        if func == 'left' and len(rest) == 1:
+            return f"{base}.str[:{rest[0]}]"
+        if func == 'right' and len(rest) == 1:
+            return f"{base}.str[-{rest[0]}:]"
+        if func == 'substr' and len(rest) == 2:
+            s, n = rest
+            return f"{base}.str[{s}:{s}+{n}]"
+        if func == 'replace' and len(rest) == 2:
+            a = rest[0].strip("'\"")
+            b = rest[1].strip("'\"")
+            return f"{base}.str.replace({repr(a)}, {repr(b)}, regex=False)"
+        return None
+
+    def _split_func_args(self, args_str):
+        """Split comma-separated args, respecting quoted strings and nested parens."""
+        args, depth, in_quote, current = [], 0, None, []
+        for ch in args_str:
+            if in_quote:
+                current.append(ch)
+                if ch == in_quote:
+                    in_quote = None
+            elif ch in ('"', "'"):
+                in_quote = ch
+                current.append(ch)
+            elif ch == '(':
+                depth += 1
+                current.append(ch)
+            elif ch == ')':
+                depth -= 1
+                current.append(ch)
+            elif ch == ',' and depth == 0:
+                args.append(''.join(current).strip())
+                current = []
+            else:
+                current.append(ch)
+        if current:
+            args.append(''.join(current).strip())
+        return [a for a in args if a]
+
+    def _try_string_concat(self, expr, table):
+        """Parse col + "lit" + col concatenation. Returns pandas code or None."""
+        import re
+        tokens = self._split_on_plus(expr)
+        if len(tokens) < 2:
+            return None
+        parts = []
+        for tok in tokens:
+            tok = tok.strip()
+            if not tok:
+                return None
+            # Quoted literal
+            if (tok.startswith('"') and tok.endswith('"')) or \
+               (tok.startswith("'") and tok.endswith("'")):
+                parts.append(repr(tok[1:-1]))
+            # Nested string function
+            elif re.match(r'[a-zA-Z][a-zA-Z0-9_]*\s*\(', tok):
+                nested = self._try_string_func(tok, table)
+                if nested is None:
+                    return None
+                parts.append(nested)
+            # Bare column identifier
+            elif re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', tok):
+                parts.append(f"{table}['{tok}']")
+            else:
+                return None  # unrecognised token — fall back to arithmetic
+        return ' + '.join(parts)
+
+    def _split_on_plus(self, s):
+        """Split on + while respecting quoted strings and parentheses."""
+        tokens, depth, in_quote, current = [], 0, None, []
+        for ch in s:
+            if in_quote:
+                current.append(ch)
+                if ch == in_quote:
+                    in_quote = None
+            elif ch in ('"', "'"):
+                in_quote = ch
+                current.append(ch)
+            elif ch == '(':
+                depth += 1
+                current.append(ch)
+            elif ch == ')':
+                depth -= 1
+                current.append(ch)
+            elif ch == '+' and depth == 0:
+                tokens.append(''.join(current))
+                current = []
+            else:
+                current.append(ch)
+        if current:
+            tokens.append(''.join(current))
+        return tokens
+
     @staticmethod
     def _is_scalar_expr(expr):
         """Return True if expr is a literal scalar (number, quoted string, bool, None)."""
@@ -1218,6 +1348,15 @@ class CodeGenerator:
         table = ast_node['table_name']
         target = ast_node['target']
         expr = ast_node['expression']
+
+        # String function / concatenation — takes priority over eval
+        string_code = self._parse_string_expr(expr, table)
+        if string_code is not None:
+            if ast_node['conditions']:
+                query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+                return (f"condition = {table}.eval('{query_str}')\n"
+                        f"{table}.loc[condition, '{target}'] = ({string_code})[condition]")
+            return f"{table}['{target}'] = {string_code}"
 
         user_call = self._parse_user_func_call(expr)
 

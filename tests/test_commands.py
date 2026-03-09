@@ -435,6 +435,112 @@ def test_keyword_assign_target_raises(parser, sample_df):
         run(parser, 'df sales\nassign filter = price * 2', ns)
 
 
+# ---------------------------------------------------------------------------
+# assign: built-in string functions
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def str_df():
+    return pd.DataFrame({
+        'first':  ['Alice', 'Bob', 'Charlie'],
+        'last':   ['Smith', 'Jones', 'Brown'],
+        'code':   ['AB123', 'CD456', 'EF789'],
+        'notes':  ['N/A', 'ok', 'N/A'],
+        'padded': ['  hello  ', ' world ', 'foo'],
+    })
+
+
+def test_assign_upper(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign up = upper(first)', ns)
+    assert list(ns['df']['up']) == ['ALICE', 'BOB', 'CHARLIE']
+
+
+def test_assign_lower(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign lo = lower(first)', ns)
+    assert list(ns['df']['lo']) == ['alice', 'bob', 'charlie']
+
+
+def test_assign_trim(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign t = trim(padded)', ns)
+    assert list(ns['df']['t']) == ['hello', 'world', 'foo']
+
+
+def test_assign_ltrim(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign t = ltrim(padded)', ns)
+    assert ns['df']['t'].iloc[0] == 'hello  '
+
+
+def test_assign_rtrim(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign t = rtrim(padded)', ns)
+    assert ns['df']['t'].iloc[0] == '  hello'
+
+
+def test_assign_left(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign abbr = left(first, 3)', ns)
+    assert list(ns['df']['abbr']) == ['Ali', 'Bob', 'Cha']
+
+
+def test_assign_right(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign suffix = right(code, 3)', ns)
+    assert list(ns['df']['suffix']) == ['123', '456', '789']
+
+
+def test_assign_substr(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign mid = substr(code, 2, 3)', ns)
+    assert list(ns['df']['mid']) == ['123', '456', '789']
+
+
+def test_assign_len(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign n = len(first)', ns)
+    assert list(ns['df']['n']) == [5, 3, 7]
+
+
+def test_assign_replace(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign clean = replace(notes, "N/A", "")', ns)
+    assert list(ns['df']['clean']) == ['', 'ok', '']
+
+
+def test_assign_nested_string_func(parser, str_df):
+    """upper(left(col, n)) — nesting produces chained .str accessor."""
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign up3 = upper(left(first, 3))', ns)
+    assert list(ns['df']['up3']) == ['ALI', 'BOB', 'CHA']
+
+
+def test_assign_string_concat(parser, str_df):
+    """col + ", " + col — mixed identifier/literal concatenation."""
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign full = last + ", " + first', ns)
+    assert list(ns['df']['full']) == ['Smith, Alice', 'Jones, Bob', 'Brown, Charlie']
+
+
+def test_assign_string_func_with_where(parser, str_df):
+    """String function combined with a where clause."""
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'df df\nassign up = upper(first)\n    where notes == "N/A"', ns)
+    assert ns['df'].loc[0, 'up'] == 'ALICE'    # condition met
+    assert ns['df'].loc[1, 'up'] != 'BOB'      # condition not met — NaN
+
+
+def test_assign_arithmetic_unchanged(parser, str_df):
+    """Arithmetic assign still routes through df.eval(), unaffected by string logic."""
+    ns = {'pd': pd, 'df': str_df.copy()}
+    ns['df']['price'] = [10.0, 20.0, 30.0]
+    ns['df']['qty']   = [2, 3, 4]
+    run(parser, 'df df\nassign total = price * qty', ns)
+    assert list(ns['df']['total']) == [20.0, 60.0, 120.0]
+
+
 def test_keyword_column_in_loaded_csv_warns(parser, tmp_path, sample_df):
     """Loading a CSV whose columns include a Pivotal keyword should emit a UserWarning."""
     df = sample_df.rename(columns={'price': 'min'})
