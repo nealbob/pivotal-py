@@ -8,7 +8,11 @@
   ## Ideas 
   - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 
-  - [ ] Some bugs in the viewer. Zoom in charts resets should remember. Viewer is not cleared when notebook stops (what happens with multiple notebooks?) Table interactivity - into code outputs?
+  - [ ] Some bugs in the viewer. Zoom in charts resets should remember.  Table interactivity - into code outputs?...print layout view.
+
+  - [ ] Bugs in autocorrect (no completions for where clause inside assign)
+
+  - [] Bugs in plot (y and x) technicaly need to swap for barh...??
 
   - [ ] left pane list of objects
 

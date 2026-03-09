@@ -6,24 +6,43 @@
         "product",
         "price",
         "quantity",
-        "category",
-        "flag"
+        "category"
       ],
       "shape": [
         5,
-        6
+        5
       ],
       "dtypes": {
         "id": "int64",
         "product": "str",
         "price": "float64",
         "quantity": "int64",
-        "category": "str",
-        "flag": "float64"
+        "category": "str"
+      },
+      "has_multiindex_columns": false
+    },
+    "clean": {
+      "columns": [
+        "id",
+        "product",
+        "price",
+        "quantity",
+        "category"
+      ],
+      "shape": [
+        5,
+        5
+      ],
+      "dtypes": {
+        "id": "int64",
+        "product": "str",
+        "price": "float64",
+        "quantity": "int64",
+        "category": "str"
       },
       "has_multiindex_columns": false
     }
   },
-  "timestamp": "2026-03-06T17:41:29.257838",
-  "current_table": "sales"
+  "timestamp": "2026-03-10T09:52:48.314450",
+  "current_table": "clean"
 }
