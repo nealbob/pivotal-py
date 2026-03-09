@@ -6,32 +6,25 @@
   ## Backlog
 
   ## Ideas 
-  
   - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 
-  - [ ] Pivot charts / tables - perform pivot and plot functions in one command
+  - [ ] Some bugs in the viewer. Zoom in charts resets should remember. Viewer is not cleared when notebook stops (what happens with multiple notebooks?) Table interactivity - into code outputs?
 
-     pivot_plot line goal_chart
-        x season
-        y sum total_goals, sum home_team_goal
-        by close_odds
-        IF y (and x) is single then by - columns in intial pivot (so it shows as legend in plot) else it is rows then used for facet, x only single or multi...
+  - [ ] left pane list of objects
+
+  - [ ] Pivot charts / tables - graphical low code option to make charts and tables 
 
   - [ ] String functions in `assign` expressions — see implementation plan below.
 
   - [ ] Polars support — see implementation plan below.
 
-  - [ ] Object Viewer panel — see implementation plan below.
-
   - [ ] Generate publication ready tables using the Great Tables package. Need to develop an implementation plan for this.
 
-  - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. This currently works fine (it runs inside the interactive notebook, and has syntax highlighting in the editor as expected) but in the editor the pivotal code section has pylance errors (red underlines) as it is still expecting python code. Is there a way to fix this...
+  - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. 
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
 
   - cast / type conversion — type coercion is fiddly and infrequent. Python is the right place for it.
-
-  - load multiple files or a folder and merge or concat, apply type conversion on load (use json metadata or something to guide this). Perhaps simple load then add settings sub command or, modify metadata then reload using settings in metadata??
 
   - describe / sample — pure exploration helpers. One-liners in Python (df.describe(), df.sample(10)), not worth adding to the grammar.
 
@@ -41,7 +34,6 @@
 
   - head / tail — in a notebook context this is about quick exploration. limit 10 at the end of a pipeline to preview results is very natural and saves a Python cell.
 
-  - connections to other data sources...
 
 
 ## Implementation plans
@@ -235,240 +227,6 @@ assign fixed = replace(notes, "N/A", "")
 
 ---
 
-### Object Viewer Panel
-
-**Goal:** A persistent right-side panel in JupyterLab that receives DataFrames and charts from every `%%pivotal` cell execution and displays them interactively — an alternative to inline cell output. Navigable history lets the user cycle through previous outputs without re-running cells.
-
----
-
-#### User experience
-
-- Panel opens automatically (or via command/shortcut) and docks to the right side of the JupyterLab workspace.
-- After each `%%pivotal` cell runs, the panel updates once per object produced, in execution order. If a cell produces a DataFrame then a chart, the panel shows the DataFrame briefly then the chart — the chart is visible at cell completion because it was produced last. The DataFrame is one step back in history.
-- If a cell modifies an existing object (same variable name, new content), the updated version is pushed as a new history entry — so the old version remains accessible via Back, but the panel always shows the freshest state at completion.
-- Panel header shows: object name, type (`DataFrame` / `Chart`), shape or chart kind, and a position indicator (e.g. `4 / 7`).
-- Back / Forward buttons (and keyboard shortcuts) cycle through the cached history.
-- Only one object is shown at a time. Cache holds the last 50 outputs (configurable constant).
-
----
-
-#### Data flow
-
-```
-%%pivotal cell executes
-    → magic.py sends comm message to frontend (one per object, in AST order)
-        → JupyterLab extension receives message
-            → Panel widget renders DataFrame or chart
-```
-
----
-
-#### Grid library choice
-
-**Recommended: `@lumino/datagrid`** — ships with JupyterLab 4, zero extra npm dependencies, virtual scrolling for large tables, column sorting on header click. This is the same grid used by JupyterLab's built-in CSV viewer.
-
-Alternative: **AG Grid Community** (MIT) — richer filtering/grouping UI, adds ~500 KB to bundle. Worth revisiting if column filtering becomes a requirement.
-
-#### Row rendering and transfer limit
-
-`@lumino/datagrid` uses **virtual rendering** — it only paints the rows currently in the viewport, so there is no inherent rendering limit. A 500 000-row DataFrame renders just as smoothly as a 100-row one from the grid's perspective.
-
-The practical constraint is the **comm payload** (JSON serialisation over the WebSocket). The plan:
-
-- Default transfer limit: **10 000 rows**. Large enough for most exploratory work and fast enough to feel instant.
-- A **row limit control** is surfaced in the panel footer (e.g. a small input: `Show: [10000] rows`). The user can raise or lower it; changing the value triggers a reply comm message that re-requests data from the kernel at the new size.
-- If the DataFrame is truncated, the footer shows a clear notice: `Showing 10 000 of 284 391 rows`.
-
----
-
-#### Chart interactivity
-
-Matplotlib figures are static; the panel will render them as high-res base64 PNG with:
-- Zoom in / out buttons (CSS `transform: scale()`)
-- Click-and-drag pan when zoomed (pointer events on a wrapping `<div>`)
-
-Optional V2 upgrade: use **mpld3** (`pip install mpld3`) to convert a matplotlib figure to an interactive D3.js chart. Richer but requires an extra Python dependency and larger payloads.
-
----
-
-#### Python side — `magic.py`
-
-Add a `_PivotalViewer` helper class (instantiated once per `PivotalMagics` instance):
-
-```python
-class _PivotalViewer:
-    MAX_ROWS = 10_000
-
-    def __init__(self, shell):
-        self._shell = shell
-        self._comm = None
-        self._last_sent: dict = {}   # name → df, for re-send on row-limit change
-
-    def _ensure_comm(self):
-        if self._comm is not None:
-            return
-        try:
-            from ipykernel.comm import Comm
-            self._comm = Comm(target_name='pivotal_viewer')
-            self._comm.on_msg(self._on_msg)   # handle row-limit re-requests
-            self._comm.open()
-        except Exception:
-            pass
-
-    def _on_msg(self, msg):
-        """Handle re-request from panel (e.g. user changed row limit)."""
-        data = msg['content']['data']
-        if data.get('type') == 'request' and data.get('name') in self._last_sent:
-            limit = int(data.get('limit', self.MAX_ROWS))
-            self.send_dataframe(data['name'], self._last_sent[data['name']], limit=limit)
-
-    def send_dataframe(self, name: str, df, limit: int = None):
-        self._ensure_comm()
-        if self._comm is None:
-            return
-        limit = limit or self.MAX_ROWS
-        self._last_sent[name] = df
-        truncated = len(df) > limit
-        payload = df.head(limit)
-        self._comm.send({
-            'type': 'dataframe',
-            'name': name,
-            'records': payload.to_dict('records'),
-            'columns': list(payload.columns),
-            'dtypes': {c: str(t) for c, t in payload.dtypes.items()},
-            'shape': list(df.shape),
-            'truncated': truncated,
-        })
-
-    def send_chart(self, name: str, fig):
-        self._ensure_comm()
-        if self._comm is None:
-            return
-        import io, base64
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
-        self._comm.send({
-            'type': 'chart',
-            'name': name,
-            'data': base64.b64encode(buf.getvalue()).decode(),
-        })
-```
-
-Wire into the `pivotal()` cell magic after `run_cell`. Walk the AST result list in execution order and for each node:
-- If the node produces a DataFrame (any statement that sets `table_name`): call `send_dataframe(name, df)`.
-- If the node is a `plot` statement: call `send_chart(name, fig)`.
-
-This strict AST-order traversal ensures the panel reflects execution order within the cell. The last item sent is always visible at cell completion.
-
-**Modified objects:** always push a new history entry even if the name already exists in the cache. This preserves the previous state via Back.
-
----
-
-#### Frontend side — new file `editors/jupyterlab/src/viewer.ts`
-
-**`PivotalViewerWidget`** extends `Widget`:
-
-```
-┌─────────────────────────────────────┐
-│ ◀  goal_chart · Chart  3/7  ▶  ✕   │  ← header bar
-├─────────────────────────────────────┤
-│                                     │
-│   [DataFrame grid / chart image]    │
-│                                     │
-├─────────────────────────────────────┤
-│ shape: 284 391 × 7  Show: [10000]   │  ← footer (DF only)
-└─────────────────────────────────────┘
-```
-
-Internal state:
-```ts
-interface ViewerItem {
-  type: 'dataframe' | 'chart';
-  name: string;
-  payload: DataFramePayload | ChartPayload;
-}
-
-private _items: ViewerItem[] = [];   // capped at 50
-private _index = -1;
-private _grid: DataGrid | null;
-private _img: HTMLImageElement;
-```
-
-Key methods:
-- `push(item)` — append to cache (drop oldest if over 50), advance `_index`, call `render()`
-- `back()` / `forward()` — decrement/increment `_index`, call `render()`
-- `render()` — swap between grid and img views depending on item type; update header and footer
-
-**DataFrame rendering** using `@lumino/datagrid`:
-- Implement `BasicDataModel extends DataModel` wrapping the JSON records array.
-- Column sorting on header click via `SortedModel`.
-- Numeric columns right-aligned; string columns left-aligned.
-- Footer row-limit input sends `{type: 'request', name, limit}` reply comm message to kernel.
-
-**Chart rendering:**
-- `<img src="data:image/png;base64,...">` inside a scrollable `<div>`.
-- Zoom toolbar: `+`, `-`, `1:1` buttons adjusting CSS `transform: scale()`.
-- Click-and-drag pan via `pointerdown` / `pointermove` events.
-
----
-
-#### `index.ts` changes
-
-1. **Comm registration** — on every kernel connection, register the `pivotal_viewer` comm target:
-
-```ts
-kernel.registerCommTarget('pivotal_viewer', (comm) => {
-  comm.onMsg = msg => viewerWidget.push(msg.content.data as ViewerMessage);
-});
-```
-
-2. **Widget creation** — create `PivotalViewerWidget` once, add to `app.shell` at `'right'`.
-
-3. **Commands**:
-
-| Command ID | Default shortcut | Action |
-|---|---|---|
-| `pivotal:show-viewer` | `Alt+Shift+P` | Focus / open viewer panel |
-| `pivotal:viewer-back` | `Alt+[` | Navigate back |
-| `pivotal:viewer-forward` | `Alt+]` | Navigate forward |
-
-4. **`package.json`** — add `@lumino/datagrid` and `@lumino/widgets` as peer dependencies (both ship with JupyterLab 4).
-
----
-
-#### New / changed files
-
-| File | Change |
-|---|---|
-| `pivotal/magic.py` | Add `_PivotalViewer` class; call from `pivotal()` magic |
-| `editors/jupyterlab/src/viewer.ts` | New — `PivotalViewerWidget`, `BasicDataModel` |
-| `editors/jupyterlab/src/index.ts` | Register viewer plugin, comm target, commands, shortcuts |
-| `editors/jupyterlab/package.json` | Add `@lumino/datagrid`, `@lumino/widgets` deps |
-| `editors/jupyterlab/style/base.css` | Add viewer panel styles |
-
----
-
-#### Implementation sequence
-
-1. `magic.py`: add `_PivotalViewer`, wire `send_dataframe` / `send_chart` into magic in AST order.
-2. `viewer.ts`: skeleton widget, header bar, back/forward wired to stubs.
-3. `index.ts`: register comm target, connect to widget, register commands.
-4. Build and verify comm messages arrive in browser console.
-5. `viewer.ts`: implement `BasicDataModel` + `DataGrid` for DataFrame rendering.
-6. `viewer.ts`: implement chart PNG display + zoom/pan.
-7. Footer: row-limit input + truncation notice + bidirectional comm re-request.
-8. Keyboard shortcuts, cache limit, CSS polish.
-
----
-
-#### Open questions
-
-- **Comm registration timing**: comm target must be registered before the kernel sends — add a small retry queue on the Python side (store unsent payloads and flush on first successful `open()`).
-- **Multiple kernels**: track one comm per kernel; clean up on kernel death / restart.
-- **Bidirectional comm for row limit changes**: requires `_PivotalViewer` to cache the last-seen DataFrame per name (already in the plan above via `_last_sent`).
-- **mpld3**: make chart interactivity opt-in via a `%%pivotal` option or Jupyter setting rather than a hard dependency.
-
----
 
 ## Completed
 

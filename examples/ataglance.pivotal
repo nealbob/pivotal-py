@@ -12,9 +12,11 @@ df summary from invoices
         agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     left merge customers on customer_id
-    python summary["name"] = summary["last_name"] + ", " + summary["first_name"]
+    assign name = last_name + ", " + first_name
     select customer_id, name, sum_income
 
-# export to all tables to Frictionless Data Package
+# export all to Frictionless Data Package
 save "my_analysis"
     path "~/projects/output"
+
+
