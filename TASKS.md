@@ -6,22 +6,17 @@
   ## Backlog
 
   ## Ideas 
-  - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 
-  - [ ] Some bugs in the viewer. Zoom in charts resets should remember.  Table interactivity - into code outputs?...print layout view.
-
-  - [ ] Bugs in autocorrect (no completions for where clause inside assign)
-
-  - [] Bugs in plot (y and x) technicaly need to swap for barh...??
-
-  - [ ] left pane list of objects
+  - [ ] Generate publication ready tables using the Great Tables package. Need to develop an implementation plan for this.
+  
+  - [ ] Polars support — see implementation plan below.
 
   - [ ] Pivot charts / tables - graphical low code option to make charts and tables 
 
-  - [ ] Polars support — see implementation plan below.
+  - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 
-  - [ ] Generate publication ready tables using the Great Tables package. Need to develop an implementation plan for this.
-
+  - [] Bugs in plot (y and x) technicaly need to swap for barh...??
+  
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. 
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
