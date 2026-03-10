@@ -381,6 +381,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     const viewer = getViewer();
     const explorer = getExplorer();
     explorer.title.icon = pivotalGreyIcon;
+    viewer.title.icon = pivotalGreyIcon;
 
     // Add explorer to left sidebar, viewer to right sidebar
     app.shell.add(explorer, 'left', { rank: 100 });

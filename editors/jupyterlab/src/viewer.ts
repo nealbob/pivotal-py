@@ -76,7 +76,7 @@ export class PivotalViewerWidget extends Widget {
     super();
     this.addClass('pv-viewer');
     this.id = 'pivotal-viewer-panel';
-    this.title.label = 'Pivotal Viewer';
+    this.title.label = '';
     this.title.caption = 'Pivotal Object Viewer';
     this.title.closable = true;
 

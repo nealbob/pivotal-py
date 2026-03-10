@@ -34,7 +34,7 @@ export class PivotalExplorerWidget extends Widget {
     super();
     this.addClass('pv-explorer');
     this.id = 'pivotal-explorer-panel';
-    this.title.label = 'Pivotal';
+    this.title.label = '';
     this.title.caption = 'Pivotal Object Explorer';
     this.title.closable = false;
 
