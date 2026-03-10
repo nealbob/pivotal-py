@@ -26,7 +26,7 @@ const keywords: Record<string, true> = {
   plot: true, python: true, from: true, where: true,
   as: true, on: true, rows: true, cols: true, assign: true,
   agg: true, drop: true, fillna: true, dropna: true,
-  distinct: true, concat: true, rename: true,
+  distinct: true, concat: true, rename: true, save: true,
 };
 
 const builtins: Record<string, true> = {

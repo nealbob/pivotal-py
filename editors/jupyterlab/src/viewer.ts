@@ -15,10 +15,20 @@ export interface DataFramePayload {
   truncated: boolean;
 }
 
+export interface CanvasMeta {
+  page_width_mm: number;
+  page_height_mm: number;
+  margin_mm: number;
+  chart_width_mm: number;
+  chart_height_mm: number;
+  label: string; // e.g. 'A4'
+}
+
 export interface ChartPayload {
   type: 'chart';
   name: string;
   data: string; // base64 PNG
+  canvas?: CanvasMeta;
 }
 
 export type ViewerMessage = DataFramePayload | ChartPayload;
@@ -307,10 +317,19 @@ export class PivotalViewerWidget extends Widget {
   }
 
   // -------------------------------------------------------------------------
-  // Chart — PNG with zoom/pan
+  // Chart — dispatch to page-layout or free zoom/pan depending on payload
   // -------------------------------------------------------------------------
 
   private _renderChart(p: ChartPayload): void {
+    if (p.canvas) {
+      this._renderChartOnPage(p);
+    } else {
+      this._renderChartFree(p);
+    }
+  }
+
+  // Free-form zoom/pan (no canvas defined)
+  private _renderChartFree(p: ChartPayload): void {
     let scale = 1.0;
     let dragging = false;
     let dragStartX = 0, dragStartY = 0, scrollStartX = 0, scrollStartY = 0;
@@ -362,6 +381,75 @@ export class PivotalViewerWidget extends Widget {
       dragging = false;
       scroll.style.cursor = 'grab';
     });
+  }
+
+  // Page-layout view: chart placed on a to-scale page background
+  private _renderChartOnPage(p: ChartPayload): void {
+    const cm = p.canvas!;
+    let userScale = 1.0;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML = `
+      <button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>
+      <button class="pv-btn pv-zoom-out"   title="Zoom out">−</button>
+      <button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>
+      <span class="pv-canvas-label">${cm.label} · ${cm.margin_mm}mm margins</span>
+    `;
+
+    const outer = document.createElement('div');
+    outer.className = 'pv-page-view';
+
+    const page = document.createElement('div');
+    page.className = 'pv-page';
+
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${p.data}`;
+    img.className = 'pv-page-chart-img';
+    img.draggable = false;
+
+    page.appendChild(img);
+    outer.appendChild(page);
+    this._body.appendChild(toolbar);
+    this._body.appendChild(outer);
+
+    // Track last layout inputs so we can skip no-op repaints and break
+    // ResizeObserver feedback loops (scrollbar appearing/disappearing cycles).
+    let lastAvailW = -1;
+    let rafId = 0;
+
+    const apply = () => {
+      // Base scale: fit page width into available panel width (32px padding each side)
+      const availW = Math.max(outer.clientWidth - 64, 80);
+      // Skip if width unchanged — prevents scrollbar-triggered oscillation
+      if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
+      lastAvailW = availW;
+      rafId = 0;
+
+      const pxPerMm = (availW / cm.page_width_mm) * userScale;
+
+      page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
+      page.style.height = `${cm.page_height_mm * pxPerMm}px`;
+
+      img.style.width  = `${cm.chart_width_mm  * pxPerMm}px`;
+      img.style.height = `${cm.chart_height_mm * pxPerMm}px`;
+      img.style.left   = `${cm.margin_mm * pxPerMm}px`;
+      img.style.top    = `${cm.margin_mm * pxPerMm}px`;
+    };
+
+    // Zoom buttons bypass the width-change guard since userScale changed
+    const applyForced = () => { lastAvailW = -1; apply(); };
+
+    toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
+
+    // Coalesce rapid ResizeObserver callbacks into one RAF to prevent loops
+    new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(apply);
+    }).observe(outer);
+    requestAnimationFrame(apply);
   }
 
   protected onResize(_msg: Message): void { /* flexbox handles layout */ }

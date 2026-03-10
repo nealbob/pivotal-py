@@ -70,7 +70,7 @@ class _PivotalViewer:
         except Exception:
             pass
 
-    def send_chart(self, name: str, fig):
+    def send_chart(self, name: str, fig, canvas_meta: dict = None):
         """Render fig to PNG and send to the viewer."""
         self._ensure_comm()
         if self._comm is None:
@@ -79,11 +79,14 @@ class _PivotalViewer:
         buf = io.BytesIO()
         try:
             fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
-            self._comm.send({
+            msg = {
                 'type': 'chart',
                 'name': name,
                 'data': base64.b64encode(buf.getvalue()).decode(),
-            })
+            }
+            if canvas_meta:
+                msg['canvas'] = canvas_meta
+            self._comm.send(msg)
         except Exception:
             pass
 
@@ -92,7 +95,39 @@ class _PivotalViewer:
 # Walk AST results and send objects to viewer in execution order
 # ---------------------------------------------------------------------------
 
-def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict):
+_PAPER_SIZES_MM: dict = {
+    'a4':     (210.0, 297.0),
+    'a3':     (297.0, 420.0),
+    'letter': (215.9, 279.4),
+}
+
+
+def _build_canvas_meta(fig, settings: dict) -> dict | None:
+    """Compute page-layout metadata from settings and the figure's aspect ratio."""
+    canvas = settings.get('canvas', 'none')
+    if canvas not in _PAPER_SIZES_MM:
+        return None
+    page_w_mm, page_h_mm = _PAPER_SIZES_MM[canvas]
+    margin_mm = float(settings.get('margins', 25))
+    usable_w = page_w_mm - 2 * margin_mm
+    fraction = 0.5 if settings.get('chart_width') == 'half' else 1.0
+    chart_w_mm = usable_w * fraction
+    try:
+        w_in, h_in = fig.get_size_inches()
+        chart_h_mm = chart_w_mm * (h_in / w_in) if w_in else chart_w_mm
+    except Exception:
+        chart_h_mm = chart_w_mm * 0.75
+    return {
+        'page_width_mm':  page_w_mm,
+        'page_height_mm': page_h_mm,
+        'margin_mm':      margin_mm,
+        'chart_width_mm': chart_w_mm,
+        'chart_height_mm': chart_h_mm,
+        'label': canvas.upper(),
+    }
+
+
+def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, settings: dict = None):
     """Send the final state of each named object to the viewer.
 
     The generated code stores each chart figure in the user namespace under
@@ -130,7 +165,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict):
         chart_name = node.get('name') or node.get('table_name') or 'chart'
         fig = ns.get(chart_name)
         if isinstance(fig, mfig.Figure):
-            viewer.send_chart(chart_name, fig)
+            canvas_meta = _build_canvas_meta(fig, settings or {})
+            viewer.send_chart(chart_name, fig, canvas_meta=canvas_meta)
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +395,9 @@ class PivotalMagics(Magics):
     DEFAULT_SETTINGS = {
         'output_type': 'viewer',   # viewer | inline | both
         'output_code': False,       # print generated Python code inline
+        'canvas': 'none',           # none | a4 | a3 | letter
+        'margins': 25,              # page margin in mm (all sides)
+        'chart_width': 'full',      # full | half  (fraction of usable page width)
     }
 
     def _parse_line_args(self, line: str) -> dict:
@@ -371,6 +410,15 @@ class PivotalMagics(Magics):
                 overrides['output_type'] = v
             elif k == 'output_code':
                 overrides['output_code'] = v in ('true', '1', 'yes')
+            elif k == 'canvas' and v in ('none', 'a4', 'a3', 'letter'):
+                overrides['canvas'] = v
+            elif k == 'margins':
+                try:
+                    overrides['margins'] = float(v)
+                except ValueError:
+                    pass
+            elif k == 'chart_width' and v in ('full', 'half'):
+                overrides['chart_width'] = v
         return overrides
 
     def _effective_settings(self, line: str) -> dict:
@@ -451,7 +499,7 @@ class PivotalMagics(Magics):
 
             if output_type in ('viewer', 'both'):
                 try:
-                    _send_results_to_viewer(self._viewer, results, self.shell.user_ns)
+                    _send_results_to_viewer(self._viewer, results, self.shell.user_ns, settings=s)
                 except Exception:
                     pass
 
