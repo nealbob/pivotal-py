@@ -7,7 +7,7 @@
 
   ## Ideas 
 
-  - [ ] Generate publication ready tables using the Great Tables package. Need to develop an implementation plan for this.
+  - [ ] Generate publication ready tables using the Great Tables package. See implementation plan below.
   
   - [ ] Polars support — see implementation plan below.
 
@@ -34,6 +34,209 @@
 
 
 ## Implementation plans
+
+### Great Tables (`table` command)
+
+**Goal:** Add a `table` command to the Pivotal DSL that wraps the `great_tables` package to generate publication-ready HTML tables. Tables are previewed in the Pivotal Viewer (with optional page canvas), appear in the Explorer pane with a distinct icon, and are exported as self-contained `.html` files via the `save` command.
+
+**Dependency:** Add `great-tables>=0.10` to `pyproject.toml`. PNG/MD export is out of scope — HTML only.
+
+---
+
+**Grammar:**
+
+```
+table <name>
+    [title "string"]
+    [subtitle "string"]
+    [font size <number>]
+    [font "font-family-name"]
+    [stub <column>]
+    [col <column> [as "label"] [number <decimals>|integer|currency <code>|percent <decimals>|date]]
+    [stripe]
+    [canvas a4|a3|letter]
+```
+
+- `stub <column>` — pulls the column into a styled left-margin row-label area (visually separated by a heavier border). Use for the natural row identifier (name, category, date).
+- `stripe` — enables alternating row background colours (zebra striping) via `opt_row_striping()`.
+- `col` — one line per column; all column options (label rename + format) grouped together. Either part can be omitted independently.
+- `canvas` — per-table page size for the viewer preview. If omitted the table renders as a free-scrolling iframe. If the table is wider than the canvas it overflows naturally (no auto-scaling).
+- Output format is always HTML. The `save` command exports `<name>.html` (fully self-contained, inline CSS).
+
+**Examples:**
+
+```
+df results
+
+table summary
+    title "Season Results"
+    subtitle "All matches, 2023-24"
+    font size 11
+    font "Georgia"
+    stub team
+    col goals as "Goals Scored" number 1
+    col win_rate as "Win %" percent 1
+    col revenue as "Revenue" currency GBP
+    col matches integer
+    stripe
+    canvas a4
+
+table quick
+    title "Top Teams"
+```
+
+---
+
+**Lark grammar additions (`dsl_parser.py`):**
+
+```lark
+statement: ... | table_statement
+
+table_statement: "table" IDENTIFIER (_NL | _NL _INDENT table_params _DEDENT)?
+
+table_params: table_param+
+
+table_param: "title"    STRING                              _NL?  -> table_title
+           | "subtitle" STRING                              _NL?  -> table_subtitle
+           | "font" "size" NUMBER                           _NL?  -> table_font_size
+           | "font" STRING                                  _NL?  -> table_font_family
+           | "stub" IDENTIFIER                              _NL?  -> table_stub
+           | "stripe"                                       _NL?  -> table_stripe
+           | "canvas" IDENTIFIER                            _NL?  -> table_canvas
+           | "col" IDENTIFIER "as" STRING table_fmt?        _NL?  -> table_col_labeled
+           | "col" IDENTIFIER table_fmt                     _NL?  -> table_col_fmt_only
+           | "col" IDENTIFIER                               _NL?  -> table_col_bare
+
+table_fmt: "number"   NUMBER?     -> fmt_number
+         | "integer"               -> fmt_integer
+         | "currency" IDENTIFIER?  -> fmt_currency
+         | "percent"  NUMBER?      -> fmt_percent
+         | "date"                  -> fmt_date
+```
+
+Add `table`, `stub`, `stripe`, `col` to the keywords list in the Lark grammar and in `language.ts`.
+
+---
+
+**AST node:**
+
+```python
+{
+    'type': 'gt_table',
+    'name': 'summary',           # table variable name
+    'table_name': 'results',     # active DataFrame
+    'title': 'Season Results',
+    'subtitle': 'All matches, 2023-24',
+    'font_size': 11,
+    'font_family': 'Georgia',
+    'stub': 'team',
+    'stripe': True,
+    'canvas': 'a4',
+    'cols': [
+        {'col': 'goals',    'label': 'Goals Scored', 'fmt': 'number',   'decimals': 1},
+        {'col': 'win_rate', 'label': 'Win %',        'fmt': 'percent',  'decimals': 1},
+        {'col': 'revenue',  'label': 'Revenue',      'fmt': 'currency', 'code': 'GBP'},
+        {'col': 'matches',  'label': None,            'fmt': 'integer'},
+    ],
+}
+```
+
+---
+
+**Code generation (`generate_gt_table_pandas`):**
+
+Generates Python that builds the GT object and stores the rendered HTML in `_pivotal_gt_tables`:
+
+```python
+import great_tables as _gt_mod
+_gt = _gt_mod.GT(results, rowname_col='team')
+_gt = _gt.tab_header(title='Season Results', subtitle='All matches, 2023-24')
+_gt = _gt.opt_table_font(font='Georgia', size=11)
+_gt = _gt.opt_row_striping()
+_gt = _gt.cols_label(goals='Goals Scored', win_rate='Win %', revenue='Revenue')
+_gt = _gt.fmt_number(columns='goals', decimals=1)
+_gt = _gt.fmt_percent(columns='win_rate', decimals=1)
+_gt = _gt.fmt_currency(columns='revenue', currency='GBP')
+_gt = _gt.fmt_integer(columns='matches')
+if '_pivotal_gt_tables' not in globals(): globals()['_pivotal_gt_tables'] = {}
+globals()['_pivotal_gt_tables']['summary'] = {
+    'html': _gt.as_raw_html(make_page=True, inline_css=True),
+    'canvas': 'a4',
+}
+```
+
+---
+
+**`magic.py` changes:**
+
+1. `_PivotalViewer.send_table(name, html, canvas)` — new method. Builds canvas metadata (page_width_mm, page_height_mm, margin_mm=20, label) from `_PAPER_SIZES_MM` if canvas is set; sends `{'type': 'gt_table', 'name': name, 'html': html, 'canvas': meta}` via comm.
+
+2. `_send_results_to_viewer()` — extend to walk `gt_table` nodes and call `viewer.send_table()` by looking up entries in `ns['_pivotal_gt_tables']`.
+
+3. `save` command — for each entry in `_pivotal_gt_tables`, write `<name>.html` alongside the other saved files.
+
+---
+
+**`viewer.ts` changes:**
+
+New payload type:
+```typescript
+export interface GtTablePayload {
+  type: 'gt_table';
+  name: string;
+  html: string;
+  canvas?: CanvasMeta;   // no chart_width/height fields — table fills page width
+}
+export type ViewerMessage = DataFramePayload | ChartPayload | GtTablePayload;
+```
+
+New render methods:
+- `_renderGtTable(p)` — dispatches to free or page-layout variant.
+- `_renderGtTableFree(p)` — renders `<iframe srcdoc=...>` filling the body. Iframe isolates GT's CSS from JupyterLab.
+- `_renderGtTableOnPage(p)` — same page-layout scaffold as `_renderChartOnPage` (ResizeObserver + RAF) but with an iframe sized to usable page width instead of an `<img>`.
+
+Update `_render()` dispatch, title display, and `ExplorerItem` type union.
+
+---
+
+**`explorer.ts` changes:**
+
+Add `GT_TABLE_ICON` — a formal ruled-lines icon distinct from the DataFrame grid icon:
+```svg
+<svg viewBox="0 0 14 14" width="14" height="14">
+  <rect x="1" y="1.5" width="12" height="2.5" rx="0.4" fill="currentColor" opacity="0.85"/>
+  <line x1="1" y1="6"   x2="13" y2="6"   stroke="currentColor" stroke-width="0.8" opacity="0.55"/>
+  <line x1="1" y1="8.5" x2="13" y2="8.5" stroke="currentColor" stroke-width="0.8" opacity="0.45"/>
+  <line x1="1" y1="11"  x2="13" y2="11"  stroke="currentColor" stroke-width="0.8" opacity="0.35"/>
+  <line x1="1" y1="13"  x2="13" y2="13"  stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+</svg>
+```
+
+Update `_renderItem()` to use this icon for `type === 'gt_table'` (no expand toggle — GT tables have no column tree).
+
+---
+
+**`index.ts` changes:**
+
+- Add `'table'` to `COMMAND_KEYWORDS` for autocomplete.
+- Add sub-keyword completions for the `table` context: after `col <identifier>`, offer `as`, `number`, `integer`, `currency`, `percent`, `date`; after `canvas`, offer `a4`, `a3`, `letter`.
+
+---
+
+**Implementation order:**
+
+| Step | File | Notes |
+|------|------|-------|
+| 1. Grammar + transformer | `dsl_parser.py` | Add Lark rules, transformer methods, AST node |
+| 2. Code generator | `dsl_parser.py` | `generate_gt_table_pandas` |
+| 3. magic.py send + save | `magic.py` | `send_table()`, extend `_send_results_to_viewer`, extend `save` |
+| 4. Viewer payload + render | `viewer.ts` | `GtTablePayload`, `_renderGtTable*` methods |
+| 5. Explorer icon | `explorer.ts` | `GT_TABLE_ICON`, handle `gt_table` type |
+| 6. Syntax + autocomplete | `language.ts`, `index.ts` | Add keywords |
+| 7. Tests | `tests/test_gt_table.py` | Basic generation tests (no GT import required — mock or skip) |
+| 8. README | `README.md` | Document `table` command grammar |
+
+---
 
 ### Polars backend
 
