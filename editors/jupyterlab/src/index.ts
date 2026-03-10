@@ -44,15 +44,33 @@ export const pivotalIcon = new LabIcon({
   svgstr: PIVOTAL_SVG,
 });
 
-// Greyscale version for the left sidebar: same logo shape, uses currentColor
-// so it adapts correctly to JupyterLab light/dark themes.
-const PIVOTAL_GREY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-  <rect x="1" y="1" width="14" height="14" rx="2" fill="currentColor" opacity="0.18"/>
-  <rect x="2.5" y="2.5" width="11" height="3.5" rx="0.8" fill="currentColor" opacity="0.85"/>
-  <rect x="2.5" y="7"   width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.6"/>
-  <rect x="9"   y="7"   width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.6"/>
-  <rect x="2.5" y="11"  width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.4"/>
-  <rect x="9"   y="11"  width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.4"/>
+// Greyscale pivot-wheel logo for the left sidebar.
+// Same geometry as pivotal_logo.svg but rendered with currentColor so it
+// adapts to both JupyterLab light and dark themes. No background rect so
+// the sidebar background shows through.
+const PIVOTAL_GREY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Dim track ring -->
+  <circle cx="64" cy="64" r="40" fill="none"
+          stroke="currentColor" stroke-width="15" opacity="0.15"/>
+  <!-- Arc 1: top-right (brightest) -->
+  <path d="M 67.49 24.15 A 40 40 0 0 1 100.25 80.90"
+        fill="none" stroke="currentColor" stroke-width="15"
+        stroke-linecap="round" opacity="0.9"/>
+  <!-- Arc 2: bottom (mid) -->
+  <path d="M 96.77 86.94 A 40 40 0 0 1 31.23 86.94"
+        fill="none" stroke="currentColor" stroke-width="15"
+        stroke-linecap="round" opacity="0.6"/>
+  <!-- Arc 3: left (softest) -->
+  <path d="M 27.75 80.90 A 40 40 0 0 1 60.51 24.15"
+        fill="none" stroke="currentColor" stroke-width="15"
+        stroke-linecap="round" opacity="0.4"/>
+  <!-- Radial spoke lines -->
+  <line x1="64" y1="64" x2="108.17" y2="47.93"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="64" y1="64" x2="40.50" y2="23.30"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <!-- Centre pivot dot -->
+  <circle cx="64" cy="64" r="8.5" fill="currentColor" opacity="0.9"/>
 </svg>`;
 
 export const pivotalGreyIcon = new LabIcon({
