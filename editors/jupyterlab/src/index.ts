@@ -167,6 +167,9 @@ function detectContext(
     if (/^assign\s+\w+\s*=/.test(trimmed)) {
       return { type: 'column', table };
     }
+    if (/^where\b/.test(trimmed)) {
+      return { type: 'column', table };
+    }
     if (/^(group\s+by|by)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
