@@ -27,6 +27,7 @@ const keywords: Record<string, true> = {
   as: true, on: true, rows: true, cols: true, assign: true,
   agg: true, drop: true, fillna: true, dropna: true,
   distinct: true, concat: true, rename: true, save: true,
+  table: true, stub: true, col: true, stripe: true,
 };
 
 const builtins: Record<string, true> = {
@@ -38,6 +39,7 @@ const builtins: Record<string, true> = {
   in: true, not: true, between: true,
   contains: true, startswith: true, endswith: true,
   and: true, or: true,
+  integer: true, currency: true, percent: true, date: true, number: true,
 };
 
 const atoms: Record<string, true> = {

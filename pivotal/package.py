@@ -99,14 +99,27 @@ class Package:
                 continue
             cls._write_chart(pkg_path, config, chart_name, entry, chart_fmt)
 
+        # --- Save GT tables ---
+        gt_tables = namespace.get('_pivotal_gt_tables', {})
+        for tbl_name, entry in gt_tables.items():
+            if include_set is not None and tbl_name not in include_set:
+                continue
+            if tbl_name in exclude_set:
+                continue
+            cls._write_gt_table(pkg_path, config, tbl_name, entry)
+
         # Write datapackage.json
         dp_path = os.path.join(pkg_path, "datapackage.json")
         with open(dp_path, "w", encoding="utf-8") as fh:
             json.dump(config, fh, indent=2)
 
-        n_tables = sum(1 for r in config["resources"] if r["mediatype"] != "image/png")
+        n_tables = sum(1 for r in config["resources"] if r["mediatype"] in ("text/csv", "application/parquet"))
         n_charts = sum(1 for r in config["resources"] if r["mediatype"] == "image/png")
-        print(f"Package '{name}' saved to {pkg_path} ({n_tables} table(s), {n_charts} chart(s))")
+        n_gt = sum(1 for r in config["resources"] if r["mediatype"] == "text/html")
+        parts = [f"{n_tables} table(s)"]
+        if n_charts: parts.append(f"{n_charts} chart(s)")
+        if n_gt: parts.append(f"{n_gt} GT table(s)")
+        print(f"Package '{name}' saved to {pkg_path} ({', '.join(parts)})")
 
         return cls(name, pkg_path, config)
 
@@ -172,6 +185,18 @@ class Package:
                 {"name": f"{name}_data", "path": f"charts/{name}.csv", "mediatype": "text/csv",
                  "schema": cls._df_schema(data)}
             )
+
+    @classmethod
+    def _write_gt_table(cls, pkg_path: str, config: dict, name: str, entry: dict) -> None:
+        tables_dir = os.path.join(pkg_path, "tables")
+        os.makedirs(tables_dir, exist_ok=True)
+        html = entry.get('html', '')
+        fpath = os.path.join(tables_dir, f"{name}.html")
+        with open(fpath, 'w', encoding='utf-8') as fh:
+            fh.write(html)
+        config["resources"].append(
+            {"name": name, "path": f"tables/{name}.html", "mediatype": "text/html"}
+        )
 
     # ------------------------------------------------------------------
     # Open / load

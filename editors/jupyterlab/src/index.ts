@@ -105,7 +105,7 @@ const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
   'concat', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply',
+  'distinct', 'python', 'save', 'apply', 'table',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -200,6 +200,9 @@ function detectContext(
       return { type: 'column', table };
     }
     if (/^assign\s+\w+\s*=/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^col\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^where\b/.test(trimmed)) {
@@ -445,7 +448,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         viewer.setComm(comm);
         comm.onMsg = (msg: any) => {
           const data = msg?.content?.data as ViewerMessage | undefined;
-          if (data?.type === 'dataframe' || data?.type === 'chart') {
+          if (data?.type === 'dataframe' || data?.type === 'chart' || data?.type === 'gt_table') {
             viewer.push(data);
             // Show panel when new data arrives
             app.shell.activateById(viewer.id);

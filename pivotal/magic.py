@@ -90,6 +90,29 @@ class _PivotalViewer:
         except Exception:
             pass
 
+    def send_table(self, name: str, html: str, canvas: str = 'none'):
+        """Send a rendered GT table to the viewer."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        msg = {
+            'type': 'gt_table',
+            'name': name,
+            'html': html,
+        }
+        if canvas in _PAPER_SIZES_MM:
+            page_w, page_h = _PAPER_SIZES_MM[canvas]
+            msg['canvas'] = {
+                'page_width_mm': page_w,
+                'page_height_mm': page_h,
+                'margin_mm': 20.0,
+                'label': canvas.upper(),
+            }
+        try:
+            self._comm.send(msg)
+        except Exception:
+            pass
+
 
 # ---------------------------------------------------------------------------
 # Walk AST results and send objects to viewer in execution order
@@ -143,12 +166,15 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
 
     seen_tables: dict = {}
     plot_nodes: list = []
+    gt_table_nodes: list = []
 
     for node in results:
         if not isinstance(node, dict):
             continue
         if node.get('type') == 'plot':
             plot_nodes.append(node)
+        elif node.get('type') == 'gt_table':
+            gt_table_nodes.append(node)
         else:
             name = node.get('table_name')
             if name:
@@ -167,6 +193,15 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
         if isinstance(fig, mfig.Figure):
             canvas_meta = _build_canvas_meta(fig, settings or {})
             viewer.send_chart(chart_name, fig, canvas_meta=canvas_meta)
+
+    # Send GT tables
+    for node in gt_table_nodes:
+        tbl_name = node.get('name')
+        if not tbl_name:
+            continue
+        entry = ns.get('_pivotal_gt_tables', {}).get(tbl_name, {})
+        if entry.get('html'):
+            viewer.send_table(tbl_name, entry['html'], entry.get('canvas', 'none'))
 
 
 # ---------------------------------------------------------------------------

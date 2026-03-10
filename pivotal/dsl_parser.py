@@ -13,7 +13,7 @@ PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
-    'dropna', 'distinct', 'concat', 'rename', 'apply',
+    'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -51,6 +51,7 @@ grammar_indented = r"""
                | concat_statement
                | rename_statement
                | apply_statement
+               | table_statement
                | save_statement
 
     apply_statement: "apply" IDENTIFIER _NL?
@@ -65,6 +66,36 @@ grammar_indented = r"""
               | IDENTIFIER "=" value _NL?      -> plot_value_param
               | IDENTIFIER "=" list_value _NL? -> plot_list_param
               | IDENTIFIER list_value _NL?     -> plot_list_param
+
+    table_statement: "table" IDENTIFIER (_NL | _NL _INDENT table_params _DEDENT)?
+
+    table_params: table_param+
+
+    table_param: "title"    STRING         _NL?                          -> table_title
+               | "subtitle" STRING         _NL?                          -> table_subtitle
+               | "font" "size" NUMBER      _NL?                          -> table_font_size
+               | "font" STRING             _NL?                          -> table_font_family
+               | "stub" IDENTIFIER         _NL?                          -> table_stub
+               | "stripe"                  _NL?                          -> table_stripe
+               | "canvas" IDENTIFIER       _NL?                          -> table_canvas
+               | "col" IDENTIFIER "as" STRING "number" NUMBER _NL?       -> col_as_number
+               | "col" IDENTIFIER "as" STRING "number"        _NL?       -> col_as_number_noprec
+               | "col" IDENTIFIER "as" STRING "integer"       _NL?       -> col_as_integer
+               | "col" IDENTIFIER "as" STRING "currency" IDENTIFIER _NL? -> col_as_currency
+               | "col" IDENTIFIER "as" STRING "currency"      _NL?       -> col_as_currency_nocode
+               | "col" IDENTIFIER "as" STRING "percent" NUMBER _NL?      -> col_as_percent
+               | "col" IDENTIFIER "as" STRING "percent"       _NL?       -> col_as_percent_noprec
+               | "col" IDENTIFIER "as" STRING "date"          _NL?       -> col_as_date
+               | "col" IDENTIFIER "as" STRING                 _NL?       -> col_as_label
+               | "col" IDENTIFIER "number" NUMBER             _NL?       -> col_number
+               | "col" IDENTIFIER "number"                    _NL?       -> col_number_noprec
+               | "col" IDENTIFIER "integer"                   _NL?       -> col_integer
+               | "col" IDENTIFIER "currency" IDENTIFIER       _NL?       -> col_currency
+               | "col" IDENTIFIER "currency"                  _NL?       -> col_currency_nocode
+               | "col" IDENTIFIER "percent" NUMBER            _NL?       -> col_percent
+               | "col" IDENTIFIER "percent"                   _NL?       -> col_percent_noprec
+               | "col" IDENTIFIER "date"                      _NL?       -> col_date
+               | "col" IDENTIFIER                             _NL?       -> col_bare
 
     python_statement: "python" UNQUOTED_STRING _NL?
 
@@ -907,6 +938,133 @@ class DSLTransformer(Transformer):
     def plot_list_param(self, key, val):
         return {'key': str(key), 'value': val if isinstance(val, list) else self._convert_value(val), 'label': None}
 
+    def table_statement(self, *args):
+        name = None
+        params = []
+        for arg in args:
+            if isinstance(arg, Token) and arg.type == 'IDENTIFIER':
+                name = str(arg)
+            elif isinstance(arg, list):
+                # Lark packs the optional-group result into a flat list:
+                # no params  → ['name']
+                # with params → ['name', [param_dict, ...]]
+                for item in arg:
+                    if isinstance(item, str):
+                        name = item
+                    elif isinstance(item, list):
+                        params = item
+                    elif isinstance(item, dict):
+                        params.append(item)
+        node = {
+            'type': 'gt_table',
+            'name': name,
+            'table_name': self.current_table,
+            'title': None,
+            'subtitle': None,
+            'font_size': None,
+            'font_family': None,
+            'stub': None,
+            'stripe': False,
+            'canvas': 'none',
+            'cols': [],
+        }
+        for p in params:
+            if not isinstance(p, dict):
+                continue
+            k = p.get('key')
+            if k == 'title':       node['title'] = p['value']
+            elif k == 'subtitle':  node['subtitle'] = p['value']
+            elif k == 'font_size': node['font_size'] = p['value']
+            elif k == 'font_family': node['font_family'] = p['value']
+            elif k == 'stub':      node['stub'] = p['value']
+            elif k == 'stripe':    node['stripe'] = True
+            elif k == 'canvas':    node['canvas'] = p['value']
+            elif k == 'col':       node['cols'].append(p)
+        return node
+
+    def table_params(self, *params):
+        return list(params)
+
+    def table_title(self, s):
+        return {'key': 'title', 'value': str(s).strip('"').strip("'")}
+
+    def table_subtitle(self, s):
+        return {'key': 'subtitle', 'value': str(s).strip('"').strip("'")}
+
+    def table_font_size(self, n):
+        return {'key': 'font_size', 'value': float(n)}
+
+    def table_font_family(self, s):
+        return {'key': 'font_family', 'value': str(s).strip('"').strip("'")}
+
+    def table_stub(self, col):
+        return {'key': 'stub', 'value': str(col)}
+
+    def table_stripe(self):
+        return {'key': 'stripe', 'value': True}
+
+    def table_canvas(self, val):
+        return {'key': 'canvas', 'value': str(val)}
+
+    def _col_dict(self, col, label, fmt, **kwargs):
+        d = {'key': 'col', 'col': str(col), 'label': label, 'fmt': fmt}
+        d.update(kwargs)
+        return d
+
+    def col_as_number(self, col, label, decimals):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'number', decimals=float(decimals))
+
+    def col_as_number_noprec(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'number', decimals=2)
+
+    def col_as_integer(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'integer')
+
+    def col_as_currency(self, col, label, code):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'currency', code=str(code))
+
+    def col_as_currency_nocode(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'currency', code='USD')
+
+    def col_as_percent(self, col, label, decimals):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'percent', decimals=float(decimals))
+
+    def col_as_percent_noprec(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'percent', decimals=1)
+
+    def col_as_date(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), 'date')
+
+    def col_as_label(self, col, label):
+        return self._col_dict(col, str(label).strip('"').strip("'"), None)
+
+    def col_number(self, col, decimals):
+        return self._col_dict(col, None, 'number', decimals=float(decimals))
+
+    def col_number_noprec(self, col):
+        return self._col_dict(col, None, 'number', decimals=2)
+
+    def col_integer(self, col):
+        return self._col_dict(col, None, 'integer')
+
+    def col_currency(self, col, code):
+        return self._col_dict(col, None, 'currency', code=str(code))
+
+    def col_currency_nocode(self, col):
+        return self._col_dict(col, None, 'currency', code='USD')
+
+    def col_percent(self, col, decimals):
+        return self._col_dict(col, None, 'percent', decimals=float(decimals))
+
+    def col_percent_noprec(self, col):
+        return self._col_dict(col, None, 'percent', decimals=1)
+
+    def col_date(self, col):
+        return self._col_dict(col, None, 'date')
+
+    def col_bare(self, col):
+        return self._col_dict(col, None, None)
+
     def _plot_kwargs(self, plot_params_list):
         """Build kwargs dict and string from a list of plot_param dicts."""
         kwargs = {}
@@ -1703,6 +1861,73 @@ class CodeGenerator:
             ]
 
         return "\n".join(lines)
+
+    def generate_gt_table_pandas(self, ast_node):
+        table = ast_node['table_name']
+        name = ast_node['name']
+        title = ast_node.get('title')
+        subtitle = ast_node.get('subtitle')
+        font_size = ast_node.get('font_size')
+        font_family = ast_node.get('font_family')
+        stub = ast_node.get('stub')
+        stripe = ast_node.get('stripe', False)
+        canvas = ast_node.get('canvas', 'none')
+        cols = ast_node.get('cols', [])
+
+        lines = ["import great_tables as _gt_mod"]
+
+        # Constructor
+        ctor_args = table
+        if stub:
+            ctor_args += f", rowname_col={stub!r}"
+        lines.append(f"_gt = _gt_mod.GT({ctor_args})")
+
+        # Header
+        if title or subtitle:
+            args = []
+            if title: args.append(f"title={title!r}")
+            if subtitle: args.append(f"subtitle={subtitle!r}")
+            lines.append(f"_gt = _gt.tab_header({', '.join(args)})")
+
+        # Font
+        if font_family or font_size:
+            args = []
+            if font_family: args.append(f"font={font_family!r}")
+            if font_size: args.append(f"size={font_size}")
+            lines.append(f"_gt = _gt.opt_table_font({', '.join(args)})")
+
+        # Stripe
+        if stripe:
+            lines.append("_gt = _gt.opt_row_striping()")
+
+        # Column labels
+        label_cols = {c['col']: c['label'] for c in cols if c.get('label')}
+        if label_cols:
+            kwargs = ', '.join(f"{k}={v!r}" for k, v in label_cols.items())
+            lines.append(f"_gt = _gt.cols_label({kwargs})")
+
+        # Format methods
+        for c in cols:
+            fmt = c.get('fmt')
+            col = c['col']
+            if fmt == 'number':
+                lines.append(f"_gt = _gt.fmt_number(columns={col!r}, decimals={int(c.get('decimals', 2))})")
+            elif fmt == 'integer':
+                lines.append(f"_gt = _gt.fmt_integer(columns={col!r})")
+            elif fmt == 'currency':
+                lines.append(f"_gt = _gt.fmt_currency(columns={col!r}, currency={c.get('code', 'USD')!r})")
+            elif fmt == 'percent':
+                lines.append(f"_gt = _gt.fmt_percent(columns={col!r}, decimals={int(c.get('decimals', 1))})")
+            elif fmt == 'date':
+                lines.append(f"_gt = _gt.fmt_date(columns={col!r})")
+
+        # Store result
+        lines.append("if '_pivotal_gt_tables' not in globals(): globals()['_pivotal_gt_tables'] = {}")
+        lines.append(f"globals()['_pivotal_gt_tables'][{name!r}] = {{'html': _gt.as_raw_html(make_page=True, inline_css=True), 'canvas': {canvas!r}}}")
+        return "\n".join(lines)
+
+    def generate_gt_table_polars(self, ast_node):
+        return self.generate_gt_table_pandas(ast_node)
 
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators.
