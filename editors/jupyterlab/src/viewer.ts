@@ -413,9 +413,19 @@ export class PivotalViewerWidget extends Widget {
     this._body.appendChild(toolbar);
     this._body.appendChild(outer);
 
+    // Track last layout inputs so we can skip no-op repaints and break
+    // ResizeObserver feedback loops (scrollbar appearing/disappearing cycles).
+    let lastAvailW = -1;
+    let rafId = 0;
+
     const apply = () => {
       // Base scale: fit page width into available panel width (32px padding each side)
       const availW = Math.max(outer.clientWidth - 64, 80);
+      // Skip if width unchanged — prevents scrollbar-triggered oscillation
+      if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
+      lastAvailW = availW;
+      rafId = 0;
+
       const pxPerMm = (availW / cm.page_width_mm) * userScale;
 
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
@@ -427,11 +437,18 @@ export class PivotalViewerWidget extends Widget {
       img.style.top    = `${cm.margin_mm * pxPerMm}px`;
     };
 
-    toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; apply(); });
-    toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; apply(); });
-    toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   apply(); });
+    // Zoom buttons bypass the width-change guard since userScale changed
+    const applyForced = () => { lastAvailW = -1; apply(); };
 
-    new ResizeObserver(apply).observe(outer);
+    toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
+
+    // Coalesce rapid ResizeObserver callbacks into one RAF to prevent loops
+    new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(apply);
+    }).observe(outer);
     requestAnimationFrame(apply);
   }
 
