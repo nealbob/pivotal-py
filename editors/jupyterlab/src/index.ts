@@ -44,6 +44,22 @@ export const pivotalIcon = new LabIcon({
   svgstr: PIVOTAL_SVG,
 });
 
+// Greyscale version for the left sidebar: same logo shape, uses currentColor
+// so it adapts correctly to JupyterLab light/dark themes.
+const PIVOTAL_GREY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <rect x="1" y="1" width="14" height="14" rx="2" fill="currentColor" opacity="0.18"/>
+  <rect x="2.5" y="2.5" width="11" height="3.5" rx="0.8" fill="currentColor" opacity="0.85"/>
+  <rect x="2.5" y="7"   width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.6"/>
+  <rect x="9"   y="7"   width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.6"/>
+  <rect x="2.5" y="11"  width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.4"/>
+  <rect x="9"   y="11"  width="4.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.4"/>
+</svg>`;
+
+export const pivotalGreyIcon = new LabIcon({
+  name: 'pivotal:explorer',
+  svgstr: PIVOTAL_GREY_SVG,
+});
+
 // ---------------------------------------------------------------------------
 // Autocomplete types
 // ---------------------------------------------------------------------------
@@ -346,7 +362,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
     const viewer = getViewer();
     const explorer = getExplorer();
-    explorer.title.icon = pivotalIcon;
+    explorer.title.icon = pivotalGreyIcon;
 
     // Add explorer to left sidebar, viewer to right sidebar
     app.shell.add(explorer, 'left', { rank: 100 });
