@@ -218,6 +218,121 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Object Explorer (left sidebar)
+   --------------------------------------------------------------------------- */
+
+.pv-explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--jp-ui-font-family);
+  font-size: var(--jp-ui-font-size1);
+  background: var(--jp-layout-color1);
+  color: var(--jp-ui-font-color1);
+}
+
+.pv-explorer-header {
+  padding: 6px 8px;
+  font-weight: 600;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--jp-ui-font-color2);
+  border-bottom: 1px solid var(--jp-border-color2);
+  flex-shrink: 0;
+}
+
+.pv-explorer-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pv-explorer-empty {
+  padding: 12px 8px;
+  color: var(--jp-ui-font-color2);
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.pv-explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.pv-explorer-row:hover {
+  background: var(--jp-layout-color2);
+}
+
+.pv-explorer-toggle {
+  flex-shrink: 0;
+  width: 14px;
+  font-size: 0.7em;
+  color: var(--jp-ui-font-color2);
+  cursor: pointer;
+  text-align: center;
+}
+
+.pv-explorer-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--jp-ui-font-color2);
+}
+
+.pv-explorer-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9em;
+}
+
+.pv-explorer-shape {
+  flex-shrink: 0;
+  font-size: 0.78em;
+  color: var(--jp-ui-font-color2);
+  padding-left: 4px;
+}
+
+/* Expanded column list */
+.pv-explorer-cols {
+  border-left: 2px solid var(--jp-border-color2);
+  margin-left: 22px;
+  margin-bottom: 2px;
+}
+
+.pv-explorer-col {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  overflow: hidden;
+}
+
+.pv-explorer-col-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
+  color: var(--jp-ui-font-color1);
+  white-space: nowrap;
+}
+
+.pv-explorer-col-dtype {
+  flex-shrink: 0;
+  font-size: 0.75em;
+  color: var(--jp-ui-font-color2);
+  font-family: var(--jp-code-font-family);
+}
+
+/* ---------------------------------------------------------------------------
    Page-layout view
    --------------------------------------------------------------------------- */
 

@@ -22,6 +22,7 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 
 import { pivotalLanguage } from './language';
 import { PivotalViewerWidget, ViewerMessage } from './viewer';
+import { PivotalExplorerWidget } from './explorer';
 
 const MAGIC_RE = /^%%pivotal(\s|$)/;
 
@@ -321,12 +322,20 @@ const plugin: JupyterFrontEndPlugin<void> = {
 // ---------------------------------------------------------------------------
 
 let _viewerWidget: PivotalViewerWidget | null = null;
+let _explorerWidget: PivotalExplorerWidget | null = null;
 
 function getViewer(): PivotalViewerWidget {
   if (!_viewerWidget) {
     _viewerWidget = new PivotalViewerWidget();
   }
   return _viewerWidget;
+}
+
+function getExplorer(): PivotalExplorerWidget {
+  if (!_explorerWidget) {
+    _explorerWidget = new PivotalExplorerWidget();
+  }
+  return _explorerWidget;
 }
 
 const viewerPlugin: JupyterFrontEndPlugin<void> = {
@@ -336,9 +345,28 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
     const viewer = getViewer();
+    const explorer = getExplorer();
+    explorer.title.icon = pivotalIcon;
 
-    // Add to the right sidebar
+    // Add explorer to left sidebar, viewer to right sidebar
+    app.shell.add(explorer, 'left', { rank: 100 });
     app.shell.add(viewer, 'right', { rank: 900 });
+
+    // Keep explorer in sync with viewer content
+    viewer.setContentChangedCallback(items => explorer.setItems(items));
+
+    // Clicking an explorer item focuses the viewer on that item
+    explorer.setItemClickCallback(name => {
+      viewer.focusItem(name);
+      app.shell.activateById(viewer.id);
+    });
+
+    // Show explorer alongside the viewer whenever the viewer is activated
+    viewer.setActivateCallback(() => {
+      app.shell.activateById(explorer.id);
+      // Re-activate the viewer so it stays focused (explorer activation steals focus)
+      requestAnimationFrame(() => app.shell.activateById(viewer.id));
+    });
 
     // Register commands
     app.commands.addCommand('pivotal:show-viewer', {

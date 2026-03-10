@@ -33,6 +33,13 @@ export interface ChartPayload {
 
 export type ViewerMessage = DataFramePayload | ChartPayload;
 
+export interface ExplorerItem {
+  name: string;
+  type: 'dataframe' | 'chart';
+  shape?: [number, number];
+  columns?: { name: string; dtype: string }[];
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -53,6 +60,8 @@ export class PivotalViewerWidget extends Widget {
   private _names: string[] = [];
   private _index = -1;
   private _comm: { send(data: unknown): void } | null = null;
+  private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
+  private _activateCb: (() => void) | null = null;
 
   private _titleEl!: HTMLElement;
   private _counterEl!: HTMLElement;
@@ -108,6 +117,42 @@ export class PivotalViewerWidget extends Widget {
     this._comm = comm;
   }
 
+  setContentChangedCallback(cb: (items: ExplorerItem[]) => void): void {
+    this._contentChangedCb = cb;
+  }
+
+  setActivateCallback(cb: () => void): void {
+    this._activateCb = cb;
+  }
+
+  focusItem(name: string): void {
+    const idx = this._names.indexOf(name);
+    if (idx >= 0 && idx !== this._index) {
+      this._index = idx;
+      this._render();
+    }
+  }
+
+  private _getExplorerItems(): ExplorerItem[] {
+    return this._names.map(name => {
+      const msg = this._latest.get(name)!;
+      if (msg.type === 'dataframe') {
+        const df = msg as DataFramePayload;
+        return {
+          name,
+          type: 'dataframe' as const,
+          shape: df.shape,
+          columns: df.columns.map(c => ({ name: c, dtype: df.dtypes[c] ?? '' })),
+        };
+      }
+      return { name, type: 'chart' as const };
+    });
+  }
+
+  private _notifyContentChanged(): void {
+    this._contentChangedCb?.(this._getExplorerItems());
+  }
+
   // -------------------------------------------------------------------------
   // Navigation
   // -------------------------------------------------------------------------
@@ -118,6 +163,7 @@ export class PivotalViewerWidget extends Widget {
     if (isNew) this._names.push(msg.name);
     this._index = this._names.indexOf(msg.name);
     this._render();
+    this._notifyContentChanged();
   }
 
   back(): void {
@@ -139,6 +185,7 @@ export class PivotalViewerWidget extends Widget {
       this.clear();
     } else {
       this._render();
+      this._notifyContentChanged();
     }
   }
 
@@ -154,6 +201,7 @@ export class PivotalViewerWidget extends Widget {
     this._clearBtn.disabled = true;
     this._body.innerHTML = '';
     this._footer.innerHTML = '';
+    this._notifyContentChanged();
   }
 
   // -------------------------------------------------------------------------
@@ -450,6 +498,11 @@ export class PivotalViewerWidget extends Widget {
       rafId = requestAnimationFrame(apply);
     }).observe(outer);
     requestAnimationFrame(apply);
+  }
+
+  protected override onActivateRequest(msg: Message): void {
+    super.onActivateRequest(msg);
+    this._activateCb?.();
   }
 
   protected onResize(_msg: Message): void { /* flexbox handles layout */ }
