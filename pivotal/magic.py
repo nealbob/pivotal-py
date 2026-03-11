@@ -90,25 +90,63 @@ class _PivotalViewer:
         except Exception:
             pass
 
+    def send_table(self, name: str, html: str, canvas: str = 'none'):
+        """Send a rendered GT table to the viewer."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        msg = {
+            'type': 'gt_table',
+            'name': name,
+            'html': html,
+        }
+        if canvas in _PAPER_SIZES_MM:
+            page_w, page_h = _PAPER_SIZES_MM[canvas]
+            msg['canvas'] = {
+                'page_width_mm': page_w,
+                'page_height_mm': page_h,
+                'margin_mm': 25.4,
+                'label': _CANVAS_LABELS.get(canvas, canvas.upper()),
+            }
+        try:
+            self._comm.send(msg)
+        except Exception as e:
+            print(f"[Pivotal] send_table error: {e}")
+
 
 # ---------------------------------------------------------------------------
 # Walk AST results and send objects to viewer in execution order
 # ---------------------------------------------------------------------------
 
 _PAPER_SIZES_MM: dict = {
-    'a4':     (210.0, 297.0),
-    'a3':     (297.0, 420.0),
-    'letter': (215.9, 279.4),
+    'a4':           (210.0, 297.0),
+    'a4_landscape': (297.0, 210.0),
+    'a3':           (297.0, 420.0),
+    'a3_landscape': (420.0, 297.0),
+    'letter':       (215.9, 279.4),
+    'slide':        (338.7, 190.5),  # 16:9 widescreen (PPT/Beamer default)
+}
+
+_CANVAS_LABELS: dict = {
+    'a4':           'A4',
+    'a4_landscape': 'A4 Landscape',
+    'a3':           'A3',
+    'a3_landscape': 'A3 Landscape',
+    'letter':       'Letter',
+    'slide':        'Slide (16:9)',
 }
 
 
-def _build_canvas_meta(fig, settings: dict) -> dict | None:
-    """Compute page-layout metadata from settings and the figure's aspect ratio."""
-    canvas = settings.get('canvas', 'none')
+def _build_canvas_meta(fig, settings: dict, canvas_override: str = None) -> dict | None:
+    """Compute page-layout metadata from settings and the figure's aspect ratio.
+
+    canvas_override: per-plot canvas value that takes precedence over the global setting.
+    """
+    canvas = canvas_override or settings.get('canvas', 'none')
     if canvas not in _PAPER_SIZES_MM:
         return None
     page_w_mm, page_h_mm = _PAPER_SIZES_MM[canvas]
-    margin_mm = float(settings.get('margins', 25))
+    margin_mm = float(settings.get('margins', 25.4))
     usable_w = page_w_mm - 2 * margin_mm
     fraction = 0.5 if settings.get('chart_width') == 'half' else 1.0
     chart_w_mm = usable_w * fraction
@@ -123,7 +161,7 @@ def _build_canvas_meta(fig, settings: dict) -> dict | None:
         'margin_mm':      margin_mm,
         'chart_width_mm': chart_w_mm,
         'chart_height_mm': chart_h_mm,
-        'label': canvas.upper(),
+        'label': _CANVAS_LABELS.get(canvas, canvas.upper()),
     }
 
 
@@ -143,12 +181,15 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
 
     seen_tables: dict = {}
     plot_nodes: list = []
+    gt_table_nodes: list = []
 
     for node in results:
         if not isinstance(node, dict):
             continue
         if node.get('type') == 'plot':
             plot_nodes.append(node)
+        elif node.get('type') == 'gt_table':
+            gt_table_nodes.append(node)
         else:
             name = node.get('table_name')
             if name:
@@ -165,8 +206,23 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
         chart_name = node.get('name') or node.get('table_name') or 'chart'
         fig = ns.get(chart_name)
         if isinstance(fig, mfig.Figure):
-            canvas_meta = _build_canvas_meta(fig, settings or {})
+            canvas_meta = _build_canvas_meta(fig, settings or {},
+                                             canvas_override=node.get('canvas'))
             viewer.send_chart(chart_name, fig, canvas_meta=canvas_meta)
+
+    # Send GT tables — canvas falls back to the global setting when not specified per-table
+    global_canvas = (settings or {}).get('canvas', 'none')
+    for node in gt_table_nodes:
+        tbl_name = node.get('name')
+        if tbl_name is None:
+            continue
+        entry = ns.get('_pivotal_gt_tables', {}).get(tbl_name, {})
+        viewer_html = entry.get('viewer_html') or entry.get('html')
+        if viewer_html:
+            canvas = entry.get('canvas', 'none')
+            if canvas == 'none':
+                canvas = global_canvas
+            viewer.send_table(tbl_name, viewer_html, canvas)
 
 
 # ---------------------------------------------------------------------------
@@ -395,8 +451,8 @@ class PivotalMagics(Magics):
     DEFAULT_SETTINGS = {
         'output_type': 'viewer',   # viewer | inline | both
         'output_code': False,       # print generated Python code inline
-        'canvas': 'none',           # none | a4 | a3 | letter
-        'margins': 25,              # page margin in mm (all sides)
+        'canvas': 'none',           # none | a4 | a4_landscape | a3 | a3_landscape | letter | slide
+        'margins': 25.4,            # page margin in mm (all sides) — 25.4 mm = 2.54 cm (MS Word default)
         'chart_width': 'full',      # full | half  (fraction of usable page width)
     }
 
@@ -410,7 +466,7 @@ class PivotalMagics(Magics):
                 overrides['output_type'] = v
             elif k == 'output_code':
                 overrides['output_code'] = v in ('true', '1', 'yes')
-            elif k == 'canvas' and v in ('none', 'a4', 'a3', 'letter'):
+            elif k == 'canvas' and v in ('none', *_PAPER_SIZES_MM):
                 overrides['canvas'] = v
             elif k == 'margins':
                 try:
@@ -500,8 +556,8 @@ class PivotalMagics(Magics):
             if output_type in ('viewer', 'both'):
                 try:
                     _send_results_to_viewer(self._viewer, results, self.shell.user_ns, settings=s)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[Pivotal] viewer error: {e}")
 
             if output_type in ('inline', 'both'):
                 _display_inline(results, self.shell.user_ns)

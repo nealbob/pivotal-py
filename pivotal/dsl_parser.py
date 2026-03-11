@@ -13,7 +13,7 @@ PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
-    'dropna', 'distinct', 'concat', 'rename', 'apply',
+    'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -51,6 +51,7 @@ grammar_indented = r"""
                | concat_statement
                | rename_statement
                | apply_statement
+               | table_statement
                | save_statement
 
     apply_statement: "apply" IDENTIFIER _NL?
@@ -65,6 +66,44 @@ grammar_indented = r"""
               | IDENTIFIER "=" value _NL?      -> plot_value_param
               | IDENTIFIER "=" list_value _NL? -> plot_list_param
               | IDENTIFIER list_value _NL?     -> plot_list_param
+
+    table_statement: "table" IDENTIFIER (_NL | _NL _INDENT table_params _DEDENT)?
+
+    table_params: table_param+
+
+    table_param: "title"    STRING         _NL?                                  -> table_title
+               | "subtitle" STRING         _NL?                                  -> table_subtitle
+               | "font" "size" NUMBER      _NL?                                  -> table_font_size
+               | "font" STRING             _NL?                                  -> table_font_family
+               | "stub" IDENTIFIER                              _NL?             -> table_stub
+               | "stub" IDENTIFIER STRING                       _NL?             -> table_stub_labeled
+               | "stub" IDENTIFIER "," IDENTIFIER              _NL?             -> table_stub_grouped
+               | "stub" IDENTIFIER "," IDENTIFIER STRING       _NL?             -> table_stub_grouped_labeled
+               | "stripe"                  _NL?                                  -> table_stripe
+               | "canvas" IDENTIFIER       _NL?                                  -> table_canvas
+               | "label" label_col_spec ("," label_col_spec)* _NL?              -> table_label_line
+               | "format" IDENTIFIER "as" fmt_type _NL?                         -> table_format_col
+               | "format" fmt_type                     _NL?                      -> table_format_all
+               | "style"  STRING                       _NL?                      -> table_style
+               | "summary" summary_spec ("," summary_spec)* _NL?                -> table_summary_line
+               | "spanner" spanner_cols STRING _NL?                              -> table_spanner_line
+               | "auto" "spanner" _NL?                                           -> table_auto_spanner
+
+    spanner_cols: IDENTIFIER ("," IDENTIFIER)*
+
+    summary_spec: IDENTIFIER "as" STRING    -> summary_spec_labeled
+                | IDENTIFIER                -> summary_spec_bare
+
+    label_col_spec: IDENTIFIER "as" STRING
+
+    fmt_type: "number" NUMBER    -> fmt_number
+            | "number"           -> fmt_number_noprec
+            | "integer"          -> fmt_integer
+            | "currency" IDENTIFIER -> fmt_currency
+            | "currency"         -> fmt_currency_nocode
+            | "percent" NUMBER   -> fmt_percent
+            | "percent"          -> fmt_percent_noprec
+            | "date"             -> fmt_date
 
     python_statement: "python" UNQUOTED_STRING _NL?
 
@@ -864,9 +903,10 @@ class DSLTransformer(Transformer):
         by_col = kwargs.pop('by', None)
         n_cols = kwargs.pop('cols', None)
         style = kwargs.pop('style', None)
+        canvas = kwargs.pop('canvas', None)  # per-plot canvas override
 
         # Rebuild kwargs_str if any structural params were removed
-        if any(p is not None for p in [by_col, n_cols, style]):
+        if any(p is not None for p in [by_col, n_cols, style, canvas]):
             parts = []
             for k, v in kwargs.items():
                 if isinstance(v, dict) and v.get('type') == 'var':
@@ -887,6 +927,7 @@ class DSLTransformer(Transformer):
             'by': by_col,
             'cols': n_cols,
             'style': style,
+            'canvas': canvas,  # None means inherit global setting
         }
 
     def plot_params(self, *params):
@@ -906,6 +947,159 @@ class DSLTransformer(Transformer):
 
     def plot_list_param(self, key, val):
         return {'key': str(key), 'value': val if isinstance(val, list) else self._convert_value(val), 'label': None}
+
+    def table_statement(self, *args):
+        # @v_args(inline=True) unpacks tree children as individual args:
+        #   no params:   args = ('summary',)            ← bare str
+        #   with params: args = ('summary', [dict, ...])  ← str + list
+        name = None
+        params = []
+        for arg in args:
+            if isinstance(arg, str):
+                name = arg
+            elif isinstance(arg, list):
+                params = arg
+        node = {
+            'type': 'gt_table',
+            'name': name,
+            'table_name': self.current_table,
+            'title': None,
+            'subtitle': None,
+            'font_size': None,
+            'font_family': None,
+            'stub': None,
+            'stub_group': None,
+            'stub_label': None,
+            'stripe': False,
+            'canvas': 'none',
+            'labels': [],
+            'formats': [],
+            'summary': [],
+            'spanners': [],
+            'style_file': None,
+        }
+        for p in params:
+            if not isinstance(p, dict):
+                continue
+            k = p.get('key')
+            if k == 'title':       node['title'] = p['value']
+            elif k == 'subtitle':  node['subtitle'] = p['value']
+            elif k == 'font_size': node['font_size'] = p['value']
+            elif k == 'font_family': node['font_family'] = p['value']
+            elif k == 'stub':
+                node['stub'] = p['value']
+                node['stub_group'] = p.get('group')
+                node['stub_label'] = p.get('label')
+            elif k == 'stripe':    node['stripe'] = True
+            elif k == 'canvas':    node['canvas'] = p['value']
+            elif k == 'style':        node['style_file'] = p['value']
+            elif k == 'summary_line': node['summary'].extend(p.get('specs', []))
+            elif k == 'label_line':   node['labels'].extend(p.get('specs', []))
+            elif k == 'format_line': node['formats'].append({kk: vv for kk, vv in p.items() if kk != 'key'})
+            elif k == 'spanner':   node['spanners'].append(p)
+            elif k == 'auto_spanner': node['spanners'].append({'type': 'auto'})
+        return node
+
+    def table_params(self, *params):
+        return list(params)
+
+    def table_title(self, s):
+        return {'key': 'title', 'value': str(s).strip('"').strip("'")}
+
+    def table_subtitle(self, s):
+        return {'key': 'subtitle', 'value': str(s).strip('"').strip("'")}
+
+    def table_font_size(self, n):
+        return {'key': 'font_size', 'value': float(n)}
+
+    def table_font_family(self, s):
+        return {'key': 'font_family', 'value': str(s).strip('"').strip("'")}
+
+    def table_stub(self, col):
+        return {'key': 'stub', 'value': str(col)}
+
+    def table_stub_labeled(self, col, label):
+        return {'key': 'stub', 'value': str(col),
+                'label': str(label).strip('"').strip("'")}
+
+    def table_stub_grouped(self, col, group):
+        return {'key': 'stub', 'value': str(col), 'group': str(group)}
+
+    def table_stub_grouped_labeled(self, col, group, label):
+        return {'key': 'stub', 'value': str(col), 'group': str(group),
+                'label': str(label).strip('"').strip("'")}
+
+    def spanner_cols(self, *cols):
+        return [str(c) for c in cols]
+
+    def table_spanner_line(self, cols, label):
+        return {'key': 'spanner', 'type': 'manual',
+                'label': str(label).strip('"').strip("'"),
+                'columns': list(cols)}
+
+    def table_auto_spanner(self):
+        return {'key': 'auto_spanner', 'type': 'auto'}
+
+    def table_stripe(self):
+        return {'key': 'stripe', 'value': True}
+
+    def table_canvas(self, val):
+        return {'key': 'canvas', 'value': str(val)}
+
+    def table_style(self, path):
+        return {'key': 'style', 'value': str(path).strip('"').strip("'")}
+
+    # Default labels for each aggregation function
+    _SUMMARY_LABELS = {
+        'sum': 'Total', 'mean': 'Mean', 'min': 'Min',
+        'max': 'Max', 'median': 'Median', 'count': 'Count',
+    }
+
+    def summary_spec_labeled(self, fn, label):
+        return {'fn': str(fn), 'label': str(label).strip('"').strip("'")}
+
+    def summary_spec_bare(self, fn):
+        fn = str(fn)
+        return {'fn': fn, 'label': self._SUMMARY_LABELS.get(fn, fn.capitalize())}
+
+    def table_summary_line(self, *specs):
+        return {'key': 'summary_line', 'specs': list(specs)}
+
+    def label_col_spec(self, col, label):
+        return {'col': str(col), 'label': str(label).strip('"').strip("'")}
+
+    def table_label_line(self, *specs):
+        return {'key': 'label_line', 'specs': list(specs)}
+
+    def fmt_number(self, decimals):
+        return {'fmt': 'number', 'decimals': float(decimals)}
+
+    def fmt_number_noprec(self):
+        return {'fmt': 'number', 'decimals': 2}
+
+    def fmt_integer(self):
+        return {'fmt': 'integer'}
+
+    def fmt_currency(self, code):
+        return {'fmt': 'currency', 'code': str(code)}
+
+    def fmt_currency_nocode(self):
+        return {'fmt': 'currency', 'code': 'USD'}
+
+    def fmt_percent(self, decimals):
+        return {'fmt': 'percent', 'decimals': float(decimals)}
+
+    def fmt_percent_noprec(self):
+        return {'fmt': 'percent', 'decimals': 1}
+
+    def fmt_date(self):
+        return {'fmt': 'date'}
+
+    def table_format_col(self, col, fmt_dict):
+        return {'key': 'format_line', 'col': str(col), **fmt_dict}
+
+    def table_format_all(self, fmt_dict):
+        return {'key': 'format_line', 'col': None, **fmt_dict}
 
     def _plot_kwargs(self, plot_params_list):
         """Build kwargs dict and string from a list of plot_param dicts."""
@@ -1703,6 +1897,213 @@ class CodeGenerator:
             ]
 
         return "\n".join(lines)
+
+    def generate_gt_table_pandas(self, ast_node):
+        table = ast_node['table_name']
+        name = ast_node['name']
+        title = ast_node.get('title')
+        subtitle = ast_node.get('subtitle')
+        font_size = ast_node.get('font_size')
+        font_family = ast_node.get('font_family')
+        stub = ast_node.get('stub')
+        stub_group = ast_node.get('stub_group')
+        stub_label = ast_node.get('stub_label')
+        stripe = ast_node.get('stripe', False)
+        canvas = ast_node.get('canvas', 'none')
+        labels      = ast_node.get('labels', [])
+        formats     = ast_node.get('formats', [])
+        summary     = ast_node.get('summary', [])
+        spanners    = ast_node.get('spanners', [])
+        style_file  = ast_node.get('style_file')
+
+        lines = ["import great_tables as _gt_mod"]
+
+        # Build the optional constructor keyword args (stub, group) as a snippet
+        ctor_extra = ""
+        if stub:
+            ctor_extra += f", rowname_col={stub!r}"
+        if stub_group:
+            ctor_extra += f", groupname_col={stub_group!r}"
+
+        has_auto_spanner = any(sp.get('type') == 'auto' for sp in spanners)
+
+        # Constructor — when auto spanner is requested we must flatten MultiIndex
+        # columns first because GT does not support them directly.
+        if has_auto_spanner:
+            lines.append(f"if isinstance({table}.columns, pd.MultiIndex):")
+            lines.append(f"    _gt_orig_cols = list({table}.columns)")
+            # Flatten: join non-empty levels with '|'; fall back to first level if only one
+            lines.append(f"    _gt_flat = ['|'.join(str(p) for p in c if str(p)) or str(c[0]) for c in _gt_orig_cols]")
+            lines.append(f"    _gt_df = {table}.copy()")
+            lines.append(f"    _gt_df.columns = _gt_flat")
+            lines.append(f"    _gt = _gt_mod.GT(_gt_df{ctor_extra})")
+            # Auto spanners: one per top-level group that contains >1 column
+            lines.append(f"    for _gt_l0 in {table}.columns.get_level_values(0).unique():")
+            lines.append(f"        _gt_span = [f for c, f in zip(_gt_orig_cols, _gt_flat) if c[0] == _gt_l0 and len([p for p in c if str(p)]) > 1]")
+            lines.append(f"        if _gt_span: _gt = _gt.tab_spanner(label=str(_gt_l0), columns=_gt_span)")
+            lines.append(f"else:")
+            lines.append(f"    _gt = _gt_mod.GT({table}{ctor_extra})")
+        else:
+            lines.append(f"_gt = _gt_mod.GT({table}{ctor_extra})")
+
+        # Header
+        if title or subtitle:
+            args = []
+            if title: args.append(f"title={title!r}")
+            if subtitle: args.append(f"subtitle={subtitle!r}")
+            lines.append(f"_gt = _gt.tab_header({', '.join(args)})")
+
+        # Stub header label (column label above the stub)
+        if stub_label:
+            lines.append(f"_gt = _gt.tab_stubhead(label={stub_label!r})")
+
+        # Font family — opt_table_font() only accepts font/stack, not size
+        if font_family:
+            lines.append(f"_gt = _gt.opt_table_font(font={font_family!r})")
+
+        # Grand summary rows.
+        # fmt_* methods don't reach grand summary cells — pass fmt= directly.
+        # Use the first blanket format (col=None) found in formats as the summary fmt.
+        if summary:
+            _PANDAS_FNS = {
+                'sum': 'sum', 'mean': 'mean', 'min': 'min',
+                'max': 'max', 'median': 'median', 'count': 'count',
+            }
+            fns_parts = []
+            for s in summary:
+                fn = s['fn']
+                label = s['label']
+                pandas_fn = _PANDAS_FNS.get(fn, fn)
+                fns_parts.append(
+                    f"    {label!r}: lambda _df: _df.select_dtypes('number').{pandas_fn}()"
+                )
+            # Derive fmt= from the first blanket format so summary cells match body formatting
+            blanket = next((f for f in formats if f.get('col') is None), None)
+            if blanket:
+                lines.append("import great_tables.vals as _gt_vals")
+                fmt_code = self._summary_fmt_code(blanket)
+            else:
+                fmt_code = None
+            fmt_arg = f",\n    fmt={fmt_code}" if fmt_code else ""
+            lines.append(
+                "_gt = _gt.grand_summary_rows(fns={\n" +
+                ",\n".join(fns_parts) + "\n}" + fmt_arg + ")"
+            )
+
+        # Import style helpers whenever tab_style calls are needed
+        if font_size or stub:
+            lines.append("import great_tables.style as _gt_style")
+            lines.append("import great_tables.loc as _gt_loc")
+
+        # Font size — applied to body, stub, column labels, header, and grand summary rows
+        if font_size:
+            size_str = f"'{int(font_size)}px'"
+            lines.append(
+                f"_gt = _gt.tab_style("
+                f"style=_gt_style.text(size={size_str}), "
+                f"locations=[_gt_loc.body(), _gt_loc.stub(), _gt_loc.stubhead(), "
+                f"_gt_loc.column_labels(), _gt_loc.header(), "
+                f"_gt_loc.grand_summary(), _gt_loc.grand_summary_stub()]"
+                f")"
+            )
+
+        # Prevent stub text from wrapping across lines (body + grand summary stub)
+        if stub:
+            lines.append(
+                "_gt = _gt.tab_style("
+                "style=_gt_style.text(whitespace='nowrap'), "
+                "locations=[_gt_loc.stub(), _gt_loc.stubhead(), _gt_loc.grand_summary_stub()]"
+                ")"
+            )
+
+        # Stripe
+        if stripe:
+            lines.append("_gt = _gt.opt_row_striping()")
+
+        # Column labels
+        if labels:
+            kwargs = ', '.join(f"{c['col']}={c['label']!r}" for c in labels)
+            lines.append(f"_gt = _gt.cols_label({kwargs})")
+
+        # Manual spanners (auto spanners are handled in the constructor block above)
+        for sp in spanners:
+            if sp.get('type') == 'manual':
+                cols_repr = repr(sp['columns'])
+                lines.append(f"_gt = _gt.tab_spanner(label={sp['label']!r}, columns={cols_repr})")
+
+        # Format methods.
+        # When col=None (blanket format), restrict to appropriate dtypes so that
+        # string/object columns are silently skipped rather than raising an error.
+        numeric_sel = f"{table}.select_dtypes(include='number').columns.tolist()"
+        date_sel    = f"{table}.select_dtypes(include='datetime').columns.tolist()"
+
+        for f in formats:
+            fmt = f.get('fmt')
+            col = f.get('col')
+            if fmt == 'number':
+                if col:
+                    lines.append(f"_gt = _gt.fmt_number(columns={col!r}, decimals={int(f.get('decimals', 2))})")
+                else:
+                    lines.append(f"_gt = _gt.fmt_number(columns={numeric_sel}, decimals={int(f.get('decimals', 2))})")
+            elif fmt == 'integer':
+                if col:
+                    lines.append(f"_gt = _gt.fmt_integer(columns={col!r})")
+                else:
+                    lines.append(f"_gt = _gt.fmt_integer(columns={numeric_sel})")
+            elif fmt == 'currency':
+                if col:
+                    lines.append(f"_gt = _gt.fmt_currency(columns={col!r}, currency={f.get('code', 'USD')!r})")
+                else:
+                    lines.append(f"_gt = _gt.fmt_currency(columns={numeric_sel}, currency={f.get('code', 'USD')!r})")
+            elif fmt == 'percent':
+                if col:
+                    lines.append(f"_gt = _gt.fmt_percent(columns={col!r}, decimals={int(f.get('decimals', 1))})")
+                else:
+                    lines.append(f"_gt = _gt.fmt_percent(columns={numeric_sel}, decimals={int(f.get('decimals', 1))})")
+            elif fmt == 'date':
+                if col:
+                    lines.append(f"_gt = _gt.fmt_date(columns={col!r})")
+                else:
+                    lines.append(f"_gt = _gt.fmt_date(columns={date_sel})")
+
+        # Style file — apply(gt) function from an external Python file
+        if style_file:
+            lines.append("import importlib.util as _gt_ilu")
+            lines.append(f"_gt_spec = _gt_ilu.spec_from_file_location('_pv_style', {style_file!r})")
+            lines.append("_gt_mod2 = _gt_ilu.module_from_spec(_gt_spec); _gt_spec.loader.exec_module(_gt_mod2)")
+            lines.append("_gt = _gt_mod2.apply(_gt)")
+
+        # Store result — viewer_html is a compact fragment for the comm channel;
+        # page_html is the full self-contained page written by the save command.
+        lines.append("if '_pivotal_gt_tables' not in globals(): globals()['_pivotal_gt_tables'] = {}")
+        lines.append(
+            f"globals()['_pivotal_gt_tables'][{name!r}] = {{"
+            f"'viewer_html': _gt.as_raw_html(inline_css=True), "
+            f"'html': _gt.as_raw_html(make_page=True, inline_css=True), "
+            f"'canvas': {canvas!r}}}"
+        )
+        return "\n".join(lines)
+
+    def generate_gt_table_polars(self, ast_node):
+        return self.generate_gt_table_pandas(ast_node)
+
+    def _summary_fmt_code(self, fmt_dict: dict) -> str:
+        """Return a lambda string for the fmt= arg of grand_summary_rows."""
+        fmt = fmt_dict.get('fmt')
+        if fmt == 'number':
+            d = int(fmt_dict.get('decimals', 2))
+            return f"lambda x: _gt_vals.fmt_number(x, decimals={d})"
+        elif fmt == 'integer':
+            return "lambda x: _gt_vals.fmt_integer(x)"
+        elif fmt == 'currency':
+            code = fmt_dict.get('code', 'USD')
+            return f"lambda x: _gt_vals.fmt_currency(x, currency={code!r})"
+        elif fmt == 'percent':
+            d = int(fmt_dict.get('decimals', 1))
+            return f"lambda x: _gt_vals.fmt_percent(x, decimals={d})"
+        elif fmt == 'date':
+            return "lambda x: _gt_vals.fmt_date(x)"
+        return None
 
     def _build_query_string(self, conditions, operators):
         """Build query string from conditions and operators.

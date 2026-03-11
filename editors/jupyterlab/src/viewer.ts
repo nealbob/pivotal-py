@@ -19,8 +19,8 @@ export interface CanvasMeta {
   page_width_mm: number;
   page_height_mm: number;
   margin_mm: number;
-  chart_width_mm: number;
-  chart_height_mm: number;
+  chart_width_mm?: number;
+  chart_height_mm?: number;
   label: string; // e.g. 'A4'
 }
 
@@ -31,11 +31,18 @@ export interface ChartPayload {
   canvas?: CanvasMeta;
 }
 
-export type ViewerMessage = DataFramePayload | ChartPayload;
+export interface GtTablePayload {
+  type: 'gt_table';
+  name: string;
+  html: string;
+  canvas?: CanvasMeta;
+}
+
+export type ViewerMessage = DataFramePayload | ChartPayload | GtTablePayload;
 
 export interface ExplorerItem {
   name: string;
-  type: 'dataframe' | 'chart';
+  type: 'dataframe' | 'chart' | 'gt_table';
   shape?: [number, number];
   columns?: { name: string; dtype: string }[];
 }
@@ -145,7 +152,8 @@ export class PivotalViewerWidget extends Widget {
           columns: df.columns.map(c => ({ name: c, dtype: df.dtypes[c] ?? '' })),
         };
       }
-      return { name, type: 'chart' as const };
+      if (msg.type === 'chart') return { name, type: 'chart' as const };
+      return { name, type: 'gt_table' as const };
     });
   }
 
@@ -213,7 +221,8 @@ export class PivotalViewerWidget extends Widget {
     const p = this._latest.get(this._names[this._index]);
     if (!p) return;
 
-    this._titleEl.textContent   = `${p.name} · ${p.type === 'dataframe' ? 'DataFrame' : 'Chart'}`;
+    const typeLabel = p.type === 'dataframe' ? 'DataFrame' : p.type === 'chart' ? 'Chart' : 'Table';
+    this._titleEl.textContent = `${p.name} · ${typeLabel}`;
     this._counterEl.textContent = `${this._index + 1} / ${this._names.length}`;
     this._backBtn.disabled  = this._index === 0;
     this._fwdBtn.disabled   = this._index === this._names.length - 1;
@@ -223,7 +232,9 @@ export class PivotalViewerWidget extends Widget {
     this._body.innerHTML   = '';
     this._footer.innerHTML = '';
 
-    p.type === 'dataframe' ? this._renderDataFrame(p) : this._renderChart(p);
+    if (p.type === 'dataframe') this._renderDataFrame(p);
+    else if (p.type === 'chart') this._renderChart(p);
+    else this._renderGtTable(p as GtTablePayload);
   }
 
   // -------------------------------------------------------------------------
@@ -479,8 +490,8 @@ export class PivotalViewerWidget extends Widget {
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
 
-      img.style.width  = `${cm.chart_width_mm  * pxPerMm}px`;
-      img.style.height = `${cm.chart_height_mm * pxPerMm}px`;
+      img.style.width  = `${(cm.chart_width_mm  ?? cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm}px`;
+      img.style.height = `${(cm.chart_height_mm ?? cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm}px`;
       img.style.left   = `${cm.margin_mm * pxPerMm}px`;
       img.style.top    = `${cm.margin_mm * pxPerMm}px`;
     };
@@ -493,6 +504,91 @@ export class PivotalViewerWidget extends Widget {
     toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
 
     // Coalesce rapid ResizeObserver callbacks into one RAF to prevent loops
+    new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(apply);
+    }).observe(outer);
+    requestAnimationFrame(apply);
+  }
+
+  // ---------------------------------------------------------------------------
+  // GT Table rendering
+  // ---------------------------------------------------------------------------
+
+  private _renderGtTable(p: GtTablePayload): void {
+    if (p.canvas) {
+      this._renderGtTableOnPage(p);
+    } else {
+      this._renderGtTableFree(p);
+    }
+  }
+
+  private _renderGtTableFree(p: GtTablePayload): void {
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = p.html;
+    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.style.cssText = 'flex:1; width:100%; height:100%; border:none;';
+    this._body.appendChild(iframe);
+  }
+
+  private _renderGtTableOnPage(p: GtTablePayload): void {
+    const cm = p.canvas!;
+    let userScale = 1.0;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML = `
+      <button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>
+      <button class="pv-btn pv-zoom-out"   title="Zoom out">−</button>
+      <button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>
+      <span class="pv-canvas-label">${cm.label} · ${cm.margin_mm}mm margins</span>
+    `;
+
+    const outer = document.createElement('div');
+    outer.className = 'pv-page-view';
+
+    const page = document.createElement('div');
+    page.className = 'pv-page';
+
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = p.html;
+    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.style.cssText = 'position:absolute; border:none;';
+
+    page.appendChild(iframe);
+    outer.appendChild(page);
+    this._body.appendChild(toolbar);
+    this._body.appendChild(outer);
+
+    let lastAvailW = -1;
+    let rafId = 0;
+
+    const apply = () => {
+      const availW = Math.max(outer.clientWidth - 64, 80);
+      if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
+      lastAvailW = availW;
+      rafId = 0;
+
+      const pxPerMm = (availW / cm.page_width_mm) * userScale;
+      const marginPx = cm.margin_mm * pxPerMm;
+      const usableW  = (cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm;
+      const usableH  = (cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm;
+
+      page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
+      page.style.height = `${cm.page_height_mm * pxPerMm}px`;
+
+      iframe.style.left   = `${marginPx}px`;
+      iframe.style.top    = `${marginPx}px`;
+      iframe.style.width  = `${usableW}px`;
+      iframe.style.height = `${usableH}px`;
+    };
+
+    const applyForced = () => { lastAvailW = -1; apply(); };
+
+    toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
+
     new ResizeObserver(() => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(apply);

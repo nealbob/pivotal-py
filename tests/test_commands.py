@@ -727,3 +727,405 @@ def test_comment_after_load(parser, tmp_path, sample_df):
     )
     run(parser, dsl, ns)
     assert 'clean' in ns
+
+
+# ---------------------------------------------------------------------------
+# GT Table command
+# ---------------------------------------------------------------------------
+
+def _parse_gt_nodes(parser, dsl):
+    """Parse DSL and return all gt_table AST nodes."""
+    results = parser.parse(dsl)
+    return [n for n in results if isinstance(n, dict) and n.get('type') == 'gt_table']
+
+
+def test_table_name_no_params(parser):
+    """Table statement with no params must capture the table name."""
+    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable summary\n')
+    assert len(nodes) == 1
+    assert nodes[0]['name'] == 'summary'
+
+
+def test_table_name_with_params(parser):
+    """Table statement with params must still capture the correct name."""
+    dsl = (
+        'df sales\n\n'
+        'table myreport\n'
+        '    title "Sales Report"\n'
+        '    stripe\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert len(nodes) == 1
+    assert nodes[0]['name'] == 'myreport'
+
+
+def test_table_params_title_subtitle(parser):
+    """title and subtitle params are extracted correctly."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    title "My Title"\n'
+        '    subtitle "My Subtitle"\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['title'] == 'My Title'
+    assert nodes[0]['subtitle'] == 'My Subtitle'
+
+
+def test_table_params_font(parser):
+    """font size and family are extracted correctly."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    font size 11\n'
+        '    font "Georgia"\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['font_size'] == 11
+    assert nodes[0]['font_family'] == 'Georgia'
+
+
+def test_table_font_size_generates_tab_style(parser):
+    """font size must generate tab_style(style.text(size=...)) not opt_table_font(size=...)."""
+    dsl = 'df sales\n\ntable t1\n    font size 12\n'
+    results = parser.parse(dsl)
+    combined = '\n'.join(parser.generate_code(results))
+    assert 'tab_style' in combined
+    assert '12px' in combined
+    assert 'size=12' not in combined   # wrong API — opt_table_font has no size param
+
+
+def test_table_font_size_executes(parser, sample_df):
+    """font size command must not raise when great_tables executes it."""
+    pytest.importorskip('great_tables')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = 'df sales\n\ntable t1\n    font size 11\n    font "Arial"\n'
+    run(parser, dsl, ns)
+    gt = ns.get('_pivotal_gt_tables', {})
+    assert 't1' in gt
+    assert gt['t1'].get('viewer_html')
+
+
+def test_table_params_stub_stripe_canvas(parser):
+    """stub, stripe, and canvas params are extracted correctly."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    stub product\n'
+        '    stripe\n'
+        '    canvas a4\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['stub'] == 'product'
+    assert nodes[0]['stripe'] is True
+    assert nodes[0]['canvas'] == 'a4'
+
+
+def test_table_label_single(parser):
+    """label line with one column rename is extracted."""
+    dsl = 'df sales\n\ntable t1\n    label price as "Unit Price"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['labels'] == [{'col': 'price', 'label': 'Unit Price'}]
+
+
+def test_table_label_multiple(parser):
+    """label line with multiple comma-separated renames is extracted."""
+    dsl = 'df sales\n\ntable t1\n    label price as "Price", quantity as "Qty"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    labels = {l['col']: l['label'] for l in nodes[0]['labels']}
+    assert labels == {'price': 'Price', 'quantity': 'Qty'}
+
+
+def test_table_format_all(parser):
+    """format <type> without a column name applies to all columns."""
+    dsl = 'df sales\n\ntable t1\n    format number 2\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['formats'] == [{'col': None, 'fmt': 'number', 'decimals': 2.0}]
+
+
+def test_table_format_specific_col(parser):
+    """format <col> as <type> applies to one column."""
+    dsl = 'df sales\n\ntable t1\n    format price as number 2\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['formats'] == [{'col': 'price', 'fmt': 'number', 'decimals': 2.0}]
+
+
+def test_table_format_types(parser):
+    """All format types parse correctly."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    format price as number 2\n'
+        '    format quantity as integer\n'
+        '    format revenue as currency GBP\n'
+        '    format rate as percent 1\n'
+        '    format created as date\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    fmts = {f['col']: f for f in nodes[0]['formats']}
+    assert fmts['price']['fmt'] == 'number' and fmts['price']['decimals'] == 2.0
+    assert fmts['quantity']['fmt'] == 'integer'
+    assert fmts['revenue']['fmt'] == 'currency' and fmts['revenue']['code'] == 'GBP'
+    assert fmts['rate']['fmt'] == 'percent' and fmts['rate']['decimals'] == 1.0
+    assert fmts['created']['fmt'] == 'date'
+
+
+def test_table_label_and_format_together(parser):
+    """label and format lines can coexist in the same table block."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    label price as "Price", quantity as "Qty"\n'
+        '    format number 1\n'
+        '    format price as currency GBP\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    labels = {l['col']: l['label'] for l in nodes[0]['labels']}
+    assert labels == {'price': 'Price', 'quantity': 'Qty'}
+    fmts = nodes[0]['formats']
+    assert fmts[0] == {'col': None, 'fmt': 'number', 'decimals': 1.0}
+    assert fmts[1] == {'col': 'price', 'fmt': 'currency', 'code': 'GBP'}
+
+
+def test_table_generates_correct_code(parser):
+    """generate_code must include the table name as the dict key."""
+    dsl = 'df sales\n\ntable weekly\n    title "Weekly"\n'
+    results = parser.parse(dsl)
+    code_blocks = parser.generate_code(results)
+    combined = '\n'.join(code_blocks)
+    # The stored key must be the literal string 'weekly', not None
+    assert "_pivotal_gt_tables" in combined
+    assert "'weekly'" in combined   # name appears as a string literal key
+    assert "[None]" not in combined  # None must not be the key
+
+
+def test_table_stored_in_namespace(parser, sample_df):
+    """Executing a table command must populate _pivotal_gt_tables with the correct key."""
+    pytest.importorskip('great_tables')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = 'df sales\n\ntable mysummary\n    title "Summary"\n'
+    run(parser, dsl, ns)
+    gt = ns.get('_pivotal_gt_tables', {})
+    assert 'mysummary' in gt, f"Expected 'mysummary' key, got: {list(gt.keys())}"
+    assert gt['mysummary'].get('viewer_html'), "viewer_html must be non-empty"
+    assert gt['mysummary'].get('html'), "html must be non-empty"
+
+
+def test_table_style_file_parsed(parser):
+    """style "path" is stored in the AST node."""
+    dsl = 'df sales\n\ntable t1\n    style "mystyle.py"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['style_file'] == 'mystyle.py'
+
+
+def test_table_style_file_generates_importlib(parser):
+    """style file generates importlib.util loading code that calls apply()."""
+    dsl = 'df sales\n\ntable t1\n    style "mystyle.py"\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert 'importlib.util' in combined
+    assert 'mystyle.py' in combined
+    assert '_gt_mod2.apply(_gt)' in combined
+
+
+def test_table_style_file_executes(parser, sample_df, tmp_path):
+    """style file apply() function is called and can modify the GT object."""
+    pytest.importorskip('great_tables')
+    style_file = tmp_path / 'mystyle.py'
+    style_file.write_text(
+        'def apply(gt):\n'
+        '    return gt.opt_row_striping()\n'
+    )
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = f'df sales\n\ntable t1\n    style "{style_file}"\n'
+    run(parser, dsl, ns)
+    assert 't1' in ns.get('_pivotal_gt_tables', {})
+
+
+def test_table_summary_bare(parser):
+    """summary sum produces a default 'Total' label."""
+    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable t1\n    summary sum\n')
+    assert nodes[0]['summary'] == [{'fn': 'sum', 'label': 'Total'}]
+
+
+def test_table_summary_labeled(parser):
+    """summary sum as 'label' uses the user-supplied label."""
+    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable t1\n    summary sum as "Grand Total"\n')
+    assert nodes[0]['summary'] == [{'fn': 'sum', 'label': 'Grand Total'}]
+
+
+def test_table_summary_multiple(parser):
+    """Multiple comma-separated summary specs are all captured."""
+    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Average", min\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['summary'] == [
+        {'fn': 'sum',  'label': 'Total'},
+        {'fn': 'mean', 'label': 'Average'},
+        {'fn': 'min',  'label': 'Min'},
+    ]
+
+
+def test_table_summary_generates_grand_summary_rows(parser):
+    """summary generates grand_summary_rows with numeric-only lambdas."""
+    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Average"\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert 'grand_summary_rows' in combined
+    assert "'Total'" in combined
+    assert "'Average'" in combined
+    assert "select_dtypes('number')" in combined
+
+
+def test_table_summary_executes(parser, sample_df):
+    """summary generates working GT code that produces HTML."""
+    pytest.importorskip('great_tables')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Mean"\n'
+    run(parser, dsl, ns)
+    assert 't1' in ns.get('_pivotal_gt_tables', {})
+    assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
+
+
+# ---------------------------------------------------------------------------
+# Stub extended syntax
+# ---------------------------------------------------------------------------
+
+def test_table_stub_labeled(parser):
+    """stub with a quoted label sets stub_label in the AST node."""
+    dsl = 'df sales\n\ntable t1\n    stub product "Product Name"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['stub'] == 'product'
+    assert nodes[0]['stub_label'] == 'Product Name'
+    assert nodes[0]['stub_group'] is None
+
+
+def test_table_stub_grouped(parser):
+    """stub with two columns sets stub_group (groupname_col)."""
+    dsl = 'df sales\n\ntable t1\n    stub product, category\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['stub'] == 'product'
+    assert nodes[0]['stub_group'] == 'category'
+    assert nodes[0]['stub_label'] is None
+
+
+def test_table_stub_grouped_labeled(parser):
+    """stub with two columns and a label sets all three fields."""
+    dsl = 'df sales\n\ntable t1\n    stub product, category "Item"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert nodes[0]['stub'] == 'product'
+    assert nodes[0]['stub_group'] == 'category'
+    assert nodes[0]['stub_label'] == 'Item'
+
+
+def test_table_stub_group_generates_groupname_col(parser):
+    """stub with group column generates groupname_col= in GT constructor."""
+    dsl = 'df sales\n\ntable t1\n    stub product, category\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert "groupname_col='category'" in combined
+
+
+def test_table_stub_label_generates_tab_stubhead(parser):
+    """stub with a string label generates tab_stubhead() call."""
+    dsl = 'df sales\n\ntable t1\n    stub product "Item"\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert "tab_stubhead(label='Item')" in combined
+
+
+def test_table_stub_grouped_executes(parser, sample_df):
+    """stub with group column produces valid GT HTML."""
+    pytest.importorskip('great_tables')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = 'df sales\n\ntable t1\n    stub product, category "Product"\n'
+    run(parser, dsl, ns)
+    assert 't1' in ns.get('_pivotal_gt_tables', {})
+    assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
+
+
+# ---------------------------------------------------------------------------
+# Spanner labels
+# ---------------------------------------------------------------------------
+
+def test_table_manual_spanner_parsed(parser):
+    """spanner line with columns and a label is captured in the AST."""
+    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert len(nodes[0]['spanners']) == 1
+    sp = nodes[0]['spanners'][0]
+    assert sp['type'] == 'manual'
+    assert sp['label'] == 'Metrics'
+    assert sp['columns'] == ['price', 'quantity']
+
+
+def test_table_manual_spanner_single_col(parser):
+    """spanner works with a single column too."""
+    dsl = 'df sales\n\ntable t1\n    spanner price "Price"\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    sp = nodes[0]['spanners'][0]
+    assert sp['columns'] == ['price']
+    assert sp['label'] == 'Price'
+
+
+def test_table_auto_spanner_parsed(parser):
+    """auto spanner keyword sets type=auto in the AST."""
+    dsl = 'df sales\n\ntable t1\n    auto spanner\n'
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert len(nodes[0]['spanners']) == 1
+    assert nodes[0]['spanners'][0] == {'type': 'auto'}
+
+
+def test_table_manual_spanner_generates_tab_spanner(parser):
+    """Manual spanner generates tab_spanner() call with label and columns."""
+    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert "tab_spanner(label='Metrics', columns=['price', 'quantity'])" in combined
+
+
+def test_table_auto_spanner_generates_multiindex_check(parser):
+    """auto spanner generates MultiIndex detection code in the GT constructor block."""
+    dsl = 'df sales\n\ntable t1\n    auto spanner\n'
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert 'MultiIndex' in combined
+    assert 'tab_spanner' in combined
+    assert 'get_level_values(0)' in combined
+    assert '_gt_flat' in combined  # column flattening code
+
+
+def test_table_manual_spanner_executes(parser, sample_df):
+    """Manual spanner produces valid GT HTML."""
+    pytest.importorskip('great_tables')
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    run(parser, dsl, ns)
+    assert 't1' in ns.get('_pivotal_gt_tables', {})
+    assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
+
+
+def test_table_auto_spanner_executes_with_multiindex(parser):
+    """auto spanner produces valid GT HTML from a pivot MultiIndex DataFrame."""
+    pytest.importorskip('great_tables')
+    df = pd.DataFrame({
+        'product': ['A', 'A', 'B', 'B'],
+        'region': ['North', 'South', 'North', 'South'],
+        'sales': [100, 200, 150, 250],
+        'quantity': [10, 20, 15, 25],
+    })
+    pivoted = pd.pivot_table(df, values=['sales', 'quantity'],
+                             index='product', columns='region', aggfunc='sum').reset_index()
+    ns = {'pd': pd, 'pivoted': pivoted}
+    dsl = 'df pivoted\n\ntable t1\n    auto spanner\n'
+    run(parser, dsl, ns)
+    assert 't1' in ns.get('_pivotal_gt_tables', {})
+    assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
+
+
+def test_table_multiple_spanners(parser):
+    """Multiple spanner lines all appear in the AST and generated code."""
+    dsl = (
+        'df sales\n\n'
+        'table t1\n'
+        '    spanner price "Pricing"\n'
+        '    spanner quantity "Volume"\n'
+    )
+    nodes = _parse_gt_nodes(parser, dsl)
+    assert len(nodes[0]['spanners']) == 2
+    combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert "'Pricing'" in combined
+    assert "'Volume'" in combined

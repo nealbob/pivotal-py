@@ -105,7 +105,7 @@ const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
   'concat', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply',
+  'distinct', 'python', 'save', 'apply', 'table',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -200,6 +200,9 @@ function detectContext(
       return { type: 'column', table };
     }
     if (/^assign\s+\w+\s*=/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^col\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^where\b/.test(trimmed)) {
@@ -396,11 +399,11 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       app.shell.activateById(viewer.id);
     });
 
-    // Show explorer alongside the viewer whenever the viewer is activated
+    // Show explorer alongside the viewer whenever the viewer is activated.
+    // Left and right sidebars are independent — activating the explorer (left)
+    // does not deactivate the viewer (right), so no RAF re-activation needed.
     viewer.setActivateCallback(() => {
       app.shell.activateById(explorer.id);
-      // Re-activate the viewer so it stays focused (explorer activation steals focus)
-      requestAnimationFrame(() => app.shell.activateById(viewer.id));
     });
 
     // Register commands
@@ -445,7 +448,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         viewer.setComm(comm);
         comm.onMsg = (msg: any) => {
           const data = msg?.content?.data as ViewerMessage | undefined;
-          if (data?.type === 'dataframe' || data?.type === 'chart') {
+          if (data?.type === 'dataframe' || data?.type === 'chart' || data?.type === 'gt_table') {
             viewer.push(data);
             // Show panel when new data arrives
             app.shell.activateById(viewer.id);

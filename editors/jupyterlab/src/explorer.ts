@@ -20,6 +20,14 @@ const CHART_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" 
   <line x1="1" y1="13.5" x2="13" y2="13.5" stroke="currentColor" stroke-width="0.8"/>
 </svg>`;
 
+const GT_TABLE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+  <rect x="1" y="1.5" width="12" height="2.5" rx="0.4" fill="currentColor" opacity="0.85"/>
+  <line x1="1" y1="6"   x2="13" y2="6"   stroke="currentColor" stroke-width="0.8" opacity="0.55"/>
+  <line x1="1" y1="8.5" x2="13" y2="8.5" stroke="currentColor" stroke-width="0.8" opacity="0.45"/>
+  <line x1="1" y1="11"  x2="13" y2="11"  stroke="currentColor" stroke-width="0.8" opacity="0.35"/>
+  <line x1="1" y1="13"  x2="13" y2="13"  stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+</svg>`;
+
 // ---------------------------------------------------------------------------
 // PivotalExplorerWidget — left sidebar object inspector
 // ---------------------------------------------------------------------------
@@ -103,7 +111,9 @@ export class PivotalExplorerWidget extends Widget {
 
     const icon = document.createElement('span');
     icon.className = 'pv-explorer-icon';
-    icon.innerHTML = item.type === 'dataframe' ? DF_ICON : CHART_ICON;
+    icon.innerHTML = item.type === 'dataframe' ? DF_ICON
+                   : item.type === 'chart'     ? CHART_ICON
+                   : GT_TABLE_ICON;
 
     const nameEl = document.createElement('span');
     nameEl.className = 'pv-explorer-name';
