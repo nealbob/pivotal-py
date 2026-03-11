@@ -298,6 +298,7 @@ export class PivotalViewerWidget extends Widget {
       height: '100%',
       renderVertical: 'virtual',
       rowHeight: 24,
+      nestedFieldSeparator: false,  // allow dots in column names (e.g. "2.6")
     });
 
     // Footer
