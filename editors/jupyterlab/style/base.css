@@ -109,71 +109,73 @@
 }
 
 /* ---------------------------------------------------------------------------
-   DataFrame table — virtual scrolling (single-table spacer-row technique)
+   DataFrame table — Tabulator
    --------------------------------------------------------------------------- */
 
-/* Outer scroll container — fills body */
-.pv-table-scroll {
+.pv-tab-container {
   flex: 1;
-  overflow: auto;
-  width: 100%;
-}
-
-.pv-table {
-  border-collapse: collapse;
+  min-height: 0;
+  overflow: hidden;
   font-size: 0.82em;
-  white-space: nowrap;
-  width: max-content;
-  min-width: 100%;
 }
 
-.pv-table th,
-.pv-table td {
-  border: 1px solid var(--jp-border-color2);
-  padding: 2px 8px;
+/* Override Tabulator simple theme to match JupyterLab */
+.pv-tab-container .tabulator {
+  border: none;
+  background: var(--jp-layout-color1);
+  font-family: var(--jp-ui-font-family);
+  font-size: inherit;
 }
 
-.pv-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.pv-table thead th {
+.pv-tab-container .tabulator-header {
   background: var(--jp-layout-color2);
-  font-weight: 600;
   border-bottom: 2px solid var(--jp-border-color1);
+  color: var(--jp-ui-font-color1);
 }
 
-.pv-table tbody tr:nth-child(even) {
+.pv-tab-container .tabulator-col {
+  background: var(--jp-layout-color2);
+  border-right: 1px solid var(--jp-border-color2);
+  color: var(--jp-ui-font-color1);
+}
+
+.pv-tab-container .tabulator-col-title {
+  font-weight: 600;
+}
+
+.pv-tab-container .tabulator-row {
+  background: var(--jp-layout-color1);
+  border-bottom: 1px solid var(--jp-border-color2);
+  color: var(--jp-ui-font-color1);
+  min-height: unset;
+}
+
+.pv-tab-container .tabulator-row.tabulator-row-even {
   background: var(--jp-layout-color0);
 }
 
-.pv-table tbody tr:hover {
+.pv-tab-container .tabulator-row:hover,
+.pv-tab-container .tabulator-row.tabulator-row-even:hover {
   background: var(--jp-layout-color3);
 }
 
-/* Numeric alignment */
-.pv-table th.pv-num,
-.pv-table td.pv-num {
-  text-align: right;
+.pv-tab-container .tabulator-cell {
+  border-right: 1px solid var(--jp-border-color2);
+  padding: 2px 8px;
+  color: var(--jp-ui-font-color1);
 }
 
-/* Row-index column */
-.pv-table th.pv-idx,
-.pv-table td.pv-idx {
-  color: var(--jp-ui-font-color2);
-  text-align: right;
-  padding-right: 10px;
+/* Row index column */
+.pv-tab-container .tabulator-cell.pv-tab-idx,
+.pv-tab-container .tabulator-col.pv-tab-idx {
   background: var(--jp-layout-color2);
-  border-right: 2px solid var(--jp-border-color1);
-  position: sticky;
-  left: 0;
-  z-index: 1;
+  border-right: 2px solid var(--jp-border-color1) !important;
+  color: var(--jp-ui-font-color2);
 }
 
-.pv-table thead th.pv-idx {
-  z-index: 2;
+/* Sort arrows */
+.pv-tab-container .tabulator-col .tabulator-col-sorter {
+  color: var(--jp-ui-font-color2);
 }
 
 /* ---------------------------------------------------------------------------

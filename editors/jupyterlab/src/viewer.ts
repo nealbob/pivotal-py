@@ -1,5 +1,7 @@
 import { Widget } from '@lumino/widgets';
 import { Message } from '@lumino/messaging';
+import { TabulatorFull as Tabulator, type ColumnDefinition } from 'tabulator-tables';
+import 'tabulator-tables/dist/css/tabulator_simple.min.css';
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -52,8 +54,6 @@ export interface ExplorerItem {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_LIMIT = 10_000;
-const ROW_H = 24;     // px — assumed fixed row height for virtual scrolling
-const OVERSCAN = 20;  // rows to render beyond the visible viewport edge
 
 // ---------------------------------------------------------------------------
 // PivotalViewerWidget
@@ -238,120 +238,56 @@ export class PivotalViewerWidget extends Widget {
   }
 
   // -------------------------------------------------------------------------
-  // DataFrame — virtual scrolling via spacer-row technique
-  //
-  // Single <table> so thead and tbody always scroll together horizontally.
-  // thead is position:sticky so it stays visible during vertical scroll.
-  // tbody contains: [top-spacer TR] [visible rows] [bottom-spacer TR]
-  // Spacer heights are adjusted on scroll to simulate the full row list.
+  // DataFrame — rendered with Tabulator (virtual DOM, sortable columns)
   // -------------------------------------------------------------------------
 
   private _renderDataFrame(p: DataFramePayload): void {
-    const { columns, data } = p;
-    const totalRows = data.length;
+    const { columns, data, dtypes } = p;
 
-    // Which column indices are numeric
-    const numericCols = new Set(
-      columns.reduce<number[]>((acc, c, i) => {
-        const dt = p.dtypes[c] ?? '';
-        if (dt.startsWith('float') || dt.startsWith('int')) acc.push(i);
-        return acc;
-      }, [])
-    );
-
-    // Scroll container
-    const scroll = document.createElement('div');
-    scroll.className = 'pv-table-scroll';
-
-    // Single table: thead sticky, tbody has spacers + visible rows
-    const table = document.createElement('table');
-    table.className = 'pv-table';
-
-    // --- thead ---
-    const thead = table.createTHead();
-    const headerRow = thead.insertRow();
-    const thIdx = document.createElement('th');
-    thIdx.className = 'pv-idx';
-    headerRow.appendChild(thIdx);
-    columns.forEach((col, ci) => {
-      const th = document.createElement('th');
-      th.textContent = col;
-      th.title = p.dtypes[col] ?? '';
-      if (numericCols.has(ci)) th.classList.add('pv-num');
-      headerRow.appendChild(th);
+    // Convert row-major array to Tabulator row objects, prepend row index
+    const rows = data.map((row, i) => {
+      const obj: Record<string, unknown> = { _idx: i };
+      columns.forEach((col, ci) => { obj[col] = row[ci]; });
+      return obj;
     });
 
-    // --- tbody with spacers ---
-    const tbody = table.createTBody();
-    // Top spacer
-    const topSpacer = document.createElement('tr');
-    const topTd = document.createElement('td');
-    topTd.colSpan = columns.length + 1;
-    topTd.style.padding = '0';
-    topSpacer.appendChild(topTd);
-    topSpacer.style.height = '0px';
-    tbody.appendChild(topSpacer);
-    // Bottom spacer
-    const botSpacer = document.createElement('tr');
-    const botTd = document.createElement('td');
-    botTd.colSpan = columns.length + 1;
-    botTd.style.padding = '0';
-    botSpacer.appendChild(botTd);
-    botSpacer.style.height = `${totalRows * ROW_H}px`;
-    tbody.appendChild(botSpacer);
+    const colDefs: ColumnDefinition[] = [
+      {
+        title: '', field: '_idx',
+        frozen: true, width: 52, minWidth: 52,
+        hozAlign: 'right', headerSort: false, resizable: false,
+        cssClass: 'pv-tab-idx',
+      },
+      ...columns.map(col => {
+        const dt = dtypes[col] ?? '';
+        const isNum = dt.startsWith('float') || dt.startsWith('int');
+        return {
+          title: col, field: col,
+          hozAlign: (isNum ? 'right' : 'left') as 'right' | 'left',
+          sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
+          tooltip: (dt || false) as string | false,
+          resizable: true,
+        } as ColumnDefinition;
+      }),
+    ];
 
-    scroll.appendChild(table);
-    this._body.appendChild(scroll);
+    const container = document.createElement('div');
+    container.className = 'pv-tab-container';
+    this._body.appendChild(container);
 
-    // --- Virtual scroll update ---
-    let lastStart = -1;
-
-    const update = () => {
-      const headerH = thead.offsetHeight || ROW_H;
-      const scrollTop = Math.max(0, scroll.scrollTop - headerH);
-      const viewH    = scroll.clientHeight - headerH;
-
-      const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
-      const endIdx   = Math.min(totalRows, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
-
-      if (startIdx === lastStart) return;
-      lastStart = startIdx;
-
-      // Remove all rows between the two spacers
-      while (tbody.rows.length > 2) tbody.deleteRow(1);
-
-      // Adjust spacer heights
-      topSpacer.style.height = `${startIdx * ROW_H}px`;
-      botSpacer.style.height = `${(totalRows - endIdx) * ROW_H}px`;
-
-      // Build visible rows into a fragment, then insert before bottom spacer
-      const frag = document.createDocumentFragment();
-      for (let i = startIdx; i < endIdx; i++) {
-        const row = document.createElement('tr');
-        const idxCell = document.createElement('td');
-        idxCell.className = 'pv-idx';
-        idxCell.textContent = String(i);
-        row.appendChild(idxCell);
-        for (let ci = 0; ci < columns.length; ci++) {
-          const cell = document.createElement('td');
-          const val = data[i][ci];
-          cell.textContent = (val === null || val === undefined) ? '' : String(val);
-          if (numericCols.has(ci)) cell.classList.add('pv-num');
-          row.appendChild(cell);
-        }
-        frag.appendChild(row);
-      }
-      tbody.insertBefore(frag, botSpacer);
-    };
-
-    scroll.addEventListener('scroll', update, { passive: true });
-    new ResizeObserver(update).observe(scroll);
-    requestAnimationFrame(update);
+    new Tabulator(container, {
+      data: rows,
+      columns: colDefs,
+      layout: 'fitDataFill',
+      height: '100%',
+      renderVertical: 'virtual',
+      rowHeight: 24,
+    });
 
     // Footer
     const [totalShape, totalCols] = p.shape;
     const truncMsg = p.truncated
-      ? `Showing ${totalRows.toLocaleString()} of ${totalShape.toLocaleString()} rows`
+      ? `Showing ${data.length.toLocaleString()} of ${totalShape.toLocaleString()} rows`
       : `${totalShape.toLocaleString()} rows × ${totalCols} cols`;
 
     const footer = document.createElement('div');
@@ -360,7 +296,7 @@ export class PivotalViewerWidget extends Widget {
       <span class="pv-shape">${truncMsg}</span>
       ${p.truncated
         ? `<label class="pv-limit-label">Show:
-            <input class="pv-limit" type="number" value="${totalRows}" min="100" step="1000">
+            <input class="pv-limit" type="number" value="${data.length}" min="100" step="1000">
             rows</label>`
         : ''}
     `;

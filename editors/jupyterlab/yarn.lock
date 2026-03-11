@@ -1531,8 +1531,10 @@ __metadata:
     "@lezer/highlight": ^1.0.0
     "@lumino/messaging": ^2.0.0
     "@lumino/widgets": ^2.0.0
+    "@types/tabulator-tables": ^6.3.1
     npm-run-all: ^4.1.5
     rimraf: ^5.0.0
+    tabulator-tables: ^6.4.0
     typescript: ~5.0.4
   languageName: unknown
   linkType: soft
@@ -1992,6 +1994,13 @@ __metadata:
   version: 2.0.3
   resolution: "@types/stack-utils@npm:2.0.3"
   checksum: 72576cc1522090fe497337c2b99d9838e320659ac57fa5560fcbdcbafcf5d0216c6b3a0a8a4ee4fdb3b1f5e3420aa4f6223ab57b82fef3578bec3206425c6cf5
+  languageName: node
+  linkType: hard
+
+"@types/tabulator-tables@npm:^6.3.1":
+  version: 6.3.1
+  resolution: "@types/tabulator-tables@npm:6.3.1"
+  checksum: 1cbe2724d388aeba289702a7b6837a3ea458dbfd0f2ce95e09899f55ad1e9b8a8e5c87844f4d52583d7fd28ce677bc85fc557d3e60b8b5eb0970fc7e84ace196
   languageName: node
   linkType: hard
 
@@ -6302,6 +6311,13 @@ __metadata:
   version: 5.3.3
   resolution: "tabbable@npm:5.3.3"
   checksum: 1aa56e1bb617cc10616c407f4e756f0607f3e2d30f9803664d70b85db037ca27e75918ed1c71443f3dc902e21dc9f991ce4b52d63a538c9b69b3218d3babcd70
+  languageName: node
+  linkType: hard
+
+"tabulator-tables@npm:^6.4.0":
+  version: 6.4.0
+  resolution: "tabulator-tables@npm:6.4.0"
+  checksum: e83dc40866d49556875259ebecef1d2e544f4756272969650e34a7826cbc16073ef22174fa429a76e4e3bbed131416d3c1b98cd668feec4a1fc08ad029234de9
   languageName: node
   linkType: hard
 
