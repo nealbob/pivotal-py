@@ -2094,6 +2094,21 @@ class CodeGenerator:
             'a3': (297.0, 420.0), 'a3_landscape': (420.0, 297.0),
             'letter': (215.9, 279.4), 'slide': (338.7, 190.5),
         }
+        # Word-specific CSS to suppress paragraph spacing Word adds inside
+        # table cells (from its "Normal" paragraph style, typically 8pt space-after).
+        # mso-* properties are ignored by browsers so the viewer is unaffected.
+        word_css = (
+            '<style>'
+            'p{margin-top:0;margin-bottom:0;}'
+            'p.MsoNormal,li.MsoNormal,div.MsoNormal{margin:0;}'
+            'td{mso-line-height-rule:exactly;}'
+            'td p,th p{margin:0;mso-line-height-rule:exactly;}'
+            '</style>'
+        )
+        lines.append(
+            f"_gt_export_html = _gt_export_html.replace('</head>', {word_css!r} + '</head>', 1)"
+        )
+
         if canvas in _PAPER_SIZES_MM:
             pw, ph = _PAPER_SIZES_MM[canvas]
             margin = 25.4
