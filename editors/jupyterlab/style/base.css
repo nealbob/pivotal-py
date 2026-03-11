@@ -112,19 +112,11 @@
    DataFrame table — Tabulator
    --------------------------------------------------------------------------- */
 
-.pv-tab-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-size: 0.82em;
-}
-
 .pv-tab-container {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  font-size: 0.82em;
 }
 
 /* Override Tabulator simple theme to match JupyterLab */
