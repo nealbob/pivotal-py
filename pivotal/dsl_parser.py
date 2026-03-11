@@ -1997,7 +1997,7 @@ class CodeGenerator:
 
         # Font size — applied to body, stub, column labels, header, and grand summary rows
         if font_size:
-            size_str = f"'{int(font_size)}px'"
+            size_str = f"'{int(font_size)}pt'"
             lines.append(
                 f"_gt = _gt.tab_style("
                 f"style=_gt_style.text(size={size_str}), "
@@ -2073,13 +2073,46 @@ class CodeGenerator:
             lines.append("_gt_mod2 = _gt_ilu.module_from_spec(_gt_spec); _gt_spec.loader.exec_module(_gt_mod2)")
             lines.append("_gt = _gt_mod2.apply(_gt)")
 
-        # Store result — viewer_html is a compact fragment for the comm channel;
-        # page_html is the full self-contained page written by the save command.
+        # Convert all px values in GT's inline CSS to pt so that:
+        #   - Word import reads physical units correctly (no 96/72 DPI inflation)
+        #   - Browser print renders at true physical size
+        # Conversion: 1px = 72/96 pt = 0.75 pt
+        # The browser renders pt→px internally so the viewer appearance is unchanged.
+        lines.append("import re as _gt_re")
+        lines.append(
+            "def _gt_px_to_pt(h): "
+            r"return _gt_re.sub(r'(\d+(?:\.\d+)?)px', "
+            r"lambda _m: f'{float(_m.group(1)) * 0.75:.4g}pt', h)"
+        )
+        lines.append("_gt_viewer_html = _gt_px_to_pt(_gt.as_raw_html(inline_css=True))")
+        lines.append("_gt_export_html = _gt_px_to_pt(_gt.as_raw_html(make_page=True, inline_css=True))")
+
+        # Inject @page CSS into the export HTML for direct browser printing at
+        # the correct physical page size.  Only added when canvas is explicit.
+        _PAPER_SIZES_MM = {
+            'a4': (210.0, 297.0), 'a4_landscape': (297.0, 210.0),
+            'a3': (297.0, 420.0), 'a3_landscape': (420.0, 297.0),
+            'letter': (215.9, 279.4), 'slide': (338.7, 190.5),
+        }
+        if canvas in _PAPER_SIZES_MM:
+            pw, ph = _PAPER_SIZES_MM[canvas]
+            margin = 25.4
+            uw = pw - 2 * margin
+            page_css = (
+                f'<style>'
+                f'@page{{size:{pw}mm {ph}mm;margin:{margin}mm}}'
+                f'body{{width:{uw:.2f}mm;margin:0 auto}}'
+                f'</style>'
+            )
+            lines.append(
+                f"_gt_export_html = _gt_export_html.replace('</head>', {page_css!r} + '</head>', 1)"
+            )
+
         lines.append("if '_pivotal_gt_tables' not in globals(): globals()['_pivotal_gt_tables'] = {}")
         lines.append(
             f"globals()['_pivotal_gt_tables'][{name!r}] = {{"
-            f"'viewer_html': _gt.as_raw_html(inline_css=True), "
-            f"'html': _gt.as_raw_html(make_page=True, inline_css=True), "
+            f"'viewer_html': _gt_viewer_html, "
+            f"'html': _gt_export_html, "
             f"'canvas': {canvas!r}}}"
         )
         return "\n".join(lines)

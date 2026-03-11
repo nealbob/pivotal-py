@@ -569,18 +569,27 @@ export class PivotalViewerWidget extends Widget {
       lastAvailW = availW;
       rafId = 0;
 
-      const pxPerMm = (availW / cm.page_width_mm) * userScale;
-      const marginPx = cm.margin_mm * pxPerMm;
-      const usableW  = (cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm;
-      const usableH  = (cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm;
+      // Base px/mm at scale=1 — used to size the iframe content viewport.
+      // The iframe always renders at this natural size so GT table layout is
+      // stable; CSS transform then scales the rendered output to match the zoom.
+      const basePxPerMm = availW / cm.page_width_mm;
+      const pxPerMm     = basePxPerMm * userScale;
+      const marginPx    = cm.margin_mm * pxPerMm;
 
+      // Page background scales with zoom (same as chart view)
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
 
-      iframe.style.left   = `${marginPx}px`;
-      iframe.style.top    = `${marginPx}px`;
-      iframe.style.width  = `${usableW}px`;
-      iframe.style.height = `${usableH}px`;
+      // Iframe stays at base (scale=1) usable dimensions so the HTML content
+      // lays out naturally, then transform: scale zooms the rendered output.
+      const baseUsableW = (cm.page_width_mm  - 2 * cm.margin_mm) * basePxPerMm;
+      const baseUsableH = (cm.page_height_mm - 2 * cm.margin_mm) * basePxPerMm;
+      iframe.style.left            = `${marginPx}px`;
+      iframe.style.top             = `${marginPx}px`;
+      iframe.style.width           = `${baseUsableW}px`;
+      iframe.style.height          = `${baseUsableH}px`;
+      iframe.style.transform       = `scale(${userScale})`;
+      iframe.style.transformOrigin = '0 0';
     };
 
     const applyForced = () => { lastAvailW = -1; apply(); };
