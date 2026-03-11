@@ -70,6 +70,10 @@ export class PivotalViewerWidget extends Widget {
   private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
   private _activateCb: (() => void) | null = null;
 
+  // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
+  // reattaches existing instances rather than rebuilding from scratch.
+  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement }> = new Map();
+
   private _titleEl!: HTMLElement;
   private _counterEl!: HTMLElement;
   private _backBtn!: HTMLButtonElement;
@@ -168,6 +172,8 @@ export class PivotalViewerWidget extends Widget {
   push(msg: ViewerMessage): void {
     const isNew = !this._latest.has(msg.name);
     this._latest.set(msg.name, msg);
+    // Evict stale cache entry so updated data gets a fresh Tabulator instance
+    if (!isNew) this._dfCache.delete(msg.name);
     if (isNew) this._names.push(msg.name);
     this._index = this._names.indexOf(msg.name);
     this._render();
@@ -186,6 +192,7 @@ export class PivotalViewerWidget extends Widget {
     if (this._index < 0 || !this._names.length) return;
     const name = this._names[this._index];
     this._latest.delete(name);
+    this._dfCache.delete(name);
     this._names.splice(this._index, 1);
     // Move index to the previous item, or stay at 0
     this._index = Math.min(this._index, this._names.length - 1);
@@ -199,6 +206,7 @@ export class PivotalViewerWidget extends Widget {
 
   clear(): void {
     this._latest.clear();
+    this._dfCache.clear();
     this._names = [];
     this._index = -1;
     this._titleEl.textContent = '—';
@@ -229,8 +237,9 @@ export class PivotalViewerWidget extends Widget {
     this._delBtn.disabled   = false;
     this._clearBtn.disabled = false;
 
-    this._body.innerHTML   = '';
-    this._footer.innerHTML = '';
+    // Detach children without destroying them — keeps Tabulator instances alive in _dfCache
+    while (this._body.firstChild) this._body.removeChild(this._body.firstChild);
+    while (this._footer.firstChild) this._footer.removeChild(this._footer.firstChild);
 
     if (p.type === 'dataframe') this._renderDataFrame(p);
     else if (p.type === 'chart') this._renderChart(p);
@@ -242,6 +251,14 @@ export class PivotalViewerWidget extends Widget {
   // -------------------------------------------------------------------------
 
   private _renderDataFrame(p: DataFramePayload): void {
+    // Reattach cached nodes if this DataFrame was previously rendered
+    const cached = this._dfCache.get(p.name);
+    if (cached) {
+      this._body.appendChild(cached.body);
+      this._footer.appendChild(cached.footer);
+      return;
+    }
+
     const { columns, data, dtypes } = p;
 
     // Convert row-major array to Tabulator row objects, prepend row index
@@ -273,12 +290,11 @@ export class PivotalViewerWidget extends Widget {
 
     const container = document.createElement('div');
     container.className = 'pv-tab-container';
-    this._body.appendChild(container);
 
     new Tabulator(container, {
       data: rows,
       columns: colDefs,
-      layout: 'fitDataFill',
+      layout: 'fitDataStretch',  // measures visible rows only, no full-data scan
       height: '100%',
       renderVertical: 'virtual',
       rowHeight: 24,
@@ -300,15 +316,19 @@ export class PivotalViewerWidget extends Widget {
             rows</label>`
         : ''}
     `;
-    this._footer.appendChild(footer);
 
     if (p.truncated) {
-      const inp = this._footer.querySelector('.pv-limit') as HTMLInputElement;
+      const inp = footer.querySelector('.pv-limit') as HTMLInputElement;
       inp.addEventListener('change', () => {
         const limit = Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT);
         if (this._comm) this._comm.send({ type: 'request', name: p.name, limit });
       });
     }
+
+    // Cache nodes before appending so back/forward reuses live Tabulator instance
+    this._dfCache.set(p.name, { body: container, footer });
+    this._body.appendChild(container);
+    this._footer.appendChild(footer);
   }
 
   // -------------------------------------------------------------------------
