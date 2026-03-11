@@ -72,7 +72,13 @@ export class PivotalViewerWidget extends Widget {
 
   // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
   // reattaches existing instances rather than rebuilding from scratch.
-  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement }> = new Map();
+  private _dfCache: Map<string, {
+    body: HTMLElement;           // wrapper: toolbar + tabContainer
+    footer: HTMLElement;
+    tab: InstanceType<typeof Tabulator>;
+    tabContainer: HTMLElement;
+    zoom: number;
+  }> = new Map();
 
   private _titleEl!: HTMLElement;
   private _counterEl!: HTMLElement;
@@ -256,6 +262,7 @@ export class PivotalViewerWidget extends Widget {
     if (cached) {
       this._body.appendChild(cached.body);
       this._footer.appendChild(cached.footer);
+      cached.tab.redraw(true);  // recalc layout after reattach
       return;
     }
 
@@ -288,17 +295,47 @@ export class PivotalViewerWidget extends Widget {
       }),
     ];
 
-    const container = document.createElement('div');
-    container.className = 'pv-tab-container';
+    // Body wrapper: toolbar on top, tabulator fills remainder
+    const body = document.createElement('div');
+    body.className = 'pv-tab-body';
 
-    new Tabulator(container, {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML = `
+      <button class="pv-btn pv-zoom-out"   title="Zoom out">−</button>
+      <button class="pv-btn pv-zoom-reset" title="Reset zoom">100%</button>
+      <button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>
+    `;
+
+    const tabContainer = document.createElement('div');
+    tabContainer.className = 'pv-tab-container';
+
+    body.appendChild(toolbar);
+    body.appendChild(tabContainer);
+
+    const tab = new Tabulator(tabContainer, {
       data: rows,
       columns: colDefs,
-      layout: 'fitDataStretch',  // measures visible rows only, no full-data scan
+      layout: 'fitDataStretch',
       height: '100%',
       renderVertical: 'virtual',
       rowHeight: 24,
     });
+
+    // Zoom — CSS zoom affects layout so scrollbars reflect true zoomed size
+    const entry = { body, footer: null as unknown as HTMLElement, tab, tabContainer, zoom: 1.0 };
+    const zoomLabel = toolbar.querySelector('.pv-zoom-reset') as HTMLButtonElement;
+
+    const applyZoom = (scale: number) => {
+      entry.zoom = Math.max(0.4, Math.min(2.0, scale));
+      tabContainer.style.setProperty('zoom', String(entry.zoom));
+      zoomLabel.textContent = `${Math.round(entry.zoom * 100)}%`;
+      tab.redraw(true);
+    };
+
+    toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => applyZoom(entry.zoom * 1.2));
+    toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => applyZoom(entry.zoom / 1.2));
+    toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => applyZoom(1.0));
 
     // Footer
     const [totalShape, totalCols] = p.shape;
@@ -325,9 +362,9 @@ export class PivotalViewerWidget extends Widget {
       });
     }
 
-    // Cache nodes before appending so back/forward reuses live Tabulator instance
-    this._dfCache.set(p.name, { body: container, footer });
-    this._body.appendChild(container);
+    entry.footer = footer;
+    this._dfCache.set(p.name, entry);
+    this._body.appendChild(body);
     this._footer.appendChild(footer);
   }
 
