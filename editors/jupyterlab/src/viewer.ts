@@ -517,35 +517,44 @@ export class PivotalViewerWidget extends Widget {
     this._body.appendChild(toolbar);
     this._body.appendChild(outer);
 
+    // GT HTML has hardcoded px column widths and doesn't reflow when the iframe
+    // is resized. Fix iframe dimensions on the first render; all subsequent zoom
+    // and pane-resize changes go through transform: scale() so canvas and table
+    // always stay in sync.
+    let initialBasePxPerMm = 0;
+    let baseUsableW = 0;
+    let baseUsableH = 0;
+
     let lastAvailW = -1;
     let rafId = 0;
 
     const apply = () => {
       const availW = Math.max(outer.clientWidth - 64, 80);
+      const currentBasePxPerMm = availW / cm.page_width_mm;
+
+      // Lock iframe dimensions on first render
+      if (initialBasePxPerMm === 0) {
+        initialBasePxPerMm = currentBasePxPerMm;
+        baseUsableW = (cm.page_width_mm  - 2 * cm.margin_mm) * initialBasePxPerMm;
+        baseUsableH = (cm.page_height_mm - 2 * cm.margin_mm) * initialBasePxPerMm;
+        iframe.style.width  = `${baseUsableW}px`;
+        iframe.style.height = `${baseUsableH}px`;
+      }
+
       if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
       lastAvailW = availW;
       rafId = 0;
 
-      // Base px/mm at scale=1 — used to size the iframe content viewport.
-      // The iframe always renders at this natural size so GT table layout is
-      // stable; CSS transform then scales the rendered output to match the zoom.
-      const basePxPerMm = availW / cm.page_width_mm;
-      const pxPerMm     = basePxPerMm * userScale;
-      const marginPx    = cm.margin_mm * pxPerMm;
+      const pxPerMm  = currentBasePxPerMm * userScale;
+      const marginPx = cm.margin_mm * pxPerMm;
 
-      // Page background scales with zoom (same as chart view)
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
 
-      // Iframe stays at base (scale=1) usable dimensions so the HTML content
-      // lays out naturally, then transform: scale zooms the rendered output.
-      const baseUsableW = (cm.page_width_mm  - 2 * cm.margin_mm) * basePxPerMm;
-      const baseUsableH = (cm.page_height_mm - 2 * cm.margin_mm) * basePxPerMm;
       iframe.style.left            = `${marginPx}px`;
       iframe.style.top             = `${marginPx}px`;
-      iframe.style.width           = `${baseUsableW}px`;
-      iframe.style.height          = `${baseUsableH}px`;
-      iframe.style.transform       = `scale(${userScale})`;
+      // Combine pane-resize ratio and user zoom into one scale — iframe dimensions stay fixed
+      iframe.style.transform       = `scale(${(currentBasePxPerMm / initialBasePxPerMm) * userScale})`;
       iframe.style.transformOrigin = '0 0';
     };
 
