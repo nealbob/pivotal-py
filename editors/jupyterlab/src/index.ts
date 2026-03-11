@@ -399,11 +399,11 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       app.shell.activateById(viewer.id);
     });
 
-    // Show explorer alongside the viewer whenever the viewer is activated
+    // Show explorer alongside the viewer whenever the viewer is activated.
+    // Left and right sidebars are independent — activating the explorer (left)
+    // does not deactivate the viewer (right), so no RAF re-activation needed.
     viewer.setActivateCallback(() => {
       app.shell.activateById(explorer.id);
-      // Re-activate the viewer so it stays focused (explorer activation steals focus)
-      requestAnimationFrame(() => app.shell.activateById(viewer.id));
     });
 
     // Register commands

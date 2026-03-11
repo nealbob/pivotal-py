@@ -16,6 +16,10 @@
 
 **VS Code Integration** - Syntax highlighting, autocomplete, interactive execution, Python code export
 
+**Plotting and table support** - Simple syntax for charts and tables via matplotlib and Great Tables
+
+**Frictionless data-packages** - Export all notebook content (dataframes, charts, tables, code) to a single [Frictionless](https://specs.frictionlessdata.io/) data-package 
+
 ## At a Glance
 
 The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating some aspects of Python/Pandas (i.e., indentation rather than brackets):
@@ -43,6 +47,7 @@ The syntax of Pivotal has some similarites with "piped-SQL" varients including [
   - [Data Cleaning](#data-cleaning)
   - [Applying Python Functions](#applying-python-functions)
   - [Plotting](#plotting)
+  - [Publication-Ready Tables](#publication-ready-tables)
   - [Package Management](#package-management)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -795,6 +800,202 @@ saved as both an image (`charts/<name>.png`) and a CSV snapshot of the source da
 
 > **Naming constraint:** chart names must not duplicate any table name in the session,
 > since both share the same identifier namespace in `include`/`exclude` lists.
+
+---
+
+### Publication-Ready Tables
+
+Create formatted HTML tables using the [Great Tables](https://posit-dev.github.io/great-tables/articles/intro.html) package. Each table must be named and is displayed in the Object Viewer panel; the `save` command exports it as a self-contained `.html` file.
+
+**Requires:** `pip install great-tables`
+
+```pivotal
+df results
+
+table summary
+    title "Season Results"
+    subtitle "All matches, 2023–24"
+    font size 11
+    font "Georgia"
+    stub team, division "Club"
+    spanner goals, win_rate "Performance"
+    spanner revenue "Financials"
+    label goals as "Goals Scored", win_rate as "Win %", revenue as "Revenue"
+    format number 1
+    format revenue as currency GBP
+    format win_rate as percent 1
+    summary sum as "Total", mean as "Average"
+    stripe
+    canvas a4
+    style "my_table_style.py"
+```
+
+#### Table options
+
+| Option | Description |
+|---|---|
+| `title "string"` | Table heading |
+| `subtitle "string"` | Sub-heading below the title |
+| `font size <n>` | Font size in points (applied to body, stub, column labels, and header) |
+| `font "family"` | Font family name (e.g. `"Georgia"`, `"Arial"`) |
+| `stub <col> [, <group>] ["label"]` | Row label area — see [Stub and row groups](#stub-and-row-groups) below |
+| `spanner <cols> "label"` | Add a spanner label above a group of columns |
+| `auto spanner` | Auto-generate spanners from MultiIndex columns (pivot output) |
+| `stripe` | Alternating row background colours (zebra striping) |
+| `canvas <size>` | Render on a page-sized canvas in the viewer; omit for free-scrolling |
+| `summary <fns>` | Add grand summary rows (see below) |
+| `style "file.py"` | Apply a custom style function from an external Python file (see below) |
+
+**Canvas sizes:**
+
+| Value | Size |
+|---|---|
+| `a4` | 210 × 297 mm (portrait) |
+| `a4_landscape` | 297 × 210 mm |
+| `a3` | 297 × 420 mm (portrait) |
+| `a3_landscape` | 420 × 297 mm |
+| `letter` | 216 × 279 mm (portrait) |
+| `slide` | 339 × 191 mm (16:9 widescreen, PPT/Beamer) |
+
+Canvas can also be set globally with `%pivotal_set canvas=a4` and overridden per-table with the `canvas` line. Default page margins are 25.4 mm (2.54 cm).
+
+#### Stub and row groups
+
+The `stub` line pulls one column into a styled left row-label area and optionally groups rows under a second column's values:
+
+```pivotal
+stub product                           -- simple stub column
+stub product "Product"                 -- stub with a header label above it
+stub product, category                 -- stub + group rows by category
+stub product, category "Product"       -- all three: stub, grouping, and label
+```
+
+| Syntax | Effect |
+|---|---|
+| `stub col` | `rowname_col=col` — styled stub; text is automatically set to `nowrap` |
+| `stub col "Label"` | Adds `tab_stubhead(label="Label")` above the stub column |
+| `stub col, group` | `rowname_col=col, groupname_col=group` — rows grouped under unique `group` values |
+| `stub col, group "Label"` | All three: stub column, row grouping, and stubhead label |
+
+When a `group` column is provided, Great Tables renders a shaded section header above each group of rows. The group column is consumed by GT and does not appear as a data column.
+
+#### Spanner labels
+
+Spanners are horizontal labels that span across two or more column headers. Two approaches are supported.
+
+**Manual** — specify the columns and a label explicitly:
+
+```pivotal
+spanner price, quantity "Metrics"
+spanner revenue, cost, profit "Financials"
+```
+
+Each `spanner` line generates a `tab_spanner(label=..., columns=[...])` call. Multiple `spanner` lines can be stacked to create multiple groups.
+
+**Auto** — derive spanners from MultiIndex columns produced by `pivot`:
+
+```pivotal
+df monthly_sales from raw
+pivot
+    agg sum revenue, sum quantity
+    rows product
+    cols region
+
+table t1
+    stub product "Product"
+    auto spanner
+```
+
+When `auto spanner` is used, the generated code:
+1. Detects whether the DataFrame has MultiIndex columns
+2. Flattens column names (joining levels with `|`) so that Great Tables can accept the DataFrame
+3. Calls `tab_spanner()` once per top-level column group
+
+If the DataFrame has regular (non-MultiIndex) columns, the `auto spanner` line has no effect.
+
+#### Column labels (`label`)
+
+Rename multiple columns on a single comma-separated line:
+
+```pivotal
+label colA as "Cost", colB as "Revenue", colC as "Margin %"
+```
+
+#### Column formatting (`format`)
+
+Apply a number format to a specific column or to all numeric columns at once. Blanket formats automatically skip string/object columns.
+
+```pivotal
+format number 2              -- all numeric columns, 2 decimal places
+format integer               -- all numeric columns, no decimals
+format colA as number 2      -- specific column only
+format colB as currency GBP  -- specific column, currency format
+```
+
+**Format types:**
+
+| Format | Syntax | Description |
+|---|---|---|
+| `number <decimals>` | `format number 1` | Fixed decimal places |
+| `integer` | `format integer` | No decimal places |
+| `currency <code>` | `format revenue as currency GBP` | Currency symbol + 2 dp |
+| `percent <decimals>` | `format rate as percent 1` | Percentage |
+| `date` | `format created as date` | Date formatting |
+
+#### Summary rows (`summary`)
+
+Add grand summary rows at the bottom of the table. Each aggregation becomes a labelled row. String/object columns are automatically excluded.
+
+```pivotal
+summary sum                              -- one row labelled "Total"
+summary sum as "Total"                   -- explicit label
+summary sum as "Total", mean as "Mean"   -- multiple rows
+```
+
+**Supported aggregations:** `sum`, `mean`, `min`, `max`, `median`, `count`
+
+Default labels (when no `as` is given): Sum → *Total*, Mean → *Mean*, Min → *Min*, Max → *Max*, Median → *Median*, Count → *Count*.
+
+> Note: Group-level subtotals (`summary_rows`) are not yet available in the current version of Great Tables (v0.21). Grand summary rows apply across all data regardless of grouping.
+
+#### Style files
+
+For complex styling (bold headings, custom colours, borders, backgrounds), provide a Python file with an `apply(gt)` function. This gives full access to the Great Tables API without polluting the grammar.
+
+```pivotal
+table myreport
+    style "report_style.py"
+```
+
+```python
+# report_style.py
+import great_tables.style as s
+import great_tables.loc as loc
+
+def apply(gt):
+    return (gt
+        .tab_style(style=s.text(weight='bold'), locations=loc.column_labels())
+        .tab_style(style=s.fill(color='#f0f4f8'), locations=loc.header())
+        .tab_style(style=s.borders(sides='bottom', color='#333', weight='2px'),
+                   locations=loc.column_labels())
+    )
+```
+
+The file path is relative to the notebook's working directory.
+
+#### Viewer display
+
+Tables appear in the **Object Viewer** with a distinct icon in the **Object Explorer** sidebar. If `canvas` is set the table is rendered on a page-sized background; otherwise it fills the panel. If content is wider than the canvas it overflows naturally — no auto-scaling is applied.
+
+#### Export
+
+Tables are exported as self-contained HTML files by `save`:
+
+```
+my_analysis/
+  tables/
+    summary.html    ← fully self-contained, inline CSS
+```
 
 ---
 
