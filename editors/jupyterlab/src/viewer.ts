@@ -294,7 +294,7 @@ export class PivotalViewerWidget extends Widget {
     new Tabulator(container, {
       data: rows,
       columns: colDefs,
-      layout: 'fitDataStretch',  // measures visible rows only, no full-data scan
+      layout: 'fitData',
       height: '100%',
       renderVertical: 'virtual',
       rowHeight: 24,
