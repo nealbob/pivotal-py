@@ -116,9 +116,9 @@ class Package:
         n_tables = sum(1 for r in config["resources"] if r["mediatype"] in ("text/csv", "application/parquet"))
         n_charts = sum(1 for r in config["resources"] if r["mediatype"] == "image/png")
         n_gt = sum(1 for r in config["resources"] if r["mediatype"] == "text/html")
-        parts = [f"{n_tables} table(s)"]
+        parts = [f"{n_tables} dataframe(s)"]
         if n_charts: parts.append(f"{n_charts} chart(s)")
-        if n_gt: parts.append(f"{n_gt} GT table(s)")
+        if n_gt: parts.append(f"{n_gt} table(s)")
         print(f"Package '{name}' saved to {pkg_path} ({', '.join(parts)})")
 
         return cls(name, pkg_path, config)

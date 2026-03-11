@@ -791,7 +791,7 @@ def test_table_font_size_generates_tab_style(parser):
     results = parser.parse(dsl)
     combined = '\n'.join(parser.generate_code(results))
     assert 'tab_style' in combined
-    assert '12px' in combined
+    assert '12pt' in combined
     assert 'size=12' not in combined   # wrong API — opt_table_font has no size param
 
 

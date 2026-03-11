@@ -1,48 +1,63 @@
 {
   "tables": {
-    "sales": {
+    "pivoted": {
       "columns": [
-        "id",
-        "product",
-        "price",
-        "quantity",
-        "category"
+        [
+          "product",
+          ""
+        ],
+        [
+          "quantity",
+          "North"
+        ],
+        [
+          "quantity",
+          "South"
+        ],
+        [
+          "sales",
+          "North"
+        ],
+        [
+          "sales",
+          "South"
+        ]
       ],
       "shape": [
-        5,
+        2,
         5
       ],
       "dtypes": {
-        "id": "int64",
-        "product": "str",
-        "price": "float64",
-        "quantity": "int64",
-        "category": "str"
+        "('product', '')": "str",
+        "('quantity', 'North')": "int64",
+        "('quantity', 'South')": "int64",
+        "('sales', 'North')": "int64",
+        "('sales', 'South')": "int64"
       },
-      "has_multiindex_columns": false
+      "has_multiindex_columns": true
     },
-    "clean": {
+    "_gt_df": {
       "columns": [
-        "id",
         "product",
-        "price",
-        "quantity",
-        "category"
+        "quantity|North",
+        "quantity|South",
+        "sales|North",
+        "sales|South"
       ],
       "shape": [
-        5,
+        2,
         5
       ],
       "dtypes": {
-        "id": "int64",
         "product": "str",
-        "price": "float64",
-        "quantity": "int64",
-        "category": "str"
+        "quantity|North": "int64",
+        "quantity|South": "int64",
+        "sales|North": "int64",
+        "sales|South": "int64"
       },
       "has_multiindex_columns": false
     }
   },
-  "timestamp": "2026-03-10T09:52:48.314450",
-  "current_table": "clean"
+  "timestamp": "2026-03-11T17:23:17.289918",
+  "current_table": "pivoted"
 }
