@@ -23,7 +23,7 @@
 
 ## At a Glance
 
-The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating some aspects of Python/Pandas (i.e., indentation rather than brackets):
+The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating aspects of Python (i.e., indentation rather than brackets):
 
 <img src="examples/ataglance.png" width="600">
 
