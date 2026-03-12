@@ -8,6 +8,9 @@ setup(
     install_requires=[
         "lark",
         "pandas",
+        "matplotlib",
+        "great-tables",
+        "sqlalchemy",
     ],
     license="MIT",
     classifiers=[
