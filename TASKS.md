@@ -7,7 +7,9 @@
 
   ## Ideas 
 
- - [] default number /float formating for spreadsheets in viewer via pivotal_set -> 2 decimal places. OR something more complex like X significant numbers with scientific notation for really small or big numbers...
+ - [ ]
+
+ - [ ] default number /float formating for spreadsheets in viewer via pivotal_set -> 2 decimal places. OR something more complex like X significant numbers with scientific notation for really small or big numbers...
 
   - [ ] Add highlighting of the current table in the left pane. Also need sperate indication of which item in left pane is currently being shown in viewer. Perhpas a rectangle / background color highlighting the current dataframe in the left pane and a small eye icon for the currently visible item in the viewer. This will handle cases where the viewer is showing a chart or table  but we still want users to know which data frame is the current one (so it is obvious which dataframe new pivotal commands will apply to). Perhaps we could also have a status bar at the bottom of the left pane, which says "Current df: <name>"
   
