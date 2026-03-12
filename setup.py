@@ -10,6 +10,7 @@ setup(
         "pandas",
         "matplotlib",
         "great-tables",
+        "css_inline",
         "sqlalchemy",
     ],
     license="MIT",
