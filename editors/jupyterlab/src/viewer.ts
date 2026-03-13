@@ -560,6 +560,9 @@ export class PivotalViewerWidget extends Widget {
     let lastAvailW = -1;
     let rafId = 0;
 
+    // CSS pixels are defined at 96 DPI: 1 CSS px = 25.4/96 mm ≈ 0.2646 mm
+    const CSS_PX_PER_MM = 96 / 25.4;
+
     const apply = () => {
       if (naturalW === 0) return; // iframe not yet loaded
 
@@ -570,8 +573,13 @@ export class PivotalViewerWidget extends Widget {
 
       const pxPerMm  = (availW / cm.page_width_mm) * userScale;
       const marginPx = cm.margin_mm * pxPerMm;
-      // Scale so the table's natural width exactly fills the usable page area
-      const scale    = (usableW_mm * pxPerMm) / naturalW;
+
+      // Convert the table's natural CSS-pixel width to mm (at 96 DPI).
+      // If the table is narrower than the usable area, render it at its true
+      // physical size (don't stretch it). If wider, scale it down to fit.
+      const naturalW_mm = naturalW / CSS_PX_PER_MM;
+      const targetW_mm  = Math.min(naturalW_mm, usableW_mm);
+      const scale       = (targetW_mm * pxPerMm) / naturalW;
 
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
