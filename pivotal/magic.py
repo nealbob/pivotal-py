@@ -87,14 +87,24 @@ class _PivotalViewer:
         self._ensure_comm()
         if self._comm is None:
             return
-        import io, base64
+        import io, base64, struct
         buf = io.BytesIO()
         try:
             fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+            data = buf.getvalue()
+            # bbox_inches='tight' may crop the figure, changing its pixel dimensions
+            # vs what _build_canvas_meta measured via fig.get_size_inches().
+            # Read actual PNG width/height from the IHDR chunk (bytes 16-23) and
+            # recompute chart_height_mm so the viewer renders without squishing.
+            if canvas_meta and canvas_meta.get('chart_width_mm') and len(data) >= 24:
+                w_px, h_px = struct.unpack('>II', data[16:24])
+                if w_px > 0:
+                    canvas_meta = dict(canvas_meta)
+                    canvas_meta['chart_height_mm'] = canvas_meta['chart_width_mm'] * (h_px / w_px)
             msg = {
                 'type': 'chart',
                 'name': name,
-                'data': base64.b64encode(buf.getvalue()).decode(),
+                'data': base64.b64encode(data).decode(),
             }
             if canvas_meta:
                 msg['canvas'] = canvas_meta
