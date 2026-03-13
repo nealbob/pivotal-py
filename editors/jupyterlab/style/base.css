@@ -122,7 +122,7 @@
 .pv-tab-container .tabulator {
   border: none;
   background: var(--jp-layout-color1);
-  font-family: var(--jp-ui-font-family);
+  font-family: 'Aptos Narrow', 'Arial Narrow', Arial, var(--jp-ui-font-family);
   font-size: inherit;
 }
 
@@ -138,8 +138,10 @@
   color: var(--jp-ui-font-color1);
 }
 
-.pv-tab-container .tabulator-col-title {
+/* Explicit color on title text to beat Tabulator simple theme's specificity */
+.pv-tab-container .tabulator-col .tabulator-col-title {
   font-weight: 600;
+  color: var(--jp-ui-font-color1) !important;
 }
 
 .pv-tab-container .tabulator-row {
@@ -149,8 +151,11 @@
   min-height: unset;
 }
 
+/* Alternating row stripe — rgba overlay works in both light and dark mode.
+   In light mode: white + 5% black = barely-grey (#f2f2f2).
+   In dark mode: dark-grey + 5% black = slightly darker stripe. */
 .pv-tab-container .tabulator-row.tabulator-row-even {
-  background: var(--jp-layout-color0);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .pv-tab-container .tabulator-row:hover,
@@ -161,7 +166,7 @@
 .pv-tab-container .tabulator-cell {
   border-right: 1px solid var(--jp-border-color2);
   padding: 2px 8px;
-  color: var(--jp-ui-font-color1);
+  color: var(--jp-ui-font-color1) !important;
 }
 
 /* Row index column */
@@ -169,7 +174,7 @@
 .pv-tab-container .tabulator-col.pv-tab-idx {
   background: var(--jp-layout-color2);
   border-right: 2px solid var(--jp-border-color1) !important;
-  color: var(--jp-ui-font-color2);
+  color: var(--jp-ui-font-color2) !important;
 }
 
 /* Sort arrows */
