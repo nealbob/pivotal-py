@@ -25,7 +25,8 @@ class _PivotalViewer:
     def __init__(self, shell):
         self._shell = shell
         self._comm = None
-        self._last_sent: dict = {}   # name → df, for re-send on row-limit change
+        self._last_sent: dict = {}          # name → df, for re-send on row-limit change
+        self._last_viewer_settings: dict = {}  # name → {viewer_font, viewer_num_format}
 
     def _ensure_comm(self):
         if self._comm is not None:
@@ -43,14 +44,23 @@ class _PivotalViewer:
         data = msg['content']['data']
         if data.get('type') == 'request' and data.get('name') in self._last_sent:
             limit = int(data.get('limit', self.MAX_ROWS))
-            self.send_dataframe(data['name'], self._last_sent[data['name']], limit=limit)
+            vs = self._last_viewer_settings.get(data['name'], {})
+            self.send_dataframe(data['name'], self._last_sent[data['name']], limit=limit,
+                                viewer_font=vs.get('viewer_font'),
+                                viewer_num_format=vs.get('viewer_num_format'))
 
-    def send_dataframe(self, name: str, df, limit: int = None):
+    def send_dataframe(self, name: str, df, limit: int = None,
+                       viewer_font: float = None, viewer_num_format: int = None):
         self._ensure_comm()
         if self._comm is None:
             return
         limit = limit or self.MAX_ROWS
         self._last_sent[name] = df
+        if viewer_font is not None or viewer_num_format is not None:
+            self._last_viewer_settings[name] = {
+                'viewer_font': viewer_font,
+                'viewer_num_format': viewer_num_format,
+            }
         truncated = len(df) > limit
         payload = df.head(limit)
         try:
@@ -66,6 +76,8 @@ class _PivotalViewer:
                 'dtypes': {str(c): str(t) for c, t in payload.dtypes.items()},
                 'shape': list(df.shape),
                 'truncated': truncated,
+                'viewer_font': viewer_font,
+                'viewer_num_format': viewer_num_format,
             })
         except Exception:
             pass
@@ -199,7 +211,11 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     for name in seen_tables:
         obj = ns.get(name)
         if isinstance(obj, pd.DataFrame):
-            viewer.send_dataframe(name, obj)
+            viewer.send_dataframe(
+                name, obj,
+                viewer_font=(settings or {}).get('viewer_font'),
+                viewer_num_format=(settings or {}).get('viewer_num_format'),
+            )
 
     # Send charts: look up the figure stored in the namespace by chart name
     for node in plot_nodes:
@@ -454,6 +470,8 @@ class PivotalMagics(Magics):
         'canvas': 'none',           # none | a4 | a4_landscape | a3 | a3_landscape | letter | slide
         'margins': 25.4,            # page margin in mm (all sides) — 25.4 mm = 2.54 cm (MS Word default)
         'chart_width': 'full',      # full | half  (fraction of usable page width)
+        'viewer_font': 0.75,        # em units for DataFrame viewer font size
+        'viewer_num_format': 5,     # significant digits for float columns (0 = no formatting)
     }
 
     def _parse_line_args(self, line: str) -> dict:
@@ -475,6 +493,16 @@ class PivotalMagics(Magics):
                     pass
             elif k == 'chart_width' and v in ('full', 'half'):
                 overrides['chart_width'] = v
+            elif k == 'viewer_font':
+                try:
+                    overrides['viewer_font'] = float(v)
+                except ValueError:
+                    pass
+            elif k == 'viewer_num_format':
+                try:
+                    overrides['viewer_num_format'] = int(v)
+                except ValueError:
+                    pass
         return overrides
 
     def _effective_settings(self, line: str) -> dict:

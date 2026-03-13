@@ -15,6 +15,8 @@ export interface DataFramePayload {
   dtypes: Record<string, string>;
   shape: [number, number];
   truncated: boolean;
+  viewer_font?: number;        // em units for font size (default 0.75)
+  viewer_num_format?: number;  // significant digits for floats (0 = off)
 }
 
 export interface CanvasMeta {
@@ -260,6 +262,19 @@ export class PivotalViewerWidget extends Widget {
     }
 
     const { columns, data, dtypes } = p;
+    const sigFigs = p.viewer_num_format ?? 5;
+
+    // Float formatter: sigFigs significant digits, trim trailing zeros, keep sci notation
+    const floatFormatter = sigFigs > 0
+      ? (cell: { getValue(): unknown }) => {
+          const val = cell.getValue();
+          if (val === null || val === undefined || val === '') return '';
+          const n = Number(val);
+          if (isNaN(n)) return String(val);
+          const s = n.toPrecision(sigFigs);
+          return s.includes('e') ? s : String(parseFloat(s));
+        }
+      : undefined;
 
     // Convert row-major array to Tabulator row objects, prepend row index
     const rows = data.map((row, i) => {
@@ -277,19 +292,23 @@ export class PivotalViewerWidget extends Widget {
       },
       ...columns.map(col => {
         const dt = dtypes[col] ?? '';
-        const isNum = dt.startsWith('float') || dt.startsWith('int');
-        return {
+        const isFloat = dt.startsWith('float');
+        const isNum = isFloat || dt.startsWith('int');
+        const colDef: ColumnDefinition = {
           title: col, field: col,
           hozAlign: (isNum ? 'right' : 'left') as 'right' | 'left',
           sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
           tooltip: (dt || false) as string | false,
           resizable: true,
-        } as ColumnDefinition;
+        };
+        if (isFloat && floatFormatter) colDef.formatter = floatFormatter as never;
+        return colDef;
       }),
     ];
 
     const container = document.createElement('div');
     container.className = 'pv-tab-container';
+    container.style.fontSize = `${p.viewer_font ?? 0.75}em`;
 
     new Tabulator(container, {
       data: rows,

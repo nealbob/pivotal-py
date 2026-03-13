@@ -116,7 +116,6 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  font-size: 0.82em;
 }
 
 /* Override Tabulator simple theme to match JupyterLab */
