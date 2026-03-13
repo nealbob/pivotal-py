@@ -7,9 +7,12 @@
 
   ## Ideas 
 
- - [ ] scale issue with viewer in table mode due to resizing of window
 
  - [ ] delete buttons and comands
+
+ - [] TABLE VIEWER ZOOM ISSUE
+
+ - [] update keyboard shortcuts to be more excel like
 
  - [] pivotal.update() command - will check if any dfs have changed or been added and add them to the list. check if any charts or tables have been modified and update them in the viewer?
 
@@ -34,6 +37,7 @@
   - [] Bugs in plot (y and x) technicaly need to swap for barh...??
   
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. 
+
 
   - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
 

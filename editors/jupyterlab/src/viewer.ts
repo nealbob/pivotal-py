@@ -547,9 +547,15 @@ export class PivotalViewerWidget extends Widget {
     // is resized. Fix iframe dimensions on the first render; all subsequent zoom
     // and pane-resize changes go through transform: scale() so canvas and table
     // always stay in sync.
+    //
+    // IMPORTANT: the lock must happen in the initial RAF, not in applyForced()
+    // (called via onResize). onResize fires before the browser has finished
+    // laying out the page+scrollbar, so outer.clientWidth is slightly off at
+    // that point. The initial RAF fires after full layout, giving the true width.
     let initialBasePxPerMm = 0;
     let baseUsableW = 0;
     let baseUsableH = 0;
+    let lockAllowed = false;   // only true once the initial RAF fires
 
     let lastAvailW = -1;
     let rafId = 0;
@@ -558,8 +564,9 @@ export class PivotalViewerWidget extends Widget {
       const availW = Math.max(outer.clientWidth - 64, 80);
       const currentBasePxPerMm = availW / cm.page_width_mm;
 
-      // Lock iframe dimensions on first render
+      // Lock iframe dimensions on first properly-laid-out render only
       if (initialBasePxPerMm === 0) {
+        if (!lockAllowed) return;  // wait for initial RAF before locking
         initialBasePxPerMm = currentBasePxPerMm;
         baseUsableW = (cm.page_width_mm  - 2 * cm.margin_mm) * initialBasePxPerMm;
         baseUsableH = (cm.page_height_mm - 2 * cm.margin_mm) * initialBasePxPerMm;
@@ -596,7 +603,9 @@ export class PivotalViewerWidget extends Widget {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(apply);
     }).observe(outer);
-    requestAnimationFrame(apply);
+    // The initial RAF is the only place the lock is allowed to happen,
+    // ensuring outer.clientWidth is measured after full layout (incl. scrollbars).
+    requestAnimationFrame(() => { lockAllowed = true; apply(); });
   }
 
   protected override onActivateRequest(msg: Message): void {
