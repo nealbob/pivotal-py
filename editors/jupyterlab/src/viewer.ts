@@ -76,6 +76,10 @@ export class PivotalViewerWidget extends Widget {
   // reattaches existing instances rather than rebuilding from scratch.
   private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement }> = new Map();
 
+  // Callback set by canvas renderers (_renderChartOnPage / _renderGtTableOnPage)
+  // so that Lumino's onResize can trigger a re-layout when the panel is resized.
+  private _panelResizeCb: (() => void) | null = null;
+
   private _titleEl!: HTMLElement;
   private _counterEl!: HTMLElement;
   private _backBtn!: HTMLButtonElement;
@@ -230,6 +234,7 @@ export class PivotalViewerWidget extends Widget {
     if (this._index < 0 || !this._names.length) return;
     const p = this._latest.get(this._names[this._index]);
     if (!p) return;
+    this._panelResizeCb = null; // cleared; canvas renderers will re-register if needed
 
     const typeLabel = p.type === 'dataframe' ? 'DataFrame' : p.type === 'chart' ? 'Chart' : 'Table';
     this._titleEl.textContent = `${p.name} · ${typeLabel}`;
@@ -475,6 +480,8 @@ export class PivotalViewerWidget extends Widget {
     // Zoom buttons bypass the width-change guard since userScale changed
     const applyForced = () => { lastAvailW = -1; apply(); };
 
+    this._panelResizeCb = applyForced;
+
     toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
@@ -579,6 +586,8 @@ export class PivotalViewerWidget extends Widget {
 
     const applyForced = () => { lastAvailW = -1; apply(); };
 
+    this._panelResizeCb = applyForced;
+
     toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => { userScale = 1.0;   applyForced(); });
@@ -595,5 +604,9 @@ export class PivotalViewerWidget extends Widget {
     this._activateCb?.();
   }
 
-  protected onResize(_msg: Message): void { /* flexbox handles layout */ }
+  protected override onResize(_msg: Message): void {
+    // Lumino sends this when the panel is resized by the splitter.
+    // Canvas renderers register a callback so they can re-scale their content.
+    this._panelResizeCb?.();
+  }
 }
