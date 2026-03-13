@@ -16,6 +16,7 @@
   "files": [
     "lib/**/*.{d.ts,js,js.map}",
     "style/**/*.{css,svg}",
+    "schema/**/*.json",
     "pivotal_jupyterlab/labextension/**",
     "install.json"
   ],
@@ -60,8 +61,9 @@
   "jupyterlab": {
     "extension": true,
     "outputDir": "pivotal_jupyterlab/labextension",
+    "schemaDir": "schema",
     "_build": {
-      "load": "static/remoteEntry.2275d5298b0164eb3cc1.js",
+      "load": "static/remoteEntry.49a1fbdc351075000fa4.js",
       "extension": "./extension",
       "style": "./style"
     }

@@ -3,6 +3,8 @@ import {
   JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
 
+import { ISettingRegistry } from '@jupyterlab/settingregistry';
+
 import { LabIcon } from '@jupyterlab/ui-components';
 
 import {
@@ -380,15 +382,26 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   description: 'Object Viewer panel for DataFrames and charts from Pivotal cells',
   autoStart: true,
   requires: [INotebookTracker],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
+  optional: [ISettingRegistry],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null) => {
     const viewer = getViewer();
     const explorer = getExplorer();
     explorer.title.icon = pivotalGreyIcon;
     viewer.title.icon = pivotalGreyIcon;
 
-    // Add explorer to left sidebar, viewer to right sidebar
     app.shell.add(explorer, 'left', { rank: 100 });
-    app.shell.add(viewer, 'right', { rank: 900 });
+
+    // Read viewerArea setting; default to 'right' if settings unavailable
+    const addViewer = (area: string) => {
+      app.shell.add(viewer, area as 'right' | 'down', { rank: 900 });
+    };
+    if (settings) {
+      settings.load('@pivotal/jupyterlab:viewer').then(s => {
+        addViewer((s.get('viewerArea').composite as string) ?? 'right');
+      }).catch(() => addViewer('right'));
+    } else {
+      addViewer('right');
+    }
 
     // Keep explorer in sync with viewer content
     viewer.setContentChangedCallback(items => explorer.setItems(items));

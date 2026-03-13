@@ -1,0 +1,15 @@
+{
+  "title": "Pivotal",
+  "description": "Settings for the Pivotal JupyterLab extension",
+  "type": "object",
+  "properties": {
+    "viewerArea": {
+      "title": "Viewer panel area",
+      "description": "Where to place the Object Viewer panel. 'right' puts it in the right sidebar (default); 'down' places it in the bottom panel, which is useful on laptops where horizontal space is more available than vertical.",
+      "type": "string",
+      "enum": ["right", "down"],
+      "default": "right"
+    }
+  },
+  "additionalProperties": false
+}
