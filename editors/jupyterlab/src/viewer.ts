@@ -535,20 +535,19 @@ export class PivotalViewerWidget extends Widget {
     const page = document.createElement('div');
     page.className = 'pv-page';
 
-    // GT HTML has hardcoded pixel column widths set by great_tables, which are
-    // independent of our viewer panel size. Strategy:
-    //   1. Load the iframe hidden so its content renders at natural size.
-    //   2. On load, measure the content's natural pixel width/height.
-    //   3. Lock the iframe to those natural dimensions.
-    //   4. Scale = (usable canvas width in px) / naturalW — this maps the table
-    //      content exactly onto the usable page area regardless of panel size or
-    //      when the panel was last resized.
-    // allow-scripts is needed so great_tables JS (tooltips etc.) can run;
-    // allow-same-origin is needed so we can read contentDocument dimensions.
+    // GT HTML column widths may be fixed or flexible. Load the iframe at the
+    // CSS equivalent of the usable canvas width so flexible tables render at
+    // their natural A4-width layout (not squeezed into the browser's 300px
+    // iframe default). After load we measure scrollWidth to get the true
+    // content width, then lock and scale from there.
+    // allow-scripts: needed for great_tables JS (tooltips etc.)
+    // allow-same-origin: needed to read contentDocument dimensions after load
+    const CSS_PX_PER_MM = 96 / 25.4;
+    const loadW = Math.round(usableW_mm * CSS_PX_PER_MM); // e.g. ~601px for A4
     const iframe = document.createElement('iframe');
     iframe.srcdoc = p.html;
     iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
-    iframe.style.cssText = 'position:absolute; border:none; visibility:hidden;';
+    iframe.style.cssText = `position:absolute; border:none; visibility:hidden; width:${loadW}px;`;
 
     page.appendChild(iframe);
     outer.appendChild(page);
@@ -559,9 +558,6 @@ export class PivotalViewerWidget extends Widget {
     let naturalH = 0;
     let lastAvailW = -1;
     let rafId = 0;
-
-    // CSS pixels are defined at 96 DPI: 1 CSS px = 25.4/96 mm ≈ 0.2646 mm
-    const CSS_PX_PER_MM = 96 / 25.4;
 
     const apply = () => {
       if (naturalW === 0) return; // iframe not yet loaded
