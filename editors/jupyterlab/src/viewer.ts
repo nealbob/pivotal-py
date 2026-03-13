@@ -509,7 +509,7 @@ export class PivotalViewerWidget extends Widget {
   private _renderGtTableFree(p: GtTablePayload): void {
     const iframe = document.createElement('iframe');
     iframe.srcdoc = p.html;
-    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
     iframe.style.cssText = 'flex:1; width:100%; height:100%; border:none;';
     this._body.appendChild(iframe);
   }
@@ -517,6 +517,8 @@ export class PivotalViewerWidget extends Widget {
   private _renderGtTableOnPage(p: GtTablePayload): void {
     const cm = p.canvas!;
     let userScale = 1.0;
+
+    const usableW_mm = cm.page_width_mm - 2 * cm.margin_mm;
 
     const toolbar = document.createElement('div');
     toolbar.className = 'pv-chart-toolbar';
@@ -533,67 +535,71 @@ export class PivotalViewerWidget extends Widget {
     const page = document.createElement('div');
     page.className = 'pv-page';
 
+    // GT HTML has hardcoded pixel column widths set by great_tables, which are
+    // independent of our viewer panel size. Strategy:
+    //   1. Load the iframe hidden so its content renders at natural size.
+    //   2. On load, measure the content's natural pixel width/height.
+    //   3. Lock the iframe to those natural dimensions.
+    //   4. Scale = (usable canvas width in px) / naturalW — this maps the table
+    //      content exactly onto the usable page area regardless of panel size or
+    //      when the panel was last resized.
+    // allow-scripts is needed so great_tables JS (tooltips etc.) can run;
+    // allow-same-origin is needed so we can read contentDocument dimensions.
     const iframe = document.createElement('iframe');
     iframe.srcdoc = p.html;
-    iframe.setAttribute('sandbox', 'allow-same-origin');
-    iframe.style.cssText = 'position:absolute; border:none;';
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    iframe.style.cssText = 'position:absolute; border:none; visibility:hidden;';
 
     page.appendChild(iframe);
     outer.appendChild(page);
     this._body.appendChild(toolbar);
     this._body.appendChild(outer);
 
-    // GT HTML has hardcoded px column widths and doesn't reflow when the iframe
-    // is resized. Fix iframe dimensions on the first render; all subsequent zoom
-    // and pane-resize changes go through transform: scale() so canvas and table
-    // always stay in sync.
-    //
-    // IMPORTANT: the lock must happen in the initial RAF, not in applyForced()
-    // (called via onResize). onResize fires before the browser has finished
-    // laying out the page+scrollbar, so outer.clientWidth is slightly off at
-    // that point. The initial RAF fires after full layout, giving the true width.
-    let initialBasePxPerMm = 0;
-    let baseUsableW = 0;
-    let baseUsableH = 0;
-    let lockAllowed = false;   // only true once the initial RAF fires
-
+    let naturalW = 0;   // GT content's natural pixel width (set on iframe load)
+    let naturalH = 0;
     let lastAvailW = -1;
     let rafId = 0;
 
     const apply = () => {
+      if (naturalW === 0) return; // iframe not yet loaded
+
       const availW = Math.max(outer.clientWidth - 64, 80);
-      const currentBasePxPerMm = availW / cm.page_width_mm;
-
-      // Lock iframe dimensions on first properly-laid-out render only
-      if (initialBasePxPerMm === 0) {
-        if (!lockAllowed) return;  // wait for initial RAF before locking
-        initialBasePxPerMm = currentBasePxPerMm;
-        baseUsableW = (cm.page_width_mm  - 2 * cm.margin_mm) * initialBasePxPerMm;
-        baseUsableH = (cm.page_height_mm - 2 * cm.margin_mm) * initialBasePxPerMm;
-        iframe.style.width  = `${baseUsableW}px`;
-        iframe.style.height = `${baseUsableH}px`;
-      }
-
       if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
       lastAvailW = availW;
       rafId = 0;
 
-      const pxPerMm  = currentBasePxPerMm * userScale;
+      const pxPerMm  = (availW / cm.page_width_mm) * userScale;
       const marginPx = cm.margin_mm * pxPerMm;
+      // Scale so the table's natural width exactly fills the usable page area
+      const scale    = (usableW_mm * pxPerMm) / naturalW;
 
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
 
       iframe.style.left            = `${marginPx}px`;
       iframe.style.top             = `${marginPx}px`;
-      // Combine pane-resize ratio and user zoom into one scale — iframe dimensions stay fixed
-      iframe.style.transform       = `scale(${(currentBasePxPerMm / initialBasePxPerMm) * userScale})`;
+      iframe.style.transform       = `scale(${scale})`;
       iframe.style.transformOrigin = '0 0';
     };
 
     const applyForced = () => { lastAvailW = -1; apply(); };
-
     this._panelResizeCb = applyForced;
+
+    iframe.addEventListener('load', () => {
+      try {
+        const doc = iframe.contentDocument!;
+        naturalW = Math.max(doc.documentElement.scrollWidth, doc.body?.scrollWidth ?? 0, 1);
+        naturalH = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0, 1);
+      } catch {
+        // Fallback if same-origin access fails (shouldn't happen with srcdoc)
+        naturalW = 800;
+        naturalH = 600;
+      }
+      iframe.style.width      = `${naturalW}px`;
+      iframe.style.height     = `${naturalH}px`;
+      iframe.style.visibility = '';
+      applyForced();
+    });
 
     toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
@@ -603,9 +609,6 @@ export class PivotalViewerWidget extends Widget {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(apply);
     }).observe(outer);
-    // The initial RAF is the only place the lock is allowed to happen,
-    // ensuring outer.clientWidth is measured after full layout (incl. scrollbars).
-    requestAnimationFrame(() => { lockAllowed = true; apply(); });
   }
 
   protected override onActivateRequest(msg: Message): void {
