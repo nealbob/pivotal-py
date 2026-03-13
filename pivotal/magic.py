@@ -470,7 +470,7 @@ class PivotalMagics(Magics):
         'canvas': 'none',           # none | a4 | a4_landscape | a3 | a3_landscape | letter | slide
         'margins': 25.4,            # page margin in mm (all sides) — 25.4 mm = 2.54 cm (MS Word default)
         'chart_width': 'full',      # full | half  (fraction of usable page width)
-        'viewer_font': 0.8,         # em units for DataFrame viewer font size
+        'viewer_font': 1.0,         # em units for DataFrame viewer font size
         'viewer_num_format': 5,     # significant digits for float columns (0 = no formatting)
     }
 

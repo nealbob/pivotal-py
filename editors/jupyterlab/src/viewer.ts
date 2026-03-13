@@ -308,7 +308,7 @@ export class PivotalViewerWidget extends Widget {
 
     const container = document.createElement('div');
     container.className = 'pv-tab-container';
-    container.style.fontSize = `${p.viewer_font ?? 0.8}em`;
+    container.style.fontSize = `${p.viewer_font ?? 1.0}em`;
 
     new Tabulator(container, {
       data: rows,

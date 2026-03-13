@@ -118,7 +118,10 @@
   overflow: hidden;
 }
 
-/* Override Tabulator simple theme to match JupyterLab */
+/* Override Tabulator simple theme to match JupyterLab.
+   !important is required on background/color rules because Tabulator's own
+   simple theme uses longer selectors (e.g. .tabulator .tabulator-header .tabulator-col)
+   that outweigh our two-class selectors without it. */
 .pv-tab-container .tabulator {
   border: none;
   background: var(--jp-layout-color1);
@@ -127,40 +130,31 @@
 }
 
 .pv-tab-container .tabulator-header {
-  background: var(--jp-layout-color2);
+  background: var(--jp-layout-color2) !important;
   border-bottom: 2px solid var(--jp-border-color1);
-  color: var(--jp-ui-font-color1);
+  color: var(--jp-ui-font-color1) !important;
 }
 
 .pv-tab-container .tabulator-col {
-  background: var(--jp-layout-color2);
+  background: var(--jp-layout-color2) !important;
   border-right: 1px solid var(--jp-border-color2);
-  color: var(--jp-ui-font-color1);
+  color: var(--jp-ui-font-color1) !important;
 }
 
-/* Explicit color on title text to beat Tabulator simple theme's specificity */
 .pv-tab-container .tabulator-col .tabulator-col-title {
   font-weight: 600;
   color: var(--jp-ui-font-color1) !important;
 }
 
 .pv-tab-container .tabulator-row {
-  background: var(--jp-layout-color1);
+  background: var(--jp-layout-color1) !important;
   border-bottom: 1px solid var(--jp-border-color2);
   color: var(--jp-ui-font-color1);
   min-height: unset;
 }
 
-/* Alternating row stripe — rgba overlay works in both light and dark mode.
-   In light mode: white + 5% black = barely-grey (#f2f2f2).
-   In dark mode: dark-grey + 5% black = slightly darker stripe. */
-.pv-tab-container .tabulator-row.tabulator-row-even {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.pv-tab-container .tabulator-row:hover,
-.pv-tab-container .tabulator-row.tabulator-row-even:hover {
-  background: var(--jp-layout-color3);
+.pv-tab-container .tabulator-row:hover {
+  background: var(--jp-layout-color3) !important;
 }
 
 .pv-tab-container .tabulator-cell {
@@ -172,7 +166,7 @@
 /* Row index column */
 .pv-tab-container .tabulator-cell.pv-tab-idx,
 .pv-tab-container .tabulator-col.pv-tab-idx {
-  background: var(--jp-layout-color2);
+  background: var(--jp-layout-color2) !important;
   border-right: 2px solid var(--jp-border-color1) !important;
   color: var(--jp-ui-font-color2) !important;
 }
