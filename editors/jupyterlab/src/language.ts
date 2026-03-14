@@ -25,7 +25,7 @@ const keywords: Record<string, true> = {
   group: true, merge: true, pivot: true, apply: true,
   plot: true, python: true, from: true, where: true,
   as: true, on: true, rows: true, cols: true, assign: true,
-  agg: true, drop: true, fillna: true, dropna: true,
+  agg: true, drop: true, fillna: true, dropna: true, delete: true,
   distinct: true, concat: true, rename: true, save: true,
   table: true, stub: true, col: true, stripe: true,
 };

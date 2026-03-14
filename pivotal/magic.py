@@ -27,6 +27,7 @@ class _PivotalViewer:
         self._comm = None
         self._last_sent: dict = {}          # name → df, for re-send on row-limit change
         self._last_viewer_settings: dict = {}  # name → {viewer_font, viewer_num_format}
+        self._post_delete_cb = None         # called after frontend-initiated delete
 
     def _ensure_comm(self):
         if self._comm is not None:
@@ -40,7 +41,7 @@ class _PivotalViewer:
             pass
 
     def _on_msg(self, msg):
-        """Handle re-request from panel (e.g. user changed row limit)."""
+        """Handle messages from the viewer panel."""
         data = msg['content']['data']
         if data.get('type') == 'request' and data.get('name') in self._last_sent:
             limit = int(data.get('limit', self.MAX_ROWS))
@@ -48,6 +49,14 @@ class _PivotalViewer:
             self.send_dataframe(data['name'], self._last_sent[data['name']], limit=limit,
                                 viewer_font=vs.get('viewer_font'),
                                 viewer_num_format=vs.get('viewer_num_format'))
+        elif data.get('type') == 'delete':
+            name = data.get('name')
+            if name:
+                self._shell.user_ns.pop(name, None)
+                self._last_sent.pop(name, None)
+                self._last_viewer_settings.pop(name, None)
+                if self._post_delete_cb:
+                    self._post_delete_cb()
 
     def send_dataframe(self, name: str, df, limit: int = None,
                        viewer_font: float = None, viewer_num_format: int = None):
@@ -109,6 +118,28 @@ class _PivotalViewer:
             if canvas_meta:
                 msg['canvas'] = canvas_meta
             self._comm.send(msg)
+        except Exception:
+            pass
+
+    def send_delete(self, name: str):
+        """Tell the frontend viewer to remove an item (Python-initiated delete)."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        self._last_sent.pop(name, None)
+        self._last_viewer_settings.pop(name, None)
+        try:
+            self._comm.send({'type': 'delete', 'name': name})
+        except Exception:
+            pass
+
+    def send_current_table(self, name: str | None):
+        """Notify the explorer which DataFrame is the current active table."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        try:
+            self._comm.send({'type': 'current_table', 'name': name})
         except Exception:
             pass
 
@@ -262,6 +293,7 @@ class PivotalMagics(Magics):
         self.parser = DSLParser()
         self.auto_pivotal = False
         self._viewer = _PivotalViewer(shell)
+        self._viewer._post_delete_cb = lambda: self.parser.update_autocomplete_info(shell.user_ns)
         self.settings = dict(self.DEFAULT_SETTINGS)
 
         # Register input transformer
@@ -561,6 +593,19 @@ class PivotalMagics(Magics):
         if not cell.endswith('\n'):
             cell += '\n'
 
+        # Pre-process top-level `del <name>` commands (not inside python: blocks)
+        import re as _re
+        del_names = []
+        kept_lines = []
+        for _line in cell.split('\n'):
+            _m = _re.match(r'^delete\s+(\w+)\s*$', _line)
+            if _m:
+                del_names.append(_m.group(1))
+            else:
+                kept_lines.append(_line)
+        if del_names:
+            cell = '\n'.join(kept_lines)
+
         results = self.parser.parse(cell)
 
         if isinstance(results, dict) and 'error' in results:
@@ -594,11 +639,17 @@ class PivotalMagics(Magics):
             if output_type in ('viewer', 'both'):
                 try:
                     _send_results_to_viewer(self._viewer, results, self.shell.user_ns, settings=s)
+                    self._viewer.send_current_table(self.shell.user_ns.get('__table_name__'))
                 except Exception as e:
                     print(f"[Pivotal] viewer error: {e}")
 
             if output_type in ('inline', 'both'):
                 _display_inline(results, self.shell.user_ns)
+
+        # Execute any del commands collected above
+        for _name in del_names:
+            self.shell.user_ns.pop(_name, None)
+            self._viewer.send_delete(_name)
 
         self.parser.update_autocomplete_info(self.shell.user_ns)
 
@@ -628,8 +679,83 @@ def _display_inline(results: list, ns: dict):
                 ipy_display(obj.head())
 
 
+# ---------------------------------------------------------------------------
+# Module-level instance reference — set by load_ipython_extension so that
+# the module-level update() function can reach the active magics instance
+# regardless of whether the user accesses it via `import pivotal` or the
+# injected namespace object.
+# ---------------------------------------------------------------------------
+
+_active_magics: 'PivotalMagics | None' = None
+
+
+def delete(name: str):
+    """Delete a named object from the notebook namespace and the Pivotal viewer.
+
+    Example::
+
+        pivotal.delete('df_sales')
+    """
+    if _active_magics is None:
+        print("[Pivotal] Extension not loaded. Run %load_ext pivotal first.")
+        return
+    m = _active_magics
+    m.shell.user_ns.pop(name, None)
+    m._viewer.send_delete(name)
+    m.parser.update_autocomplete_info(m.shell.user_ns)
+
+
+def update():
+    """Send all DataFrames in the notebook namespace to the Pivotal viewer.
+
+    Call this after creating or modifying DataFrames in pure Python cells
+    to refresh the Object Viewer and the left-panel item list.
+
+    Example::
+
+        df_sales = pd.read_csv('sales.csv')
+        pivotal.update()
+    """
+    if _active_magics is None:
+        print("[Pivotal] Extension not loaded. Run %load_ext pivotal first.")
+        return
+
+    try:
+        import pandas as pd
+    except ImportError:
+        print("[Pivotal] pandas not available")
+        return
+
+    m = _active_magics
+    ns = m.shell.user_ns
+    s = m.settings
+
+    sent = []
+    for name, obj in ns.items():
+        if name.startswith('_'):
+            continue
+        if isinstance(obj, pd.DataFrame):
+            m._viewer.send_dataframe(
+                name, obj,
+                viewer_font=s.get('viewer_font'),
+                viewer_num_format=s.get('viewer_num_format'),
+            )
+            sent.append(name)
+
+    m.parser.update_autocomplete_info(ns)
+    m._viewer.send_current_table(m.shell.user_ns.get('__table_name__'))
+
+    if sent:
+        print(f"[Pivotal] Updated viewer: {', '.join(sent)}")
+    else:
+        print("[Pivotal] No DataFrames found in namespace")
+
+
 def load_ipython_extension(ipython):
-    ipython.register_magics(PivotalMagics)
+    global _active_magics
+    magics = PivotalMagics(ipython)
+    _active_magics = magics
+    ipython.register_magics(magics)
     # Clear any stale autocomplete file from a previous session so completions
     # don't offer tables/columns that no longer exist in the fresh kernel.
     try:

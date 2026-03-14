@@ -301,6 +301,63 @@
   padding-left: 4px;
 }
 
+/* Current active DataFrame highlight */
+.pv-explorer-row.pv-current-table {
+  background: var(--jp-brand-color3, rgba(var(--jp-brand-color1-rgb, 25, 118, 210), 0.15));
+  border-left: 3px solid var(--jp-brand-color1, #1976d2);
+  padding-left: 3px; /* compensate for border */
+}
+
+.pv-explorer-row.pv-current-table:hover {
+  background: var(--jp-brand-color2, rgba(var(--jp-brand-color1-rgb, 25, 118, 210), 0.25));
+}
+
+/* Eye icon for currently viewed item */
+.pv-explorer-eye {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--jp-brand-color1, #1976d2);
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
+/* Status bar at bottom of explorer */
+.pv-explorer-status {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  color: var(--jp-ui-font-color2);
+  border-top: 1px solid var(--jp-border-color2);
+  background: var(--jp-layout-color2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right-click context menu */
+.pv-explorer-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--jp-layout-color1);
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.pv-explorer-context-item {
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--jp-ui-font-color1);
+}
+
+.pv-explorer-context-item:hover {
+  background: var(--jp-layout-color2);
+}
+
 /* Expanded column list */
 .pv-explorer-cols {
   border-left: 2px solid var(--jp-border-color2);

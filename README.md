@@ -49,6 +49,7 @@ Check out this live demo of Pivotal in Jupyter lab:
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
   - [Data Cleaning](#data-cleaning)
+    - [Delete a Table](#delete-a-table)
   - [Applying Python Functions](#applying-python-functions)
   - [Plotting](#plotting)
   - [Publication-Ready Tables](#publication-ready-tables)
@@ -622,6 +623,16 @@ distinct
 df unique from sales
 distinct product, category
 ```
+
+#### Delete a Table
+
+Remove a DataFrame from memory and from the Object Viewer:
+
+```pivotal
+delete sales
+```
+
+This is equivalent to calling `pivotal.delete('sales')` in a Python cell. The table is removed from the kernel namespace, the Object Viewer panel, and the left-panel item list. You can also right-click any item in the Object Viewer's left panel and choose **Delete**, or press **Del** after clicking a row.
 
 #### Concatenate Tables
 

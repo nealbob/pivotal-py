@@ -7,22 +7,11 @@
 
   ## Ideas 
 
+ - [] update keyboard shortcuts to be more excel like or vim like jj = esc pp = % navigate cells visual mode to  
 
- - [ ] delete buttons and comands
-
- - [] TABLE VIEWER ZOOM ISSUE
-
- - [] update keyboard shortcuts to be more excel like
-
- - [] pivotal.update() command - will check if any dfs have changed or been added and add them to the list. check if any charts or tables have been modified and update them in the viewer?
-
-  - [ ] Add highlighting of the current table in the left pane. Also need sperate indication of which item in left pane is currently being shown in viewer. Perhpas a rectangle / background color highlighting the current dataframe in the left pane and a small eye icon for the currently visible item in the viewer. This will handle cases where the viewer is showing a chart or table  but we still want users to know which data frame is the current one (so it is obvious which dataframe new pivotal commands will apply to). Perhaps we could also have a status bar at the bottom of the left pane, which says "Current df: <name>"
-  
   - [ ] Need to check syntax highlighting and auto correct...
 
   - [ ] Export to ms word / excel option to keep formating excel one chart or table per sheet, or dataframe include / exclude data and chart images tables include formating... 
-
-  - [ ] Button on viewer to copy table or chart to clipboard
 
   - [ ] Style sheet support - GUI based menu to create plot or table styles. Menu items to apply them to specific plots/tables or set as default. 
 
@@ -30,7 +19,9 @@
 
   - [ ] Polars support — see implementation plan below.
 
-  - [ ] Pivot charts / tables - graphical low code option to make charts and tables 
+  - [ ] Pivot charts / tables - graphical low code option to make charts and tables. 
+
+  - [ ] Editable tables
 
   - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 

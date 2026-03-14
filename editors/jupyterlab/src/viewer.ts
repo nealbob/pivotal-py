@@ -70,6 +70,7 @@ export class PivotalViewerWidget extends Widget {
   private _index = -1;
   private _comm: { send(data: unknown): void } | null = null;
   private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
+  private _viewingItemCb: ((name: string | null) => void) | null = null;
   private _activateCb: (() => void) | null = null;
 
   // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
@@ -84,6 +85,7 @@ export class PivotalViewerWidget extends Widget {
   private _counterEl!: HTMLElement;
   private _backBtn!: HTMLButtonElement;
   private _fwdBtn!: HTMLButtonElement;
+  private _copyBtn!: HTMLButtonElement;
   private _delBtn!: HTMLButtonElement;
   private _clearBtn!: HTMLButtonElement;
   private _body!: HTMLElement;
@@ -103,7 +105,8 @@ export class PivotalViewerWidget extends Widget {
         <span class="pv-title">—</span>
         <span class="pv-counter"></span>
         <button class="pv-btn pv-fwd"   title="Forward (Alt+])">&#9654;</button>
-        <button class="pv-btn pv-del"   title="Delete current">&#10005;</button>
+        <button class="pv-btn pv-copy"  title="Copy to clipboard">&#128203;</button>
+        <button class="pv-btn pv-del"   title="Delete object">&#10005;</button>
         <button class="pv-btn pv-clear" title="Clear all">&#128465;</button>
       </div>
       <div class="pv-body"></div>
@@ -114,6 +117,7 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl = this.node.querySelector('.pv-counter') as HTMLElement;
     this._backBtn   = this.node.querySelector('.pv-back')   as HTMLButtonElement;
     this._fwdBtn    = this.node.querySelector('.pv-fwd')    as HTMLButtonElement;
+    this._copyBtn   = this.node.querySelector('.pv-copy')   as HTMLButtonElement;
     this._delBtn    = this.node.querySelector('.pv-del')    as HTMLButtonElement;
     this._clearBtn  = this.node.querySelector('.pv-clear')  as HTMLButtonElement;
     this._body      = this.node.querySelector('.pv-body')   as HTMLElement;
@@ -121,11 +125,13 @@ export class PivotalViewerWidget extends Widget {
 
     this._backBtn.disabled  = true;
     this._fwdBtn.disabled   = true;
+    this._copyBtn.disabled  = true;
     this._delBtn.disabled   = true;
     this._clearBtn.disabled = true;
 
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
+    this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
   }
@@ -136,6 +142,10 @@ export class PivotalViewerWidget extends Widget {
 
   setContentChangedCallback(cb: (items: ExplorerItem[]) => void): void {
     this._contentChangedCb = cb;
+  }
+
+  setViewingItemCallback(cb: (name: string | null) => void): void {
+    this._viewingItemCb = cb;
   }
 
   setActivateCallback(cb: () => void): void {
@@ -194,20 +204,35 @@ export class PivotalViewerWidget extends Widget {
     if (this._index < this._names.length - 1) { this._index++; this._render(); }
   }
 
-  deleteCurrent(): void {
-    if (this._index < 0 || !this._names.length) return;
-    const name = this._names[this._index];
+  // Remove a named item from viewer without notifying Python (Python initiated this).
+  deleteItem(name: string): void {
+    const idx = this._names.indexOf(name);
+    if (idx < 0) return;
     this._latest.delete(name);
     this._dfCache.delete(name);
-    this._names.splice(this._index, 1);
-    // Move index to the previous item, or stay at 0
-    this._index = Math.min(this._index, this._names.length - 1);
+    this._names.splice(idx, 1);
+    this._index = Math.min(Math.max(this._index, 0), this._names.length - 1);
     if (this._names.length === 0) {
       this.clear();
     } else {
+      if (this._index >= this._names.length) this._index = this._names.length - 1;
       this._render();
       this._notifyContentChanged();
     }
+  }
+
+  // Delete current item AND tell Python to delete it from the namespace.
+  deleteCurrent(): void {
+    if (this._index < 0 || !this._names.length) return;
+    const name = this._names[this._index];
+    this._comm?.send({ type: 'delete', name });
+    this.deleteItem(name);
+  }
+
+  // Delete a named item AND tell Python to delete it from the namespace.
+  requestDelete(name: string): void {
+    this._comm?.send({ type: 'delete', name });
+    this.deleteItem(name);
   }
 
   clear(): void {
@@ -219,11 +244,69 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl.textContent = '';
     this._backBtn.disabled = true;
     this._fwdBtn.disabled = true;
+    this._copyBtn.disabled = true;
     this._delBtn.disabled = true;
     this._clearBtn.disabled = true;
     this._body.innerHTML = '';
     this._footer.innerHTML = '';
     this._notifyContentChanged();
+    this._viewingItemCb?.(null);
+  }
+
+  // -------------------------------------------------------------------------
+  // Clipboard
+  // -------------------------------------------------------------------------
+
+  private async _copyToClipboard(): Promise<void> {
+    if (this._index < 0 || !this._names.length) return;
+    const p = this._latest.get(this._names[this._index]);
+    if (!p) return;
+
+    try {
+      if (p.type === 'dataframe') {
+        // Copy as TSV (pastes into Excel/Sheets) + HTML table (pastes into Word/email)
+        const df = p as DataFramePayload;
+        const tsv = [
+          df.columns.join('\t'),
+          ...df.data.map(row => row.map(v => (v == null ? '' : String(v))).join('\t')),
+        ].join('\n');
+        const html = [
+          '<table><thead><tr>',
+          df.columns.map(c => `<th>${c}</th>`).join(''),
+          '</tr></thead><tbody>',
+          ...df.data.map(row =>
+            '<tr>' + row.map(v => `<td>${v == null ? '' : String(v)}</td>`).join('') + '</tr>'
+          ),
+          '</tbody></table>',
+        ].join('');
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([tsv],  { type: 'text/plain' }),
+            'text/html':  new Blob([html], { type: 'text/html'  }),
+          }),
+        ]);
+      } else if (p.type === 'chart') {
+        // Copy as PNG image
+        const blob = await fetch(`data:image/png;base64,${(p as ChartPayload).data}`).then(r => r.blob());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      } else {
+        // GT table — copy HTML (pastes as formatted table into Word/Outlook)
+        const html = (p as GtTablePayload).html;
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html':  new Blob([html], { type: 'text/html'  }),
+            'text/plain': new Blob([html], { type: 'text/plain' }),
+          }),
+        ]);
+      }
+      // Brief visual confirmation
+      const orig = this._copyBtn.textContent;
+      this._copyBtn.textContent = '✓';
+      setTimeout(() => { this._copyBtn.textContent = orig; }, 1200);
+    } catch (err) {
+      console.error('[Pivotal] clipboard copy failed:', err);
+      this._copyBtn.title = 'Copy failed — check browser permissions';
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -235,12 +318,14 @@ export class PivotalViewerWidget extends Widget {
     const p = this._latest.get(this._names[this._index]);
     if (!p) return;
     this._panelResizeCb = null; // cleared; canvas renderers will re-register if needed
+    this._viewingItemCb?.(p.name);
 
     const typeLabel = p.type === 'dataframe' ? 'DataFrame' : p.type === 'chart' ? 'Chart' : 'Table';
     this._titleEl.textContent = `${p.name} · ${typeLabel}`;
     this._counterEl.textContent = `${this._index + 1} / ${this._names.length}`;
     this._backBtn.disabled  = this._index === 0;
     this._fwdBtn.disabled   = this._index === this._names.length - 1;
+    this._copyBtn.disabled  = false;
     this._delBtn.disabled   = false;
     this._clearBtn.disabled = false;
 

@@ -107,7 +107,7 @@ const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
   'concat', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply', 'table',
+  'distinct', 'python', 'save', 'apply', 'table', 'delete',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -391,26 +391,71 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     app.shell.add(explorer, 'left', { rank: 100 });
 
-    // Read viewerArea setting; default to 'right' if settings unavailable
-    const addViewer = (area: string) => {
-      app.shell.add(viewer, area as 'right' | 'down', { rank: 900 });
+    let viewerArea = 'right';
+
+    // For 'right': add once at startup (sidebar widgets persist).
+    // For 'main': add lazily on first use so the layout restorer doesn't
+    //             clobber the tab before any data has arrived.
+    const addViewerToRight = () => {
+      app.shell.add(viewer, 'right', { rank: 900 });
     };
+
+    const applyArea = (area: string) => {
+      const newArea = (['right', 'main', 'down'] as string[]).includes(area) ? area : 'right';
+      if (newArea === viewerArea && viewer.isAttached) return;
+      // Detach from current area before moving
+      if (viewer.isAttached) {
+        viewer.parent = null;
+      }
+      viewerArea = newArea;
+      if (viewerArea === 'right') {
+        viewer.title.label = '';
+        viewer.title.closable = false;
+        addViewerToRight();
+      }
+      // 'main' and 'down' are added lazily on next activateViewer() call
+    };
+
     if (settings) {
-      settings.load('@pivotal/jupyterlab:viewer').then(s => {
-        addViewer((s.get('viewerArea').composite as string) ?? 'right');
-      }).catch(() => addViewer('right'));
+      settings.load('@pivotal/jupyterlab:plugin').then(s => {
+        applyArea((s.get('viewerArea').composite as string) ?? 'right');
+        s.changed.connect(() => {
+          applyArea((s.get('viewerArea').composite as string) ?? 'right');
+        });
+      }).catch(() => {
+        viewerArea = 'right';
+        addViewerToRight();
+      });
     } else {
-      addViewer('right');
+      viewerArea = 'right';
+      addViewerToRight();
     }
 
-    // Keep explorer in sync with viewer content
+    const activateViewer = () => {
+      if (viewerArea === 'main' || viewerArea === 'down') {
+        // Add lazily if not currently attached (first call, or after tab was closed).
+        // Lazy add avoids the layout restorer clobbering the panel before data arrives.
+        if (!viewer.isAttached) {
+          viewer.title.label = 'Pivotal Viewer';
+          viewer.title.closable = true;
+          app.shell.add(viewer, viewerArea as 'main' | 'down', { rank: 900 });
+        }
+      }
+      app.shell.activateById(viewer.id);
+    };
+
+    // Keep explorer in sync with viewer content and viewing state
     viewer.setContentChangedCallback(items => explorer.setItems(items));
+    viewer.setViewingItemCallback(name => explorer.setViewingItem(name));
 
     // Clicking an explorer item focuses the viewer on that item
     explorer.setItemClickCallback(name => {
       viewer.focusItem(name);
-      app.shell.activateById(viewer.id);
+      activateViewer();
     });
+
+    // Deleting from explorer also removes from viewer and Python namespace
+    explorer.setDeleteCallback(name => viewer.requestDelete(name));
 
     // Show explorer alongside the viewer whenever the viewer is activated.
     // Left and right sidebars are independent — activating the explorer (left)
@@ -422,9 +467,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     // Register commands
     app.commands.addCommand('pivotal:show-viewer', {
       label: 'Show Pivotal Viewer',
-      execute: () => {
-        app.shell.activateById(viewer.id);
-      },
+      execute: () => activateViewer(),
     });
 
     app.commands.addCommand('pivotal:viewer-back', {
@@ -460,11 +503,16 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       kernel.registerCommTarget('pivotal_viewer', (comm: any) => {
         viewer.setComm(comm);
         comm.onMsg = (msg: any) => {
-          const data = msg?.content?.data as ViewerMessage | undefined;
+          const data = msg?.content?.data as (ViewerMessage & { name?: string }) | undefined;
           if (data?.type === 'dataframe' || data?.type === 'chart' || data?.type === 'gt_table') {
-            viewer.push(data);
+            viewer.push(data as ViewerMessage);
             // Show panel when new data arrives
-            app.shell.activateById(viewer.id);
+            activateViewer();
+          } else if ((data as any)?.type === 'current_table') {
+            explorer.setCurrentTable((data as any).name ?? null);
+          } else if ((data as any)?.type === 'delete') {
+            // Python-initiated delete: remove from viewer only (Python already removed from namespace)
+            viewer.deleteItem((data as any).name ?? '');
           }
         };
       });

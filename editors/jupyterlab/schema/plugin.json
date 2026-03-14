@@ -5,9 +5,9 @@
   "properties": {
     "viewerArea": {
       "title": "Viewer panel area",
-      "description": "Where to place the Object Viewer panel. 'right' puts it in the right sidebar (default); 'down' places it in the bottom panel, which is useful on laptops where horizontal space is more available than vertical.",
+      "description": "Where to place the Object Viewer panel. 'right' puts it in the right sidebar (default); 'main' opens it as a tab in the main area — you can drag it to split below or beside the notebook; 'down' places it in the bottom panel.",
       "type": "string",
-      "enum": ["right", "down"],
+      "enum": ["right", "main", "down"],
       "default": "right"
     }
   },

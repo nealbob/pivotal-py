@@ -28,6 +28,11 @@ const GT_TABLE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 1
   <line x1="1" y1="13"  x2="13" y2="13"  stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
 </svg>`;
 
+const EYE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" width="12" height="12">
+  <ellipse cx="6" cy="6" rx="5" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <circle cx="6" cy="6" r="1.8" fill="currentColor" opacity="0.85"/>
+</svg>`;
+
 // ---------------------------------------------------------------------------
 // PivotalExplorerWidget — left sidebar object inspector
 // ---------------------------------------------------------------------------
@@ -36,7 +41,13 @@ export class PivotalExplorerWidget extends Widget {
   private _items: ExplorerItem[] = [];
   private _expanded: Set<string> = new Set();
   private _clickCb: ((name: string) => void) | null = null;
+  private _deleteCb: ((name: string) => void) | null = null;
+  private _currentTable: string | null = null;
+  private _viewingItem: string | null = null;
+  private _focusedName: string | null = null;
   private _listEl!: HTMLElement;
+  private _statusEl!: HTMLElement;
+  private _contextMenu: HTMLElement | null = null;
 
   constructor() {
     super();
@@ -49,10 +60,23 @@ export class PivotalExplorerWidget extends Widget {
     this.node.innerHTML = `
       <div class="pv-explorer-header">Pivotal Objects</div>
       <div class="pv-explorer-list"></div>
+      <div class="pv-explorer-status">No active table</div>
     `;
 
-    this._listEl = this.node.querySelector('.pv-explorer-list') as HTMLElement;
+    this._listEl   = this.node.querySelector('.pv-explorer-list')   as HTMLElement;
+    this._statusEl = this.node.querySelector('.pv-explorer-status') as HTMLElement;
     this._renderEmpty();
+
+    // Del key deletes the focused item
+    this.node.tabIndex = -1;
+    this.node.addEventListener('keydown', e => {
+      if (e.key === 'Delete' && this._focusedName) {
+        this._deleteCb?.(this._focusedName);
+      }
+    });
+
+    // Dismiss context menu on outside click
+    document.addEventListener('click', () => this._dismissContextMenu(), true);
   }
 
   // -------------------------------------------------------------------------
@@ -63,18 +87,63 @@ export class PivotalExplorerWidget extends Widget {
     this._clickCb = cb;
   }
 
+  setDeleteCallback(cb: (name: string) => void): void {
+    this._deleteCb = cb;
+  }
+
   setItems(items: ExplorerItem[]): void {
     this._items = items;
-    // Remove expanded entries that no longer exist
     for (const name of this._expanded) {
       if (!items.find(it => it.name === name)) this._expanded.delete(name);
     }
+    // If the current table was deleted, clear the status bar
+    if (this._currentTable && !items.find(it => it.name === this._currentTable)) {
+      this._currentTable = null;
+      this._statusEl.textContent = 'No active table';
+    }
+    this._render();
+  }
+
+  setCurrentTable(name: string | null): void {
+    this._currentTable = name;
+    this._render();
+    this._statusEl.textContent = name ? `Current df: ${name}` : 'No active table';
+  }
+
+  setViewingItem(name: string | null): void {
+    this._viewingItem = name;
     this._render();
   }
 
   // -------------------------------------------------------------------------
   // Rendering
   // -------------------------------------------------------------------------
+
+  private _dismissContextMenu(): void {
+    if (this._contextMenu) {
+      this._contextMenu.remove();
+      this._contextMenu = null;
+    }
+  }
+
+  private _showContextMenu(x: number, y: number, name: string): void {
+    this._dismissContextMenu();
+    const menu = document.createElement('div');
+    menu.className = 'pv-explorer-context-menu';
+    const deleteItem = document.createElement('div');
+    deleteItem.className = 'pv-explorer-context-item';
+    deleteItem.textContent = 'Delete';
+    deleteItem.addEventListener('click', e => {
+      e.stopPropagation();
+      this._dismissContextMenu();
+      this._deleteCb?.(name);
+    });
+    menu.appendChild(deleteItem);
+    menu.style.left = `${x}px`;
+    menu.style.top  = `${y}px`;
+    document.body.appendChild(menu);
+    this._contextMenu = menu;
+  }
 
   private _renderEmpty(): void {
     this._listEl.innerHTML = '';
@@ -98,10 +167,13 @@ export class PivotalExplorerWidget extends Widget {
   private _renderItem(item: ExplorerItem): void {
     const isExpanded = this._expanded.has(item.name);
     const hasColumns = item.type === 'dataframe' && !!(item.columns?.length);
+    const isCurrent  = item.type === 'dataframe' && item.name === this._currentTable;
+    const isViewing  = item.name === this._viewingItem;
 
     // --- Row ---
     const row = document.createElement('div');
     row.className = 'pv-explorer-row';
+    if (isCurrent) row.classList.add('pv-current-table');
     row.setAttribute('role', 'row');
 
     const toggle = document.createElement('span');
@@ -131,6 +203,14 @@ export class PivotalExplorerWidget extends Widget {
       row.appendChild(shapeEl);
     }
 
+    if (isViewing) {
+      const eyeEl = document.createElement('span');
+      eyeEl.className = 'pv-explorer-eye';
+      eyeEl.innerHTML = EYE_ICON;
+      eyeEl.title = 'Currently shown in viewer';
+      row.appendChild(eyeEl);
+    }
+
     // Toggle expand on clicking the toggle arrow
     toggle.addEventListener('click', e => {
       e.stopPropagation();
@@ -140,9 +220,19 @@ export class PivotalExplorerWidget extends Widget {
       this._render();
     });
 
-    // Focus viewer on clicking the row (except the toggle)
+    // Track focused item and focus viewer on click
     row.addEventListener('click', () => {
+      this._focusedName = item.name;
+      this.node.focus();
       this._clickCb?.(item.name);
+    });
+
+    // Right-click context menu
+    row.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._focusedName = item.name;
+      this._showContextMenu(e.clientX, e.clientY, item.name);
     });
 
     this._listEl.appendChild(row);
