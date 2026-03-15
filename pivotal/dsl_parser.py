@@ -14,6 +14,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -42,6 +43,10 @@ grammar_indented = r"""
                | merge_statement
                | pivot_statement
                | unpivot_statement
+               | rank_statement
+               | shift_statement
+               | cumulative_statement
+               | rolling_statement
                | groupby_statement
                | python_statement
                | agg_plot_statement
@@ -175,6 +180,19 @@ grammar_indented = r"""
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
+
+    rank_statement: "rank" IDENTIFIER SORT_TYPE? window_by? "as" IDENTIFIER _NL?
+
+    shift_statement: SHIFT_FUNC IDENTIFIER NUMBER window_by? window_order? "as" IDENTIFIER _NL?
+    SHIFT_FUNC: "lag" | "lead"
+
+    cumulative_statement: CUM_FUNC IDENTIFIER window_by? window_order? "as" IDENTIFIER _NL?
+    CUM_FUNC: "cumsum" | "cummean" | "cummin" | "cummax"
+
+    rolling_statement: "rolling" AGG_FUNCTION IDENTIFIER NUMBER window_by? window_order? "as" IDENTIFIER _NL?
+
+    window_by: "by" IDENTIFIER ("," IDENTIFIER)*
+    window_order: "order" IDENTIFIER
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
@@ -867,6 +885,111 @@ class DSLTransformer(Transformer):
 
     def unpivot_value_name(self, name):
         return {'type': 'value_name', 'name': str(name).strip('"').strip("'")}
+
+    # -------------------------------------------------------------------------
+    # Shared window helpers
+    # -------------------------------------------------------------------------
+
+    def window_by(self, *cols):
+        return {'type': 'window_by', 'cols': [str(c) for c in cols]}
+
+    def window_order(self, col):
+        return {'type': 'window_order', 'col': str(col)}
+
+    def _parse_window_common(self, args):
+        """Extract partition cols and order col from optional window args."""
+        partition = []
+        order_col = None
+        for arg in args:
+            if isinstance(arg, dict) and arg.get('type') == 'window_by':
+                partition = arg['cols']
+            elif isinstance(arg, dict) and arg.get('type') == 'window_order':
+                order_col = arg['col']
+        return partition, order_col
+
+    # -------------------------------------------------------------------------
+    # rank
+    # -------------------------------------------------------------------------
+
+    def rank_statement(self, *args):
+        col = str(args[0])
+        result_col = str(args[-1])
+        ascending = True
+        partition = []
+        for arg in args[1:-1]:
+            if hasattr(arg, 'type') and arg.type == 'SORT_TYPE':
+                ascending = str(arg) == 'asc'
+            elif isinstance(arg, dict) and arg.get('type') == 'window_by':
+                partition = arg['cols']
+        return {
+            'type': 'rank',
+            'table_name': self.current_table,
+            'column': col,
+            'ascending': ascending,
+            'partition': partition,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # lag / lead
+    # -------------------------------------------------------------------------
+
+    def shift_statement(self, *args):
+        func = str(args[0])   # 'lag' or 'lead'
+        col = str(args[1])
+        periods = int(args[2])
+        partition, order_col = self._parse_window_common(args[3:-1])
+        result_col = str(args[-1])
+        return {
+            'type': 'shift',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'periods': periods,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # cumulative functions
+    # -------------------------------------------------------------------------
+
+    def cumulative_statement(self, *args):
+        func = str(args[0])   # 'cumsum', 'cummean', 'cummin', 'cummax'
+        col = str(args[1])
+        partition, order_col = self._parse_window_common(args[2:-1])
+        result_col = str(args[-1])
+        return {
+            'type': 'cumulative',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # rolling
+    # -------------------------------------------------------------------------
+
+    def rolling_statement(self, *args):
+        func = str(args[0])   # AGG_FUNCTION token
+        col = str(args[1])
+        window = int(args[2])
+        partition, order_col = self._parse_window_common(args[3:-1])
+        result_col = str(args[-1])
+        return {
+            'type': 'rolling',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'window': window,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
 
     def groupby_statement(self, *args):
         """Handle groupby statements"""
@@ -1875,6 +1998,74 @@ class CodeGenerator:
         args.append(f"var_name={var_name!r}")
         args.append(f"value_name={value_name!r}")
         return f"{table} = {table}.melt({', '.join(args)})"
+
+    def generate_rank_pandas(self, ast_node):
+        table = ast_node['table_name']
+        col = ast_node['column']
+        ascending = ast_node['ascending']
+        partition = ast_node['partition']
+        result_col = ast_node['result_col']
+        if partition:
+            return f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].rank(ascending={ascending})"
+        return f"{table}[{result_col!r}] = {table}[{col!r}].rank(ascending={ascending})"
+
+    def generate_shift_pandas(self, ast_node):
+        table = ast_node['table_name']
+        col = ast_node['column']
+        periods = ast_node['periods']
+        func = ast_node['func']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        n = periods if func == 'lag' else -periods
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if partition:
+            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].shift({n})")
+        else:
+            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].shift({n})")
+        return '\n'.join(lines)
+
+    def generate_cumulative_pandas(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']   # cumsum | cummean | cummin | cummax
+        col = ast_node['column']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if func == 'cummean':
+            if partition:
+                lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.expanding().mean())")
+            else:
+                lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].expanding().mean()")
+        else:
+            pandas_method = func  # cumsum, cummin, cummax all exist on pandas
+            if partition:
+                lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].{pandas_method}()")
+            else:
+                lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].{pandas_method}()")
+        return '\n'.join(lines)
+
+    def generate_rolling_pandas(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']
+        col = ast_node['column']
+        window = ast_node['window']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if partition:
+            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.rolling({window}).{func}())")
+        else:
+            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].rolling({window}).{func}()")
+        return '\n'.join(lines)
 
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']

@@ -46,6 +46,7 @@ Check out this live demo of Pivotal in Jupyter lab:
   - [Creating/Modifying Columns](#creatingmodifying-columns)
   - [Sorting](#sorting)
   - [Grouping and Aggregation](#grouping-and-aggregation)
+  - [Window Functions](#window-functions)
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
   - [Unpivot (Melt)](#unpivot-melt)
@@ -530,6 +531,107 @@ group by region, category
 
 **Aggregation Functions:**
 - `sum`, `mean` / `avg`, `count`, `min`, `max`, `median`, `std`
+
+---
+
+### Window Functions
+
+Compute per-row statistics over a window of rows. All window statements add a new column to the active table without changing row order.
+
+All share a common optional clause structure:
+- `by <cols>` — partition: compute independently within each group
+- `order <col>` — sort by this column before computing (required for lag/lead/cumulative/rolling)
+- `as <name>` — name for the new column (always required)
+
+#### `rank`
+
+Rank rows by a column. Rows keep their original order.
+
+```pivotal
+# Rank all rows by amount, highest = 1
+df sales
+rank amount desc as sales_rank
+
+# Rank within each region independently
+df sales
+rank amount desc by region as regional_rank
+
+# Filter to top 3 per region
+df sales
+rank amount desc by region as regional_rank
+filter regional_rank <= 3
+```
+
+#### `lag` and `lead`
+
+Access values from the previous (`lag`) or next (`lead`) row. Essential for period-over-period comparisons.
+
+```pivotal
+# Previous row's value (whole table, sorted by date)
+df sales
+lag amount 1 order date as prev_amount
+
+# Previous value within each region
+df sales
+lag amount 1 by region order date as prev_amount
+
+# Next row's value
+df sales
+lead amount 1 by region order date as next_amount
+
+# Month-over-month change
+df sales
+lag amount 1 by region order date as prev_amount
+assign change = amount - prev_amount
+```
+
+#### Cumulative functions
+
+Running statistics that grow with each row.
+
+```pivotal
+# Running total
+df sales
+cumsum amount by region order date as running_total
+
+# Running average
+df sales
+cummean amount by region order date as running_avg
+
+# Running min / max
+df sales
+cummin amount order date as running_min
+cummax amount order date as running_max
+```
+
+| Statement | Description |
+|---|---|
+| `cumsum` | Running total |
+| `cummean` | Running (expanding) mean |
+| `cummin` | Running minimum |
+| `cummax` | Running maximum |
+
+#### `rolling`
+
+Sliding window over the last N rows.
+
+```pivotal
+# 7-period rolling average (whole table)
+df sales
+rolling mean amount 7 order date as rolling_avg
+
+# Rolling average per region
+df sales
+rolling mean amount 7 by region order date as rolling_avg
+
+# Rolling sum
+df sales
+rolling sum amount 4 by region order date as rolling_total
+```
+
+Supported functions: `mean`, `sum`, `min`, `max`, `std`.
+
+The first `N-1` rows of each window produce `NaN` since there are not yet enough rows to fill the window.
 
 ---
 
