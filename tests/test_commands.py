@@ -1167,7 +1167,7 @@ def test_unpivot_with_cols(parser, wide_df):
 def test_unpivot_custom_names(parser, wide_df):
     """name and value options rename the variable and value columns."""
     ns = {'pd': pd, 'sales': wide_df}
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    name "month"\n    value "amount"\n'
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
     run(parser, dsl, ns)
     result = ns['sales']
     assert list(result.columns) == ['region', 'month', 'amount']
@@ -1176,7 +1176,7 @@ def test_unpivot_custom_names(parser, wide_df):
 def test_unpivot_values_correct(parser, wide_df):
     """Unpivoted values match the source data."""
     ns = {'pd': pd, 'sales': wide_df}
-    run(parser, 'df sales\nunpivot\n    id region\n    cols jan\n    name "month"\n    value "amount"\n', ns)
+    run(parser, 'df sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n', ns)
     result = ns['sales'].set_index('region')
     assert result.loc['North', 'amount'] == 100
     assert result.loc['South', 'amount'] == 200
@@ -1200,7 +1200,7 @@ def test_unpivot_multiple_id_cols(parser):
 
 def test_unpivot_code_generation(parser, wide_df):
     """Generated code contains melt with correct arguments."""
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    name "month"\n    value "amount"\n'
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert 'melt' in code
     assert "id_vars=['region']" in code

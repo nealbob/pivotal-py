@@ -171,7 +171,7 @@ grammar_indented = r"""
     unpivot_args: unpivot_arg+
     unpivot_arg: "id"     (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_id
                | "cols"   (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_cols
-               | "name"   STRING _NL?                                                       -> unpivot_name
+               | "variable" STRING _NL?                                                     -> unpivot_name
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"

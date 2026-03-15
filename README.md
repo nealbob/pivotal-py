@@ -633,7 +633,7 @@ df monthly_sales
 unpivot
     id region
     cols jan, feb, mar
-    name "month"
+    variable "month"
     value "amount"
 ```
 
@@ -641,7 +641,7 @@ unpivot
 |---|---|---|
 | `id <cols>` | Yes | Columns to keep as identifier variables |
 | `cols <cols>` | No | Columns to melt (default: all non-id columns) |
-| `name "string"` | No | Name for the new variable column (default: `"variable"`) |
+| `variable "string"` | No | Name for the new variable column (default: `"variable"`) |
 | `value "string"` | No | Name for the new value column (default: `"value"`) |
 
 The result is the active table reshaped from wide to long format.
