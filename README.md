@@ -48,6 +48,7 @@ Check out this live demo of Pivotal in Jupyter lab:
   - [Grouping and Aggregation](#grouping-and-aggregation)
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
+  - [Unpivot (Melt)](#unpivot-melt)
   - [Data Cleaning](#data-cleaning)
     - [Delete a Table](#delete-a-table)
   - [Applying Python Functions](#applying-python-functions)
@@ -608,6 +609,42 @@ pivot
 - `max` - Maximum value
 - `median` - Median value
 - `std` - Standard deviation
+
+---
+
+### Unpivot (Melt)
+
+The inverse of `pivot` — collapse wide columns into rows. Requires an indented block.
+
+```pivotal
+# Minimal: id only — all other columns are melted
+df monthly_sales
+unpivot
+    id region
+
+# Specify which columns to melt
+df monthly_sales
+unpivot
+    id region
+    cols jan, feb, mar
+
+# Custom column names for the result
+df monthly_sales
+unpivot
+    id region
+    cols jan, feb, mar
+    name "month"
+    value "amount"
+```
+
+| Option | Required | Description |
+|---|---|---|
+| `id <cols>` | Yes | Columns to keep as identifier variables |
+| `cols <cols>` | No | Columns to melt (default: all non-id columns) |
+| `name "string"` | No | Name for the new variable column (default: `"variable"`) |
+| `value "string"` | No | Name for the new value column (default: `"value"`) |
+
+The result is the active table reshaped from wide to long format.
 
 ---
 

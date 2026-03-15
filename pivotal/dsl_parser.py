@@ -12,7 +12,7 @@ from pathlib import Path
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
-    'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
+    'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
@@ -41,6 +41,7 @@ grammar_indented = r"""
                | sort_statement
                | merge_statement
                | pivot_statement
+               | unpivot_statement
                | groupby_statement
                | python_statement
                | agg_plot_statement
@@ -164,7 +165,15 @@ grammar_indented = r"""
 
     pivot_rows: "rows" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
     pivot_cols: "cols" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
-   
+
+    unpivot_statement: "unpivot" _NL _INDENT unpivot_args _DEDENT
+
+    unpivot_args: unpivot_arg+
+    unpivot_arg: "id"     (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_id
+               | "cols"   (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_cols
+               | "name"   STRING _NL?                                                       -> unpivot_name
+               | "value"  STRING _NL?                                                       -> unpivot_value_name
+
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
@@ -818,6 +827,46 @@ class DSLTransformer(Transformer):
             else:
                 cols.append(str(col))
         return {'type': 'cols', 'columns': cols}
+
+    def unpivot_statement(self, *args):
+        id_vars = []
+        value_vars = []
+        var_name = 'variable'
+        value_name = 'value'
+        for arg in args[0]:
+            if isinstance(arg, dict):
+                t = arg['type']
+                if t == 'id':
+                    id_vars = arg['columns']
+                elif t == 'cols':
+                    value_vars = arg['columns']
+                elif t == 'name':
+                    var_name = arg['name']
+                elif t == 'value_name':
+                    value_name = arg['name']
+        return {
+            'type': 'unpivot',
+            'table_name': self.current_table,
+            'id_vars': id_vars,
+            'value_vars': value_vars,
+            'var_name': var_name,
+            'value_name': value_name,
+        }
+
+    def unpivot_args(self, *args):
+        return list(args)
+
+    def unpivot_id(self, *cols):
+        return {'type': 'id', 'columns': [str(c) for c in cols]}
+
+    def unpivot_cols(self, *cols):
+        return {'type': 'cols', 'columns': [str(c) for c in cols]}
+
+    def unpivot_name(self, name):
+        return {'type': 'name', 'name': str(name).strip('"').strip("'")}
+
+    def unpivot_value_name(self, name):
+        return {'type': 'value_name', 'name': str(name).strip('"').strip("'")}
 
     def groupby_statement(self, *args):
         """Handle groupby statements"""
@@ -1811,6 +1860,21 @@ class CodeGenerator:
             return "\n".join(code_lines + [pivot_call])
         else:
             return pivot_call
+
+    def generate_unpivot_pandas(self, ast_node):
+        """Generate pandas melt code"""
+        table = ast_node['table_name']
+        id_vars = ast_node['id_vars']
+        value_vars = ast_node['value_vars']
+        var_name = ast_node['var_name']
+        value_name = ast_node['value_name']
+
+        args = [f"id_vars={id_vars!r}"]
+        if value_vars:
+            args.append(f"value_vars={value_vars!r}")
+        args.append(f"var_name={var_name!r}")
+        args.append(f"value_name={value_name!r}")
+        return f"{table} = {table}.melt({', '.join(args)})"
 
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']

@@ -1129,3 +1129,81 @@ def test_table_multiple_spanners(parser):
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert "'Pricing'" in combined
     assert "'Volume'" in combined
+
+
+# ---------------------------------------------------------------------------
+# unpivot
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def wide_df():
+    return pd.DataFrame({
+        'region': ['North', 'South'],
+        'jan':    [100,     200],
+        'feb':    [150,     250],
+        'mar':    [120,     180],
+    })
+
+
+def test_unpivot_basic(parser, wide_df):
+    """unpivot with id only melts all non-id columns."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n', ns)
+    result = ns['sales']
+    assert list(result.columns) == ['region', 'variable', 'value']
+    assert len(result) == 6   # 2 rows × 3 month columns
+    assert set(result['variable']) == {'jan', 'feb', 'mar'}
+
+
+def test_unpivot_with_cols(parser, wide_df):
+    """unpivot cols restricts which columns are melted."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
+    result = ns['sales']
+    assert set(result['variable']) == {'jan', 'feb'}
+    assert len(result) == 4   # 2 rows × 2 selected columns
+
+
+def test_unpivot_custom_names(parser, wide_df):
+    """name and value options rename the variable and value columns."""
+    ns = {'pd': pd, 'sales': wide_df}
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    name "month"\n    value "amount"\n'
+    run(parser, dsl, ns)
+    result = ns['sales']
+    assert list(result.columns) == ['region', 'month', 'amount']
+
+
+def test_unpivot_values_correct(parser, wide_df):
+    """Unpivoted values match the source data."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n    cols jan\n    name "month"\n    value "amount"\n', ns)
+    result = ns['sales'].set_index('region')
+    assert result.loc['North', 'amount'] == 100
+    assert result.loc['South', 'amount'] == 200
+
+
+def test_unpivot_multiple_id_cols(parser):
+    """Multiple id columns are all preserved."""
+    df = pd.DataFrame({
+        'region':   ['North', 'South'],
+        'year':     [2023,    2023],
+        'q1':       [100,     200],
+        'q2':       [150,     250],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(parser, 'df sales\nunpivot\n    id region, year\n', ns)
+    result = ns['sales']
+    assert 'region' in result.columns
+    assert 'year' in result.columns
+    assert set(result['variable']) == {'q1', 'q2'}
+
+
+def test_unpivot_code_generation(parser, wide_df):
+    """Generated code contains melt with correct arguments."""
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    name "month"\n    value "amount"\n'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert 'melt' in code
+    assert "id_vars=['region']" in code
+    assert "value_vars=['jan', 'feb']" in code
+    assert "var_name='month'" in code
+    assert "value_name='amount'" in code
