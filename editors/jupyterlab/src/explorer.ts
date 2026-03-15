@@ -48,6 +48,8 @@ export class PivotalExplorerWidget extends Widget {
   private _listEl!: HTMLElement;
   private _statusEl!: HTMLElement;
   private _contextMenu: HTMLElement | null = null;
+  private _guiMenu: HTMLElement | null = null;
+  private _newGuiCb: ((type: string) => void) | null = null;
 
   constructor() {
     super();
@@ -58,25 +60,75 @@ export class PivotalExplorerWidget extends Widget {
     this.title.closable = false;
 
     this.node.innerHTML = `
-      <div class="pv-explorer-header">Pivotal Objects</div>
+      <div class="pv-explorer-header">
+        <span class="pv-explorer-title">Pivotal Objects</span>
+        <button class="pv-btn pv-explorer-new-chart" title="New chart">+</button>
+      </div>
       <div class="pv-explorer-list"></div>
       <div class="pv-explorer-status">No active table</div>
     `;
 
     this._listEl   = this.node.querySelector('.pv-explorer-list')   as HTMLElement;
     this._statusEl = this.node.querySelector('.pv-explorer-status') as HTMLElement;
-    this._renderEmpty();
 
-    // Del key deletes the focused item
-    this.node.tabIndex = -1;
-    this.node.addEventListener('keydown', e => {
-      if (e.key === 'Delete' && this._focusedName) {
-        this._deleteCb?.(this._focusedName);
-      }
+    const newChartBtn = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
+    newChartBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      this._showGuiMenu(newChartBtn);
     });
 
-    // Dismiss context menu on outside click
-    document.addEventListener('click', () => this._dismissContextMenu(), true);
+    this._renderEmpty();
+
+    // Keyboard navigation
+    this.node.tabIndex = -1;
+    let _lastKey = '';
+    let _lastKeyTime = 0;
+    this.node.addEventListener('keydown', e => {
+      const names = this._items.map(it => it.name);
+      const idx   = this._focusedName ? names.indexOf(this._focusedName) : -1;
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = idx < names.length - 1 ? names[idx + 1] : names[0];
+        this._setFocus(next);
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = idx > 0 ? names[idx - 1] : names[names.length - 1];
+        this._setFocus(prev);
+      } else if ((e.key === 'l' || e.key === 'ArrowRight') && this._focusedName) {
+        const item = this._items.find(it => it.name === this._focusedName);
+        const hasColumns = item?.type === 'dataframe' && !!(item.columns?.length);
+        if (hasColumns && !this._expanded.has(this._focusedName)) {
+          this._expanded.add(this._focusedName);
+          this._render();
+        } else {
+          this._clickCb?.(this._focusedName);
+        }
+      } else if ((e.key === 'h' || e.key === 'ArrowLeft') && this._focusedName) {
+        if (this._expanded.has(this._focusedName)) {
+          this._expanded.delete(this._focusedName);
+          this._render();
+        }
+      } else if ((e.key === 'Enter' || e.key === ' ') && this._focusedName) {
+        this._clickCb?.(this._focusedName);
+      } else if (e.key === 'Delete' && this._focusedName) {
+        this._deleteCb?.(this._focusedName);
+      } else if (e.key === 'd' && this._focusedName) {
+        const now = Date.now();
+        if (_lastKey === 'd' && now - _lastKeyTime < 500) { this._deleteCb?.(this._focusedName); }
+        _lastKey = 'd';
+        _lastKeyTime = now;
+        return; // skip the else-branch below
+      }
+      _lastKey = e.key;
+      _lastKeyTime = Date.now();
+    });
+
+    // Dismiss menus on outside click
+    document.addEventListener('click', () => {
+      this._dismissContextMenu();
+      this._dismissGuiMenu();
+    }, true);
   }
 
   // -------------------------------------------------------------------------
@@ -89,6 +141,14 @@ export class PivotalExplorerWidget extends Widget {
 
   setDeleteCallback(cb: (name: string) => void): void {
     this._deleteCb = cb;
+  }
+
+  setNewGuiCallback(cb: (type: string) => void): void {
+    this._newGuiCb = cb;
+  }
+
+  getCurrentTable(): string | null {
+    return this._currentTable;
   }
 
   setItems(items: ExplorerItem[]): void {
@@ -118,6 +178,47 @@ export class PivotalExplorerWidget extends Widget {
   // -------------------------------------------------------------------------
   // Rendering
   // -------------------------------------------------------------------------
+
+  private _setFocus(name: string): void {
+    this._focusedName = name;
+    this._render();
+    this._listEl.querySelector('.pv-explorer-row.pv-focused')
+      ?.scrollIntoView({ block: 'nearest' });
+  }
+
+  private _dismissGuiMenu(): void {
+    if (this._guiMenu) {
+      this._guiMenu.remove();
+      this._guiMenu = null;
+    }
+  }
+
+  private _showGuiMenu(anchor: HTMLElement): void {
+    this._dismissGuiMenu();
+    const menu = document.createElement('div');
+    menu.className = 'pv-gui-menu';
+    const items = [
+      { label: 'New plot',  type: 'plot'  },
+      { label: 'New pivot', type: 'pivot' },
+      { label: 'Load data', type: 'load'  },
+    ];
+    for (const item of items) {
+      const el = document.createElement('div');
+      el.className = 'pv-gui-menu-item';
+      el.textContent = item.label;
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        this._dismissGuiMenu();
+        this._newGuiCb?.(item.type);
+      });
+      menu.appendChild(el);
+    }
+    const rect = anchor.getBoundingClientRect();
+    menu.style.left = `${rect.left}px`;
+    menu.style.top  = `${rect.bottom + 2}px`;
+    document.body.appendChild(menu);
+    this._guiMenu = menu;
+  }
 
   private _dismissContextMenu(): void {
     if (this._contextMenu) {
@@ -173,7 +274,8 @@ export class PivotalExplorerWidget extends Widget {
     // --- Row ---
     const row = document.createElement('div');
     row.className = 'pv-explorer-row';
-    if (isCurrent) row.classList.add('pv-current-table');
+    if (isCurrent)                      row.classList.add('pv-current-table');
+    if (item.name === this._focusedName) row.classList.add('pv-focused');
     row.setAttribute('role', 'row');
 
     const toggle = document.createElement('span');

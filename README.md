@@ -149,8 +149,50 @@ The Object Viewer is a persistent panel in the JupyterLab right sidebar. Each ti
 
 - **DataFrames** are displayed as a scrollable table with a sticky header and row index. Large tables use virtual scrolling so only visible rows are rendered — fast even with hundreds of thousands of rows.
 - **Charts** are displayed as PNG images with zoom (+/−/1:1 buttons) and drag-to-pan.
-- **Navigation** — use the ◀ / ▶ buttons or keyboard shortcuts to move between objects:
-  - `Alt+[` — back, `Alt+]` — forward, `Alt+Shift+P` — show the panel
+- **Navigation** — use the ◀ / ▶ buttons or keyboard shortcuts to move between objects.
+
+#### Keyboard Shortcuts
+
+**Global (any focus)**
+
+| Shortcut | Action |
+|---|---|
+| `Alt+P` | Insert new `%%pivotal` cell below |
+| `Alt+V` | Show / focus the Object Viewer panel |
+| `Alt+E` | Show / focus the Object Explorer panel |
+| `Alt+N` | Return focus to the notebook |
+| `Alt+[` | Viewer: navigate back |
+| `Alt+]` | Viewer: navigate forward |
+
+**Notebook command mode only (vim-style chords)**
+
+| Chord | Action |
+|---|---|
+| `pp` | Insert new `%%pivotal` cell below |
+| `vv` | Show / focus the Object Viewer panel |
+| `ee` | Show / focus the Object Explorer panel |
+| `nn` | Return focus to the notebook |
+
+**Object Viewer** (click the viewer panel first to give it keyboard focus)
+
+| Key | Action |
+|---|---|
+| `h` / `←` | Navigate back |
+| `l` / `→` | Navigate forward |
+| `j` | Zoom in (charts only) |
+| `k` | Zoom out (charts only) |
+| `dd` | Delete current object (also removes from Python namespace) |
+
+**Object Explorer** (click the explorer panel first to give it keyboard focus)
+
+| Key | Action |
+|---|---|
+| `j` / `↓` | Move focus down |
+| `k` / `↑` | Move focus up |
+| `l` / `→` | Expand column list (DataFrames) or open in viewer |
+| `h` / `←` | Collapse expanded column list |
+| `Enter` / `Space` | Open focused item in viewer |
+| `Delete` or `dd` | Delete focused item (also removes from Python namespace) |
 
 #### Output settings
 
