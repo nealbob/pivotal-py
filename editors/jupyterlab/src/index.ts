@@ -547,12 +547,18 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     // Register commands
     app.commands.addCommand('pivotal:show-viewer', {
       label: 'Show Pivotal Viewer',
-      execute: () => activateViewer(),
+      execute: () => {
+        activateViewer();
+        setTimeout(() => viewer.node.focus(), 100);
+      },
     });
 
     app.commands.addCommand('pivotal:show-explorer', {
       label: 'Show Pivotal Explorer',
-      execute: () => app.shell.activateById(explorer.id),
+      execute: () => {
+        app.shell.activateById(explorer.id);
+        setTimeout(() => explorer.node.focus(), 100);
+      },
     });
 
     app.commands.addCommand('pivotal:viewer-back', {
