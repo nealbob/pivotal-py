@@ -72,6 +72,9 @@ export class PivotalViewerWidget extends Widget {
   private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
   private _viewingItemCb: ((name: string | null) => void) | null = null;
   private _activateCb: (() => void) | null = null;
+  private _newGuiCb: ((type: string) => void) | null = null;
+  private _guiMenu: HTMLElement | null = null;
+  private _zoomCb: ((factor: number) => void) | null = null;
 
   // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
   // reattaches existing instances rather than rebuilding from scratch.
@@ -101,13 +104,14 @@ export class PivotalViewerWidget extends Widget {
 
     this.node.innerHTML = `
       <div class="pv-header">
-        <button class="pv-btn pv-back"  title="Back (Alt+[)">&#9664;</button>
+        <button class="pv-btn pv-back"      title="Back (Alt+[)">&#9664;</button>
         <span class="pv-title">—</span>
         <span class="pv-counter"></span>
-        <button class="pv-btn pv-fwd"   title="Forward (Alt+])">&#9654;</button>
-        <button class="pv-btn pv-copy"  title="Copy to clipboard">&#128203;</button>
-        <button class="pv-btn pv-del"   title="Delete object">&#10005;</button>
-        <button class="pv-btn pv-clear" title="Clear all">&#128465;</button>
+        <button class="pv-btn pv-fwd"       title="Forward (Alt+])">&#9654;</button>
+        <button class="pv-btn pv-new-chart" title="New chart">+</button>
+        <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
+        <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
+        <button class="pv-btn pv-clear"     title="Clear all">&#128465;</button>
       </div>
       <div class="pv-body"></div>
       <div class="pv-footer"></div>
@@ -129,8 +133,33 @@ export class PivotalViewerWidget extends Widget {
     this._delBtn.disabled   = true;
     this._clearBtn.disabled = true;
 
+    const newChartBtn = this.node.querySelector('.pv-new-chart') as HTMLButtonElement;
+
+    this.node.tabIndex = -1;
+    let _lastKey = '';
+    let _lastKeyTime = 0;
+    this.node.addEventListener('keydown', e => {
+      if (e.key === 'h' || e.key === 'ArrowLeft')  { e.preventDefault(); this.back(); }
+      if (e.key === 'l' || e.key === 'ArrowRight') { e.preventDefault(); this.forward(); }
+      if (e.key === 'j') { e.preventDefault(); this._zoomCb?.(1.25); }
+      if (e.key === 'k') { e.preventDefault(); this._zoomCb?.(1 / 1.25); }
+      if (e.key === 'd') {
+        const now = Date.now();
+        if (_lastKey === 'd' && now - _lastKeyTime < 500) { this.deleteCurrent(); }
+        _lastKey = 'd';
+        _lastKeyTime = now;
+      } else {
+        _lastKey = e.key;
+        _lastKeyTime = Date.now();
+      }
+    });
+
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
+    newChartBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      this._showGuiMenu(newChartBtn);
+    });
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
@@ -150,6 +179,46 @@ export class PivotalViewerWidget extends Widget {
 
   setActivateCallback(cb: () => void): void {
     this._activateCb = cb;
+  }
+
+  setNewGuiCallback(cb: (type: string) => void): void {
+    this._newGuiCb = cb;
+  }
+
+  private _dismissGuiMenu(): void {
+    if (this._guiMenu) {
+      this._guiMenu.remove();
+      this._guiMenu = null;
+    }
+  }
+
+  private _showGuiMenu(anchor: HTMLElement): void {
+    this._dismissGuiMenu();
+    const menu = document.createElement('div');
+    menu.className = 'pv-gui-menu';
+    const items = [
+      { label: 'New plot',  type: 'plot'  },
+      { label: 'New pivot', type: 'pivot' },
+      { label: 'Load data', type: 'load'  },
+    ];
+    for (const item of items) {
+      const el = document.createElement('div');
+      el.className = 'pv-gui-menu-item';
+      el.textContent = item.label;
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        this._dismissGuiMenu();
+        this._newGuiCb?.(item.type);
+      });
+      menu.appendChild(el);
+    }
+    const rect = anchor.getBoundingClientRect();
+    menu.style.left = `${rect.left}px`;
+    menu.style.top  = `${rect.bottom + 2}px`;
+    document.body.appendChild(menu);
+    this._guiMenu = menu;
+    const dismiss = () => { this._dismissGuiMenu(); document.removeEventListener('click', dismiss, true); };
+    setTimeout(() => document.addEventListener('click', dismiss, true), 0);
   }
 
   focusItem(name: string): void {
@@ -318,6 +387,7 @@ export class PivotalViewerWidget extends Widget {
     const p = this._latest.get(this._names[this._index]);
     if (!p) return;
     this._panelResizeCb = null; // cleared; canvas renderers will re-register if needed
+    this._zoomCb = null; // cleared; chart renderers will re-register if needed
     this._viewingItemCb?.(p.name);
 
     const typeLabel = p.type === 'dataframe' ? 'DataFrame' : p.type === 'chart' ? 'Chart' : 'Table';
@@ -379,6 +449,7 @@ export class PivotalViewerWidget extends Widget {
         frozen: true, width: 52, minWidth: 52,
         hozAlign: 'right', headerSort: false, resizable: false,
         cssClass: 'pv-tab-idx',
+        headerFilter: false as never,
       },
       ...columns.map(col => {
         const dt = dtypes[col] ?? '';
@@ -391,6 +462,9 @@ export class PivotalViewerWidget extends Widget {
           tooltip: (dt || false) as string | false,
           resizable: true,
         };
+        colDef.headerFilter = 'input' as never;
+        colDef.headerFilterFunc = 'like' as never;
+        colDef.headerFilterPlaceholder = ' ' as never;
         if (isFloat && floatFormatter) colDef.formatter = floatFormatter as never;
         return colDef;
       }),
@@ -485,6 +559,8 @@ export class PivotalViewerWidget extends Widget {
       img.style.transformOrigin = 'top left';
     };
 
+    this._zoomCb = (f: number) => setScale(scale * f);
+
     toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => setScale(scale * 1.25));
     toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => setScale(scale / 1.25));
     toolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', () => setScale(1));
@@ -566,6 +642,7 @@ export class PivotalViewerWidget extends Widget {
     const applyForced = () => { lastAvailW = -1; apply(); };
 
     this._panelResizeCb = applyForced;
+    this._zoomCb = (f: number) => { userScale *= f; applyForced(); };
 
     toolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
     toolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
@@ -673,6 +750,7 @@ export class PivotalViewerWidget extends Widget {
 
     const applyForced = () => { lastAvailW = -1; apply(); };
     this._panelResizeCb = applyForced;
+    this._zoomCb = (f: number) => { userScale *= f; applyForced(); };
 
     iframe.addEventListener('load', () => {
       try {

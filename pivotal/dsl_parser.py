@@ -43,6 +43,7 @@ grammar_indented = r"""
                | pivot_statement
                | groupby_statement
                | python_statement
+               | agg_plot_statement
                | plot_statement
                | drop_statement
                | fillna_statement
@@ -55,6 +56,17 @@ grammar_indented = r"""
                | save_statement
 
     apply_statement: "apply" IDENTIFIER _NL?
+
+    agg_plot_statement: "agg" "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT agg_plot_params _DEDENT)?
+
+    agg_plot_params: agg_plot_param+
+    agg_plot_param: "x" IDENTIFIER STRING _NL?            -> agg_plot_x_labeled
+                  | "x" IDENTIFIER _NL?                   -> agg_plot_x
+                  | "y" IDENTIFIER IDENTIFIER+ STRING _NL? -> agg_plot_y_labeled
+                  | "y" IDENTIFIER IDENTIFIER+ _NL?       -> agg_plot_y
+                  | "by" IDENTIFIER _NL?                  -> agg_plot_by
+                  | "cols" NUMBER _NL?                    -> agg_plot_cols
+                  | "canvas" IDENTIFIER _NL?              -> agg_plot_canvas
 
     plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
 
@@ -947,6 +959,90 @@ class DSLTransformer(Transformer):
 
     def plot_list_param(self, key, val):
         return {'key': str(key), 'value': val if isinstance(val, list) else self._convert_value(val), 'label': None}
+
+    def agg_plot_statement(self, *args):
+        kind = None
+        name = None
+        params = []
+        identifiers = []
+        for arg in args:
+            if isinstance(arg, Token) and arg.type != '_NL':
+                identifiers.append(str(arg))
+            elif isinstance(arg, str):
+                identifiers.append(arg)
+            elif isinstance(arg, list):
+                params = arg
+        if len(identifiers) == 1:
+            name = identifiers[0]
+        elif len(identifiers) >= 2:
+            kind = identifiers[0]
+            name = identifiers[1]
+
+        x_col = None
+        x_label = None
+        agg_func = None
+        y_cols = []
+        y_label = None
+        by_col = None
+        n_cols = None
+        canvas = None
+        for p in params:
+            k = p.get('key')
+            if k == 'x':
+                x_col = p['col']
+                x_label = p.get('label')
+            elif k == 'y':
+                agg_func = p['func']
+                y_cols = p['cols']
+                y_label = p.get('label')
+            elif k == 'by':
+                by_col = p['col']
+            elif k == 'cols':
+                n_cols = p['value']
+            elif k == 'canvas':
+                canvas = p['value']
+
+        return {
+            'type': 'agg_plot',
+            'table_name': self.current_table,
+            'name': name,
+            'kind': kind or 'line',
+            'x': x_col,
+            'x_label': x_label,
+            'agg_func': agg_func or 'mean',
+            'y_cols': y_cols,
+            'y_label': y_label,
+            'by': by_col,
+            'cols': n_cols,
+            'canvas': canvas,
+        }
+
+    def agg_plot_params(self, *params):
+        return list(params)
+
+    def agg_plot_x(self, col):
+        return {'key': 'x', 'col': str(col), 'label': None}
+
+    def agg_plot_x_labeled(self, col, label):
+        return {'key': 'x', 'col': str(col), 'label': str(label).strip('"').strip("'")}
+
+    def agg_plot_y(self, func, *cols):
+        return {'key': 'y', 'func': str(func), 'cols': [str(c) for c in cols], 'label': None}
+
+    def agg_plot_y_labeled(self, func, *args):
+        # args: col1, col2, ..., STRING_label
+        *cols, label = args
+        return {'key': 'y', 'func': str(func), 'cols': [str(c) for c in cols],
+                'label': str(label).strip('"').strip("'")}
+
+    def agg_plot_by(self, col):
+        return {'key': 'by', 'col': str(col)}
+
+    def agg_plot_cols(self, val):
+        return {'key': 'cols', 'value': int(val)}
+
+    def agg_plot_canvas(self, val):
+        return {'key': 'canvas', 'value': str(val)}
 
     def table_statement(self, *args):
         # @v_args(inline=True) unpacks tree children as individual args:
@@ -1896,6 +1992,71 @@ class CodeGenerator:
                 f"    if 'ytick.labelalignment' in _custom_style: plt.setp(_a.yaxis.get_majorticklabels(), ha=_custom_style['ytick.labelalignment'])",
             ]
 
+        return "\n".join(lines)
+
+    def generate_agg_plot_pandas(self, ast_node):
+        table     = ast_node['table_name']
+        name      = ast_node['name']
+        kind      = ast_node['kind']
+        x_col     = ast_node['x']
+        x_label   = ast_node.get('x_label')
+        agg_func  = ast_node['agg_func']
+        y_cols    = ast_node['y_cols']
+        y_label   = ast_node.get('y_label')
+        by_col    = ast_node.get('by')
+        n_cols    = int(ast_node.get('cols') or 2)
+        df_name   = f"{name}_df"   # intermediate aggregated table stored in namespace
+
+        lines = ["import matplotlib.pyplot as plt"]
+
+        if not by_col:
+            # No faceting — just groupby x and aggregate
+            lines += [
+                f"{df_name} = {table}.groupby({x_col!r})[{[c for c in y_cols]!r}].agg({agg_func!r}).reset_index()",
+                f"{df_name}.columns = {df_name}.columns.astype(str)",
+                f"_ax = {df_name}.plot(x={x_col!r}, y={y_cols!r}, kind={kind!r})",
+                f"{name} = _ax.get_figure()",
+            ]
+            if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
+            if y_label: lines.append(f"_ax.set_ylabel({y_label!r})")
+        elif len(y_cols) == 1:
+            # Single y + by → pivot so each by-value becomes a column → legend
+            y_col = y_cols[0]
+            lines += [
+                f"{df_name} = {table}.pivot_table(index={x_col!r}, columns={by_col!r}, values={y_col!r}, aggfunc={agg_func!r})",
+                f"{df_name}.columns = [str(c) for c in {df_name}.columns]",
+                f"{df_name} = {df_name}.reset_index()",
+                f"_pivot_y = [c for c in {df_name}.columns if c != {x_col!r}]",
+                f"_ax = {df_name}.plot(x={x_col!r}, y=_pivot_y, kind={kind!r})",
+                f"_ax.set_ylabel({(y_label or y_col)!r})",
+                f"{name} = _ax.get_figure()",
+            ]
+            if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
+        else:
+            # Multiple y cols + by → groupby → faceted subplots per by value
+            lines += [
+                f"{df_name} = {table}.groupby([{x_col!r}, {by_col!r}])[{y_cols!r}].agg({agg_func!r}).reset_index()",
+                f"_by_vals = {df_name}[{by_col!r}].unique()",
+                f"_n_cols = {n_cols}",
+                f"_n_rows = -(-len(_by_vals) // _n_cols)",
+                f"_fig, _axes = plt.subplots(_n_rows, _n_cols, figsize=(7 * _n_cols, 5 * _n_rows))",
+                f"_axes = _axes.flatten() if hasattr(_axes, 'flatten') else [_axes]",
+                f"for _i, _val in enumerate(_by_vals):",
+                f"    _sub = {df_name}[{df_name}[{by_col!r}] == _val].plot(x={x_col!r}, y={y_cols!r}, kind={kind!r}, ax=_axes[_i], title=str(_val))",
+            ]
+            if x_label: lines.append(f"    _sub.set_xlabel({x_label!r})")
+            if y_label: lines.append(f"    _sub.set_ylabel({y_label!r})")
+            lines += [
+                f"for _ax in _axes[len(_by_vals):]:",
+                f"    _ax.set_visible(False)",
+                f"plt.tight_layout()",
+                f"{name} = _fig",
+            ]
+
+        lines += [
+            f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
+            f"globals()['_pivotal_charts'][{name!r}] = {{'fig': {name}, 'data': {df_name}.copy()}}",
+        ]
         return "\n".join(lines)
 
     def generate_gt_table_pandas(self, ast_node):

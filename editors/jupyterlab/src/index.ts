@@ -12,15 +12,16 @@ import {
   IEditorExtensionRegistry,
 } from '@jupyterlab/codemirror';
 import { LanguageSupport } from '@codemirror/language';
-import { Compartment, Prec } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { Compartment, Prec, RangeSetBuilder } from '@codemirror/state';
+import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import {
   autocompletion,
   CompletionContext,
   CompletionResult,
   Completion,
 } from '@codemirror/autocomplete';
-import { INotebookTracker } from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
+import { ToolbarButton } from '@jupyterlab/apputils';
 
 import { pivotalLanguage } from './language';
 import { PivotalViewerWidget, ViewerMessage } from './viewer';
@@ -106,7 +107,7 @@ type CompletionCtx =
 const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
+  'concat', 'pivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
   'distinct', 'python', 'save', 'apply', 'table', 'delete',
 ];
 
@@ -118,6 +119,20 @@ const CHART_TYPES = ['line', 'bar', 'scatter', 'hist', 'box', 'area'];
 // ---------------------------------------------------------------------------
 
 let _acCache: { path: string; lastModified: string; data: AutocompleteData } | null = null;
+
+// Set of simple-identifier column names across all known tables, for highlighting.
+let _colNameSet: Set<string> = new Set();
+
+function _updateColNameSet(ac: AutocompleteData): void {
+  const next = new Set<string>();
+  for (const tableInfo of Object.values(ac.tables)) {
+    for (const col of tableInfo.columns) {
+      const name = Array.isArray(col) ? col[col.length - 1] : String(col);
+      if (/^[A-Za-z_]\w*$/.test(name)) next.add(name);
+    }
+  }
+  _colNameSet = next;
+}
 
 async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | null> {
   const acPath = dir ? `${dir}/pivotal_autocomplete.json` : 'pivotal_autocomplete.json';
@@ -131,11 +146,43 @@ async function fetchAutocompleteData(dir: string): Promise<AutocompleteData | nu
     }
     const data = JSON.parse(json.content) as AutocompleteData;
     _acCache = { path: acPath, lastModified, data };
+    _updateColNameSet(data);
     return data;
   } catch {
     return null;
   }
 }
+
+// ViewPlugin that decorates column names with italic + underline.
+// Reads from _colNameSet which is updated whenever autocomplete data is fetched.
+const colNameMark = Decoration.mark({ class: 'pv-col-name' });
+
+const colHighlightPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) { this.decorations = this._build(view); }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = this._build(u.view);
+    }
+    _build(view: EditorView): DecorationSet {
+      const builder = new RangeSetBuilder<Decoration>();
+      if (!_colNameSet.size) return builder.finish();
+      const wordRe = /\b([A-Za-z_]\w*)\b/g;
+      for (const { from, to } of view.visibleRanges) {
+        const text = view.state.sliceDoc(from, to);
+        let m: RegExpExecArray | null;
+        wordRe.lastIndex = 0;
+        while ((m = wordRe.exec(text)) !== null) {
+          if (_colNameSet.has(m[1])) {
+            builder.add(from + m.index, from + m.index + m[1].length, colNameMark);
+          }
+        }
+      }
+      return builder.finish();
+    }
+  },
+  { decorations: v => v.decorations }
+);
 
 function getNotebookDir(app: JupyterFrontEnd): string {
   const widget = app.shell.currentWidget;
@@ -343,7 +390,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
             update.view.dispatch({
               effects: compartment.reconfigure(
                 isPivotal
-                  ? Prec.highest(new LanguageSupport(pivotalLanguage, completionExt))
+                  ? [
+                      Prec.highest(new LanguageSupport(pivotalLanguage, completionExt)),
+                      colHighlightPlugin,
+                      EditorView.editorAttributes.of({ class: 'pv-pivotal-cell' }),
+                    ]
                   : []
               ),
             });
@@ -448,6 +499,35 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     viewer.setContentChangedCallback(items => explorer.setItems(items));
     viewer.setViewingItemCallback(name => explorer.setViewingItem(name));
 
+    // Insert a gui cell into the active notebook
+    const insertGuiCell = (type: string) => {
+      const panel = tracker.currentWidget;
+      if (!panel) return;
+      const notebook = panel.content;
+      const table = explorer.getCurrentTable();
+      let code: string;
+      if (type === 'pivot') {
+        code = table
+          ? `import pivotal\npivotal.pivot_gui(${JSON.stringify(table)})`
+          : `import pivotal\npivotal.pivot_gui()`;
+      } else if (type === 'load') {
+        code = `import pivotal\npivotal.load_gui()`;
+      } else {
+        code = table
+          ? `import pivotal\npivotal.plot_gui(${JSON.stringify(table)})`
+          : `import pivotal\npivotal.plot_gui()`;
+      }
+      NotebookActions.insertBelow(notebook);
+      const active = notebook.activeCell;
+      if (active) {
+        active.model.sharedModel.setSource(code);
+        void NotebookActions.run(notebook, panel.sessionContext);
+      }
+    };
+
+    explorer.setNewGuiCallback(type => insertGuiCell(type));
+    viewer.setNewGuiCallback(type => insertGuiCell(type));
+
     // Clicking an explorer item focuses the viewer on that item
     explorer.setItemClickCallback(name => {
       viewer.focusItem(name);
@@ -470,6 +550,11 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       execute: () => activateViewer(),
     });
 
+    app.commands.addCommand('pivotal:show-explorer', {
+      label: 'Show Pivotal Explorer',
+      execute: () => app.shell.activateById(explorer.id),
+    });
+
     app.commands.addCommand('pivotal:viewer-back', {
       label: 'Pivotal Viewer: Back',
       execute: () => viewer.back(),
@@ -480,22 +565,63 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       execute: () => viewer.forward(),
     });
 
-    // Keyboard shortcuts
-    app.commands.addKeyBinding({
-      command: 'pivotal:show-viewer',
-      keys: ['Alt Shift P'],
-      selector: 'body',
+    // New Pivotal cell command
+    const insertNewPivotalCell = (panel: any) => {
+      const notebook = panel.content;
+      NotebookActions.insertBelow(notebook);
+      const active = notebook.activeCell;
+      if (active) {
+        active.model.sharedModel.setSource('%%pivotal\n');
+        notebook.mode = 'edit';
+      }
+    };
+
+    app.commands.addCommand('pivotal:focus-notebook', {
+      label: 'Focus Notebook',
+      execute: () => {
+        const panel = tracker.currentWidget;
+        if (panel) {
+          panel.content.node.focus();
+          app.shell.activateById(panel.id);
+        }
+      },
     });
-    app.commands.addKeyBinding({
-      command: 'pivotal:viewer-back',
-      keys: ['Alt ['],
-      selector: 'body',
+
+    app.commands.addCommand('pivotal:new-cell', {
+      label: 'New Pivotal Cell',
+      icon: pivotalGreyIcon,
+      execute: () => {
+        const panel = tracker.currentWidget;
+        if (panel) insertNewPivotalCell(panel);
+      },
     });
-    app.commands.addKeyBinding({
-      command: 'pivotal:viewer-forward',
-      keys: ['Alt ]'],
-      selector: 'body',
+
+    // Keyboard shortcuts — Alt+key works in all modes; chords only in command mode
+    const CMD = '.jp-Notebook.jp-mod-commandMode';
+
+    app.commands.addKeyBinding({ command: 'pivotal:new-cell',      keys: ['Alt P'],    selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:new-cell',      keys: ['P', 'P'],   selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',   keys: ['Alt V'],    selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',   keys: ['V', 'V'],   selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:show-explorer', keys: ['Alt E'],    selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:show-explorer', keys: ['E', 'E'],   selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['Alt N'],    selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['N', 'N'],   selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-back',   keys: ['Alt ['],    selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',keys: ['Alt ]'],    selector: 'body' });
+
+    // Add Pivotal button to every notebook toolbar
+    tracker.widgetAdded.connect((_, panel) => {
+      const btn = new ToolbarButton({
+        icon: pivotalGreyIcon,
+        tooltip: 'New Pivotal cell (Alt+P / pp)',
+        onClick: () => insertNewPivotalCell(panel),
+      });
+      panel.toolbar.addItem('pivotal-new-cell', btn);
     });
+
+    // Registry mapping gui_id → cell model for upsert behaviour
+    const _cellRegistry = new Map<string, any>();
 
     // Wire comm target whenever a kernel is connected
     function registerCommOnKernel(kernel: { registerCommTarget?: Function } | null | undefined) {
@@ -513,6 +639,53 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
           } else if ((data as any)?.type === 'delete') {
             // Python-initiated delete: remove from viewer only (Python already removed from namespace)
             viewer.deleteItem((data as any).name ?? '');
+          } else if ((data as any)?.type === 'insert_cell') {
+            // Load GUI: always insert a fresh cell
+            const panel = tracker.currentWidget;
+            if (panel) {
+              const notebook = panel.content;
+              const code = (data as any).code as string ?? '';
+              NotebookActions.insertBelow(notebook);
+              const active = notebook.activeCell;
+              if (active) {
+                active.model.sharedModel.setSource(code);
+                void NotebookActions.run(notebook, panel.sessionContext);
+              }
+            }
+          } else if ((data as any)?.type === 'upsert_cell') {
+            // Plot/pivot GUI: update the previously inserted cell, or insert if first time
+            const panel = tracker.currentWidget;
+            if (panel) {
+              const notebook = panel.content;
+              const code   = (data as any).code   as string ?? '';
+              const guiId  = (data as any).gui_id as string ?? '';
+              const cells  = notebook.model?.cells;
+              let cellIdx  = -1;
+              if (guiId && cells) {
+                const existing = _cellRegistry.get(guiId);
+                if (existing) {
+                  for (let i = 0; i < cells.length; i++) {
+                    if (cells.get(i) === existing) { cellIdx = i; break; }
+                  }
+                }
+              }
+              if (cellIdx >= 0) {
+                // Update existing cell and re-run it
+                const existing = _cellRegistry.get(guiId);
+                existing.sharedModel.setSource(code);
+                notebook.activeCellIndex = cellIdx;
+                void NotebookActions.run(notebook, panel.sessionContext);
+              } else {
+                // First time: insert a new cell below and register it
+                NotebookActions.insertBelow(notebook);
+                const active = notebook.activeCell;
+                if (active) {
+                  active.model.sharedModel.setSource(code);
+                  if (guiId) _cellRegistry.set(guiId, active.model);
+                  void NotebookActions.run(notebook, panel.sessionContext);
+                }
+              }
+            }
           }
         };
       });

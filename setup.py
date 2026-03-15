@@ -12,6 +12,8 @@ setup(
         "great-tables",
         "css_inline",
         "sqlalchemy",
+        "ipywidgets",
+        "ipyfilechooser",
     ],
     license="MIT",
     classifiers=[

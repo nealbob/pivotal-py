@@ -7,7 +7,9 @@
 
   ## Ideas 
 
- - [] update keyboard shortcuts to be more excel like or vim like jj = esc pp = % navigate cells visual mode to  
+  - [ ] Editable tables via tabulator
+ 
+  - [] update keyboard shortcuts to be more excel like or vim like jj = esc pp = % navigate cells visual mode to  
 
   - [ ] Need to check syntax highlighting and auto correct...
 
@@ -21,7 +23,6 @@
 
   - [ ] Pivot charts / tables - graphical low code option to make charts and tables. 
 
-  - [ ] Editable tables
 
   - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 

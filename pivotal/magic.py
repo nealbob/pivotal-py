@@ -133,6 +133,26 @@ class _PivotalViewer:
         except Exception:
             pass
 
+    def send_insert_cell(self, code: str):
+        """Ask the frontend to insert a new notebook cell with the given code and run it."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        try:
+            self._comm.send({'type': 'insert_cell', 'code': code})
+        except Exception:
+            pass
+
+    def send_upsert_cell(self, code: str, gui_id: str):
+        """Insert or overwrite the cell previously created by this GUI instance."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        try:
+            self._comm.send({'type': 'upsert_cell', 'code': code, 'gui_id': gui_id})
+        except Exception:
+            pass
+
     def send_current_table(self, name: str | None):
         """Notify the explorer which DataFrame is the current active table."""
         self._ensure_comm()
@@ -239,7 +259,7 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     for node in results:
         if not isinstance(node, dict):
             continue
-        if node.get('type') == 'plot':
+        if node.get('type') in ('plot', 'agg_plot'):
             plot_nodes.append(node)
         elif node.get('type') == 'gt_table':
             gt_table_nodes.append(node)
@@ -262,6 +282,14 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     for node in plot_nodes:
         chart_name = node.get('name') or node.get('table_name') or 'chart'
         fig = ns.get(chart_name)
+        # agg_plot: send df first so chart arrives last and gets viewer focus
+        if node.get('type') == 'agg_plot':
+            df_name = f"{chart_name}_df"
+            df = ns.get(df_name)
+            if isinstance(df, pd.DataFrame):
+                viewer.send_dataframe(df_name, df,
+                                      viewer_font=(settings or {}).get('viewer_font'),
+                                      viewer_num_format=(settings or {}).get('viewer_num_format'))
         if isinstance(fig, mfig.Figure):
             canvas_meta = _build_canvas_meta(fig, settings or {},
                                              canvas_override=node.get('canvas'))
@@ -280,6 +308,404 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
             if canvas == 'none':
                 canvas = global_canvas
             viewer.send_table(tbl_name, viewer_html, canvas)
+
+
+# ---------------------------------------------------------------------------
+# Plot GUI
+# ---------------------------------------------------------------------------
+
+def plot_gui(df_name: str = None):
+    """Display an interactive widget for building %%pivotal agg plot commands."""
+    try:
+        import ipywidgets as widgets
+        from IPython.display import display as ipy_display
+        import IPython
+    except ImportError:
+        print('[Pivotal] ipywidgets is required for plot_gui. Install with: pip install ipywidgets')
+        return
+
+    shell = IPython.get_ipython()
+    ns = shell.user_ns if shell else {}
+
+    try:
+        import pandas as pd
+        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+    except ImportError:
+        df_names = []
+
+    if not df_names:
+        print('[Pivotal] No DataFrames found in namespace.')
+        return
+
+    # Layout constants
+    _dd  = widgets.Layout(width='130px')
+    _tx  = widgets.Layout(width='140px')
+    _lbl = widgets.Layout(width='44px')
+    _sm  = widgets.Layout(width='26px', height='24px', padding='0px')
+
+    def _lh(text):
+        return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
+
+    def _row(*ws):
+        return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
+
+    # Static widgets
+    df_sel       = widgets.Dropdown(options=df_names,
+                       value=df_name if df_name in df_names else df_names[0],
+                       description='', layout=_dd)
+    chart_type   = widgets.Dropdown(options=['bar', 'line', 'scatter', 'area'],
+                       value='bar', description='', layout=_dd)
+    chart_name_w = widgets.Text(value='', placeholder='name', description='', layout=_tx)
+    agg_func     = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median'],
+                       value='mean', description='', layout=_dd)
+    x_col        = widgets.Dropdown(options=[], description='', layout=_dd)
+    x_label_w    = widgets.Text(value='', placeholder='x label', description='', layout=_tx)
+    y_label_w    = widgets.Text(value='', placeholder='y label', description='', layout=_tx)
+    by_col       = widgets.Dropdown(options=[], description='', layout=_dd)
+    output       = widgets.Output()
+    gen_btn      = widgets.Button(description='Generate', button_style='primary',
+                                  layout=widgets.Layout(width='90px'))
+
+    # Dynamic Y rows
+    y_rows    = []   # list of Dropdown widgets
+    y_section = widgets.VBox([])
+    add_y_btn = widgets.Button(description='+', layout=_sm)
+
+    def _make_y_dd(cols):
+        return widgets.Dropdown(options=cols, description='', layout=_dd)
+
+    def _rebuild_y():
+        rows = []
+        for i, dd in enumerate(y_rows):
+            minus = widgets.Button(description='−', layout=_sm)
+            minus.on_click(lambda _, d=dd: _remove_y(d))
+            if i == 0:
+                lbl  = _lh('y')
+                btns = widgets.HBox(
+                    [add_y_btn, minus] if len(y_rows) > 1 else [add_y_btn],
+                    layout=widgets.Layout(align_items='center'))
+            else:
+                lbl  = widgets.HTML('', layout=_lbl)
+                btns = widgets.HBox([minus], layout=widgets.Layout(align_items='center'))
+            rows.append(widgets.HBox([lbl, dd, btns],
+                                     layout=widgets.Layout(align_items='center', margin='2px 0')))
+        # agg func + y label pinned at bottom of Y block
+        rows.append(_row(widgets.HTML('', layout=_lbl), agg_func, y_label_w))
+        y_section.children = tuple(rows)
+
+    def _remove_y(dd):
+        if dd in y_rows and len(y_rows) > 1:
+            y_rows.remove(dd)
+            _rebuild_y()
+
+    def _add_y(_btn=None):
+        y_rows.append(_make_y_dd(list(x_col.options)))
+        _rebuild_y()
+
+    add_y_btn.on_click(_add_y)
+
+    def _get_cols(name):
+        df = ns.get(name)
+        try:
+            return list(df.columns) if df is not None else []
+        except Exception:
+            return []
+
+    def _refresh_cols(change=None):
+        cols = _get_cols(df_sel.value)
+        x_col.options = cols
+        if cols:
+            x_col.value = cols[0]
+        for dd in y_rows:
+            dd.options = cols
+        by_col.options = ['(none)'] + cols
+        by_col.value = '(none)'
+
+    df_sel.observe(_refresh_cols, names='value')
+
+    # Initialise with one Y row then populate column lists
+    y_rows.append(_make_y_dd([]))
+    _refresh_cols()
+    _rebuild_y()
+
+    def _build_dsl(_btn=None, _gui_id=''):
+        table = df_sel.value
+        kind  = chart_type.value
+        name  = chart_name_w.value.strip() or f'{table}_plot'
+        func  = agg_func.value
+        x     = x_col.value
+        xl    = x_label_w.value.strip()
+        ys    = [dd.value for dd in y_rows if dd.value]
+        yl    = y_label_w.value.strip()
+        by    = by_col.value if by_col.value != '(none)' else None
+
+        if not ys:
+            with output:
+                output.clear_output()
+                print('Select at least one Y column.')
+            return
+
+        params = []
+        params.append(f'  x {x} "{xl}"' if xl else f'  x {x}')
+        y_part = ' '.join(ys)
+        params.append(f'  y {func} {y_part} "{yl}"' if yl else f'  y {func} {y_part}')
+        if by:
+            params.append(f'  by {by}')
+
+        dsl = f'%%pivotal\ndf {table}\nagg plot {kind} {name}\n' + '\n'.join(params)
+
+        viewer = _get_viewer()
+        if viewer is not None:
+            viewer.send_upsert_cell(dsl, _gui_id)
+        else:
+            with output:
+                output.clear_output()
+                print('Generated DSL:\n' + dsl)
+
+    _gui_id = str(id(gen_btn))
+
+    def _build_dsl_plot(_btn=None):
+        _build_dsl(_btn, _gui_id)
+
+    gen_btn.on_click(_build_dsl_plot)
+
+    content = widgets.VBox([
+        _row(_lh('df'),   df_sel),
+        _row(_lh('plot'), chart_type, chart_name_w),
+        _row(_lh('x'),    x_col, x_label_w),
+        y_section,
+        _row(_lh('by'),   by_col),
+        widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
+        output,
+    ])
+    accordion = widgets.Accordion(children=[content], selected_index=0)
+    accordion.set_title(0, 'Pivotal Plot')
+    ipy_display(accordion)
+
+
+def pivot_gui(df_name: str = None):
+    """Display an interactive widget for building %%pivotal pivot commands."""
+    try:
+        import ipywidgets as widgets
+        from IPython.display import display as ipy_display
+        import IPython
+    except ImportError:
+        print('[Pivotal] ipywidgets is required for pivot_gui. Install with: pip install ipywidgets')
+        return
+
+    shell = IPython.get_ipython()
+    ns = shell.user_ns if shell else {}
+
+    try:
+        import pandas as pd
+        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+    except ImportError:
+        df_names = []
+
+    if not df_names:
+        print('[Pivotal] No DataFrames found in namespace.')
+        return
+
+    _dd  = widgets.Layout(width='130px')
+    _tx  = widgets.Layout(width='140px')
+    _lbl = widgets.Layout(width='44px')
+    _sm  = widgets.Layout(width='26px', height='24px', padding='0px')
+
+    def _lh(text):
+        return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
+
+    def _row(*ws):
+        return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
+
+    df_sel   = widgets.Dropdown(options=df_names,
+                   value=df_name if df_name in df_names else df_names[0],
+                   description='', layout=_dd)
+    agg_func = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median'],
+                   value='mean', description='', layout=_dd)
+    val_col  = widgets.Dropdown(options=[], description='', layout=_dd)
+    output   = widgets.Output()
+    gen_btn  = widgets.Button(description='Generate', button_style='primary',
+                              layout=widgets.Layout(width='90px'))
+
+    def _make_dd(cols):
+        return widgets.Dropdown(options=cols, description='', layout=_dd)
+
+    def _make_dynamic_section(label):
+        """Return (item_list, section_vbox, add_btn, rebuild_fn, remove_fn, add_fn)."""
+        items    = []
+        section  = widgets.VBox([])
+        add_btn  = widgets.Button(description='+', layout=_sm)
+
+        def _rebuild():
+            rows = []
+            for i, dd in enumerate(items):
+                minus = widgets.Button(description='−', layout=_sm)
+                minus.on_click(lambda _, d=dd: _remove(d))
+                if i == 0:
+                    lbl  = _lh(label)
+                    btns = widgets.HBox(
+                        [add_btn, minus] if len(items) > 1 else [add_btn],
+                        layout=widgets.Layout(align_items='center'))
+                else:
+                    lbl  = widgets.HTML('', layout=_lbl)
+                    btns = widgets.HBox([minus], layout=widgets.Layout(align_items='center'))
+                rows.append(widgets.HBox([lbl, dd, btns],
+                                         layout=widgets.Layout(align_items='center', margin='2px 0')))
+            section.children = tuple(rows)
+
+        def _remove(dd):
+            if dd in items and len(items) > 1:
+                items.remove(dd)
+                _rebuild()
+
+        def _add(_btn=None):
+            items.append(_make_dd(list(val_col.options)))
+            _rebuild()
+
+        add_btn.on_click(_add)
+        return items, section, _rebuild
+
+    rows_items, rows_section, _rebuild_rows = _make_dynamic_section('rows')
+    cols_items, cols_section, _rebuild_cols = _make_dynamic_section('cols')
+
+    def _get_cols(name):
+        df = ns.get(name)
+        try:
+            return list(df.columns) if df is not None else []
+        except Exception:
+            return []
+
+    def _refresh_cols(change=None):
+        cols = _get_cols(df_sel.value)
+        for dd in rows_items + cols_items:
+            dd.options = cols
+        val_col.options = cols
+
+    df_sel.observe(_refresh_cols, names='value')
+
+    rows_items.append(_make_dd([]))
+    cols_items.append(_make_dd([]))
+    _refresh_cols()
+    _rebuild_rows()
+    _rebuild_cols()
+
+    def _build_dsl(_btn=None):
+        table  = df_sel.value
+        row_cs = [dd.value for dd in rows_items if dd.value]
+        col_cs = [dd.value for dd in cols_items if dd.value]
+        func   = agg_func.value
+        val    = val_col.value
+
+        if not row_cs or not col_cs or not val:
+            with output:
+                output.clear_output()
+                print('Fill in rows, cols, and agg value columns.')
+            return
+
+        dsl = (f'%%pivotal\ndf {table}\npivot\n'
+               f'  rows {" ".join(row_cs)}\n'
+               f'  cols {" ".join(col_cs)}\n'
+               f'  agg {func} {val}')
+
+        viewer = _get_viewer()
+        if viewer is not None:
+            viewer.send_upsert_cell(dsl, _gui_id)
+        else:
+            with output:
+                output.clear_output()
+                print('Generated DSL:\n' + dsl)
+
+    _gui_id = str(id(gen_btn))
+    gen_btn.on_click(_build_dsl)
+
+    content = widgets.VBox([
+        _row(_lh('df'),  df_sel),
+        _row(_lh('agg'), agg_func, val_col,
+             widgets.HTML('<span style="color:var(--jp-ui-font-color2);font-size:0.85em">(values)</span>')),
+        rows_section,
+        cols_section,
+        widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
+        output,
+    ])
+    accordion = widgets.Accordion(children=[content], selected_index=0)
+    accordion.set_title(0, 'Pivotal Pivot')
+    ipy_display(accordion)
+
+
+def load_gui():
+    """Display an interactive widget for building %%pivotal load commands."""
+    try:
+        import ipywidgets as widgets
+        from IPython.display import display as ipy_display
+    except ImportError:
+        print('[Pivotal] ipywidgets is required for load_gui. Install with: pip install ipywidgets')
+        return
+
+    _dd  = widgets.Layout(width='200px')
+    _lbl = widgets.Layout(width='44px')
+
+    def _lh(text):
+        return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
+
+    def _row(*ws):
+        return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
+
+    name_w  = widgets.Text(value='', placeholder='df name', description='', layout=_dd)
+    output  = widgets.Output()
+    gen_btn = widgets.Button(description='Load', button_style='primary',
+                             layout=widgets.Layout(width='70px'))
+
+    from ipyfilechooser import FileChooser
+    fc = FileChooser('.', show_hidden=False)
+    fc.title = ''
+    fc.layout.width = '100%'
+    fc._select.description = '📁'
+    fc._change_desc = '📁'          # keeps icon after a file is selected
+    fc._filename.layout.display = 'none'  # hide the path label beside the button
+
+    def _build_dsl(_btn=None):
+        name = name_w.value.strip()
+        path = fc.selected
+        if not name or not path:
+            with output:
+                output.clear_output()
+                print('Enter a df name and select a file.')
+            return
+        dsl = f'%%pivotal\nload {name} "{path}"'
+        viewer = _get_viewer()
+        if viewer is not None:
+            viewer.send_insert_cell(dsl)
+        else:
+            with output:
+                output.clear_output()
+                print('Generated DSL:\n' + dsl)
+
+    gen_btn.on_click(_build_dsl)
+
+    content = widgets.VBox([
+        _row(_lh('df'),   name_w),
+        fc,
+        widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
+        output,
+    ], layout=widgets.Layout(width='100%'))
+    accordion = widgets.Accordion(children=[content], selected_index=0,
+                                  layout=widgets.Layout(width='100%'))
+    accordion.set_title(0, 'Pivotal Load')
+    ipy_display(accordion)
+
+
+def _get_viewer() -> '_PivotalViewer | None':
+    """Return the active _PivotalViewer if one exists, else None."""
+    import IPython
+    shell = IPython.get_ipython()
+    if shell is None:
+        return None
+    # Search registered cell magics for a PivotalMagics instance
+    for fn in shell.magics_manager.magics.get('cell', {}).values():
+        obj = getattr(fn, '__self__', None)
+        if obj is not None and isinstance(obj, PivotalMagics) and hasattr(obj, '_viewer'):
+            return obj._viewer
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -620,7 +1046,7 @@ class PivotalMagics(Magics):
         if output_type == 'viewer':
             close_stmts = []
             for node in results:
-                if isinstance(node, dict) and node.get('type') == 'plot':
+                if isinstance(node, dict) and node.get('type') in ('plot', 'agg_plot'):
                     chart_name = node.get('name') or node.get('table_name') or 'chart'
                     close_stmts.append(
                         f'import matplotlib.pyplot as _mpl; _mpl.close({chart_name})'
