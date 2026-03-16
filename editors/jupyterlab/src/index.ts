@@ -603,6 +603,24 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       },
     });
 
+    app.commands.addCommand('pivotal:export-py', {
+      label: 'Export Notebook to Python',
+      execute: async () => {
+        const panel = tracker.currentWidget;
+        if (!panel) return;
+        const path = panel.context.path;
+        const kernel = panel.context.sessionContext.session?.kernel;
+        if (!kernel) { alert('No active kernel — run a cell first.'); return; }
+        const future = kernel.requestExecute({ code: `!python -m pivotal --export-py "${path}"` });
+        future.onIOPub = (msg: any) => {
+          const text = msg.content?.text;
+          if (text) console.log('[pivotal export]', text.trim());
+        };
+        await future.done;
+        alert(`Exported: ${path.replace(/\.ipynb$/, '.py')}`);
+      },
+    });
+
     // Keyboard shortcuts — Alt+key works in all modes; chords only in command mode
     const CMD = '.jp-Notebook.jp-mod-commandMode';
 
@@ -617,7 +635,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     app.commands.addKeyBinding({ command: 'pivotal:viewer-back',   keys: ['Alt ['],    selector: 'body' });
     app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',keys: ['Alt ]'],    selector: 'body' });
 
-    // Add Pivotal button to every notebook toolbar
+    // Add Pivotal buttons to every notebook toolbar
     tracker.widgetAdded.connect((_, panel) => {
       const btn = new ToolbarButton({
         icon: pivotalGreyIcon,
@@ -625,6 +643,13 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         onClick: () => insertNewPivotalCell(panel),
       });
       panel.toolbar.addItem('pivotal-new-cell', btn);
+
+      const exportBtn = new ToolbarButton({
+        label: 'Export .py',
+        tooltip: 'Export notebook to Python file',
+        onClick: () => app.commands.execute('pivotal:export-py'),
+      });
+      panel.toolbar.addItem('pivotal-export-py', exportBtn);
     });
 
     // Registry mapping gui_id → cell model for upsert behaviour
