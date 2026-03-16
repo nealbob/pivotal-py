@@ -61,6 +61,20 @@ def notebook_to_python(path):
         # %%pivotal cell — parse and generate Python
         if source.startswith('%%pivotal'):
             pivotal_src = source[len('%%pivotal'):].strip() + '\n'
+
+            # Mirror magic.py pre-processing: strip `delete <name>` lines and
+            # generate del statements, since the parser doesn't handle them
+            import re as _re
+            del_names = []
+            kept_lines = []
+            for line in pivotal_src.split('\n'):
+                m = _re.match(r'^delete\s+(\w+)\s*$', line)
+                if m:
+                    del_names.append(m.group(1))
+                else:
+                    kept_lines.append(line)
+            pivotal_src = '\n'.join(kept_lines)
+
             results = parser.parse(pivotal_src)
             if isinstance(results, dict) and 'error' in results:
                 print(f"Warning: parse error in cell {cell_num}: {results['error']}", file=sys.stderr)
@@ -68,6 +82,8 @@ def notebook_to_python(path):
                                 + '\n'.join('# ' + l for l in pivotal_src.splitlines()))
             else:
                 code_blocks = parser.generate_code(results)
+                if del_names:
+                    code_blocks.append('\n'.join(f'del {n}' for n in del_names))
                 header = f"# [Cell {cell_num}] pivotal"
                 sections.append(header + '\n' + '\n\n'.join(code_blocks))
         else:
