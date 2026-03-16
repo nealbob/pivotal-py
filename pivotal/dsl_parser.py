@@ -5,8 +5,14 @@ from lark.lexer import Token
 import pandas as pd
 import json
 import os
+import re
 import warnings
 from pathlib import Path
+
+_AGG_CALL_RE = re.compile(
+    r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
+    r'\(([a-zA-Z_][a-zA-Z0-9_]*)\)'
+)
 
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
@@ -14,7 +20,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
-    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'pct',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -156,8 +162,12 @@ grammar_indented = r"""
 
     dataframe_statement: "df" table_name ("from" copy_table)? _NL?
 
-    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
+    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
                     | "assign" target "=" _NL _INDENT case_list _DEDENT
+
+    assign_opts: assign_opt+
+    assign_opt: "where" condition_list _NL? -> assign_where
+              | "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> assign_by
 
     case_list: case_branch+ case_default?
     case_branch: "where" condition_list ":" expression _NL
@@ -521,6 +531,19 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
+    def assign_where(self, condition_list):
+        temp = self._build_conditional_statement(condition_list)
+        return {'type': 'assign_where',
+                'conditions': temp['ast']['conditions'],
+                'operators': temp['ast']['operators'],
+                'query_str': temp['query_str']}
+
+    def assign_by(self, *cols):
+        return {'type': 'assign_by', 'cols': [str(c) for c in cols]}
+
+    def assign_opts(self, *args):
+        return list(args)
+
     def case_branch(self, condition_list, expression):
         temp = self._build_conditional_statement(condition_list)
         return {
@@ -558,26 +581,31 @@ class DSLTransformer(Transformer):
                 'cases': rest[0],
             }
 
-        # Simple / conditional form
+        # Simple / with opts form
         expr_str = str(rest[0])
-        condition_list = rest[1] if len(rest) > 1 else None
-        conditions = []
-        operators = []
-        has_where = False
+        opts = rest[1] if len(rest) > 1 else []
+        conditions = None
+        operators = None
+        query_str = None
+        by_cols = []
 
-        if condition_list:
-            has_where = True
-            temp = self._build_conditional_statement(condition_list)
-            conditions = temp['ast']['conditions']
-            operators = temp['ast']['operators']
+        for opt in (opts or []):
+            if opt['type'] == 'assign_where':
+                conditions = opt['conditions']
+                operators = opt['operators']
+                query_str = opt['query_str']
+            elif opt['type'] == 'assign_by':
+                by_cols = opt['cols']
 
         return {
             'type': 'assign',
             'table_name': self.current_table,
             'target': target_str,
             'expression': expr_str,
-            'conditions': conditions if has_where else None,
-            'operators': operators if has_where else None,
+            'conditions': conditions,
+            'operators': operators,
+            'query_str': query_str,
+            'by_cols': by_cols,
             'cases': None,
         }
     
@@ -1878,6 +1906,28 @@ class CodeGenerator:
                 f"    default={default_str},\n"
                 f")")
 
+    def _substitute_agg_calls(self, expr, table, by_cols):
+        """Replace agg(col) calls in expr with @_agg_N locals; return (preamble_lines, new_expr)."""
+        preamble = []
+        counter = [0]
+
+        def replace(m):
+            func = m.group(1)
+            col = m.group(2)
+            pandas_func = 'mean' if func == 'avg' else func
+            var = f'_agg_{counter[0]}'
+            counter[0] += 1
+            if by_cols:
+                preamble.append(
+                    f"{var} = {table}.groupby({by_cols!r})[{col!r}].transform({pandas_func!r})"
+                )
+            else:
+                preamble.append(f"{var} = {table}[{col!r}].{pandas_func}()")
+            return f'@{var}'
+
+        new_expr = _AGG_CALL_RE.sub(replace, expr)
+        return preamble, new_expr
+
     def generate_assign_pandas(self, ast_node):
         table = ast_node['table_name']
         target = ast_node['target']
@@ -1886,30 +1936,44 @@ class CodeGenerator:
             return self._generate_case_assign_pandas(ast_node)
 
         expr = ast_node['expression']
+        by_cols = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        query_str = ast_node.get('query_str')
+
+        # Detect aggregate function calls — substitute before other processing
+        preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
+        if preamble:
+            lines = preamble
+            if conditions:
+                lines.append(f"_cond = {table}.eval({query_str!r})")
+                lines.append(
+                    f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})[_cond]"
+                )
+            else:
+                lines.append(f"{table}[{target!r}] = {table}.eval({subst_expr!r})")
+            return '\n'.join(lines)
 
         # String function / concatenation — takes priority over eval
         string_code = self._parse_string_expr(expr, table)
         if string_code is not None:
-            if ast_node['conditions']:
-                query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
-                return (f"condition = {table}.eval('{query_str}')\n"
+            if conditions:
+                return (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = ({string_code})[condition]")
             return f"{table}['{target}'] = {string_code}"
 
         user_call = self._parse_user_func_call(expr)
 
-        if ast_node['conditions']:
-            query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+        if conditions:
             if user_call:
                 func, col = user_call
-                return (f"condition = {table}.eval('{query_str}')\n"
+                return (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = "
                         f"{func}({table}['{col}'])[condition]")
             if self._is_scalar_expr(expr):
                 rhs = expr
             else:
                 rhs = f"{table}.eval('{expr}')[condition]"
-            return (f"condition = {table}.eval('{query_str}')\n"
+            return (f"condition = {table}.eval({query_str!r})\n"
                     f"{table}.loc[condition, '{target}'] = {rhs}")
         else:
             if user_call:

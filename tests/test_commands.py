@@ -207,6 +207,54 @@ def test_assign_case_code_generation(parser):
 
 
 # ---------------------------------------------------------------------------
+# assign: agg functions in expressions
+# ---------------------------------------------------------------------------
+
+def test_assign_agg_whole_table(parser):
+    """sum(col) in assign expression computes whole-table aggregate."""
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign pct = amount / sum(amount)\n', ns)
+    assert ns['data']['pct'].sum() == pytest.approx(1.0)
+    assert ns['data'].loc[0, 'pct'] == pytest.approx(100 / 600)
+
+
+def test_assign_agg_by_group(parser):
+    """sum(col) with by computes per-group aggregate via transform."""
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 200]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign pct = amount / sum(amount)\n    by region\n', ns)
+    n_rows = ns['data'][ns['data']['region'] == 'N']
+    s_rows = ns['data'][ns['data']['region'] == 'S']
+    assert n_rows['pct'].sum() == pytest.approx(1.0)
+    assert s_rows['pct'].sum() == pytest.approx(1.0)
+
+
+def test_assign_agg_multiple_calls(parser):
+    """Multiple agg calls in one expression all get substituted."""
+    df = pd.DataFrame({'amount': [100, 200, 300, 400]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign z = (amount - mean(amount)) / std(amount)\n', ns)
+    assert ns['data']['z'].mean() == pytest.approx(0.0, abs=1e-10)
+    assert ns['data']['z'].std() == pytest.approx(1.0)
+
+
+def test_assign_agg_code_generation(parser):
+    """Agg calls produce @variable preamble lines before eval."""
+    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert "_agg_0 = sales['amount'].sum()" in code
+    assert '@_agg_0' in code
+
+
+def test_assign_agg_by_code_generation(parser):
+    """Agg with by generates groupby transform."""
+    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n    by region\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert "groupby(['region'])['amount'].transform('sum')" in code
+
+
+# ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
 

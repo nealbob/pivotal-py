@@ -471,6 +471,30 @@ assign decile =
     1
 ```
 
+**Aggregate functions inside expressions** — use `agg(col)` syntax to reference whole-table or group-level aggregates:
+
+```pivotal
+# Percent of total (whole table)
+df sales
+assign pct = amount / sum(amount)
+
+# Percent of group total
+df sales
+assign pct = amount / sum(amount)
+    by region
+
+# Z-score normalisation
+df sales
+assign z = (amount - mean(amount)) / std(amount)
+
+# Deviation from group mean
+df sales
+assign dev = amount - mean(amount)
+    by region
+```
+
+Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var`, `nunique`, `first`, `last`.
+
 **Arithmetic expressions:**
 - Reference columns directly by name
 - Standard arithmetic operators: `+`, `-`, `*`, `/`, `**`
