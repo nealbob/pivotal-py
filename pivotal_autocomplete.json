@@ -1,63 +1,25 @@
 {
   "tables": {
-    "pivoted": {
+    "sales": {
       "columns": [
-        [
-          "product",
-          ""
-        ],
-        [
-          "quantity",
-          "North"
-        ],
-        [
-          "quantity",
-          "South"
-        ],
-        [
-          "sales",
-          "North"
-        ],
-        [
-          "sales",
-          "South"
-        ]
+        "region",
+        "date",
+        "amount",
+        "roll"
       ],
       "shape": [
-        2,
-        5
+        6,
+        4
       ],
       "dtypes": {
-        "('product', '')": "str",
-        "('quantity', 'North')": "int64",
-        "('quantity', 'South')": "int64",
-        "('sales', 'North')": "int64",
-        "('sales', 'South')": "int64"
-      },
-      "has_multiindex_columns": true
-    },
-    "_gt_df": {
-      "columns": [
-        "product",
-        "quantity|North",
-        "quantity|South",
-        "sales|North",
-        "sales|South"
-      ],
-      "shape": [
-        2,
-        5
-      ],
-      "dtypes": {
-        "product": "str",
-        "quantity|North": "int64",
-        "quantity|South": "int64",
-        "sales|North": "int64",
-        "sales|South": "int64"
+        "region": "str",
+        "date": "int64",
+        "amount": "int64",
+        "roll": "float64"
       },
       "has_multiindex_columns": false
     }
   },
-  "timestamp": "2026-03-11T17:23:17.289918",
-  "current_table": "pivoted"
+  "timestamp": "2026-03-16T13:36:00.634602",
+  "current_table": "sales"
 }

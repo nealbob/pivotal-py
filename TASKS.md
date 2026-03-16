@@ -7,42 +7,30 @@
 
   ## Ideas 
 
-  - [ ] Editable tables via tabulator
- 
-  - [] update keyboard shortcuts to be more excel like or vim like jj = esc pp = % navigate cells visual mode to  
+  - [] grammer extensions, date operations
+  
+  - describe / sample Visual summary via tabulator?
 
-  - [ ] Need to check syntax highlighting and auto correct...
+  - [] Duckdb / SQL support
+
+  - [] Bugs in plot (y and x) technicaly need to swap for barh...ALSO sharex share y override in plot, rotate x or y text overide, y axis label position?
 
   - [ ] Export to ms word / excel option to keep formating excel one chart or table per sheet, or dataframe include / exclude data and chart images tables include formating... 
-
-  - [ ] Style sheet support - GUI based menu to create plot or table styles. Menu items to apply them to specific plots/tables or set as default. 
 
   - [ ] Interactive plots (pandas hvplot?)
 
   - [ ] Polars support — see implementation plan below.
 
-  - [ ] Pivot charts / tables - graphical low code option to make charts and tables. 
-
-
   - [ ]  Bulk data load. Load multiuple csv files and combine (merge / concat). Load multiple sql tables (combine or don't)
 
-  - [] Bugs in plot (y and x) technicaly need to swap for barh...??
-  
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. 
 
+  - cast / type conversion
 
-  - [ ] Jupyter lab, is there a way to make cells pivotal by default, with some kind of toggle...
 
-  - cast / type conversion — type coercion is fiddly and infrequent. Python is the right place for it.
+  - Diff feedback...? via explorer panel? (changes in row /column dimensions)
 
-  - describe / sample — pure exploration helpers. One-liners in Python (df.describe(), df.sample(10)), not worth adding to the grammar.
-
-  - melt / unpivot — complex, infrequent, and the syntax would be awkward. Python is clearly the right escape hatch.
-
-  - Window / rolling functions 
-
-  - head / tail — in a notebook context this is about quick exploration. limit 10 at the end of a pipeline to preview results is very natural and saves a Python cell.
-
+  - schema support (read and write) in frictionless / sql
 
 
 ## Implementation plans
