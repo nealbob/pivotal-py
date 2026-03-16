@@ -181,18 +181,19 @@ grammar_indented = r"""
 
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
 
-    rank_statement: "rank" IDENTIFIER SORT_TYPE? window_by? "as" IDENTIFIER _NL?
+    rank_statement: "rank" IDENTIFIER SORT_TYPE? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
 
-    shift_statement: SHIFT_FUNC IDENTIFIER NUMBER window_by? window_order? "as" IDENTIFIER _NL?
+    shift_statement: SHIFT_FUNC IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     SHIFT_FUNC: "lag" | "lead"
 
-    cumulative_statement: CUM_FUNC IDENTIFIER window_by? window_order? "as" IDENTIFIER _NL?
+    cumulative_statement: CUM_FUNC IDENTIFIER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     CUM_FUNC: "cumsum" | "cummean" | "cummin" | "cummax"
 
-    rolling_statement: "rolling" AGG_FUNCTION IDENTIFIER NUMBER window_by? window_order? "as" IDENTIFIER _NL?
+    rolling_statement: "rolling" AGG_FUNCTION IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
 
-    window_by: "by" IDENTIFIER ("," IDENTIFIER)*
-    window_order: "order" IDENTIFIER
+    window_opts: window_opt+
+    window_opt: "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> window_by
+              | "order" IDENTIFIER                  _NL? -> window_order
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
@@ -896,15 +897,24 @@ class DSLTransformer(Transformer):
     def window_order(self, col):
         return {'type': 'window_order', 'col': str(col)}
 
-    def _parse_window_common(self, args):
-        """Extract partition cols and order col from optional window args."""
+    def window_opts(self, *args):
+        return list(args)
+
+    def _extract_window_opts(self, args):
+        """Pop trailing window_opts list from args; return (remaining, opts)."""
+        args = list(args)
+        opts = args.pop() if args and isinstance(args[-1], list) else []
+        return args, opts
+
+    def _parse_window_common(self, opts):
+        """Extract partition cols and order col from a window_opts list."""
         partition = []
         order_col = None
-        for arg in args:
-            if isinstance(arg, dict) and arg.get('type') == 'window_by':
-                partition = arg['cols']
-            elif isinstance(arg, dict) and arg.get('type') == 'window_order':
-                order_col = arg['col']
+        for item in opts:
+            if isinstance(item, dict) and item.get('type') == 'window_by':
+                partition = item['cols']
+            elif isinstance(item, dict) and item.get('type') == 'window_order':
+                order_col = item['col']
         return partition, order_col
 
     # -------------------------------------------------------------------------
@@ -913,14 +923,14 @@ class DSLTransformer(Transformer):
 
     def rank_statement(self, *args):
         col = str(args[0])
-        result_col = str(args[-1])
+        remaining, opts = self._extract_window_opts(args[1:])
         ascending = True
-        partition = []
-        for arg in args[1:-1]:
-            if hasattr(arg, 'type') and arg.type == 'SORT_TYPE':
-                ascending = str(arg) == 'asc'
-            elif isinstance(arg, dict) and arg.get('type') == 'window_by':
-                partition = arg['cols']
+        if remaining and hasattr(remaining[0], 'type') and remaining[0].type == 'SORT_TYPE':
+            ascending = str(remaining[0]) == 'asc'
+            result_col = str(remaining[1])
+        else:
+            result_col = str(remaining[0])
+        partition, _ = self._parse_window_common(opts)
         return {
             'type': 'rank',
             'table_name': self.current_table,
@@ -935,11 +945,12 @@ class DSLTransformer(Transformer):
     # -------------------------------------------------------------------------
 
     def shift_statement(self, *args):
-        func = str(args[0])   # 'lag' or 'lead'
+        func = str(args[0])
         col = str(args[1])
         periods = int(args[2])
-        partition, order_col = self._parse_window_common(args[3:-1])
-        result_col = str(args[-1])
+        remaining, opts = self._extract_window_opts(args[3:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
         return {
             'type': 'shift',
             'table_name': self.current_table,
@@ -956,10 +967,11 @@ class DSLTransformer(Transformer):
     # -------------------------------------------------------------------------
 
     def cumulative_statement(self, *args):
-        func = str(args[0])   # 'cumsum', 'cummean', 'cummin', 'cummax'
+        func = str(args[0])
         col = str(args[1])
-        partition, order_col = self._parse_window_common(args[2:-1])
-        result_col = str(args[-1])
+        remaining, opts = self._extract_window_opts(args[2:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
         return {
             'type': 'cumulative',
             'table_name': self.current_table,
@@ -975,11 +987,12 @@ class DSLTransformer(Transformer):
     # -------------------------------------------------------------------------
 
     def rolling_statement(self, *args):
-        func = str(args[0])   # AGG_FUNCTION token
+        func = str(args[0])
         col = str(args[1])
         window = int(args[2])
-        partition, order_col = self._parse_window_common(args[3:-1])
-        result_col = str(args[-1])
+        remaining, opts = self._extract_window_opts(args[3:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
         return {
             'type': 'rolling',
             'table_name': self.current_table,

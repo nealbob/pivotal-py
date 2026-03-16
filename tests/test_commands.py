@@ -1244,7 +1244,7 @@ def test_rank_ascending(parser, window_df):
 def test_rank_partitioned(parser, window_df):
     """rank by partition ranks independently within each group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount desc by region as r\n', ns)
+    run(parser, 'df sales\nrank amount desc as r\n    by region\n', ns)
     result = ns['sales']
     assert 'r' in result.columns
     # Each region has its own rank 1
@@ -1253,7 +1253,7 @@ def test_rank_partitioned(parser, window_df):
 
 def test_rank_code_generation(parser):
     """Generated rank code contains correct pandas call."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount desc by region as r\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount desc as r\n    by region\n')))
     assert "rank(ascending=False)" in code
     assert "groupby(['region'])" in code
 
@@ -1263,7 +1263,7 @@ def test_rank_code_generation(parser):
 def test_lag_basic(parser, window_df):
     """lag shifts values down by n periods."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlag amount 1 order date as prev\n', ns)
+    run(parser, 'df sales\nlag amount 1 as prev\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     # First row (date=1 per region boundary) will have NaN or the previous row's value
     assert 'prev' in result.columns
@@ -1272,7 +1272,7 @@ def test_lag_basic(parser, window_df):
 def test_lag_partitioned_values(parser, window_df):
     """lag by partition does not bleed across groups."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlag amount 1 by region order date as prev\n', ns)
+    run(parser, 'df sales\nlag amount 1 as prev\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     # First row of each region should be NaN
     first_rows = result.groupby("region").nth(0)
@@ -1282,7 +1282,7 @@ def test_lag_partitioned_values(parser, window_df):
 def test_lead_partitioned(parser, window_df):
     """lead shifts values up by n periods within partition."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlead amount 1 by region order date as nxt\n', ns)
+    run(parser, 'df sales\nlead amount 1 as nxt\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     assert 'nxt' in result.columns
     last_rows = result.groupby("region").nth(-1)
@@ -1291,14 +1291,14 @@ def test_lead_partitioned(parser, window_df):
 
 def test_lag_code_generation(parser):
     """Generated lag code sorts then shifts by positive n."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlag amount 1 order date as prev\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlag amount 1 as prev\n    order date\n')))
     assert "sort_values('date')" in code
     assert ".shift(1)" in code
 
 
 def test_lead_code_generation(parser):
     """Generated lead code shifts by negative n."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlead amount 1 order date as nxt\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlead amount 1 as nxt\n    order date\n')))
     assert ".shift(-1)" in code
 
 
@@ -1307,7 +1307,7 @@ def test_lead_code_generation(parser):
 def test_cumsum_basic(parser, window_df):
     """cumsum produces a monotonically increasing running total."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncumsum amount order date as running\n', ns)
+    run(parser, 'df sales\ncumsum amount as running\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert 'running' in result.columns
     assert (result['running'].diff().dropna() >= 0).all()
@@ -1316,7 +1316,7 @@ def test_cumsum_basic(parser, window_df):
 def test_cumsum_partitioned(parser, window_df):
     """cumsum by partition resets for each group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncumsum amount by region order date as running\n', ns)
+    run(parser, 'df sales\ncumsum amount as running\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     # Each group's running total should not exceed its own sum
     group_sums = window_df.groupby('region')['amount'].sum()
@@ -1328,15 +1328,15 @@ def test_cumsum_partitioned(parser, window_df):
 def test_cummean_basic(parser, window_df):
     """cummean produces expanding mean (uses expanding().mean())."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncummean amount order date as running\n', ns)
+    run(parser, 'df sales\ncummean amount as running\n    order date\n', ns)
     assert 'running' in ns['sales'].columns
 
 
 def test_cummin_cummax(parser, window_df):
     """cummin and cummax produce monotone sequences."""
     ns = {'pd': pd, 'sales': window_df.copy()}
-    run(parser, 'df sales\ncummin amount order date as cmin\n', ns)
-    run(parser, 'df sales\ncummax amount order date as cmax\n', ns)
+    run(parser, 'df sales\ncummin amount as cmin\n    order date\n', ns)
+    run(parser, 'df sales\ncummax amount as cmax\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert (result['cmin'].diff().dropna() <= 0).all()
     assert (result['cmax'].diff().dropna() >= 0).all()
@@ -1347,7 +1347,7 @@ def test_cummin_cummax(parser, window_df):
 def test_rolling_basic(parser, window_df):
     """rolling mean produces NaN for the first window-1 rows."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrolling mean amount 2 order date as roll\n', ns)
+    run(parser, 'df sales\nrolling mean amount 2 as roll\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert 'roll' in result.columns
 
@@ -1355,7 +1355,7 @@ def test_rolling_basic(parser, window_df):
 def test_rolling_partitioned(parser, window_df):
     """rolling by partition computes independently per group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrolling mean amount 2 by region order date as roll\n', ns)
+    run(parser, 'df sales\nrolling mean amount 2 as roll\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     assert 'roll' in result.columns
     # Check a known value: North date=2, window=[100,200], mean=150
@@ -1366,7 +1366,7 @@ def test_rolling_partitioned(parser, window_df):
 def test_rolling_code_generation(parser):
     """Generated rolling code uses transform for partitioned case."""
     code = '\n'.join(parser.generate_code(parser.parse(
-        'df sales\nrolling mean amount 3 by region order date as roll\n'
+        'df sales\nrolling mean amount 3 as roll\n    by region\n    order date\n'
     )))
     assert "rolling(3).mean()" in code
     assert "transform" in code
