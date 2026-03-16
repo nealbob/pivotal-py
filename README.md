@@ -491,9 +491,18 @@ assign z = (amount - mean(amount)) / std(amount)
 df sales
 assign dev = amount - mean(amount)
     by region
+
+# Deviation from weighted average (whole table)
+df sales
+assign dev = amount - wavg(amount, weight)
+
+# Deviation from weighted average by group
+df sales
+assign dev = amount - wavg(amount, weight)
+    by region
 ```
 
-Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var`, `nunique`, `first`, `last`.
+Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var`, `nunique`, `first`, `last`, `wavg(col, weight)`.
 
 **Arithmetic expressions:**
 - Reference columns directly by name
@@ -583,7 +592,29 @@ group by region, category
 ```
 
 **Aggregation Functions:**
-- `sum`, `mean` / `avg`, `count`, `min`, `max`, `median`, `std`
+
+| Function | Description |
+|---|---|
+| `sum` | Total |
+| `mean` / `avg` | Average |
+| `count` | Non-null count |
+| `min` / `max` | Minimum / maximum |
+| `median` | Median |
+| `std` | Standard deviation |
+| `nunique` | Count of distinct values |
+| `wavg col weight` | Weighted average |
+
+```pivotal
+# Count distinct products per category
+df summary from sales
+group by category
+    agg nunique product as n_products, sum amount as total
+
+# Weighted average price by region (weighted by quantity)
+df wavg_price from sales
+group by region
+    agg wavg price quantity as avg_price
+```
 
 ---
 
