@@ -442,6 +442,35 @@ assign margin = profit / revenue
     where revenue > 0
 ```
 
+**Multi-case assignment** (equivalent to SQL `CASE WHEN`):
+
+```pivotal
+df sales
+assign tier =
+    where amount > 500: amount * 2
+    where amount > 100: amount
+    0
+```
+
+Each `where cond: expr` branch is evaluated in order — the first matching condition wins. An optional bare expression at the end acts as the default (rows matching no condition get `None` if omitted).
+
+```pivotal
+# Decile binning using pct rank
+df sales
+rank amount pct as r
+assign decile =
+    where r > 0.9: 10
+    where r > 0.8: 9
+    where r > 0.7: 8
+    where r > 0.6: 7
+    where r > 0.5: 6
+    where r > 0.4: 5
+    where r > 0.3: 4
+    where r > 0.2: 3
+    where r > 0.1: 2
+    1
+```
+
 **Arithmetic expressions:**
 - Reference columns directly by name
 - Standard arithmetic operators: `+`, `-`, `*`, `/`, `**`

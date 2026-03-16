@@ -150,6 +150,63 @@ def test_assign_where_scalar(parser, sample_df):
 
 
 # ---------------------------------------------------------------------------
+# assign: multi-case
+# ---------------------------------------------------------------------------
+
+def test_assign_case_basic(parser, sample_df):
+    """Multi-case assign produces correct values for each branch."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = ('df sales\nassign tier =\n'
+           '    where price > 300: price * 2\n'
+           '    where price > 100: price\n'
+           '    0\n')
+    run(parser, dsl, ns)
+    df = ns['sales']
+    assert df.loc[df['price'] > 300, 'tier'].eq(df.loc[df['price'] > 300, 'price'] * 2).all()
+    mid = df[(df['price'] > 100) & (df['price'] <= 300)]
+    assert mid['tier'].eq(mid['price']).all()
+    low = df[df['price'] <= 100]
+    assert low['tier'].eq(0).all()
+
+
+def test_assign_case_first_match_wins(parser):
+    """When a row satisfies multiple conditions, the first branch wins."""
+    df = pd.DataFrame({'x': [10, 5, 1]})
+    ns = {'pd': pd, 'data': df}
+    dsl = ('df data\nassign label =\n'
+           '    where x > 3: x * 10\n'
+           '    where x > 1: x * 100\n'
+           '    0\n')
+    run(parser, dsl, ns)
+    # x=10 matches both; first branch (x*10=100) should win
+    assert ns['data'].loc[0, 'label'] == 100
+    # x=5 matches both; first branch (x*10=50) wins
+    assert ns['data'].loc[1, 'label'] == 50
+    # x=1 matches neither; default = 0
+    assert ns['data'].loc[2, 'label'] == 0
+
+
+def test_assign_case_no_default(parser):
+    """Multi-case with no default gives pd.NA for unmatched rows."""
+    df = pd.DataFrame({'x': [10, 1]})
+    ns = {'pd': pd, 'data': df}
+    dsl = ('df data\nassign label =\n'
+           '    where x > 5: x\n')
+    run(parser, dsl, ns)
+    assert ns['data'].loc[0, 'label'] == 10
+    assert pd.isna(ns['data'].loc[1, 'label'])
+
+
+def test_assign_case_code_generation(parser):
+    """Multi-case generates np.select with conditions in branch order."""
+    nodes = parser.parse('df sales\nassign t =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert 'np.select' in code
+    # First branch condition appears before second in the conditions list
+    assert code.index('x > 10') < code.index('x > 5')
+
+
+# ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
 

@@ -157,6 +157,12 @@ grammar_indented = r"""
     dataframe_statement: "df" table_name ("from" copy_table)? _NL?
 
     assign_statement: "assign" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
+                    | "assign" target "=" _NL _INDENT case_list _DEDENT
+
+    case_list: case_branch+ case_default?
+    case_branch: "where" condition_list ":" expression _NL
+    case_default: CASE_DEFAULT_EXPR _NL
+    CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
     
@@ -515,45 +521,65 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
-    def assign_statement(self, target, expression, condition_list=None):
-        """Handle assign statements to create new columns with optional where clause"""
+    def case_branch(self, condition_list, expression):
+        temp = self._build_conditional_statement(condition_list)
+        return {
+            'type': 'case_branch',
+            'query_str': temp['query_str'],
+            'conditions': temp['ast']['conditions'],
+            'operators': temp['ast']['operators'],
+            'expression': str(expression),
+        }
+
+    def case_default(self, token):
+        return {'type': 'case_default', 'expression': str(token).strip()}
+
+    def case_list(self, *args):
+        return list(args)
+
+    def assign_statement(self, target, *rest):
+        """Handle assign statements: simple, conditional, or multi-case."""
         target_str = str(target)
-        expr_str = str(expression)
 
         if target_str.lower() in PIVOTAL_KEYWORDS:
             raise ValueError(
                 f"'{target_str}' is a Pivotal reserved keyword and cannot be used as a column name."
             )
-        
-        # Check if there's a where clause
+
+        # Multi-case form: second arg is a list of case_branch/case_default dicts
+        if rest and isinstance(rest[0], list):
+            return {
+                'type': 'assign',
+                'table_name': self.current_table,
+                'target': target_str,
+                'expression': None,
+                'conditions': None,
+                'operators': None,
+                'cases': rest[0],
+            }
+
+        # Simple / conditional form
+        expr_str = str(rest[0])
+        condition_list = rest[1] if len(rest) > 1 else None
         conditions = []
         operators = []
         has_where = False
-        
+
         if condition_list:
             has_where = True
             temp = self._build_conditional_statement(condition_list)
             conditions = temp['ast']['conditions']
             operators = temp['ast']['operators']
-            query_str = temp['query_str']
-                                                    
-        
-        ast_node = {
+
+        return {
             'type': 'assign',
             'table_name': self.current_table,
             'target': target_str,
             'expression': expr_str,
             'conditions': conditions if has_where else None,
-            'operators': operators if has_where else None
+            'operators': operators if has_where else None,
+            'cases': None,
         }
-        
-        if has_where:
-            python_code = f"condition = {self.current_table}.eval('{query_str}')\n"
-            python_code += f"{self.current_table}.loc[condition, '{target_str}'] = {self.current_table}.eval('{expr_str}')[condition]"
-        else:
-            python_code = f"{self.current_table}['{target_str}'] = {self.current_table}.eval('{expr_str}')"
-        
-        return ast_node
     
     def _build_conditional_statement(self, condition_list):
             """
@@ -1824,9 +1850,41 @@ class CodeGenerator:
             return True
         return False
 
+    def _generate_case_assign_pandas(self, ast_node):
+        table = ast_node['table_name']
+        target = ast_node['target']
+        cases = ast_node['cases']
+
+        branches = [c for c in cases if c['type'] == 'case_branch']
+        defaults = [c for c in cases if c['type'] == 'case_default']
+
+        def _eval_expr(expr):
+            if self._is_scalar_expr(expr):
+                return expr
+            return f"{table}.eval({expr!r})"
+
+        conds = ', '.join(f"{table}.eval({b['query_str']!r})" for b in branches)
+        choices = ', '.join(_eval_expr(b['expression']) for b in branches)
+
+        if defaults:
+            default_str = _eval_expr(defaults[0]['expression'])
+        else:
+            default_str = 'None'
+
+        return (f"import numpy as np\n"
+                f"{table}[{target!r}] = np.select(\n"
+                f"    [{conds}],\n"
+                f"    [{choices}],\n"
+                f"    default={default_str},\n"
+                f")")
+
     def generate_assign_pandas(self, ast_node):
         table = ast_node['table_name']
         target = ast_node['target']
+
+        if ast_node.get('cases'):
+            return self._generate_case_assign_pandas(ast_node)
+
         expr = ast_node['expression']
 
         # String function / concatenation — takes priority over eval
