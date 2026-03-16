@@ -1254,8 +1254,28 @@ def test_rank_partitioned(parser, window_df):
 def test_rank_code_generation(parser):
     """Generated rank code contains correct pandas call."""
     code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount desc as r\n    by region\n')))
-    assert "rank(ascending=False)" in code
+    assert "rank(ascending=False" in code
     assert "groupby(['region'])" in code
+
+
+def test_rank_pct_values(parser, window_df):
+    """rank pct produces values between 0 and 1."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount pct as r\n', ns)
+    assert ns['sales']['r'].between(0, 1).all()
+
+
+def test_rank_pct_code_generation(parser):
+    """rank pct generates pct=True in pandas call."""
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount pct as r\n')))
+    assert "pct=True" in code
+
+
+def test_rank_pct_partitioned(parser, window_df):
+    """rank pct with by gives per-group percentile ranks."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount pct as r\n    by region\n', ns)
+    assert ns['sales']['r'].between(0, 1).all()
 
 
 # lag / lead -----------------------------------------------------------------

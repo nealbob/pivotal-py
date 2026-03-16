@@ -551,19 +551,27 @@ Rank rows by a column. Rows keep their original order.
 
 ```pivotal
 # Rank all rows by amount, highest = 1
-df sales
 rank amount desc as sales_rank
 
 # Rank within each region independently
-df sales
 rank amount desc as regional_rank
     by region
 
 # Filter to top 3 per region
-df sales
 rank amount desc as regional_rank
     by region
 filter regional_rank <= 3
+```
+
+Add `pct` to get percentile ranks (0–1) instead of integer ranks. Useful for quantile binning:
+
+```pivotal
+# Percentile rank
+rank amount pct as r
+
+# Decile bins (1–10)
+rank amount pct as r
+assign decile = floor(r * 10) + 1
 ```
 
 #### `lag` and `lead`

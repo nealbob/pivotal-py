@@ -107,8 +107,9 @@ type CompletionCtx =
 const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'pivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
+  'concat', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
   'distinct', 'python', 'save', 'apply', 'table', 'delete',
+  'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];

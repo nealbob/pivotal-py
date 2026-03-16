@@ -14,7 +14,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
-    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'pct',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -181,7 +181,8 @@ grammar_indented = r"""
 
     AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
 
-    rank_statement: "rank" IDENTIFIER SORT_TYPE? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+    rank_statement: "rank" IDENTIFIER SORT_TYPE? RANK_PCT? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+    RANK_PCT: "pct"
 
     shift_statement: SHIFT_FUNC IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     SHIFT_FUNC: "lag" | "lead"
@@ -925,17 +926,21 @@ class DSLTransformer(Transformer):
         col = str(args[0])
         remaining, opts = self._extract_window_opts(args[1:])
         ascending = True
+        pct = False
         if remaining and hasattr(remaining[0], 'type') and remaining[0].type == 'SORT_TYPE':
             ascending = str(remaining[0]) == 'asc'
-            result_col = str(remaining[1])
-        else:
-            result_col = str(remaining[0])
+            remaining = list(remaining[1:])
+        if remaining and hasattr(remaining[0], 'type') and remaining[0].type == 'RANK_PCT':
+            pct = True
+            remaining = list(remaining[1:])
+        result_col = str(remaining[0])
         partition, _ = self._parse_window_common(opts)
         return {
             'type': 'rank',
             'table_name': self.current_table,
             'column': col,
             'ascending': ascending,
+            'pct': pct,
             'partition': partition,
             'result_col': result_col,
         }
@@ -2016,11 +2021,13 @@ class CodeGenerator:
         table = ast_node['table_name']
         col = ast_node['column']
         ascending = ast_node['ascending']
+        pct = ast_node.get('pct', False)
         partition = ast_node['partition']
         result_col = ast_node['result_col']
+        kwargs = f"ascending={ascending}, pct={pct}"
         if partition:
-            return f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].rank(ascending={ascending})"
-        return f"{table}[{result_col!r}] = {table}[{col!r}].rank(ascending={ascending})"
+            return f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].rank({kwargs})"
+        return f"{table}[{result_col!r}] = {table}[{col!r}].rank({kwargs})"
 
     def generate_shift_pandas(self, ast_node):
         table = ast_node['table_name']
