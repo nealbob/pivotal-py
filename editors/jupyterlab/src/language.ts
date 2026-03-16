@@ -35,7 +35,7 @@ const keywords: Record<string, true> = {
 
 const builtins: Record<string, true> = {
   mean: true, min: true, max: true, sum: true,
-  count: true, avg: true, median: true, std: true,
+  count: true, avg: true, median: true, std: true, nunique: true, wavg: true,
   asc: true, desc: true, pct: true, left: true, right: true,
   inner: true, outer: true,
   // word-operator comparators

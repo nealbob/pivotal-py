@@ -255,6 +255,58 @@ def test_assign_agg_by_code_generation(parser):
 
 
 # ---------------------------------------------------------------------------
+# nunique and wavg
+# ---------------------------------------------------------------------------
+
+def test_groupby_nunique(parser):
+    """nunique agg counts distinct values per group."""
+    df = pd.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
+    s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
+    assert n_row['n'] == 2   # 100 and 200
+    assert s_row['n'] == 1   # only 300
+
+
+def test_groupby_wavg(parser):
+    """wavg computes weighted average per group."""
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
+    s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
+    assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
+    assert s_wa == pytest.approx(300.0)   # (200*2 + 400*2) / (2+2)
+
+
+def test_assign_wavg_whole_table(parser):
+    """wavg(col, weight) in assign computes whole-table weighted average."""
+    df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign wa = wavg(amount, weight)\n', ns)
+    assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)  # (100+900)/4
+
+
+def test_assign_wavg_by_group(parser):
+    """wavg(col, weight) with by computes per-group weighted average broadcast to rows."""
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign dev = amount - wavg(amount, weight)\n    by region\n', ns)
+    result = ns['data']
+    assert result.loc[result['region'] == 'N', 'dev'].tolist() == pytest.approx([-150.0, 50.0])
+    assert result.loc[result['region'] == 'S', 'dev'].tolist() == pytest.approx([-100.0, 100.0])
+
+
+# ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
 

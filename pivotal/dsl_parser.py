@@ -13,6 +13,9 @@ _AGG_CALL_RE = re.compile(
     r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
     r'\(([a-zA-Z_][a-zA-Z0-9_]*)\)'
 )
+_WAVG_CALL_RE = re.compile(
+    r'\bwavg\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)'
+)
 
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
@@ -138,6 +141,7 @@ grammar_indented = r"""
     agg_clause: "agg" agg_item ("," agg_item)* _NL?
 
     agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+            | "wavg" (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)? -> wavg_item
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -195,7 +199,7 @@ grammar_indented = r"""
                | "variable" STRING _NL?                                                     -> unpivot_name
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
-    AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
+    AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std" | "nunique"
 
     rank_statement: "rank" IDENTIFIER SORT_TYPE? RANK_PCT? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     RANK_PCT: "pct"
@@ -1105,6 +1109,12 @@ class DSLTransformer(Transformer):
         # Filter out tokens like _NL
         return [item for item in items if isinstance(item, dict)]
 
+    def wavg_item(self, col, weight, alias=None):
+        res = {'func': 'wavg', 'column': str(col), 'weight': str(weight)}
+        if alias:
+            res['alias'] = str(alias)
+        return res
+
     def agg_item(self, func, col, alias=None):
         if isinstance(col, dict) and col.get('type') == 'var':
             res = {'column': col, 'func': str(func)}
@@ -1907,11 +1917,30 @@ class CodeGenerator:
                 f")")
 
     def _substitute_agg_calls(self, expr, table, by_cols):
-        """Replace agg(col) calls in expr with @_agg_N locals; return (preamble_lines, new_expr)."""
+        """Replace agg(col) and wavg(col, wt) calls with @_agg_N locals; return (preamble, new_expr)."""
         preamble = []
         counter = [0]
 
-        def replace(m):
+        def replace_wavg(m):
+            col, wt = m.group(1), m.group(2)
+            var = f'_agg_{counter[0]}'
+            counter[0] += 1
+            if by_cols:
+                preamble.append(
+                    f"_wsum = {table}.groupby({by_cols!r})[{col!r}].transform("
+                    f"lambda g: (g * {table}.loc[g.index, {wt!r}]).sum())"
+                )
+                preamble.append(
+                    f"_wtot = {table}.groupby({by_cols!r})[{wt!r}].transform('sum')"
+                )
+                preamble.append(f"{var} = _wsum / _wtot")
+            else:
+                preamble.append(
+                    f"{var} = ({table}[{col!r}] * {table}[{wt!r}]).sum() / {table}[{wt!r}].sum()"
+                )
+            return f'@{var}'
+
+        def replace_agg(m):
             func = m.group(1)
             col = m.group(2)
             pandas_func = 'mean' if func == 'avg' else func
@@ -1925,7 +1954,8 @@ class CodeGenerator:
                 preamble.append(f"{var} = {table}[{col!r}].{pandas_func}()")
             return f'@{var}'
 
-        new_expr = _AGG_CALL_RE.sub(replace, expr)
+        new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
         return preamble, new_expr
 
     def generate_assign_pandas(self, ast_node):
@@ -2232,9 +2262,32 @@ class CodeGenerator:
             by_code = f"'{by}'"
 
         if agg_list:
+            table = ast_node['table_name']
+            wavg_items = [i for i in agg_list if i['func'] == 'wavg']
+            regular_items = [i for i in agg_list if i['func'] != 'wavg']
+
+            # wavg requires named agg with a lambda — force that path
+            if wavg_items:
+                agg_args = []
+                for item in regular_items:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias', f"{col}_{func}")
+                    pandas_func = 'mean' if func == 'avg' else func
+                    agg_args.append(f"{alias}=('{col}', '{pandas_func}')")
+                for item in wavg_items:
+                    col = item['column']
+                    wt = item['weight']
+                    alias = item.get('alias', f"wavg_{col}")
+                    lam = (f"lambda x: (x * {table}.loc[x.index, {wt!r}]).sum()"
+                           f" / {table}.loc[x.index, {wt!r}].sum()")
+                    agg_args.append(f"{alias}=('{col}', {lam})")
+                agg_str = ', '.join(agg_args)
+                return f"{table} = {table}.groupby({by_code}).agg({agg_str}).reset_index()"
+
             # Check if any aliases exist
             has_aliases = any('alias' in item for item in agg_list)
-            
+
             if has_aliases:
                 # Use named aggregation syntax
                 # agg(alias=('col', 'func'))
@@ -2243,18 +2296,18 @@ class CodeGenerator:
                     col = item['column']
                     func = item['func']
                     alias = item.get('alias', None)
-                    
+
                     if isinstance(col, dict) and col.get('type') == 'var':
                         col_code = col['name']
                         if not alias:
-                             alias = f"agg_{func}" 
+                             alias = f"agg_{func}"
                     else:
                         col_code = f"'{col}'"
                         if not alias:
                             alias = f"{col}_{func}"
-                    
+
                     agg_args.append(f"{alias}=({col_code}, '{func}')")
-                
+
                 agg_str = ", ".join(agg_args)
                 return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).agg({agg_str}).reset_index()"
             else:
