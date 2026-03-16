@@ -22,6 +22,7 @@ import {
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton } from '@jupyterlab/apputils';
+import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu } from '@lumino/widgets';
 
 import { pivotalLanguage } from './language';
@@ -612,20 +613,32 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         const relPath = panel.context.path;
         const kernel = panel.context.sessionContext.session?.kernel;
         if (!kernel) { alert('No active kernel — run a cell first.'); return; }
-        // Resolve absolute path inside the kernel so WSL/Windows paths work correctly
+
+        // Construct absolute path using the JupyterLab server root
+        const serverRoot = PageConfig.getOption('serverRoot') || PageConfig.getOption('rootUri') || '';
+        const absPath = serverRoot ? `${serverRoot}/${relPath}` : relPath;
+
         const code = [
-          'import os as _os',
           'from pivotal.__main__ import notebook_to_python as _ntp',
-          `_nb = _os.path.join(_os.getcwd(), ${JSON.stringify(relPath)})`,
-          '_ntp(_nb)',
+          `_ntp(${JSON.stringify(absPath)})`,
         ].join('\n');
+
+        let errorText = '';
         const future = kernel.requestExecute({ code });
         future.onIOPub = (msg: any) => {
-          const text = msg.content?.text;
-          if (text) console.log('[pivotal export]', text.trim());
+          if (msg.msg_type === 'stream') {
+            console.log('[pivotal export]', msg.content?.text?.trim());
+          } else if (msg.msg_type === 'error') {
+            errorText = msg.content?.ename + ': ' + msg.content?.evalue;
+            console.error('[pivotal export error]', errorText);
+          }
         };
         await future.done;
-        alert(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`);
+        if (errorText) {
+          alert(`Export failed:\n${errorText}`);
+        } else {
+          alert(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`);
+        }
       },
     });
 
