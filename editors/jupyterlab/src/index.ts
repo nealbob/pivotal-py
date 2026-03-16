@@ -21,7 +21,7 @@ import {
   Completion,
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
-import { ToolbarButton } from '@jupyterlab/apputils';
+import { ToolbarButton, Notification } from '@jupyterlab/apputils';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu } from '@lumino/widgets';
 
@@ -612,7 +612,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         if (!panel) return;
         const relPath = panel.context.path;
         const kernel = panel.context.sessionContext.session?.kernel;
-        if (!kernel) { alert('No active kernel — run a cell first.'); return; }
+        if (!kernel) { Notification.emit('No active kernel — run a cell first.', 'warning'); return; }
 
         // Construct absolute path using the JupyterLab server root
         const serverRoot = PageConfig.getOption('serverRoot') || PageConfig.getOption('rootUri') || '';
@@ -635,9 +635,9 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         };
         await future.done;
         if (errorText) {
-          alert(`Export failed:\n${errorText}`);
+          Notification.emit(`Export failed: ${errorText}`, 'error', { autoClose: false });
         } else {
-          alert(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`);
+          Notification.emit(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`, 'success', { autoClose: 5000 });
         }
       },
     });
