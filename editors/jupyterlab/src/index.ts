@@ -22,6 +22,7 @@ import {
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton } from '@jupyterlab/apputils';
+import { Menu } from '@lumino/widgets';
 
 import { pivotalLanguage } from './language';
 import { PivotalViewerWidget, ViewerMessage } from './viewer';
@@ -608,16 +609,23 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       execute: async () => {
         const panel = tracker.currentWidget;
         if (!panel) return;
-        const path = panel.context.path;
+        const relPath = panel.context.path;
         const kernel = panel.context.sessionContext.session?.kernel;
         if (!kernel) { alert('No active kernel — run a cell first.'); return; }
-        const future = kernel.requestExecute({ code: `!python -m pivotal --export-py "${path}"` });
+        // Resolve absolute path inside the kernel so WSL/Windows paths work correctly
+        const code = [
+          'import os as _os',
+          'from pivotal.__main__ import notebook_to_python as _ntp',
+          `_nb = _os.path.join(_os.getcwd(), ${JSON.stringify(relPath)})`,
+          '_ntp(_nb)',
+        ].join('\n');
+        const future = kernel.requestExecute({ code });
         future.onIOPub = (msg: any) => {
           const text = msg.content?.text;
           if (text) console.log('[pivotal export]', text.trim());
         };
         await future.done;
-        alert(`Exported: ${path.replace(/\.ipynb$/, '.py')}`);
+        alert(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`);
       },
     });
 
@@ -635,21 +643,22 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     app.commands.addKeyBinding({ command: 'pivotal:viewer-back',   keys: ['Alt ['],    selector: 'body' });
     app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',keys: ['Alt ]'],    selector: 'body' });
 
-    // Add Pivotal buttons to every notebook toolbar
+    // Add a single Pivotal dropdown button to every notebook toolbar
     tracker.widgetAdded.connect((_, panel) => {
+      const menu = new Menu({ commands: app.commands });
+      menu.addItem({ command: 'pivotal:new-cell' });
+      menu.addItem({ type: 'separator' });
+      menu.addItem({ command: 'pivotal:export-py' });
+
       const btn = new ToolbarButton({
         icon: pivotalGreyIcon,
-        tooltip: 'New Pivotal cell (Alt+P / pp)',
-        onClick: () => insertNewPivotalCell(panel),
+        tooltip: 'Pivotal',
+        onClick: () => {
+          const rect = btn.node.getBoundingClientRect();
+          menu.open(rect.left, rect.bottom);
+        },
       });
-      panel.toolbar.addItem('pivotal-new-cell', btn);
-
-      const exportBtn = new ToolbarButton({
-        label: 'Export .py',
-        tooltip: 'Export notebook to Python file',
-        onClick: () => app.commands.execute('pivotal:export-py'),
-      });
-      panel.toolbar.addItem('pivotal-export-py', exportBtn);
+      panel.toolbar.addItem('pivotal-menu', btn);
     });
 
     // Registry mapping gui_id → cell model for upsert behaviour
