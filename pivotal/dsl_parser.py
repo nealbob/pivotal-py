@@ -5,15 +5,25 @@ from lark.lexer import Token
 import pandas as pd
 import json
 import os
+import re
 import warnings
 from pathlib import Path
+
+_AGG_CALL_RE = re.compile(
+    r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
+    r'\(([a-zA-Z_][a-zA-Z0-9_]*)\)'
+)
+_WAVG_CALL_RE = re.compile(
+    r'\bwavg\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)'
+)
 
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
     'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
-    'merge', 'pivot', 'group', 'python', 'plot', 'drop', 'fillna',
+    'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
     # Comparators / logic
@@ -41,6 +51,11 @@ grammar_indented = r"""
                | sort_statement
                | merge_statement
                | pivot_statement
+               | unpivot_statement
+               | rank_statement
+               | shift_statement
+               | cumulative_statement
+               | rolling_statement
                | groupby_statement
                | python_statement
                | agg_plot_statement
@@ -126,6 +141,7 @@ grammar_indented = r"""
     agg_clause: "agg" agg_item ("," agg_item)* _NL?
 
     agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+            | "wavg" (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)? -> wavg_item
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -150,7 +166,17 @@ grammar_indented = r"""
 
     dataframe_statement: "df" table_name ("from" copy_table)? _NL?
 
-    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT "where" condition_list _NL _DEDENT)?
+    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
+                    | "assign" target "=" _NL _INDENT case_list _DEDENT
+
+    assign_opts: assign_opt+
+    assign_opt: "where" condition_list _NL? -> assign_where
+              | "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> assign_by
+
+    case_list: case_branch+ case_default?
+    case_branch: "where" condition_list ":" expression _NL
+    case_default: CASE_DEFAULT_EXPR _NL
+    CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
     
@@ -164,8 +190,31 @@ grammar_indented = r"""
 
     pivot_rows: "rows" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
     pivot_cols: "cols" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
-   
-    AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std"
+
+    unpivot_statement: "unpivot" _NL _INDENT unpivot_args _DEDENT
+
+    unpivot_args: unpivot_arg+
+    unpivot_arg: "id"     (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_id
+               | "cols"   (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_cols
+               | "variable" STRING _NL?                                                     -> unpivot_name
+               | "value"  STRING _NL?                                                       -> unpivot_value_name
+
+    AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std" | "nunique"
+
+    rank_statement: "rank" IDENTIFIER SORT_TYPE? RANK_PCT? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+    RANK_PCT: "pct"
+
+    shift_statement: SHIFT_FUNC IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+    SHIFT_FUNC: "lag" | "lead"
+
+    cumulative_statement: CUM_FUNC IDENTIFIER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+    CUM_FUNC: "cumsum" | "cummean" | "cummin" | "cummax"
+
+    rolling_statement: "rolling" AGG_FUNCTION IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
+
+    window_opts: window_opt+
+    window_opt: "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> window_by
+              | "order" IDENTIFIER                  _NL? -> window_order
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
@@ -486,45 +535,83 @@ class DSLTransformer(Transformer):
         
         return ast_node
     
-    def assign_statement(self, target, expression, condition_list=None):
-        """Handle assign statements to create new columns with optional where clause"""
+    def assign_where(self, condition_list):
+        temp = self._build_conditional_statement(condition_list)
+        return {'type': 'assign_where',
+                'conditions': temp['ast']['conditions'],
+                'operators': temp['ast']['operators'],
+                'query_str': temp['query_str']}
+
+    def assign_by(self, *cols):
+        return {'type': 'assign_by', 'cols': [str(c) for c in cols]}
+
+    def assign_opts(self, *args):
+        return list(args)
+
+    def case_branch(self, condition_list, expression):
+        temp = self._build_conditional_statement(condition_list)
+        return {
+            'type': 'case_branch',
+            'query_str': temp['query_str'],
+            'conditions': temp['ast']['conditions'],
+            'operators': temp['ast']['operators'],
+            'expression': str(expression),
+        }
+
+    def case_default(self, token):
+        return {'type': 'case_default', 'expression': str(token).strip()}
+
+    def case_list(self, *args):
+        return list(args)
+
+    def assign_statement(self, target, *rest):
+        """Handle assign statements: simple, conditional, or multi-case."""
         target_str = str(target)
-        expr_str = str(expression)
 
         if target_str.lower() in PIVOTAL_KEYWORDS:
             raise ValueError(
                 f"'{target_str}' is a Pivotal reserved keyword and cannot be used as a column name."
             )
-        
-        # Check if there's a where clause
-        conditions = []
-        operators = []
-        has_where = False
-        
-        if condition_list:
-            has_where = True
-            temp = self._build_conditional_statement(condition_list)
-            conditions = temp['ast']['conditions']
-            operators = temp['ast']['operators']
-            query_str = temp['query_str']
-                                                    
-        
-        ast_node = {
+
+        # Multi-case form: second arg is a list of case_branch/case_default dicts
+        if rest and isinstance(rest[0], list):
+            return {
+                'type': 'assign',
+                'table_name': self.current_table,
+                'target': target_str,
+                'expression': None,
+                'conditions': None,
+                'operators': None,
+                'cases': rest[0],
+            }
+
+        # Simple / with opts form
+        expr_str = str(rest[0])
+        opts = rest[1] if len(rest) > 1 else []
+        conditions = None
+        operators = None
+        query_str = None
+        by_cols = []
+
+        for opt in (opts or []):
+            if opt['type'] == 'assign_where':
+                conditions = opt['conditions']
+                operators = opt['operators']
+                query_str = opt['query_str']
+            elif opt['type'] == 'assign_by':
+                by_cols = opt['cols']
+
+        return {
             'type': 'assign',
             'table_name': self.current_table,
             'target': target_str,
             'expression': expr_str,
-            'conditions': conditions if has_where else None,
-            'operators': operators if has_where else None
+            'conditions': conditions,
+            'operators': operators,
+            'query_str': query_str,
+            'by_cols': by_cols,
+            'cases': None,
         }
-        
-        if has_where:
-            python_code = f"condition = {self.current_table}.eval('{query_str}')\n"
-            python_code += f"{self.current_table}.loc[condition, '{target_str}'] = {self.current_table}.eval('{expr_str}')[condition]"
-        else:
-            python_code = f"{self.current_table}['{target_str}'] = {self.current_table}.eval('{expr_str}')"
-        
-        return ast_node
     
     def _build_conditional_statement(self, condition_list):
             """
@@ -819,6 +906,167 @@ class DSLTransformer(Transformer):
                 cols.append(str(col))
         return {'type': 'cols', 'columns': cols}
 
+    def unpivot_statement(self, *args):
+        id_vars = []
+        value_vars = []
+        var_name = 'variable'
+        value_name = 'value'
+        for arg in args[0]:
+            if isinstance(arg, dict):
+                t = arg['type']
+                if t == 'id':
+                    id_vars = arg['columns']
+                elif t == 'cols':
+                    value_vars = arg['columns']
+                elif t == 'name':
+                    var_name = arg['name']
+                elif t == 'value_name':
+                    value_name = arg['name']
+        return {
+            'type': 'unpivot',
+            'table_name': self.current_table,
+            'id_vars': id_vars,
+            'value_vars': value_vars,
+            'var_name': var_name,
+            'value_name': value_name,
+        }
+
+    def unpivot_args(self, *args):
+        return list(args)
+
+    def unpivot_id(self, *cols):
+        return {'type': 'id', 'columns': [str(c) for c in cols]}
+
+    def unpivot_cols(self, *cols):
+        return {'type': 'cols', 'columns': [str(c) for c in cols]}
+
+    def unpivot_name(self, name):
+        return {'type': 'name', 'name': str(name).strip('"').strip("'")}
+
+    def unpivot_value_name(self, name):
+        return {'type': 'value_name', 'name': str(name).strip('"').strip("'")}
+
+    # -------------------------------------------------------------------------
+    # Shared window helpers
+    # -------------------------------------------------------------------------
+
+    def window_by(self, *cols):
+        return {'type': 'window_by', 'cols': [str(c) for c in cols]}
+
+    def window_order(self, col):
+        return {'type': 'window_order', 'col': str(col)}
+
+    def window_opts(self, *args):
+        return list(args)
+
+    def _extract_window_opts(self, args):
+        """Pop trailing window_opts list from args; return (remaining, opts)."""
+        args = list(args)
+        opts = args.pop() if args and isinstance(args[-1], list) else []
+        return args, opts
+
+    def _parse_window_common(self, opts):
+        """Extract partition cols and order col from a window_opts list."""
+        partition = []
+        order_col = None
+        for item in opts:
+            if isinstance(item, dict) and item.get('type') == 'window_by':
+                partition = item['cols']
+            elif isinstance(item, dict) and item.get('type') == 'window_order':
+                order_col = item['col']
+        return partition, order_col
+
+    # -------------------------------------------------------------------------
+    # rank
+    # -------------------------------------------------------------------------
+
+    def rank_statement(self, *args):
+        col = str(args[0])
+        remaining, opts = self._extract_window_opts(args[1:])
+        ascending = True
+        pct = False
+        if remaining and hasattr(remaining[0], 'type') and remaining[0].type == 'SORT_TYPE':
+            ascending = str(remaining[0]) == 'asc'
+            remaining = list(remaining[1:])
+        if remaining and hasattr(remaining[0], 'type') and remaining[0].type == 'RANK_PCT':
+            pct = True
+            remaining = list(remaining[1:])
+        result_col = str(remaining[0])
+        partition, _ = self._parse_window_common(opts)
+        return {
+            'type': 'rank',
+            'table_name': self.current_table,
+            'column': col,
+            'ascending': ascending,
+            'pct': pct,
+            'partition': partition,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # lag / lead
+    # -------------------------------------------------------------------------
+
+    def shift_statement(self, *args):
+        func = str(args[0])
+        col = str(args[1])
+        periods = int(args[2])
+        remaining, opts = self._extract_window_opts(args[3:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
+        return {
+            'type': 'shift',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'periods': periods,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # cumulative functions
+    # -------------------------------------------------------------------------
+
+    def cumulative_statement(self, *args):
+        func = str(args[0])
+        col = str(args[1])
+        remaining, opts = self._extract_window_opts(args[2:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
+        return {
+            'type': 'cumulative',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
+
+    # -------------------------------------------------------------------------
+    # rolling
+    # -------------------------------------------------------------------------
+
+    def rolling_statement(self, *args):
+        func = str(args[0])
+        col = str(args[1])
+        window = int(args[2])
+        remaining, opts = self._extract_window_opts(args[3:])
+        result_col = str(remaining[0])
+        partition, order_col = self._parse_window_common(opts)
+        return {
+            'type': 'rolling',
+            'table_name': self.current_table,
+            'func': func,
+            'column': col,
+            'window': window,
+            'partition': partition,
+            'order_col': order_col,
+            'result_col': result_col,
+        }
+
     def groupby_statement(self, *args):
         """Handle groupby statements"""
         # args[0] is group_cols (list of strings)
@@ -860,6 +1108,12 @@ class DSLTransformer(Transformer):
     def agg_clause(self, *items):
         # Filter out tokens like _NL
         return [item for item in items if isinstance(item, dict)]
+
+    def wavg_item(self, col, weight, alias=None):
+        res = {'func': 'wavg', 'column': str(col), 'weight': str(weight)}
+        if alias:
+            res['alias'] = str(alias)
+        return res
 
     def agg_item(self, func, col, alias=None):
         if isinstance(col, dict) and col.get('type') == 'var':
@@ -1634,34 +1888,122 @@ class CodeGenerator:
             return True
         return False
 
+    def _generate_case_assign_pandas(self, ast_node):
+        table = ast_node['table_name']
+        target = ast_node['target']
+        cases = ast_node['cases']
+
+        branches = [c for c in cases if c['type'] == 'case_branch']
+        defaults = [c for c in cases if c['type'] == 'case_default']
+
+        def _eval_expr(expr):
+            if self._is_scalar_expr(expr):
+                return expr
+            return f"{table}.eval({expr!r})"
+
+        conds = ', '.join(f"{table}.eval({b['query_str']!r})" for b in branches)
+        choices = ', '.join(_eval_expr(b['expression']) for b in branches)
+
+        if defaults:
+            default_str = _eval_expr(defaults[0]['expression'])
+        else:
+            default_str = 'None'
+
+        return (f"import numpy as np\n"
+                f"{table}[{target!r}] = np.select(\n"
+                f"    [{conds}],\n"
+                f"    [{choices}],\n"
+                f"    default={default_str},\n"
+                f")")
+
+    def _substitute_agg_calls(self, expr, table, by_cols):
+        """Replace agg(col) and wavg(col, wt) calls with @_agg_N locals; return (preamble, new_expr)."""
+        preamble = []
+        counter = [0]
+
+        def replace_wavg(m):
+            col, wt = m.group(1), m.group(2)
+            var = f'_agg_{counter[0]}'
+            counter[0] += 1
+            if by_cols:
+                preamble.append(
+                    f"_wsum = {table}.groupby({by_cols!r})[{col!r}].transform("
+                    f"lambda g: (g * {table}.loc[g.index, {wt!r}]).sum())"
+                )
+                preamble.append(
+                    f"_wtot = {table}.groupby({by_cols!r})[{wt!r}].transform('sum')"
+                )
+                preamble.append(f"{var} = _wsum / _wtot")
+            else:
+                preamble.append(
+                    f"{var} = ({table}[{col!r}] * {table}[{wt!r}]).sum() / {table}[{wt!r}].sum()"
+                )
+            return f'@{var}'
+
+        def replace_agg(m):
+            func = m.group(1)
+            col = m.group(2)
+            pandas_func = 'mean' if func == 'avg' else func
+            var = f'_agg_{counter[0]}'
+            counter[0] += 1
+            if by_cols:
+                preamble.append(
+                    f"{var} = {table}.groupby({by_cols!r})[{col!r}].transform({pandas_func!r})"
+                )
+            else:
+                preamble.append(f"{var} = {table}[{col!r}].{pandas_func}()")
+            return f'@{var}'
+
+        new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
+        return preamble, new_expr
+
     def generate_assign_pandas(self, ast_node):
         table = ast_node['table_name']
         target = ast_node['target']
+
+        if ast_node.get('cases'):
+            return self._generate_case_assign_pandas(ast_node)
+
         expr = ast_node['expression']
+        by_cols = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        query_str = ast_node.get('query_str')
+
+        # Detect aggregate function calls — substitute before other processing
+        preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
+        if preamble:
+            lines = preamble
+            if conditions:
+                lines.append(f"_cond = {table}.eval({query_str!r})")
+                lines.append(
+                    f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})[_cond]"
+                )
+            else:
+                lines.append(f"{table}[{target!r}] = {table}.eval({subst_expr!r})")
+            return '\n'.join(lines)
 
         # String function / concatenation — takes priority over eval
         string_code = self._parse_string_expr(expr, table)
         if string_code is not None:
-            if ast_node['conditions']:
-                query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
-                return (f"condition = {table}.eval('{query_str}')\n"
+            if conditions:
+                return (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = ({string_code})[condition]")
             return f"{table}['{target}'] = {string_code}"
 
         user_call = self._parse_user_func_call(expr)
 
-        if ast_node['conditions']:
-            query_str, _ = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+        if conditions:
             if user_call:
                 func, col = user_call
-                return (f"condition = {table}.eval('{query_str}')\n"
+                return (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = "
                         f"{func}({table}['{col}'])[condition]")
             if self._is_scalar_expr(expr):
                 rhs = expr
             else:
                 rhs = f"{table}.eval('{expr}')[condition]"
-            return (f"condition = {table}.eval('{query_str}')\n"
+            return (f"condition = {table}.eval({query_str!r})\n"
                     f"{table}.loc[condition, '{target}'] = {rhs}")
         else:
             if user_call:
@@ -1812,6 +2154,91 @@ class CodeGenerator:
         else:
             return pivot_call
 
+    def generate_unpivot_pandas(self, ast_node):
+        """Generate pandas melt code"""
+        table = ast_node['table_name']
+        id_vars = ast_node['id_vars']
+        value_vars = ast_node['value_vars']
+        var_name = ast_node['var_name']
+        value_name = ast_node['value_name']
+
+        args = [f"id_vars={id_vars!r}"]
+        if value_vars:
+            args.append(f"value_vars={value_vars!r}")
+        args.append(f"var_name={var_name!r}")
+        args.append(f"value_name={value_name!r}")
+        return f"{table} = {table}.melt({', '.join(args)})"
+
+    def generate_rank_pandas(self, ast_node):
+        table = ast_node['table_name']
+        col = ast_node['column']
+        ascending = ast_node['ascending']
+        pct = ast_node.get('pct', False)
+        partition = ast_node['partition']
+        result_col = ast_node['result_col']
+        kwargs = f"ascending={ascending}, pct={pct}"
+        if partition:
+            return f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].rank({kwargs})"
+        return f"{table}[{result_col!r}] = {table}[{col!r}].rank({kwargs})"
+
+    def generate_shift_pandas(self, ast_node):
+        table = ast_node['table_name']
+        col = ast_node['column']
+        periods = ast_node['periods']
+        func = ast_node['func']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        n = periods if func == 'lag' else -periods
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if partition:
+            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].shift({n})")
+        else:
+            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].shift({n})")
+        return '\n'.join(lines)
+
+    def generate_cumulative_pandas(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']   # cumsum | cummean | cummin | cummax
+        col = ast_node['column']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if func == 'cummean':
+            if partition:
+                lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.expanding().mean())")
+            else:
+                lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].expanding().mean()")
+        else:
+            pandas_method = func  # cumsum, cummin, cummax all exist on pandas
+            if partition:
+                lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].{pandas_method}()")
+            else:
+                lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].{pandas_method}()")
+        return '\n'.join(lines)
+
+    def generate_rolling_pandas(self, ast_node):
+        table = ast_node['table_name']
+        func = ast_node['func']
+        col = ast_node['column']
+        window = ast_node['window']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        lines = []
+        if order_col:
+            lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        if partition:
+            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.rolling({window}).{func}())")
+        else:
+            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].rolling({window}).{func}()")
+        return '\n'.join(lines)
+
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
@@ -1835,9 +2262,32 @@ class CodeGenerator:
             by_code = f"'{by}'"
 
         if agg_list:
+            table = ast_node['table_name']
+            wavg_items = [i for i in agg_list if i['func'] == 'wavg']
+            regular_items = [i for i in agg_list if i['func'] != 'wavg']
+
+            # wavg requires named agg with a lambda — force that path
+            if wavg_items:
+                agg_args = []
+                for item in regular_items:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias', f"{col}_{func}")
+                    pandas_func = 'mean' if func == 'avg' else func
+                    agg_args.append(f"{alias}=('{col}', '{pandas_func}')")
+                for item in wavg_items:
+                    col = item['column']
+                    wt = item['weight']
+                    alias = item.get('alias', f"wavg_{col}")
+                    lam = (f"lambda x: (x * {table}.loc[x.index, {wt!r}]).sum()"
+                           f" / {table}.loc[x.index, {wt!r}].sum()")
+                    agg_args.append(f"{alias}=('{col}', {lam})")
+                agg_str = ', '.join(agg_args)
+                return f"{table} = {table}.groupby({by_code}).agg({agg_str}).reset_index()"
+
             # Check if any aliases exist
             has_aliases = any('alias' in item for item in agg_list)
-            
+
             if has_aliases:
                 # Use named aggregation syntax
                 # agg(alias=('col', 'func'))
@@ -1846,18 +2296,18 @@ class CodeGenerator:
                     col = item['column']
                     func = item['func']
                     alias = item.get('alias', None)
-                    
+
                     if isinstance(col, dict) and col.get('type') == 'var':
                         col_code = col['name']
                         if not alias:
-                             alias = f"agg_{func}" 
+                             alias = f"agg_{func}"
                     else:
                         col_code = f"'{col}'"
                         if not alias:
                             alias = f"{col}_{func}"
-                    
+
                     agg_args.append(f"{alias}=({col_code}, '{func}')")
-                
+
                 agg_str = ", ".join(agg_args)
                 return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).agg({agg_str}).reset_index()"
             else:

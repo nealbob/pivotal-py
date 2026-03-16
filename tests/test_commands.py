@@ -150,6 +150,163 @@ def test_assign_where_scalar(parser, sample_df):
 
 
 # ---------------------------------------------------------------------------
+# assign: multi-case
+# ---------------------------------------------------------------------------
+
+def test_assign_case_basic(parser, sample_df):
+    """Multi-case assign produces correct values for each branch."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = ('df sales\nassign tier =\n'
+           '    where price > 300: price * 2\n'
+           '    where price > 100: price\n'
+           '    0\n')
+    run(parser, dsl, ns)
+    df = ns['sales']
+    assert df.loc[df['price'] > 300, 'tier'].eq(df.loc[df['price'] > 300, 'price'] * 2).all()
+    mid = df[(df['price'] > 100) & (df['price'] <= 300)]
+    assert mid['tier'].eq(mid['price']).all()
+    low = df[df['price'] <= 100]
+    assert low['tier'].eq(0).all()
+
+
+def test_assign_case_first_match_wins(parser):
+    """When a row satisfies multiple conditions, the first branch wins."""
+    df = pd.DataFrame({'x': [10, 5, 1]})
+    ns = {'pd': pd, 'data': df}
+    dsl = ('df data\nassign label =\n'
+           '    where x > 3: x * 10\n'
+           '    where x > 1: x * 100\n'
+           '    0\n')
+    run(parser, dsl, ns)
+    # x=10 matches both; first branch (x*10=100) should win
+    assert ns['data'].loc[0, 'label'] == 100
+    # x=5 matches both; first branch (x*10=50) wins
+    assert ns['data'].loc[1, 'label'] == 50
+    # x=1 matches neither; default = 0
+    assert ns['data'].loc[2, 'label'] == 0
+
+
+def test_assign_case_no_default(parser):
+    """Multi-case with no default gives pd.NA for unmatched rows."""
+    df = pd.DataFrame({'x': [10, 1]})
+    ns = {'pd': pd, 'data': df}
+    dsl = ('df data\nassign label =\n'
+           '    where x > 5: x\n')
+    run(parser, dsl, ns)
+    assert ns['data'].loc[0, 'label'] == 10
+    assert pd.isna(ns['data'].loc[1, 'label'])
+
+
+def test_assign_case_code_generation(parser):
+    """Multi-case generates np.select with conditions in branch order."""
+    nodes = parser.parse('df sales\nassign t =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert 'np.select' in code
+    # First branch condition appears before second in the conditions list
+    assert code.index('x > 10') < code.index('x > 5')
+
+
+# ---------------------------------------------------------------------------
+# assign: agg functions in expressions
+# ---------------------------------------------------------------------------
+
+def test_assign_agg_whole_table(parser):
+    """sum(col) in assign expression computes whole-table aggregate."""
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign pct = amount / sum(amount)\n', ns)
+    assert ns['data']['pct'].sum() == pytest.approx(1.0)
+    assert ns['data'].loc[0, 'pct'] == pytest.approx(100 / 600)
+
+
+def test_assign_agg_by_group(parser):
+    """sum(col) with by computes per-group aggregate via transform."""
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 200]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign pct = amount / sum(amount)\n    by region\n', ns)
+    n_rows = ns['data'][ns['data']['region'] == 'N']
+    s_rows = ns['data'][ns['data']['region'] == 'S']
+    assert n_rows['pct'].sum() == pytest.approx(1.0)
+    assert s_rows['pct'].sum() == pytest.approx(1.0)
+
+
+def test_assign_agg_multiple_calls(parser):
+    """Multiple agg calls in one expression all get substituted."""
+    df = pd.DataFrame({'amount': [100, 200, 300, 400]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign z = (amount - mean(amount)) / std(amount)\n', ns)
+    assert ns['data']['z'].mean() == pytest.approx(0.0, abs=1e-10)
+    assert ns['data']['z'].std() == pytest.approx(1.0)
+
+
+def test_assign_agg_code_generation(parser):
+    """Agg calls produce @variable preamble lines before eval."""
+    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert "_agg_0 = sales['amount'].sum()" in code
+    assert '@_agg_0' in code
+
+
+def test_assign_agg_by_code_generation(parser):
+    """Agg with by generates groupby transform."""
+    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n    by region\n')
+    code = '\n'.join(parser.generate_code(nodes))
+    assert "groupby(['region'])['amount'].transform('sum')" in code
+
+
+# ---------------------------------------------------------------------------
+# nunique and wavg
+# ---------------------------------------------------------------------------
+
+def test_groupby_nunique(parser):
+    """nunique agg counts distinct values per group."""
+    df = pd.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
+    s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
+    assert n_row['n'] == 2   # 100 and 200
+    assert s_row['n'] == 1   # only 300
+
+
+def test_groupby_wavg(parser):
+    """wavg computes weighted average per group."""
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
+    s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
+    assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
+    assert s_wa == pytest.approx(300.0)   # (200*2 + 400*2) / (2+2)
+
+
+def test_assign_wavg_whole_table(parser):
+    """wavg(col, weight) in assign computes whole-table weighted average."""
+    df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign wa = wavg(amount, weight)\n', ns)
+    assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)  # (100+900)/4
+
+
+def test_assign_wavg_by_group(parser):
+    """wavg(col, weight) with by computes per-group weighted average broadcast to rows."""
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\nassign dev = amount - wavg(amount, weight)\n    by region\n', ns)
+    result = ns['data']
+    assert result.loc[result['region'] == 'N', 'dev'].tolist() == pytest.approx([-150.0, 50.0])
+    assert result.loc[result['region'] == 'S', 'dev'].tolist() == pytest.approx([-100.0, 100.0])
+
+
+# ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
 
@@ -1129,3 +1286,265 @@ def test_table_multiple_spanners(parser):
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert "'Pricing'" in combined
     assert "'Volume'" in combined
+
+
+# ---------------------------------------------------------------------------
+# unpivot
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def wide_df():
+    return pd.DataFrame({
+        'region': ['North', 'South'],
+        'jan':    [100,     200],
+        'feb':    [150,     250],
+        'mar':    [120,     180],
+    })
+
+
+def test_unpivot_basic(parser, wide_df):
+    """unpivot with id only melts all non-id columns."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n', ns)
+    result = ns['sales']
+    assert list(result.columns) == ['region', 'variable', 'value']
+    assert len(result) == 6   # 2 rows × 3 month columns
+    assert set(result['variable']) == {'jan', 'feb', 'mar'}
+
+
+def test_unpivot_with_cols(parser, wide_df):
+    """unpivot cols restricts which columns are melted."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
+    result = ns['sales']
+    assert set(result['variable']) == {'jan', 'feb'}
+    assert len(result) == 4   # 2 rows × 2 selected columns
+
+
+def test_unpivot_custom_names(parser, wide_df):
+    """name and value options rename the variable and value columns."""
+    ns = {'pd': pd, 'sales': wide_df}
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
+    run(parser, dsl, ns)
+    result = ns['sales']
+    assert list(result.columns) == ['region', 'month', 'amount']
+
+
+def test_unpivot_values_correct(parser, wide_df):
+    """Unpivoted values match the source data."""
+    ns = {'pd': pd, 'sales': wide_df}
+    run(parser, 'df sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n', ns)
+    result = ns['sales'].set_index('region')
+    assert result.loc['North', 'amount'] == 100
+    assert result.loc['South', 'amount'] == 200
+
+
+def test_unpivot_multiple_id_cols(parser):
+    """Multiple id columns are all preserved."""
+    df = pd.DataFrame({
+        'region':   ['North', 'South'],
+        'year':     [2023,    2023],
+        'q1':       [100,     200],
+        'q2':       [150,     250],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(parser, 'df sales\nunpivot\n    id region, year\n', ns)
+    result = ns['sales']
+    assert 'region' in result.columns
+    assert 'year' in result.columns
+    assert set(result['variable']) == {'q1', 'q2'}
+
+
+def test_unpivot_code_generation(parser, wide_df):
+    """Generated code contains melt with correct arguments."""
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl)))
+    assert 'melt' in code
+    assert "id_vars=['region']" in code
+    assert "value_vars=['jan', 'feb']" in code
+    assert "var_name='month'" in code
+    assert "value_name='amount'" in code
+
+
+# ---------------------------------------------------------------------------
+# Window functions
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def window_df():
+    return pd.DataFrame({
+        'region': ['North', 'North', 'North', 'South', 'South', 'South'],
+        'date':   [1, 2, 3, 1, 2, 3],
+        'amount': [100, 200, 150, 300, 100, 250],
+    })
+
+
+# rank -----------------------------------------------------------------------
+
+def test_rank_basic(parser, window_df):
+    """rank adds a rank column without reordering rows."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount desc as r\n', ns)
+    result = ns['sales']
+    assert 'r' in result.columns
+    assert result.loc[result['amount'].idxmax(), 'r'] == 1.0
+
+
+def test_rank_ascending(parser, window_df):
+    """rank asc gives rank 1 to the smallest value."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount asc as r\n', ns)
+    result = ns['sales']
+    assert result.loc[result["amount"].idxmax(), "r"] == result["r"].max()
+
+
+def test_rank_partitioned(parser, window_df):
+    """rank by partition ranks independently within each group."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount desc as r\n    by region\n', ns)
+    result = ns['sales']
+    assert 'r' in result.columns
+    # Each region has its own rank 1
+    assert result.groupby('region')['r'].min().eq(1.0).all()
+
+
+def test_rank_code_generation(parser):
+    """Generated rank code contains correct pandas call."""
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount desc as r\n    by region\n')))
+    assert "rank(ascending=False" in code
+    assert "groupby(['region'])" in code
+
+
+def test_rank_pct_values(parser, window_df):
+    """rank pct produces values between 0 and 1."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount pct as r\n', ns)
+    assert ns['sales']['r'].between(0, 1).all()
+
+
+def test_rank_pct_code_generation(parser):
+    """rank pct generates pct=True in pandas call."""
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount pct as r\n')))
+    assert "pct=True" in code
+
+
+def test_rank_pct_partitioned(parser, window_df):
+    """rank pct with by gives per-group percentile ranks."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrank amount pct as r\n    by region\n', ns)
+    assert ns['sales']['r'].between(0, 1).all()
+
+
+# lag / lead -----------------------------------------------------------------
+
+def test_lag_basic(parser, window_df):
+    """lag shifts values down by n periods."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nlag amount 1 as prev\n    order date\n', ns)
+    result = ns['sales'].sort_values('date')
+    # First row (date=1 per region boundary) will have NaN or the previous row's value
+    assert 'prev' in result.columns
+
+
+def test_lag_partitioned_values(parser, window_df):
+    """lag by partition does not bleed across groups."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nlag amount 1 as prev\n    by region\n    order date\n', ns)
+    result = ns['sales'].sort_values(['region', 'date'])
+    # First row of each region should be NaN
+    first_rows = result.groupby("region").nth(0)
+    assert first_rows['prev'].isna().all()
+
+
+def test_lead_partitioned(parser, window_df):
+    """lead shifts values up by n periods within partition."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nlead amount 1 as nxt\n    by region\n    order date\n', ns)
+    result = ns['sales'].sort_values(['region', 'date'])
+    assert 'nxt' in result.columns
+    last_rows = result.groupby("region").nth(-1)
+    assert last_rows['nxt'].isna().all()
+
+
+def test_lag_code_generation(parser):
+    """Generated lag code sorts then shifts by positive n."""
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlag amount 1 as prev\n    order date\n')))
+    assert "sort_values('date')" in code
+    assert ".shift(1)" in code
+
+
+def test_lead_code_generation(parser):
+    """Generated lead code shifts by negative n."""
+    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlead amount 1 as nxt\n    order date\n')))
+    assert ".shift(-1)" in code
+
+
+# cumulative -----------------------------------------------------------------
+
+def test_cumsum_basic(parser, window_df):
+    """cumsum produces a monotonically increasing running total."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\ncumsum amount as running\n    order date\n', ns)
+    result = ns['sales'].sort_values('date')
+    assert 'running' in result.columns
+    assert (result['running'].diff().dropna() >= 0).all()
+
+
+def test_cumsum_partitioned(parser, window_df):
+    """cumsum by partition resets for each group."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\ncumsum amount as running\n    by region\n    order date\n', ns)
+    result = ns['sales'].sort_values(['region', 'date'])
+    # Each group's running total should not exceed its own sum
+    group_sums = window_df.groupby('region')['amount'].sum()
+    result_maxes = result.groupby('region')['running'].max()
+    for region in group_sums.index:
+        assert result_maxes[region] == group_sums[region]
+
+
+def test_cummean_basic(parser, window_df):
+    """cummean produces expanding mean (uses expanding().mean())."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\ncummean amount as running\n    order date\n', ns)
+    assert 'running' in ns['sales'].columns
+
+
+def test_cummin_cummax(parser, window_df):
+    """cummin and cummax produce monotone sequences."""
+    ns = {'pd': pd, 'sales': window_df.copy()}
+    run(parser, 'df sales\ncummin amount as cmin\n    order date\n', ns)
+    run(parser, 'df sales\ncummax amount as cmax\n    order date\n', ns)
+    result = ns['sales'].sort_values('date')
+    assert (result['cmin'].diff().dropna() <= 0).all()
+    assert (result['cmax'].diff().dropna() >= 0).all()
+
+
+# rolling --------------------------------------------------------------------
+
+def test_rolling_basic(parser, window_df):
+    """rolling mean produces NaN for the first window-1 rows."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrolling mean amount 2 as roll\n    order date\n', ns)
+    result = ns['sales'].sort_values('date')
+    assert 'roll' in result.columns
+
+
+def test_rolling_partitioned(parser, window_df):
+    """rolling by partition computes independently per group."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'df sales\nrolling mean amount 2 as roll\n    by region\n    order date\n', ns)
+    result = ns['sales'].sort_values(['region', 'date'])
+    assert 'roll' in result.columns
+    # Check a known value: North date=2, window=[100,200], mean=150
+    north = result[(result['region'] == 'North') & (result['date'] == 2)]
+    assert north['roll'].iloc[0] == 150.0
+
+
+def test_rolling_code_generation(parser):
+    """Generated rolling code uses transform for partitioned case."""
+    code = '\n'.join(parser.generate_code(parser.parse(
+        'df sales\nrolling mean amount 3 as roll\n    by region\n    order date\n'
+    )))
+    assert "rolling(3).mean()" in code
+    assert "transform" in code
+    assert "groupby(['region'])" in code

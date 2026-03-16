@@ -22,18 +22,21 @@ interface PivotalState {
 const keywords: Record<string, true> = {
   load: true, df: true, filter: true,
   select: true, sort: true, order: true, by: true,
-  group: true, merge: true, pivot: true, apply: true,
+  group: true, merge: true, pivot: true, unpivot: true, apply: true,
   plot: true, python: true, from: true, where: true,
   as: true, on: true, rows: true, cols: true, assign: true,
   agg: true, drop: true, fillna: true, dropna: true, delete: true,
   distinct: true, concat: true, rename: true, save: true,
   table: true, stub: true, col: true, stripe: true,
+  rank: true, lag: true, lead: true,
+  cumsum: true, cummean: true, cummin: true, cummax: true, rolling: true,
+  id: true, variable: true, value: true,
 };
 
 const builtins: Record<string, true> = {
   mean: true, min: true, max: true, sum: true,
-  count: true, avg: true, median: true, std: true,
-  asc: true, desc: true, left: true, right: true,
+  count: true, avg: true, median: true, std: true, nunique: true, wavg: true,
+  asc: true, desc: true, pct: true, left: true, right: true,
   inner: true, outer: true,
   // word-operator comparators
   in: true, not: true, between: true,

@@ -46,8 +46,10 @@ Check out this live demo of Pivotal in Jupyter lab:
   - [Creating/Modifying Columns](#creatingmodifying-columns)
   - [Sorting](#sorting)
   - [Grouping and Aggregation](#grouping-and-aggregation)
+  - [Window Functions](#window-functions)
   - [Merging Tables](#merging-tables)
   - [Pivot Tables](#pivot-tables)
+  - [Unpivot (Melt)](#unpivot-melt)
   - [Data Cleaning](#data-cleaning)
     - [Delete a Table](#delete-a-table)
   - [Applying Python Functions](#applying-python-functions)
@@ -440,6 +442,68 @@ assign margin = profit / revenue
     where revenue > 0
 ```
 
+**Multi-case assignment** (equivalent to SQL `CASE WHEN`):
+
+```pivotal
+df sales
+assign tier =
+    where amount > 500: amount * 2
+    where amount > 100: amount
+    0
+```
+
+Each `where cond: expr` branch is evaluated in order — the first matching condition wins. An optional bare expression at the end acts as the default (rows matching no condition get `None` if omitted).
+
+```pivotal
+# Decile binning using pct rank
+df sales
+rank amount pct as r
+assign decile =
+    where r > 0.9: 10
+    where r > 0.8: 9
+    where r > 0.7: 8
+    where r > 0.6: 7
+    where r > 0.5: 6
+    where r > 0.4: 5
+    where r > 0.3: 4
+    where r > 0.2: 3
+    where r > 0.1: 2
+    1
+```
+
+**Aggregate functions inside expressions** — use `agg(col)` syntax to reference whole-table or group-level aggregates:
+
+```pivotal
+# Percent of total (whole table)
+df sales
+assign pct = amount / sum(amount)
+
+# Percent of group total
+df sales
+assign pct = amount / sum(amount)
+    by region
+
+# Z-score normalisation
+df sales
+assign z = (amount - mean(amount)) / std(amount)
+
+# Deviation from group mean
+df sales
+assign dev = amount - mean(amount)
+    by region
+
+# Deviation from weighted average (whole table)
+df sales
+assign dev = amount - wavg(amount, weight)
+
+# Deviation from weighted average by group
+df sales
+assign dev = amount - wavg(amount, weight)
+    by region
+```
+
+Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var`, `nunique`, `first`, `last`, `wavg(col, weight)`.
+
 **Arithmetic expressions:**
 - Reference columns directly by name
 - Standard arithmetic operators: `+`, `-`, `*`, `/`, `**`
@@ -528,7 +592,160 @@ group by region, category
 ```
 
 **Aggregation Functions:**
-- `sum`, `mean` / `avg`, `count`, `min`, `max`, `median`, `std`
+
+| Function | Description |
+|---|---|
+| `sum` | Total |
+| `mean` / `avg` | Average |
+| `count` | Non-null count |
+| `min` / `max` | Minimum / maximum |
+| `median` | Median |
+| `std` | Standard deviation |
+| `nunique` | Count of distinct values |
+| `wavg col weight` | Weighted average |
+
+```pivotal
+# Count distinct products per category
+df summary from sales
+group by category
+    agg nunique product as n_products, sum amount as total
+
+# Weighted average price by region (weighted by quantity)
+df wavg_price from sales
+group by region
+    agg wavg price quantity as avg_price
+```
+
+---
+
+### Window Functions
+
+Compute per-row statistics over a window of rows. All window statements add a new column to the active table without changing row order.
+
+All share a common optional clause structure using indented sub-blocks:
+- `by <cols>` — partition: compute independently within each group
+- `order <col>` — sort by this column before computing (required for lag/lead/cumulative/rolling)
+- `as <name>` — name for the new column (always required)
+
+`by` and `order` are written as indented lines below the statement.
+
+#### `rank`
+
+Rank rows by a column. Rows keep their original order.
+
+```pivotal
+# Rank all rows by amount, highest = 1
+rank amount desc as sales_rank
+
+# Rank within each region independently
+rank amount desc as regional_rank
+    by region
+
+# Filter to top 3 per region
+rank amount desc as regional_rank
+    by region
+filter regional_rank <= 3
+```
+
+Add `pct` to get percentile ranks (0–1) instead of integer ranks. Useful for quantile binning:
+
+```pivotal
+# Percentile rank
+rank amount pct as r
+
+# Decile bins (1–10)
+rank amount pct as r
+assign decile = floor(r * 10) + 1
+```
+
+#### `lag` and `lead`
+
+Access values from the previous (`lag`) or next (`lead`) row. Essential for period-over-period comparisons.
+
+```pivotal
+# Previous row's value (whole table, sorted by date)
+df sales
+lag amount 1 as prev_amount
+    order date
+
+# Previous value within each region
+df sales
+lag amount 1 as prev_amount
+    by region
+    order date
+
+# Next row's value
+df sales
+lead amount 1 as next_amount
+    by region
+    order date
+
+# Month-over-month change
+df sales
+lag amount 1 as prev_amount
+    by region
+    order date
+assign change = amount - prev_amount
+```
+
+#### Cumulative functions
+
+Running statistics that grow with each row.
+
+```pivotal
+# Running total
+df sales
+cumsum amount as running_total
+    by region
+    order date
+
+# Running average
+df sales
+cummean amount as running_avg
+    by region
+    order date
+
+# Running min / max
+df sales
+cummin amount as running_min
+    order date
+cummax amount as running_max
+    order date
+```
+
+| Statement | Description |
+|---|---|
+| `cumsum` | Running total |
+| `cummean` | Running (expanding) mean |
+| `cummin` | Running minimum |
+| `cummax` | Running maximum |
+
+#### `rolling`
+
+Sliding window over the last N rows.
+
+```pivotal
+# 7-period rolling average (whole table)
+df sales
+rolling mean amount 7 as rolling_avg
+    order date
+
+# Rolling average per region
+df sales
+rolling mean amount 7 as rolling_avg
+    by region
+    order date
+
+# Rolling sum
+df sales
+rolling sum amount 4 as rolling_total
+    by region
+    order date
+```
+
+Supported functions: `mean`, `sum`, `min`, `max`, `std`.
+
+The first `N-1` rows of each window produce `NaN` since there are not yet enough rows to fill the window.
 
 ---
 
@@ -608,6 +825,42 @@ pivot
 - `max` - Maximum value
 - `median` - Median value
 - `std` - Standard deviation
+
+---
+
+### Unpivot (Melt)
+
+The inverse of `pivot` — collapse wide columns into rows. Requires an indented block.
+
+```pivotal
+# Minimal: id only — all other columns are melted
+df monthly_sales
+unpivot
+    id region
+
+# Specify which columns to melt
+df monthly_sales
+unpivot
+    id region
+    cols jan, feb, mar
+
+# Custom column names for the result
+df monthly_sales
+unpivot
+    id region
+    cols jan, feb, mar
+    variable "month"
+    value "amount"
+```
+
+| Option | Required | Description |
+|---|---|---|
+| `id <cols>` | Yes | Columns to keep as identifier variables |
+| `cols <cols>` | No | Columns to melt (default: all non-id columns) |
+| `variable "string"` | No | Name for the new variable column (default: `"variable"`) |
+| `value "string"` | No | Name for the new value column (default: `"value"`) |
+
+The result is the active table reshaped from wide to long format.
 
 ---
 
