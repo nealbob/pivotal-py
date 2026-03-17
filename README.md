@@ -2,7 +2,7 @@
 
 <img src="pivotal_logo.svg" width="120">
 
-**Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-like syntax for common data operations which compiles to Python (pandas) code.
+**Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-ish syntax for common data operations which compiles to Python (pandas) code.
 
 <img src="ataglance.png" width="600">
 
