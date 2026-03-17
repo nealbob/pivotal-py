@@ -116,10 +116,10 @@ Use the `%%pivotal` cell magic in any notebook:
 load sales "data/sales.csv"
 
 df sales
-filter amount > 1000
-group by region
-    agg sum amount as total
-sort total desc
+    filter amount > 1000
+    group by region
+        agg sum amount as total
+    sort total desc
 ```
 
 - Syntax highlighting activates automatically on any cell whose first line is `%%pivotal`
@@ -198,7 +198,7 @@ Override for a single cell:
 ```
 %%pivotal output_type=inline output_code=true
 df sales
-filter amount > 1000
+    filter amount > 1000
 ```
 
 ### Autocomplete
@@ -227,9 +227,9 @@ Column names and table names are sourced from a `pivotal_autocomplete.json` file
    load sales "data/sales.csv"
 
    df sales
-   filter amount > 1000
-   select customer_id, product, amount
-   sort amount desc
+       filter amount > 1000
+       select customer_id, product, amount
+       sort amount desc
    ```
 3. Press `Ctrl+F5` to run in the terminal, or click **Execute in Interactive Notebook** in the title bar to see live DataFrame output
 
@@ -242,10 +242,10 @@ Create a new notebook cell, set its first line to `%%pivotal`, and write your co
 load sales "data/sales.csv"
 
 df sales
-filter amount > 1000
-group by region
-    agg sum amount as total
-sort total desc
+    filter amount > 1000
+    group by region
+        agg sum amount as total
+    sort total desc
 ```
 
 Run the cell — the resulting DataFrame displays inline.
@@ -267,9 +267,9 @@ dsl_code = """
 load sales "sales_data.csv"
 
 df sales
-filter amount > 1000
-select customer_id, product, amount
-sort amount desc
+    filter amount > 1000
+    select customer_id, product, amount
+    sort amount desc
 """
 
 ns = {}
@@ -329,9 +329,9 @@ load all
 ```pivotal
 # Work with an existing table
 df sales
-filter price > 100
-select product, price
-sort price desc
+    filter price > 100
+    select product, price
+    sort price desc
 ```
 
 #### Create a Derived Table
@@ -339,7 +339,7 @@ sort price desc
 ```pivotal
 # Copy from an existing table and work on the copy
 df filtered_data from sales
-filter price > 100
+    filter price > 100
 ```
 
 
@@ -352,29 +352,29 @@ Filter rows based on conditions. Conditions go on the same line as `filter`:
 ```pivotal
 # Comparison
 df active_users from users
-filter status == "active"
+    filter status == "active"
 
 # Logical operators
 df premium_sales from sales
-filter amount > 1000 and category == "premium"
+    filter amount > 1000 and category == "premium"
 
 # Membership
 df regional_data from sales
-filter region in ["North", "South", "East"]
+    filter region in ["North", "South", "East"]
 
 # Range (inclusive)
 df mid_range from sales
-filter price between [100, 500]
+    filter price between [100, 500]
 
 # String matching
 df laptop_sales from sales
-filter product contains "Laptop"
+    filter product contains "Laptop"
 
 df recent from logs
-filter event startswith "login"
+    filter event startswith "login"
 
 df errors from logs
-filter message not contains "warning"
+    filter message not contains "warning"
 ```
 
 **Supported Operators:**
@@ -392,10 +392,10 @@ Choose specific columns to keep:
 
 ```pivotal
 df customer_summary from customers
-select customer_id, name, email
+    select customer_id, name, email
 
 df sales_metrics from sales
-select product, quantity, revenue, profit_margin
+    select product, quantity, revenue, profit_margin
 ```
 
 ---
@@ -407,29 +407,29 @@ Create new columns or modify existing ones with assignment expressions:
 ```pivotal
 # Simple calculation
 df sales
-total = price * quantity
+    total = price * quantity
 
 # Conditional assignment (only sets the column where the condition is true)
 df products from catalog
-discount_price = price * 0.9
-    where category == "clearance"
+    discount_price = price * 0.9
+        where category == "clearance"
 
 # Multiple operations chained
 df analysis from sales
-revenue = price * quantity
-profit = revenue - cost
-margin = profit / revenue
-    where revenue > 0
+    revenue = price * quantity
+    profit = revenue - cost
+    margin = profit / revenue
+        where revenue > 0
 ```
 
 **Multi-case assignment** (equivalent to SQL `CASE WHEN`):
 
 ```pivotal
 df sales
-tier =
-    where amount > 500: amount * 2
-    where amount > 100: amount
-    0
+    tier =
+        where amount > 500: amount * 2
+        where amount > 100: amount
+        0
 ```
 
 Each `where cond: expr` branch is evaluated in order — the first matching condition wins. An optional bare expression at the end acts as the default (rows matching no condition get `None` if omitted).
@@ -439,18 +439,18 @@ Each `where cond: expr` branch is evaluated in order — the first matching cond
 ```pivotal
 # Decile binning using pct rank
 df sales
-rank amount pct as r
-decile =
-    where r > 0.9: 10
-    where r > 0.8: 9
-    where r > 0.7: 8
-    where r > 0.6: 7
-    where r > 0.5: 6
-    where r > 0.4: 5
-    where r > 0.3: 4
-    where r > 0.2: 3
-    where r > 0.1: 2
-    1
+    rank amount pct as r
+    decile =
+        where r > 0.9: 10
+        where r > 0.8: 9
+        where r > 0.7: 8
+        where r > 0.6: 7
+        where r > 0.5: 6
+        where r > 0.4: 5
+        where r > 0.3: 4
+        where r > 0.2: 3
+        where r > 0.1: 2
+        1
 ```
 
 **Aggregate functions inside expressions** — use `agg(col)` syntax to reference whole-table or group-level aggregates:
@@ -458,30 +458,30 @@ decile =
 ```pivotal
 # Percent of total (whole table)
 df sales
-pct = amount / sum(amount)
+    pct = amount / sum(amount)
 
 # Percent of group total
 df sales
-pct = amount / sum(amount)
-    by region
+    pct = amount / sum(amount)
+        by region
 
 # Z-score normalisation
 df sales
-z = (amount - mean(amount)) / std(amount)
+    z = (amount - mean(amount)) / std(amount)
 
 # Deviation from group mean
 df sales
-dev = amount - mean(amount)
-    by region
+    dev = amount - mean(amount)
+        by region
 
 # Deviation from weighted average (whole table)
 df sales
-dev = amount - wavg(amount, weight)
+    dev = amount - wavg(amount, weight)
 
 # Deviation from weighted average by group
 df sales
-dev = amount - wavg(amount, weight)
-    by region
+    dev = amount - wavg(amount, weight)
+        by region
 ```
 
 Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var`, `nunique`, `first`, `last`, `wavg(col, weight)`.
@@ -511,8 +511,8 @@ Functions can be nested: `up3 = upper(left(name, 3))`
 
 ```pivotal
 df customers
-full_name = last_name + ", " + first_name
-label     = upper(left(first_name, 1)) + ". " + last_name
+    full_name = last_name + ", " + first_name
+    label     = upper(left(first_name, 1)) + ". " + last_name
 ```
 
 **Calling a Python function** (function must be in the session namespace):
@@ -523,7 +523,7 @@ python
         return s.str.replace("$", "").astype(float)
 
 df sales
-price = clean_price(price)
+    price = clean_price(price)
 ```
 
 ---
@@ -535,15 +535,15 @@ Sort data by one or more columns:
 ```pivotal
 # Single column, ascending (default)
 df sorted_sales from sales
-sort amount
+    sort amount
 
 # Single column, descending
 df top_performers from sales
-sort revenue desc
+    sort revenue desc
 
 # Multiple columns
 df ranked_products from sales
-sort category asc, sales desc, price asc
+    sort category asc, sales desc, price asc
 ```
 
 **Sort Orders:**
@@ -559,18 +559,18 @@ Group rows and compute aggregate statistics with an indented `agg` block:
 ```pivotal
 # Sum one column
 df revenue_by_region from sales
-group by region
-    agg sum amount
+    group by region
+        agg sum amount
 
 # Multiple aggregations
 df summary from sales
-group by category
-    agg sum amount as total, mean amount as avg_amount, count amount as n
+    group by category
+        agg sum amount as total, mean amount as avg_amount, count amount as n
 
 # Group by multiple columns
 df detailed from sales
-group by region, category
-    agg sum amount as total, max amount as peak
+    group by region, category
+        agg sum amount as total, max amount as peak
 ```
 
 **Aggregation Functions:**
@@ -589,13 +589,13 @@ group by region, category
 ```pivotal
 # Count distinct products per category
 df summary from sales
-group by category
-    agg nunique product as n_products, sum amount as total
+    group by category
+        agg nunique product as n_products, sum amount as total
 
 # Weighted average price by region (weighted by quantity)
 df wavg_price from sales
-group by region
-    agg wavg price quantity as avg_price
+    group by region
+        agg wavg price quantity as avg_price
 ```
 
 ---
@@ -647,27 +647,27 @@ Access values from the previous (`lag`) or next (`lead`) row. Essential for peri
 ```pivotal
 # Previous row's value (whole table, sorted by date)
 df sales
-lag amount 1 as prev_amount
-    order date
+    lag amount 1 as prev_amount
+        order date
 
 # Previous value within each region
 df sales
-lag amount 1 as prev_amount
-    by region
-    order date
+    lag amount 1 as prev_amount
+        by region
+        order date
 
 # Next row's value
 df sales
-lead amount 1 as next_amount
-    by region
-    order date
+    lead amount 1 as next_amount
+        by region
+        order date
 
 # Month-over-month change
 df sales
-lag amount 1 as prev_amount
-    by region
-    order date
-change = amount - prev_amount
+    lag amount 1 as prev_amount
+        by region
+        order date
+    change = amount - prev_amount
 ```
 
 #### Cumulative functions
@@ -677,22 +677,22 @@ Running statistics that grow with each row.
 ```pivotal
 # Running total
 df sales
-cumsum amount as running_total
-    by region
-    order date
+    cumsum amount as running_total
+        by region
+        order date
 
 # Running average
 df sales
-cummean amount as running_avg
-    by region
-    order date
+    cummean amount as running_avg
+        by region
+        order date
 
 # Running min / max
 df sales
-cummin amount as running_min
-    order date
-cummax amount as running_max
-    order date
+    cummin amount as running_min
+        order date
+    cummax amount as running_max
+        order date
 ```
 
 | Statement | Description |
@@ -709,20 +709,20 @@ Sliding window over the last N rows.
 ```pivotal
 # 7-period rolling average (whole table)
 df sales
-rolling mean amount 7 as rolling_avg
-    order date
+    rolling mean amount 7 as rolling_avg
+        order date
 
 # Rolling average per region
 df sales
-rolling mean amount 7 as rolling_avg
-    by region
-    order date
+    rolling mean amount 7 as rolling_avg
+        by region
+        order date
 
 # Rolling sum
 df sales
-rolling sum amount 4 as rolling_total
-    by region
-    order date
+    rolling sum amount 4 as rolling_total
+        by region
+        order date
 ```
 
 Supported functions: `mean`, `sum`, `min`, `max`, `std`.
@@ -738,19 +738,19 @@ Merge two tables together:
 ```pivotal
 # Inner merge (default)
 df combined from sales
-merge other_table on customer_id
+    merge other_table on customer_id
 
 # Left merge
 df sales_with_customers from sales
-left merge customers on customer_id
+    left merge customers on customer_id
 
 # Outer merge
 df full_data from table1
-outer merge secondary on id
+    outer merge secondary on id
 
 # Merge on multiple keys
 df matched from table1
-merge other on key1, key2
+    merge other on key1, key2
 ```
 
 **Merge Types:**
@@ -762,10 +762,10 @@ merge other on key1, key2
 **Advanced Parameters:**
 ```pivotal
 df complex_merge from table1
-left merge table2
-    left_on id
-    right_on customer_id
-    suffixes ["_left", "_right"]
+    left merge table2
+        left_on id
+        right_on customer_id
+        suffixes ["_left", "_right"]
 ```
 
 Accepts all keyword arguments of `pandas.merge()`.
@@ -779,24 +779,24 @@ Create pivot tables with aggregations:
 ```pivotal
 # Basic pivot
 df sales_pivot from sales
-pivot
-    agg sum amount
-    rows product
-    cols region
+    pivot
+        agg sum amount
+        rows product
+        cols region
 
 # Multiple aggregations on multiple columns
 df multi_metric_pivot from sales
-pivot
-    agg sum revenue, mean quantity
-    rows category
-    cols quarter
+    pivot
+        agg sum revenue, mean quantity
+        rows category
+        cols quarter
 
 # Complex pivot with multiple functions per column
 df detailed_summary from sales
-pivot
-    agg sum sales, mean profit, sum units
-    rows product, category
-    cols region, quarter
+    pivot
+        agg sum sales, mean profit, sum units
+        rows product, category
+        cols region, quarter
 ```
 
 **Aggregation Functions:**
@@ -817,22 +817,22 @@ The inverse of `pivot` — collapse wide columns into rows. Requires an indented
 ```pivotal
 # Minimal: id only — all other columns are melted
 df monthly_sales
-unpivot
-    id region
+    unpivot
+        id region
 
 # Specify which columns to melt
 df monthly_sales
-unpivot
-    id region
-    cols jan, feb, mar
+    unpivot
+        id region
+        cols jan, feb, mar
 
 # Custom column names for the result
 df monthly_sales
-unpivot
-    id region
-    cols jan, feb, mar
-    variable "month"
-    value "amount"
+    unpivot
+        id region
+        cols jan, feb, mar
+        variable "month"
+        value "amount"
 ```
 
 | Option | Required | Description |
@@ -854,7 +854,7 @@ Remove one or more columns:
 
 ```pivotal
 df clean from sales
-drop id, internal_ref
+    drop id, internal_ref
 ```
 
 #### Rename Columns
@@ -863,7 +863,7 @@ Rename columns with `as`:
 
 ```pivotal
 df renamed from sales
-rename product as item, quantity as qty, unit_price as price
+    rename product as item, quantity as qty, unit_price as price
 ```
 
 #### Handle Missing Values
@@ -873,18 +873,18 @@ Fill or drop rows with null values:
 ```pivotal
 # Fill all nulls with a scalar value
 df filled from raw
-fillna 0
+    fillna 0
 
 df filled_str from raw
-fillna "unknown"
+    fillna "unknown"
 
 # Drop rows that contain any null
 df complete from raw
-dropna
+    dropna
 
 # Drop rows where specific columns are null
 df complete from raw
-dropna price, quantity
+    dropna price, quantity
 ```
 
 #### De-duplicate
@@ -894,11 +894,11 @@ Remove duplicate rows:
 ```pivotal
 # Remove fully duplicate rows
 df unique from sales
-distinct
+    distinct
 
 # Remove duplicates based on specific columns
 df unique from sales
-distinct product, category
+    distinct product, category
 ```
 
 #### Delete a Table
@@ -918,11 +918,11 @@ Stack tables vertically:
 ```pivotal
 # Append one table to another
 df combined from jan_sales
-concat feb_sales
+    concat feb_sales
 
 # Append multiple tables at once
 df all_sales from q1
-concat q2, q3, q4
+    concat q2, q3, q4
 ```
 
 ---
@@ -938,7 +938,7 @@ A `python` line can be used in two ways:
 **Single-line** — put the code directly on the same line:
 ```pivotal
 df sales
-python sales["full_name"] = sales["last"] + ", " + sales["first"]
+    python sales["full_name"] = sales["last"] + ", " + sales["first"]
 ```
 
 **Multi-line block** — write an indented block and close it with `end`:
@@ -952,8 +952,8 @@ python
 end
 
 df sales
-price = clean_price(price)
-abbr  = initials(name)
+    price = clean_price(price)
+    abbr  = initials(name)
 ```
 
 The `end` keyword is required to close a multi-line `python` block. It must appear at the same indentation level as the opening `python` keyword.
@@ -973,8 +973,8 @@ python
 end
 
 df sales
-price = clean_price(price)
-abbr  = initials(name)
+    price = clean_price(price)
+    abbr  = initials(name)
 ```
 
 #### `apply` — DataFrame-level transforms
@@ -991,9 +991,9 @@ python
 end
 
 df sales
-apply remove_outliers
-group by category
-    agg mean price as avg_price
+    apply remove_outliers
+    group by category
+        agg mean price as avg_price
 ```
 
 ---
@@ -1006,33 +1006,33 @@ can be referenced in `save` include/exclude lists.
 ```pivotal
 # Basic plot (name only, chart type set via params)
 df summary
-plot revenue_chart
-    kind "bar"
-    x category
-    y total_revenue
-    title "Revenue by Category"
+    plot revenue_chart
+        kind "bar"
+        x category
+        y total_revenue
+        title "Revenue by Category"
 
 # Shorthand: chart type as the first argument, name second
 df summary
-plot bar revenue_chart
-    x category
-    y total_revenue
-    title "Revenue by Category"
+    plot bar revenue_chart
+        x category
+        y total_revenue
+        title "Revenue by Category"
 
 # Line chart
 df trends
-plot line price_trend
-    x date
-    y price
-    legend False
+    plot line price_trend
+        x date
+        y price
+        legend False
 
 # Scatter chart
 df raw
-plot scatter price_vs_qty
-    x price
-    y quantity
-    c category
-    colormap "viridis"
+    plot scatter price_vs_qty
+        x price
+        y quantity
+        c category
+        colormap "viridis"
 ```
 
 All keyword arguments accepted by `DataFrame.plot()` can be passed as indented
@@ -1045,11 +1045,11 @@ number of columns in the grid (rows are calculated automatically):
 
 ```pivotal
 df sales
-plot bar regional_chart
-    x category
-    y revenue
-    by region
-    cols 2
+    plot bar regional_chart
+        x category
+        y revenue
+        by region
+        cols 2
 ```
 
 Empty subplot cells are hidden automatically and `tight_layout()` is applied.
@@ -1060,10 +1060,10 @@ Use `style <name>` to apply a matplotlib style before rendering the chart:
 
 ```pivotal
 df summary
-plot bar revenue_chart
-    x category
-    y total
-    style reports
+    plot bar revenue_chart
+        x category
+        y total
+        style reports
 ```
 
 The `<name>` is resolved in this order:
@@ -1103,23 +1103,22 @@ Create formatted HTML tables using the [Great Tables](https://posit-dev.github.i
 
 ```pivotal
 df results
-
-table summary
-    title "Season Results"
-    subtitle "All matches, 2023–24"
-    font size 11
-    font "Georgia"
-    stub team, division "Club"
-    spanner goals, win_rate "Performance"
-    spanner revenue "Financials"
-    label goals as "Goals Scored", win_rate as "Win %", revenue as "Revenue"
-    format number 1
-    format revenue as currency GBP
-    format win_rate as percent 1
-    summary sum as "Total", mean as "Average"
-    stripe
-    canvas a4
-    style "my_table_style.py"
+    table summary
+        title "Season Results"
+        subtitle "All matches, 2023–24"
+        font size 11
+        font "Georgia"
+        stub team, division "Club"
+        spanner goals, win_rate "Performance"
+        spanner revenue "Financials"
+        label goals as "Goals Scored", win_rate as "Win %", revenue as "Revenue"
+        format number 1
+        format revenue as currency GBP
+        format win_rate as percent 1
+        summary sum as "Total", mean as "Average"
+        stripe
+        canvas a4
+        style "my_table_style.py"
 ```
 
 #### Table options
@@ -1188,14 +1187,13 @@ Each `spanner` line generates a `tab_spanner(label=..., columns=[...])` call. Mu
 
 ```pivotal
 df monthly_sales from raw
-pivot
-    agg sum revenue, sum quantity
-    rows product
-    cols region
-
-table t1
-    stub product "Product"
-    auto spanner
+    pivot
+        agg sum revenue, sum quantity
+        rows product
+        cols region
+    table t1
+        stub product "Product"
+        auto spanner
 ```
 
 When `auto spanner` is used, the generated code:
@@ -1355,9 +1353,9 @@ Each chart is saved as both an image and a CSV of the underlying data:
 
 ```pivotal
 df summary
-plot bar revenue_chart
-    x category
-    y total_revenue
+    plot bar revenue_chart
+        x category
+        y total_revenue
 
 save "my_analysis"
     path "~/output"
@@ -1381,8 +1379,8 @@ end
 load all
 
 df summary
-filter total_revenue > 1000
-sort total_revenue desc
+    filter total_revenue > 1000
+    sort total_revenue desc
 ```
 
 #### Example: two-file pipeline
@@ -1392,18 +1390,17 @@ sort total_revenue desc
 load raw "raw/sales_2024.csv"
 
 df clean from raw
-dropna amount, customer_id
-distinct
+    dropna amount, customer_id
+    distinct
 
 df summary from clean
-group by category
-    agg sum amount as total, count amount as n
-sort total desc
-
-plot bar revenue_chart
-    x category
-    y total
-    title "Revenue by Category"
+    group by category
+        agg sum amount as total, count amount as n
+    sort total desc
+    plot bar revenue_chart
+        x category
+        y total
+        title "Revenue by Category"
 
 save "sales_pipeline"
     path "~/projects/output"
@@ -1421,8 +1418,8 @@ end
 load all
 
 df top from summary
-filter total > 10000
-sort total desc
+    filter total > 10000
+    sort total desc
 ```
 
 ---
@@ -1539,25 +1536,25 @@ load products "product_catalog.csv"
 
 # Filter high-value sales
 df high_value from sales
-filter amount > 500
-select customer_id, product_id, amount, date
+    filter amount > 500
+    select customer_id, product_id, amount, date
 
 # Merge with product info
 df enriched_sales from high_value
-left merge products on product_id
-select customer_id, product_name, category, amount
+    left merge products on product_id
+    select customer_id, product_name, category, amount
 
 # Calculate metrics
 df analysis from enriched_sales
-revenue = amount
-is_premium = amount > 1000
+    revenue = amount
+    is_premium = amount > 1000
 
 # Create summary pivot
 df category_summary from analysis
-pivot
-    agg sum revenue, mean revenue, count revenue
-    rows category
-    cols is_premium
+    pivot
+        agg sum revenue, mean revenue, count revenue
+        rows category
+        cols is_premium
 ```
 
 ### Example 2: Customer Segmentation
@@ -1569,20 +1566,20 @@ load transactions "transaction_log.csv"
 
 # Aggregate by customer
 df customer_summary from transactions
-group by customer_id
-    agg sum amount as total_spent
+    group by customer_id
+        agg sum amount as total_spent
 
 # Segment customers
 df segments from customer_summary
-segment = "low"
+    segment = "low"
 
 df high_value from segments
-segment = "high"
-    where total_spent > 1000
+    segment = "high"
+        where total_spent > 1000
 
 df medium_value from segments
-segment = "medium"
-    where total_spent > 500 and total_spent <= 1000
+    segment = "medium"
+        where total_spent > 500 and total_spent <= 1000
 ```
 
 ### Example 3: Time Series Analysis
@@ -1594,24 +1591,24 @@ load timeseries "sensor_data.csv"
 
 # Filter by date range
 df recent_data from timeseries
-filter date >= "2024-01-01"
-select sensor_id, date, temperature, humidity
+    filter date >= "2024-01-01"
+    select sensor_id, date, temperature, humidity
 
 # Calculate derived columns
 df with_metrics from recent_data
-temp_fahrenheit = temperature * 9 / 5 + 32
-comfort_index = temperature * 0.7 + humidity * 0.3
+    temp_fahrenheit = temperature * 9 / 5 + 32
+    comfort_index = temperature * 0.7 + humidity * 0.3
 
 # Sort chronologically
 df chronological from with_metrics
-sort date asc, sensor_id asc
+    sort date asc, sensor_id asc
 
 # Create pivot by sensor
 df sensor_pivot from chronological
-pivot
-    agg mean temperature, min temperature, max temperature
-    rows date
-    cols sensor_id
+    pivot
+        agg mean temperature, min temperature, max temperature
+        rows date
+        cols sensor_id
 ```
 
 ### Example 4: Data Cleaning Pipeline
@@ -1622,29 +1619,29 @@ load raw_data "input.csv"
 
 # Drop columns we don't need
 df trimmed from raw_data
-drop internal_id, last_modified
+    drop internal_id, last_modified
 
 # Rename for clarity
 df renamed from trimmed
-rename cust_nm as customer_name, val as value, cat as category
+    rename cust_nm as customer_name, val as value, cat as category
 
 # Remove rows with missing critical fields
 df no_nulls from renamed
-dropna customer_name, value
+    dropna customer_name, value
 
 # Fill remaining nulls in non-critical fields
 df filled from no_nulls
-fillna "uncategorised"
+    fillna "uncategorised"
 
 # Remove duplicates on key columns
 df deduped from filled
-distinct customer_name, value, category
+    distinct customer_name, value, category
 
 # Filter to valid range and known categories
 df final_data from deduped
-filter value between [0, 10000]
-filter category not contains "test"
-sort value desc
+    filter value between [0, 10000]
+    filter category not contains "test"
+    sort value desc
 ```
 
 ---
@@ -1676,20 +1673,20 @@ load data file.csv
 ```pivotal
 # Good
 df high_value_customers from customers
-filter total_spent > 1000
+    filter total_spent > 1000
 
 # Less clear
 df t1 from customers
-filter total_spent > 1000
+    filter total_spent > 1000
 ```
 
 ### 2. **Chain Operations on the Active Table**
 ```pivotal
 df analysis from raw_data
-filter status == "active"      # filter first
-select id, name, value          # then narrow columns
-normalized = value / 100 # then compute
-sort normalized desc             # finally sort
+    filter status == "active"      # filter first
+    select id, name, value          # then narrow columns
+    normalized = value / 100 # then compute
+    sort normalized desc             # finally sort
 ```
 
 ### 3. **Use Indentation Consistently**
@@ -1698,13 +1695,13 @@ Pivotal uses indentation to define sub-blocks (`agg`, `where`, `pivot` params, `
 ### 4. **Break Complex Pipelines into Named Steps**
 ```pivotal
 df step1 from raw_data
-filter condition1
+    filter condition1
 
 df step2 from step1
-merge other_data on key
+    merge other_data on key
 
 df final from step2
-select needed_columns
+    select needed_columns
 ```
 
 ### 5. **Test Incrementally**
