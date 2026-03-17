@@ -9,7 +9,7 @@
 
   - [] grammer extensions, date operations
   
-  - describe / sample Visual summary via tabulator?
+  - describe / sample Visual summary via tabulator? plus showing df changes...
 
   - [] Duckdb / SQL support
 
@@ -26,9 +26,6 @@
   - [ ] VSCODE extension: Fix bug where pivotal code is embedded inside a *.py file. 
 
   - cast / type conversion
-
-
-  - Diff feedback...? via explorer panel? (changes in row /column dimensions)
 
   - schema support (read and write) in frictionless / sql
 

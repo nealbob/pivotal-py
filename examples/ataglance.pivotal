@@ -3,8 +3,8 @@ load customers "customers.csv"
 
 df invoices
     filter invoice_date >= "1970-01-16"
-    assign transaction_fees = 0.8
-    assign income = total - transaction_fees
+    transaction_fees = 0.8
+    income = total - transaction_fees
     filter income > 1
 
 df summary from invoices
@@ -12,10 +12,9 @@ df summary from invoices
         agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     left merge customers on customer_id
-    assign name = last_name + ", " + first_name
+    name = last_name + ", " + first_name
     select customer_id, name, sum_income
 
-# export all to Frictionless Data Package
 save "my_analysis"
     path "~/projects/output"
 
