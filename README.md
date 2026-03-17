@@ -4,10 +4,6 @@
 
 **Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-like syntax for common data operations which compiles to Python (pandas) code.
 
-## At a Glance
-
-The syntax of Pivotal has some similarites with piped-SQL, while replicating aspects of Python (i.e., indentation rather than brackets):
-
 <img src="examples/ataglance.png" width="600">
 
 Check out this live demo of Pivotal in Jupyter lab:
