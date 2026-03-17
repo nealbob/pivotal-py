@@ -4,8 +4,6 @@
 
 **Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-like syntax for common data operations which compiles to Python (pandas) code.
 
-
-
 ## At a Glance
 
 The syntax of Pivotal has some similarites with "piped-SQL" varients including [PRQL](https://prql-lang.org), while replicating aspects of Python (i.e., indentation rather than brackets):
@@ -73,7 +71,7 @@ cd pivotal-py
 pip install .
 ```
 
-Dependencies installed automatically: `lark`, `pandas`, `matplotlib`, `great-tables`, `numpy`, `ipywidgets`, `sqlalchemy`.
+Dependencies installed automatically: `lark`, `pandas`, `matplotlib`, `great-tables`, `numpy`, `ipywidgets`.
 
 ### JupyterLab Extension
 
