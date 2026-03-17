@@ -29,7 +29,6 @@ Check out this live demo of Pivotal in Jupyter lab:
 **Plotting and table support** - Simple syntax for charts and tables via matplotlib and Great Tables
 
 **Frictionless data-packages** - Export all notebook content (dataframes, charts, tables, code) to a single [Frictionless](https://specs.frictionlessdata.io/) data-package 
----
 
 ## Table of Contents
 
