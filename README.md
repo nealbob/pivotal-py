@@ -5,21 +5,6 @@
 **Pivotal** is a Python-based Domain-Specific Language (DSL) for data processing. It provides a clean, readable SQL-like syntax for common data operations which compiles to Python (pandas) code.
 
 
-## Features
-
-**Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
-
-**Pandas-Powered** - Compiles to pandas, integrates with python code
-
-**Pipeline-Oriented** - Piped by default. Chain operations naturally with indentation blocks
-
-**JupyterLab Integration** - `%%pivotal` cell magic with autocomplete and syntax highlighting, interactive dataframe and chart viewer
-
-**VS Code Integration** - Syntax highlighting, autocomplete, interactive execution, Python code export
-
-**Plotting and table support** - Simple syntax for charts and tables via matplotlib and Great Tables
-
-**Frictionless data-packages** - Export all notebook content (dataframes, charts, tables, code) to a single [Frictionless](https://specs.frictionlessdata.io/) data-package 
 
 ## At a Glance
 
@@ -31,6 +16,21 @@ Check out this live demo of Pivotal in Jupyter lab:
 
 [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
+### Features
+
+**Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
+
+**Pandas-Powered** - Compiles to pandas, integrates with python code
+
+**Pipeline-Oriented** - Piped by default. Chain operations naturally with indentation blocks
+
+**JupyterLab Integration** - `%%pivotal` cell magic with autocomplete and syntax highlighting, interactive dataframe and chart viewer, no-code pivot tables and charts
+
+**VS Code Integration** - Syntax highlighting, auto-complete, interactive execution, Python code export
+
+**Plotting and table support** - Simple syntax for charts and tables via matplotlib and Great Tables
+
+**Frictionless data-packages** - Export all notebook content (dataframes, charts, tables, code) to a single [Frictionless](https://specs.frictionlessdata.io/) data-package 
 ---
 
 ## Table of Contents
@@ -65,28 +65,24 @@ Check out this live demo of Pivotal in Jupyter lab:
 
 ## Installation
 
-### Prerequisites
-- Python 3.7+
-- pandas
-- lark-parser
-
-### Install Dependencies
+### Core package
 
 ```bash
-pip install pandas lark-parser
+git clone https://github.com/nealbob/pivotal-py
+cd pivotal-py
+pip install .
 ```
 
-### Setup
+Dependencies installed automatically: `lark`, `pandas`, `matplotlib`, `great-tables`, `numpy`, `ipywidgets`, `sqlalchemy`.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/pivotal/pivotal-py
-   cd pivotal-py
-   ```
-2. Install the core package:
-   ```bash
-   pip install .
-   ```
+### JupyterLab Extension
+
+```bash
+cd editors/jupyterlab
+jlpm install
+jlpm run build
+pip install -e .
+```
 
 ### VS Code Extension
 
@@ -98,15 +94,6 @@ pip install pandas lark-parser
    npm run build
    ```
    Then install the generated `.vsix` file via **Extensions → Install from VSIX**.
-
-### JupyterLab Extension
-
-```bash
-cd editors/jupyterlab
-jlpm install
-jlpm run build
-pip install -e .
-```
 
 Restart JupyterLab — the extension activates automatically.
 
