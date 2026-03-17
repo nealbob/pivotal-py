@@ -14,7 +14,7 @@ Check out this live demo of Pivotal in Jupyter lab:
 
 [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
-### Features
+## Features
 
 **Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
 
