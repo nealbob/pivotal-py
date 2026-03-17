@@ -8,7 +8,7 @@
 
 The syntax of Pivotal has some similarites with piped-SQL, while replicating aspects of Python (i.e., indentation rather than brackets):
 
-<img src="examples/ataglance2.png" width="600">
+<img src="examples/ataglance.png" width="600">
 
 Check out this live demo of Pivotal in Jupyter lab:
 
