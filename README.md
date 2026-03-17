@@ -308,16 +308,6 @@ load df :my_path_variable
 
 **Parameters:** any keyword argument accepted by the underlying pandas reader (`read_csv`, `read_excel`, `read_parquet`).
 
-**Package-based loading** (requires `_pivotal_pkg` to be set in the session — see [Package Management](#package-management)):
-
-```pivotal
-# Load a single named table from the active package's data/ folder
-load clean
-
-# Load all tables saved in the package at once
-load all
-```
-
 ---
 
 ### Table Operations
@@ -617,27 +607,32 @@ Rank rows by a column. Rows keep their original order.
 
 ```pivotal
 # Rank all rows by amount, highest = 1
-rank amount desc as sales_rank
+df sales
+    rank amount desc as sales_rank
 
 # Rank within each region independently
-rank amount desc as regional_rank
-    by region
+df sales
+    rank amount desc as regional_rank
+        by region
 
 # Filter to top 3 per region
-rank amount desc as regional_rank
-    by region
-filter regional_rank <= 3
+df sales
+    rank amount desc as regional_rank
+        by region
+    filter regional_rank <= 3
 ```
 
 Add `pct` to get percentile ranks (0–1) instead of integer ranks. Useful for quantile binning:
 
 ```pivotal
 # Percentile rank
-rank amount pct as r
+df sales
+    rank amount pct as r
 
 # Decile bins (1–10)
-rank amount pct as r
-decile = floor(r * 10) + 1
+df sales
+    rank amount pct as r
+    decile = floor(r * 10) + 1
 ```
 
 #### `lag` and `lead`
@@ -1365,25 +1360,7 @@ save "my_analysis"
 > **Note:** chart names and table names share the same namespace in `include`/`exclude`
 > lists, so they must be unique across both within a session.
 
-#### `load` from a package
-
-To load from a previously saved package, open it via a `python` block and then use
-`load all` or `load <table>`:
-
-```pivotal
-python
-    from pivotal import Package
-    _pivotal_pkg = Package.open("my_analysis", path="~/projects/output")
-end
-
-load all
-
-df summary
-    filter total_revenue > 1000
-    sort total_revenue desc
-```
-
-#### Example: two-file pipeline
+#### Example: save and reload
 
 ```pivotal
 -- pipeline.pivotal — process and export
@@ -1405,21 +1382,6 @@ df summary from clean
 save "sales_pipeline"
     path "~/projects/output"
     format parquet
-    -- saves clean, summary tables and revenue_chart image + data CSV
-```
-
-```pivotal
--- analysis.pivotal — reload and continue
-python
-    from pivotal import Package
-    _pivotal_pkg = Package.open("sales_pipeline", path="~/projects/output")
-end
-
-load all
-
-df top from summary
-    filter total > 10000
-    sort total desc
 ```
 
 ---
@@ -1508,18 +1470,9 @@ Charts are stored as `{'fig': figure, 'data': dataframe}` in the session's
 `_pivotal_charts` dict.  `export()` writes each chart as both an image file
 and a CSV of the source data.
 
-#### `Package.open()` — open an existing package for loading
-
-```python
-pkg = pivotal.Package.open("my_analysis", path="~/projects/output")
-```
-
 | Method | Description |
 |---|---|
 | `export(name, namespace, path, fmt, chart_fmt, include, exclude)` | Export a fresh package snapshot |
-| `open(name, path)` | Open an existing package for loading |
-| `load_table(name)` | Load one table from `data/` (parquet preferred over CSV) |
-| `load_all()` | Return a `{name: DataFrame}` dict of all tables in `data/` |
 
 ---
 
