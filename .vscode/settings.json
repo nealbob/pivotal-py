@@ -1,5 +1,0 @@
-{
-    "python.defaultInterpreterPath": "C:\\Users\\hughe\\.conda\\envs\\pivotal\\python.exe",
-    "python.terminal.activateEnvironment": true,
-    "python.analysis.ignore": ["examples/**"]
-}
