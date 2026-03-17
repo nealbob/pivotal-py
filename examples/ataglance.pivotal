@@ -17,4 +17,3 @@ df summary from invoices
 
 save "my_analysis"
     path "~/projects/output"
-
