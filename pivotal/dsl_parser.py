@@ -20,7 +20,7 @@ _WAVG_CALL_RE = re.compile(
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
-    'load', 'filter', 'select', 'assign', 'sort', 'order', 'save', 'all',
+    'load', 'filter', 'select', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
@@ -166,8 +166,8 @@ grammar_indented = r"""
 
     dataframe_statement: "df" table_name ("from" copy_table)? _NL?
 
-    assign_statement: "assign" target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
-                    | "assign" target "=" _NL _INDENT case_list _DEDENT
+    assign_statement: target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
+                    | target "=" _NL _INDENT case_list _DEDENT
 
     assign_opts: assign_opt+
     assign_opt: "where" condition_list _NL? -> assign_where
@@ -219,8 +219,11 @@ grammar_indented = r"""
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
     SORT_TYPE: "asc" | "desc"
-    
-    target: IDENTIFIER
+
+    // Lower priority (-1) ensures keywords always win over assign target
+    ASSIGN_TARGET.-1: /[a-zA-Z][a-zA-Z0-9_]*/
+
+    target: ASSIGN_TARGET
     table_name: IDENTIFIER
     copy_table: IDENTIFIER
 

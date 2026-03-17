@@ -124,14 +124,14 @@ def test_sort(parser, sample_df):
 
 def test_assign_new_column(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nassign revenue = price * quantity', ns)
+    run(parser, 'df sales\nrevenue = price * quantity', ns)
     assert 'revenue' in ns['sales'].columns
     assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
 
 
 def test_assign_where(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nassign discounted = price * 0.9\n    where category == "Electronics"', ns)
+    run(parser, 'df sales\ndiscounted = price * 0.9\n    where category == "Electronics"', ns)
     assert 'discounted' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['discounted'].notna())
@@ -140,7 +140,7 @@ def test_assign_where(parser, sample_df):
 def test_assign_where_scalar(parser, sample_df):
     """Scalar rhs (int/float/string) with where clause must not subscript the scalar."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nassign flag = 1\n    where category == "Electronics"', ns)
+    run(parser, 'df sales\nflag = 1\n    where category == "Electronics"', ns)
     assert 'flag' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['flag'] == 1)
@@ -156,7 +156,7 @@ def test_assign_where_scalar(parser, sample_df):
 def test_assign_case_basic(parser, sample_df):
     """Multi-case assign produces correct values for each branch."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = ('df sales\nassign tier =\n'
+    dsl = ('df sales\ntier =\n'
            '    where price > 300: price * 2\n'
            '    where price > 100: price\n'
            '    0\n')
@@ -173,7 +173,7 @@ def test_assign_case_first_match_wins(parser):
     """When a row satisfies multiple conditions, the first branch wins."""
     df = pd.DataFrame({'x': [10, 5, 1]})
     ns = {'pd': pd, 'data': df}
-    dsl = ('df data\nassign label =\n'
+    dsl = ('df data\nlabel =\n'
            '    where x > 3: x * 10\n'
            '    where x > 1: x * 100\n'
            '    0\n')
@@ -190,7 +190,7 @@ def test_assign_case_no_default(parser):
     """Multi-case with no default gives pd.NA for unmatched rows."""
     df = pd.DataFrame({'x': [10, 1]})
     ns = {'pd': pd, 'data': df}
-    dsl = ('df data\nassign label =\n'
+    dsl = ('df data\nlabel =\n'
            '    where x > 5: x\n')
     run(parser, dsl, ns)
     assert ns['data'].loc[0, 'label'] == 10
@@ -199,7 +199,7 @@ def test_assign_case_no_default(parser):
 
 def test_assign_case_code_generation(parser):
     """Multi-case generates np.select with conditions in branch order."""
-    nodes = parser.parse('df sales\nassign t =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
+    nodes = parser.parse('df sales\nt =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert 'np.select' in code
     # First branch condition appears before second in the conditions list
@@ -214,7 +214,7 @@ def test_assign_agg_whole_table(parser):
     """sum(col) in assign expression computes whole-table aggregate."""
     df = pd.DataFrame({'amount': [100, 200, 300]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nassign pct = amount / sum(amount)\n', ns)
+    run(parser, 'df data\npct = amount / sum(amount)\n', ns)
     assert ns['data']['pct'].sum() == pytest.approx(1.0)
     assert ns['data'].loc[0, 'pct'] == pytest.approx(100 / 600)
 
@@ -223,7 +223,7 @@ def test_assign_agg_by_group(parser):
     """sum(col) with by computes per-group aggregate via transform."""
     df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 200]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nassign pct = amount / sum(amount)\n    by region\n', ns)
+    run(parser, 'df data\npct = amount / sum(amount)\n    by region\n', ns)
     n_rows = ns['data'][ns['data']['region'] == 'N']
     s_rows = ns['data'][ns['data']['region'] == 'S']
     assert n_rows['pct'].sum() == pytest.approx(1.0)
@@ -234,14 +234,14 @@ def test_assign_agg_multiple_calls(parser):
     """Multiple agg calls in one expression all get substituted."""
     df = pd.DataFrame({'amount': [100, 200, 300, 400]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nassign z = (amount - mean(amount)) / std(amount)\n', ns)
+    run(parser, 'df data\nz = (amount - mean(amount)) / std(amount)\n', ns)
     assert ns['data']['z'].mean() == pytest.approx(0.0, abs=1e-10)
     assert ns['data']['z'].std() == pytest.approx(1.0)
 
 
 def test_assign_agg_code_generation(parser):
     """Agg calls produce @variable preamble lines before eval."""
-    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n')
+    nodes = parser.parse('df sales\npct = amount / sum(amount)\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert "_agg_0 = sales['amount'].sum()" in code
     assert '@_agg_0' in code
@@ -249,7 +249,7 @@ def test_assign_agg_code_generation(parser):
 
 def test_assign_agg_by_code_generation(parser):
     """Agg with by generates groupby transform."""
-    nodes = parser.parse('df sales\nassign pct = amount / sum(amount)\n    by region\n')
+    nodes = parser.parse('df sales\npct = amount / sum(amount)\n    by region\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert "groupby(['region'])['amount'].transform('sum')" in code
 
@@ -288,7 +288,7 @@ def test_assign_wavg_whole_table(parser):
     """wavg(col, weight) in assign computes whole-table weighted average."""
     df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nassign wa = wavg(amount, weight)\n', ns)
+    run(parser, 'df data\nwa = wavg(amount, weight)\n', ns)
     assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)  # (100+900)/4
 
 
@@ -300,7 +300,7 @@ def test_assign_wavg_by_group(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nassign dev = amount - wavg(amount, weight)\n    by region\n', ns)
+    run(parser, 'df data\ndev = amount - wavg(amount, weight)\n    by region\n', ns)
     result = ns['data']
     assert result.loc[result['region'] == 'N', 'dev'].tolist() == pytest.approx([-150.0, 50.0])
     assert result.loc[result['region'] == 'S', 'dev'].tolist() == pytest.approx([-100.0, 100.0])
@@ -550,7 +550,7 @@ def test_assign_user_func(parser, sample_df):
         return s * 2
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'double': double}
-    run(parser, 'df sales\nassign doubled = double(price)', ns)
+    run(parser, 'df sales\ndoubled = double(price)', ns)
     assert 'doubled' in ns['sales'].columns
     assert ns['sales'].iloc[0]['doubled'] == pytest.approx(999.99 * 2)
 
@@ -560,7 +560,7 @@ def test_assign_user_func_with_where(parser, sample_df):
         return s * 0.9
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'discount': discount}
-    run(parser, 'df sales\nassign discounted = discount(price)\n    where category == "Electronics"', ns)
+    run(parser, 'df sales\ndiscounted = discount(price)\n    where category == "Electronics"', ns)
     assert 'discounted' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['discounted'].notna())
@@ -569,7 +569,7 @@ def test_assign_user_func_with_where(parser, sample_df):
 def test_assign_arithmetic_unchanged(parser, sample_df):
     """Ensure existing arithmetic assign still routes through df.eval(), not user func path."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nassign revenue = price * quantity', ns)
+    run(parser, 'df sales\nrevenue = price * quantity', ns)
     assert 'revenue' in ns['sales'].columns
     assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
 
@@ -585,11 +585,12 @@ def test_keyword_table_name_raises(parser):
         run(parser, 'df filter', ns)
 
 
-def test_keyword_assign_target_raises(parser, sample_df):
-    """assign <keyword> = expr should raise a ValueError at parse time."""
+def test_keyword_assign_target_fails(parser, sample_df):
+    """Using a keyword as an assign target should fail (parse error)."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    with pytest.raises(Exception, match="reserved keyword"):
-        run(parser, 'df sales\nassign filter = price * 2', ns)
+    # 'filter' is a keyword so it can't be an assign target — parse returns None
+    result = parser.execute('df sales\nfilter = price * 2', ns, verbose=False)
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -609,82 +610,82 @@ def str_df():
 
 def test_assign_upper(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign up = upper(first)', ns)
+    run(parser, 'df df\nup = upper(first)', ns)
     assert list(ns['df']['up']) == ['ALICE', 'BOB', 'CHARLIE']
 
 
 def test_assign_lower(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign lo = lower(first)', ns)
+    run(parser, 'df df\nlo = lower(first)', ns)
     assert list(ns['df']['lo']) == ['alice', 'bob', 'charlie']
 
 
 def test_assign_trim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign t = trim(padded)', ns)
+    run(parser, 'df df\nt = trim(padded)', ns)
     assert list(ns['df']['t']) == ['hello', 'world', 'foo']
 
 
 def test_assign_ltrim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign t = ltrim(padded)', ns)
+    run(parser, 'df df\nt = ltrim(padded)', ns)
     assert ns['df']['t'].iloc[0] == 'hello  '
 
 
 def test_assign_rtrim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign t = rtrim(padded)', ns)
+    run(parser, 'df df\nt = rtrim(padded)', ns)
     assert ns['df']['t'].iloc[0] == '  hello'
 
 
 def test_assign_left(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign abbr = left(first, 3)', ns)
+    run(parser, 'df df\nabbr = left(first, 3)', ns)
     assert list(ns['df']['abbr']) == ['Ali', 'Bob', 'Cha']
 
 
 def test_assign_right(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign suffix = right(code, 3)', ns)
+    run(parser, 'df df\nsuffix = right(code, 3)', ns)
     assert list(ns['df']['suffix']) == ['123', '456', '789']
 
 
 def test_assign_substr(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign mid = substr(code, 2, 3)', ns)
+    run(parser, 'df df\nmid = substr(code, 2, 3)', ns)
     assert list(ns['df']['mid']) == ['123', '456', '789']
 
 
 def test_assign_len(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign n = len(first)', ns)
+    run(parser, 'df df\nn = len(first)', ns)
     assert list(ns['df']['n']) == [5, 3, 7]
 
 
 def test_assign_replace(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign clean = replace(notes, "N/A", "")', ns)
+    run(parser, 'df df\nclean = replace(notes, "N/A", "")', ns)
     assert list(ns['df']['clean']) == ['', 'ok', '']
 
 
 def test_assign_nested_string_func(parser, str_df):
     """upper(left(col, n)) — nesting produces chained .str accessor."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign up3 = upper(left(first, 3))', ns)
+    run(parser, 'df df\nup3 = upper(left(first, 3))', ns)
     assert list(ns['df']['up3']) == ['ALI', 'BOB', 'CHA']
 
 
 def test_assign_string_concat(parser, str_df):
     """col + ", " + col — mixed identifier/literal concatenation."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign full = last + ", " + first', ns)
+    run(parser, 'df df\nfull = last + ", " + first', ns)
     assert list(ns['df']['full']) == ['Smith, Alice', 'Jones, Bob', 'Brown, Charlie']
 
 
 def test_assign_string_func_with_where(parser, str_df):
     """String function combined with a where clause."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nassign up = upper(first)\n    where notes == "N/A"', ns)
+    run(parser, 'df df\nup = upper(first)\n    where notes == "N/A"', ns)
     assert ns['df'].loc[0, 'up'] == 'ALICE'    # condition met
     assert ns['df'].loc[1, 'up'] != 'BOB'      # condition not met — NaN
 
@@ -694,7 +695,7 @@ def test_assign_arithmetic_unchanged(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
     ns['df']['price'] = [10.0, 20.0, 30.0]
     ns['df']['qty']   = [2, 3, 4]
-    run(parser, 'df df\nassign total = price * qty', ns)
+    run(parser, 'df df\ntotal = price * qty', ns)
     assert list(ns['df']['total']) == [20.0, 60.0, 120.0]
 
 

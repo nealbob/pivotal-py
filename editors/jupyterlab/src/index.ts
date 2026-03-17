@@ -107,7 +107,7 @@ type CompletionCtx =
   | { type: 'none' };
 
 const COMMAND_KEYWORDS = [
-  'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
+  'df', 'load', 'filter', 'select', 'sort', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
   'concat', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
   'distinct', 'python', 'save', 'apply', 'table', 'delete',
@@ -251,7 +251,7 @@ function detectContext(
     if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
       return { type: 'column', table };
     }
-    if (/^assign\s+\w+\s*=/.test(trimmed)) {
+    if (/^\w+\s*=/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^col\s+\w*$/.test(trimmed)) {

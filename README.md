@@ -422,23 +422,23 @@ select product, quantity, revenue, profit_margin
 
 ### Creating/Modifying Columns
 
-Create new columns or modify existing ones using the `assign` statement:
+Create new columns or modify existing ones with assignment expressions:
 
 ```pivotal
 # Simple calculation
 df sales
-assign total = price * quantity
+total = price * quantity
 
 # Conditional assignment (only sets the column where the condition is true)
 df products from catalog
-assign discount_price = price * 0.9
+discount_price = price * 0.9
     where category == "clearance"
 
 # Multiple operations chained
 df analysis from sales
-assign revenue = price * quantity
-assign profit = revenue - cost
-assign margin = profit / revenue
+revenue = price * quantity
+profit = revenue - cost
+margin = profit / revenue
     where revenue > 0
 ```
 
@@ -446,7 +446,7 @@ assign margin = profit / revenue
 
 ```pivotal
 df sales
-assign tier =
+tier =
     where amount > 500: amount * 2
     where amount > 100: amount
     0
@@ -458,7 +458,7 @@ Each `where cond: expr` branch is evaluated in order — the first matching cond
 # Decile binning using pct rank
 df sales
 rank amount pct as r
-assign decile =
+decile =
     where r > 0.9: 10
     where r > 0.8: 9
     where r > 0.7: 8
@@ -476,29 +476,29 @@ assign decile =
 ```pivotal
 # Percent of total (whole table)
 df sales
-assign pct = amount / sum(amount)
+pct = amount / sum(amount)
 
 # Percent of group total
 df sales
-assign pct = amount / sum(amount)
+pct = amount / sum(amount)
     by region
 
 # Z-score normalisation
 df sales
-assign z = (amount - mean(amount)) / std(amount)
+z = (amount - mean(amount)) / std(amount)
 
 # Deviation from group mean
 df sales
-assign dev = amount - mean(amount)
+dev = amount - mean(amount)
     by region
 
 # Deviation from weighted average (whole table)
 df sales
-assign dev = amount - wavg(amount, weight)
+dev = amount - wavg(amount, weight)
 
 # Deviation from weighted average by group
 df sales
-assign dev = amount - wavg(amount, weight)
+dev = amount - wavg(amount, weight)
     by region
 ```
 
@@ -512,25 +512,25 @@ Supported functions: `sum`, `mean`, `min`, `max`, `count`, `std`, `median`, `var
 
 | Function | Description | Example |
 |---|---|---|
-| `upper(col)` | Upper-case | `assign code = upper(category)` |
-| `lower(col)` | Lower-case | `assign slug = lower(name)` |
-| `trim(col)` | Strip leading and trailing whitespace | `assign name = trim(name)` |
-| `ltrim(col)` | Strip leading whitespace | `assign name = ltrim(name)` |
-| `rtrim(col)` | Strip trailing whitespace | `assign name = rtrim(name)` |
-| `left(col, n)` | First *n* characters | `assign abbr = left(name, 3)` |
-| `right(col, n)` | Last *n* characters | `assign ext = right(filename, 4)` |
-| `substr(col, start, n)` | Substring from *start*, length *n* | `assign mid = substr(code, 2, 5)` |
-| `len(col)` | String length | `assign n = len(name)` |
-| `replace(col, from, to)` | Replace substring | `assign clean = replace(notes, "N/A", "")` |
+| `upper(col)` | Upper-case | `code = upper(category)` |
+| `lower(col)` | Lower-case | `slug = lower(name)` |
+| `trim(col)` | Strip leading and trailing whitespace | `name = trim(name)` |
+| `ltrim(col)` | Strip leading whitespace | `name = ltrim(name)` |
+| `rtrim(col)` | Strip trailing whitespace | `name = rtrim(name)` |
+| `left(col, n)` | First *n* characters | `abbr = left(name, 3)` |
+| `right(col, n)` | Last *n* characters | `ext = right(filename, 4)` |
+| `substr(col, start, n)` | Substring from *start*, length *n* | `mid = substr(code, 2, 5)` |
+| `len(col)` | String length | `n = len(name)` |
+| `replace(col, from, to)` | Replace substring | `clean = replace(notes, "N/A", "")` |
 
-Functions can be nested: `assign up3 = upper(left(name, 3))`
+Functions can be nested: `up3 = upper(left(name, 3))`
 
 **String concatenation** — use `+` with at least one quoted literal:
 
 ```pivotal
 df customers
-assign full_name = last_name + ", " + first_name
-assign label     = upper(left(first_name, 1)) + ". " + last_name
+full_name = last_name + ", " + first_name
+label     = upper(left(first_name, 1)) + ". " + last_name
 ```
 
 **Calling a Python function** (function must be in the session namespace):
@@ -541,7 +541,7 @@ python
         return s.str.replace("$", "").astype(float)
 
 df sales
-assign price = clean_price(price)
+price = clean_price(price)
 ```
 
 ---
@@ -655,7 +655,7 @@ rank amount pct as r
 
 # Decile bins (1–10)
 rank amount pct as r
-assign decile = floor(r * 10) + 1
+decile = floor(r * 10) + 1
 ```
 
 #### `lag` and `lead`
@@ -685,7 +685,7 @@ df sales
 lag amount 1 as prev_amount
     by region
     order date
-assign change = amount - prev_amount
+change = amount - prev_amount
 ```
 
 #### Cumulative functions
@@ -947,7 +947,7 @@ concat q2, q3, q4
 
 ### Applying Python Functions
 
-Define functions in a `python` block and call them from `assign` or `apply`.
+Define functions in a `python` block and call them from assignment expressions or `apply`.
 
 #### Python block syntax
 
@@ -970,13 +970,13 @@ python
 end
 
 df sales
-assign price = clean_price(price)
-assign abbr  = initials(name)
+price = clean_price(price)
+abbr  = initials(name)
 ```
 
 The `end` keyword is required to close a multi-line `python` block. It must appear at the same indentation level as the opening `python` keyword.
 
-#### `assign` with a user function
+#### Assigning with a user function
 
 When the expression is a user-defined function call `func(col)`, Pivotal generates
 `df['target'] = func(df['col'])` instead of routing through `df.eval()`:
@@ -991,8 +991,8 @@ python
 end
 
 df sales
-assign price = clean_price(price)
-assign abbr  = initials(name)
+price = clean_price(price)
+abbr  = initials(name)
 ```
 
 #### `apply` — DataFrame-level transforms
@@ -1567,8 +1567,8 @@ select customer_id, product_name, category, amount
 
 # Calculate metrics
 df analysis from enriched_sales
-assign revenue = amount
-assign is_premium = amount > 1000
+revenue = amount
+is_premium = amount > 1000
 
 # Create summary pivot
 df category_summary from analysis
@@ -1592,14 +1592,14 @@ group by customer_id
 
 # Segment customers
 df segments from customer_summary
-assign segment = "low"
+segment = "low"
 
 df high_value from segments
-assign segment = "high"
+segment = "high"
     where total_spent > 1000
 
 df medium_value from segments
-assign segment = "medium"
+segment = "medium"
     where total_spent > 500 and total_spent <= 1000
 ```
 
@@ -1617,8 +1617,8 @@ select sensor_id, date, temperature, humidity
 
 # Calculate derived columns
 df with_metrics from recent_data
-assign temp_fahrenheit = temperature * 9 / 5 + 32
-assign comfort_index = temperature * 0.7 + humidity * 0.3
+temp_fahrenheit = temperature * 9 / 5 + 32
+comfort_index = temperature * 0.7 + humidity * 0.3
 
 # Sort chronologically
 df chronological from with_metrics
@@ -1706,7 +1706,7 @@ filter total_spent > 1000
 df analysis from raw_data
 filter status == "active"      # filter first
 select id, name, value          # then narrow columns
-assign normalized = value / 100 # then compute
+normalized = value / 100 # then compute
 sort normalized desc             # finally sort
 ```
 
