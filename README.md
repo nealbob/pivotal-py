@@ -441,6 +441,8 @@ tier =
 
 Each `where cond: expr` branch is evaluated in order — the first matching condition wins. An optional bare expression at the end acts as the default (rows matching no condition get `None` if omitted).
 
+> **Limitation:** branch expressions support arithmetic and column references only. Aggregate functions (`sum()`, `mean()`, etc.) and string functions (`upper()`, `left()`, etc.) are not supported inside multi-case branches — use a simple assignment for those.
+
 ```pivotal
 # Decile binning using pct rank
 df sales
