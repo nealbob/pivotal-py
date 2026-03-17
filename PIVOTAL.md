@@ -1,6 +1,10 @@
 # Pivotal DSL — Language Reference
 
-Pivotal is a DSL for data transformation that compiles to pandas. It is used inside `%%pivotal` cells in JupyterLab notebooks.
+Pivotal is a DSL for data transformation that compiles to pandas Python code. It runs in two contexts:
+- **`%%pivotal` cells** in JupyterLab notebooks (using the Pivotal cell magic)
+- **`.pivotal` files** executed via `python -m pivotal <file.pivotal>` or compiled to `.py` with `python -m pivotal --compile <file.pivotal>`
+
+In both cases the DSL is compiled to pandas code and executed in the current Python runtime. All operations are **in-place on the active DataFrame** — `filter`, `select`, `sort`, column assignments etc. all modify the current table directly rather than returning a new one.
 
 ## Core conventions
 
@@ -10,6 +14,7 @@ Pivotal is a DSL for data transformation that compiles to pandas. It is used ins
 - `load` and `save` are standalone — not indented under `df`
 - Column names and table names are bare identifiers (no quotes)
 - Strings use double or single quotes: `"North"`, `'2024-01-01'`
+- **Python runtime variables** are referenced with a `:` prefix: `:my_var` — the value is substituted at execution time
 
 ## Loading data
 
@@ -22,6 +27,9 @@ load events "events.parquet"
 load sales "data/sales.csv"
     header 0
     sep ";"
+
+# Path from a Python runtime variable
+load sales :my_path_variable
 ```
 
 ## Setting the active table
@@ -238,19 +246,41 @@ df results
         stripe
 ```
 
+## Runtime variables
+
+Python variables in the kernel/runtime namespace are referenced with `:` prefix anywhere a value is expected:
+
+```pivotal
+# Use a Python variable as a filter value
+df sales
+    filter region == :target_region
+    filter amount > :min_amount
+    filter category in :allowed_categories
+
+# Use a Python variable as a file path
+load sales :data_path
+```
+
 ## Python blocks
 
+Python code can be embedded directly. This is the primary way to define helper functions or perform operations that Pivotal doesn't cover. The `python`/`end` block is available in both `%%pivotal` cells and `.pivotal` files.
+
+Multi-line block:
 ```pivotal
 python
     def clean(s):
         return s.str.strip().str.upper()
+
+    def flag_outlier(df):
+        return df["amount"] > df["amount"].quantile(0.99)
 end
 
 df sales
     name = clean(name)
+    python sales["outlier"] = flag_outlier(sales)
 ```
 
-Single-line:
+Single-line (inline Python, the active DataFrame is available by its table name):
 ```pivotal
 df sales
     python sales["flag"] = sales["amount"] > 1000
