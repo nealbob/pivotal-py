@@ -15,6 +15,9 @@ build/
 # TODO
 TASKS.md
 
+# VS Code
+.vscode/
+
 # Jupyter
 .ipynb_checkpoints/
 Untitled*.ipynb
