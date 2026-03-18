@@ -67,7 +67,10 @@ def _infer_col_types(payload, use_visions: bool = False) -> dict:
             try:
                 sample = payload[col].dropna().head(20)
                 if len(sample) >= 3:
-                    parsed = pd.to_datetime(sample, errors='coerce')
+                    try:
+                        parsed = pd.to_datetime(sample, errors='coerce', format='mixed')
+                    except TypeError:  # pandas < 2.0
+                        parsed = pd.to_datetime(sample, errors='coerce', infer_datetime_format=True)
                     if parsed.notna().mean() >= 0.8:
                         col_types[col_str] = 'datetime'
                         continue

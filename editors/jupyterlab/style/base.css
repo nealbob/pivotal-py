@@ -218,17 +218,6 @@
   color: var(--jp-ui-font-color2);
 }
 
-/* Filter row: hidden by default, shown when toggle is active */
-.pv-body .tabulator-header-filter { display: none; }
-.pv-body.pv-filters-visible .tabulator-header-filter { display: block; }
-
-/* Active state for filter toggle button */
-.pv-btn.pv-btn-active {
-  background: var(--jp-brand-color1) !important;
-  color: white !important;
-  opacity: 1 !important;
-}
-
 /* Header filter inputs */
 .pv-tab-container .tabulator-header-filter input {
   background: var(--jp-layout-color1) !important;
