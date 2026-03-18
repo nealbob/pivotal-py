@@ -63,8 +63,14 @@ def _infer_col_types(payload, use_visions: bool = False) -> dict:
         elif dt == 'category':
             col_types[col_str] = 'categorical'
         else:
-            # object / string — use cardinality to decide
+            # object / string — check for dates first, then cardinality for categorical
             try:
+                sample = payload[col].dropna().head(20)
+                if len(sample) >= 3:
+                    parsed = pd.to_datetime(sample, errors='coerce')
+                    if parsed.notna().mean() >= 0.8:
+                        col_types[col_str] = 'datetime'
+                        continue
                 n_unique = payload[col].nunique(dropna=True)
                 threshold = min(50, max(5, int(n * 0.3)))
                 col_types[col_str] = 'categorical' if n_unique <= threshold else 'string'

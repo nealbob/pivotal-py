@@ -94,6 +94,8 @@ export class PivotalViewerWidget extends Widget {
   private _copyBtn!: HTMLButtonElement;
   private _delBtn!: HTMLButtonElement;
   private _clearBtn!: HTMLButtonElement;
+  private _filterBtn!: HTMLButtonElement;
+  private _filtersVisible = false;
   private _body!: HTMLElement;
   private _footer!: HTMLElement;
 
@@ -112,6 +114,7 @@ export class PivotalViewerWidget extends Widget {
         <span class="pv-counter"></span>
         <button class="pv-btn pv-fwd"       title="Forward (Alt+])">&#9654;</button>
         <button class="pv-btn pv-new-chart" title="New chart">+</button>
+        <button class="pv-btn pv-filter"    title="Toggle column filters">&#9663;</button>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
         <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
         <button class="pv-btn pv-clear"     title="Clear all">&#128465;</button>
@@ -124,6 +127,7 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl = this.node.querySelector('.pv-counter') as HTMLElement;
     this._backBtn   = this.node.querySelector('.pv-back')   as HTMLButtonElement;
     this._fwdBtn    = this.node.querySelector('.pv-fwd')    as HTMLButtonElement;
+    this._filterBtn = this.node.querySelector('.pv-filter')  as HTMLButtonElement;
     this._copyBtn   = this.node.querySelector('.pv-copy')   as HTMLButtonElement;
     this._delBtn    = this.node.querySelector('.pv-del')    as HTMLButtonElement;
     this._clearBtn  = this.node.querySelector('.pv-clear')  as HTMLButtonElement;
@@ -162,6 +166,11 @@ export class PivotalViewerWidget extends Widget {
     newChartBtn.addEventListener('click', e => {
       e.stopPropagation();
       this._showGuiMenu(newChartBtn);
+    });
+    this._filterBtn.addEventListener('click', () => {
+      this._filtersVisible = !this._filtersVisible;
+      this._body.classList.toggle('pv-filters-visible', this._filtersVisible);
+      this._filterBtn.classList.toggle('pv-btn-active', this._filtersVisible);
     });
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
@@ -467,7 +476,6 @@ export class PivotalViewerWidget extends Widget {
           sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
           tooltip: (dt || false) as string | false,
           resizable: true,
-          headerFilterPopupIcon: '&#9660;',   // ▼ — opens filter in a popup
         } as ColumnDefinition;
 
         if (semType === 'categorical' || semType === 'boolean') {
@@ -505,6 +513,7 @@ export class PivotalViewerWidget extends Widget {
       renderVertical: 'virtual',
       rowHeight: 24,
       nestedFieldSeparator: false,  // allow dots in column names (e.g. "2.6")
+      popupContainer: document.body as never,  // position filter popups relative to viewport
     });
 
     // Footer
