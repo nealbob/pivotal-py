@@ -36,6 +36,7 @@ export interface ChartPayload {
   name: string;
   data: string; // base64 PNG
   canvas?: CanvasMeta;
+  source_df?: string;
 }
 
 export interface GtTablePayload {
@@ -43,6 +44,7 @@ export interface GtTablePayload {
   name: string;
   html: string;
   canvas?: CanvasMeta;
+  source_df?: string;
 }
 
 export type ViewerMessage = DataFramePayload | ChartPayload | GtTablePayload;
@@ -52,6 +54,7 @@ export interface ExplorerItem {
   type: 'dataframe' | 'chart' | 'gt_table';
   shape?: [number, number];
   columns?: { name: string; dtype: string; col_type?: SemanticColType }[];
+  source_df?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,8 +247,8 @@ export class PivotalViewerWidget extends Widget {
           columns: df.columns.map(c => ({ name: c, dtype: df.dtypes[c] ?? '', col_type: df.col_types?.[c] })),
         };
       }
-      if (msg.type === 'chart') return { name, type: 'chart' as const };
-      return { name, type: 'gt_table' as const };
+      if (msg.type === 'chart') return { name, type: 'chart' as const, source_df: (msg as ChartPayload).source_df };
+      return { name, type: 'gt_table' as const, source_df: (msg as GtTablePayload).source_df };
     });
   }
 

@@ -161,7 +161,7 @@ class _PivotalViewer:
         except Exception:
             pass
 
-    def send_chart(self, name: str, fig, canvas_meta: dict = None):
+    def send_chart(self, name: str, fig, canvas_meta: dict = None, source_df: str = None):
         """Render fig to PNG and send to the viewer."""
         self._ensure_comm()
         if self._comm is None:
@@ -187,6 +187,8 @@ class _PivotalViewer:
             }
             if canvas_meta:
                 msg['canvas'] = canvas_meta
+            if source_df:
+                msg['source_df'] = source_df
             self._comm.send(msg)
         except Exception:
             pass
@@ -233,7 +235,7 @@ class _PivotalViewer:
         except Exception:
             pass
 
-    def send_table(self, name: str, html: str, canvas: str = 'none'):
+    def send_table(self, name: str, html: str, canvas: str = 'none', source_df: str = None):
         """Send a rendered GT table to the viewer."""
         self._ensure_comm()
         if self._comm is None:
@@ -243,6 +245,8 @@ class _PivotalViewer:
             'name': name,
             'html': html,
         }
+        if source_df:
+            msg['source_df'] = source_df
         if canvas in _PAPER_SIZES_MM:
             page_w, page_h = _PAPER_SIZES_MM[canvas]
             msg['canvas'] = {
@@ -365,7 +369,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
         if isinstance(fig, mfig.Figure):
             canvas_meta = _build_canvas_meta(fig, settings or {},
                                              canvas_override=node.get('canvas'))
-            viewer.send_chart(chart_name, fig, canvas_meta=canvas_meta)
+            viewer.send_chart(chart_name, fig, canvas_meta=canvas_meta,
+                              source_df=node.get('table_name'))
 
     # Send GT tables — canvas falls back to the global setting when not specified per-table
     global_canvas = (settings or {}).get('canvas', 'none')
@@ -379,7 +384,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
             canvas = entry.get('canvas', 'none')
             if canvas == 'none':
                 canvas = global_canvas
-            viewer.send_table(tbl_name, viewer_html, canvas)
+            viewer.send_table(tbl_name, viewer_html, canvas,
+                              source_df=node.get('table_name'))
 
 
 # ---------------------------------------------------------------------------

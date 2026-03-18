@@ -447,6 +447,17 @@
   background: var(--jp-layout-color2);
 }
 
+/* Charts / tables nested under their source dataframe */
+.pv-explorer-children {
+  border-left: 2px solid var(--jp-border-color2);
+  margin-left: 18px;
+  margin-bottom: 2px;
+}
+
+.pv-child-row {
+  padding-left: 4px;
+}
+
 /* Expanded column list */
 .pv-explorer-cols {
   border-left: 2px solid var(--jp-border-color2);

@@ -260,22 +260,56 @@ export class PivotalExplorerWidget extends Widget {
       this._renderEmpty();
       return;
     }
+
+    // Separate dataframes from derived items (charts / gt_tables with a source_df)
+    const dfs    = this._items.filter(it => it.type === 'dataframe');
+    const dfNames = new Set(dfs.map(it => it.name));
+
+    // Children grouped by source df
+    const children = new Map<string, ExplorerItem[]>();
+    const orphans: ExplorerItem[] = [];
     for (const item of this._items) {
+      if (item.type === 'dataframe') continue;
+      if (item.source_df && dfNames.has(item.source_df)) {
+        const arr = children.get(item.source_df) ?? [];
+        arr.push(item);
+        children.set(item.source_df, arr);
+      } else {
+        orphans.push(item);
+      }
+    }
+
+    // Render each df followed by its children, then orphans
+    for (const df of dfs) {
+      this._renderItem(df);
+      const kids = children.get(df.name);
+      if (kids?.length) {
+        const childGroup = document.createElement('div');
+        childGroup.className = 'pv-explorer-children';
+        for (const child of kids) {
+          this._renderItem(child, childGroup);
+        }
+        this._listEl.appendChild(childGroup);
+      }
+    }
+    for (const item of orphans) {
       this._renderItem(item);
     }
   }
 
-  private _renderItem(item: ExplorerItem): void {
+  private _renderItem(item: ExplorerItem, container: HTMLElement = this._listEl): void {
     const isExpanded = this._expanded.has(item.name);
     const hasColumns = item.type === 'dataframe' && !!(item.columns?.length);
     const isCurrent  = item.type === 'dataframe' && item.name === this._currentTable;
     const isViewing  = item.name === this._viewingItem;
+    const isChild    = item.type !== 'dataframe' && !!item.source_df;
 
     // --- Row ---
     const row = document.createElement('div');
     row.className = 'pv-explorer-row';
-    if (isCurrent)                      row.classList.add('pv-current-table');
+    if (isCurrent)                       row.classList.add('pv-current-table');
     if (item.name === this._focusedName) row.classList.add('pv-focused');
+    if (isChild)                         row.classList.add('pv-child-row');
     row.setAttribute('role', 'row');
 
     const toggle = document.createElement('span');
@@ -337,7 +371,7 @@ export class PivotalExplorerWidget extends Widget {
       this._showContextMenu(e.clientX, e.clientY, item.name);
     });
 
-    this._listEl.appendChild(row);
+    container.appendChild(row);
 
     // --- Column tree (when expanded) ---
     if (hasColumns && isExpanded) {
@@ -366,7 +400,7 @@ export class PivotalExplorerWidget extends Widget {
         colRow.appendChild(colDtype);
         colList.appendChild(colRow);
       }
-      this._listEl.appendChild(colList);
+      container.appendChild(colList);
     }
   }
 }
