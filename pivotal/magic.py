@@ -17,34 +17,36 @@ from .dsl_parser import DSLParser
 # Object Viewer comm helper
 # ---------------------------------------------------------------------------
 
-def _infer_col_types(payload) -> dict:
+def _infer_col_types(payload, ignore_visions: bool = False) -> dict:
     """Infer semantic column types for the filter UI.
 
     Returns {col: 'numeric'|'categorical'|'datetime'|'boolean'|'string'}.
-    Tries visions if available; falls back to dtype + cardinality heuristic.
+    Tries visions if available (and ignore_visions is False); falls back to
+    dtype + cardinality heuristic.
     """
     import pandas as pd
     col_types = {}
     n = max(len(payload), 1)
 
     # Optional: visions for richer semantic inference
-    try:
-        import visions
-        typeset = visions.StandardSet()
-        inferred = visions.infer_type(payload, typeset)
-        _vmap = {
-            'Integer': 'numeric', 'Float': 'numeric', 'Complex': 'numeric',
-            'DateTime': 'datetime', 'Date': 'datetime', 'TimeDelta': 'numeric',
-            'Boolean': 'boolean', 'Categorical': 'categorical',
-            'Object': 'string', 'String': 'string', 'URL': 'string',
-            'EmailAddress': 'string', 'IPAddress': 'string', 'UUID': 'string',
-            'Path': 'string', 'Geometry': 'string',
-        }
-        for col, vtype in inferred.items():
-            col_types[str(col)] = _vmap.get(type(vtype).__name__, 'string')
-        return col_types
-    except Exception:
-        pass
+    if not ignore_visions:
+        try:
+            import visions
+            typeset = visions.StandardSet()
+            inferred = visions.infer_type(payload, typeset)
+            _vmap = {
+                'Integer': 'numeric', 'Float': 'numeric', 'Complex': 'numeric',
+                'DateTime': 'datetime', 'Date': 'datetime', 'TimeDelta': 'numeric',
+                'Boolean': 'boolean', 'Categorical': 'categorical',
+                'Object': 'string', 'String': 'string', 'URL': 'string',
+                'EmailAddress': 'string', 'IPAddress': 'string', 'UUID': 'string',
+                'Path': 'string', 'Geometry': 'string',
+            }
+            for col, vtype in inferred.items():
+                col_types[str(col)] = _vmap.get(type(vtype).__name__, 'string')
+            return col_types
+        except Exception:
+            pass
 
     # Fallback: dtype + cardinality heuristic
     for col in payload.columns:
@@ -103,7 +105,8 @@ class _PivotalViewer:
             vs = self._last_viewer_settings.get(data['name'], {})
             self.send_dataframe(data['name'], self._last_sent[data['name']], limit=limit,
                                 viewer_font=vs.get('viewer_font'),
-                                viewer_num_format=vs.get('viewer_num_format'))
+                                viewer_num_format=vs.get('viewer_num_format'),
+                                ignore_visions=vs.get('ignore_visions', False))
         elif data.get('type') == 'delete':
             name = data.get('name')
             if name:
@@ -114,16 +117,18 @@ class _PivotalViewer:
                     self._post_delete_cb()
 
     def send_dataframe(self, name: str, df, limit: int = None,
-                       viewer_font: float = None, viewer_num_format: int = None):
+                       viewer_font: float = None, viewer_num_format: int = None,
+                       ignore_visions: bool = False):
         self._ensure_comm()
         if self._comm is None:
             return
         limit = limit or self.MAX_ROWS
         self._last_sent[name] = df
-        if viewer_font is not None or viewer_num_format is not None:
+        if viewer_font is not None or viewer_num_format is not None or ignore_visions:
             self._last_viewer_settings[name] = {
                 'viewer_font': viewer_font,
                 'viewer_num_format': viewer_num_format,
+                'ignore_visions': ignore_visions,
             }
         truncated = len(df) > limit
         payload = df.head(limit)
@@ -138,7 +143,7 @@ class _PivotalViewer:
                 'columns': split['columns'],
                 'data': split['data'],       # list of rows (each row is a list of values)
                 'dtypes': {str(c): str(t) for c, t in payload.dtypes.items()},
-                'col_types': _infer_col_types(payload),
+                'col_types': _infer_col_types(payload, ignore_visions=ignore_visions),
                 'shape': list(df.shape),
                 'truncated': truncated,
                 'viewer_font': viewer_font,
@@ -332,6 +337,7 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
                 name, obj,
                 viewer_font=(settings or {}).get('viewer_font'),
                 viewer_num_format=(settings or {}).get('viewer_num_format'),
+                ignore_visions=(settings or {}).get('ignore_visions', False),
             )
 
     # Send charts: look up the figure stored in the namespace by chart name
@@ -345,7 +351,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
             if isinstance(df, pd.DataFrame):
                 viewer.send_dataframe(df_name, df,
                                       viewer_font=(settings or {}).get('viewer_font'),
-                                      viewer_num_format=(settings or {}).get('viewer_num_format'))
+                                      viewer_num_format=(settings or {}).get('viewer_num_format'),
+                                      ignore_visions=(settings or {}).get('ignore_visions', False))
         if isinstance(fig, mfig.Figure):
             canvas_meta = _build_canvas_meta(fig, settings or {},
                                              canvas_override=node.get('canvas'))
@@ -996,6 +1003,7 @@ class PivotalMagics(Magics):
         'chart_width': 'full',      # full | half  (fraction of usable page width)
         'viewer_font': 1.0,         # em units for DataFrame viewer font size
         'viewer_num_format': 5,     # significant digits for float columns (0 = no formatting)
+        'ignore_visions': False,    # True = skip visions even if installed (use dtype heuristic)
     }
 
     def _parse_line_args(self, line: str) -> dict:
@@ -1027,6 +1035,8 @@ class PivotalMagics(Magics):
                     overrides['viewer_num_format'] = int(v)
                 except ValueError:
                     pass
+            elif k == 'ignore_visions':
+                overrides['ignore_visions'] = v in ('true', '1', 'yes')
         return overrides
 
     def _effective_settings(self, line: str) -> dict:
@@ -1221,6 +1231,7 @@ def update():
                 name, obj,
                 viewer_font=s.get('viewer_font'),
                 viewer_num_format=s.get('viewer_num_format'),
+                ignore_visions=s.get('ignore_visions', False),
             )
             sent.append(name)
 
