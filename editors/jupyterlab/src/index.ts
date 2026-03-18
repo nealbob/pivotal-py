@@ -531,6 +531,19 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     explorer.setNewGuiCallback(type => insertGuiCell(type));
     viewer.setNewGuiCallback(type => insertGuiCell(type));
 
+    // Save package from explorer
+    explorer.setSaveCallback(dsl => {
+      const panel = tracker.currentWidget;
+      if (!panel) return;
+      const notebook = panel.content;
+      NotebookActions.insertBelow(notebook);
+      const active = notebook.activeCell;
+      if (active) {
+        active.model.sharedModel.setSource(dsl);
+        void NotebookActions.run(notebook, panel.sessionContext);
+      }
+    });
+
     // Clicking an explorer item focuses the viewer on that item
     explorer.setItemClickCallback(name => {
       viewer.focusItem(name);

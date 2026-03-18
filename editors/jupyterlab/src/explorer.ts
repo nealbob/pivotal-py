@@ -40,6 +40,7 @@ const EYE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" wi
 export class PivotalExplorerWidget extends Widget {
   private _items: ExplorerItem[] = [];
   private _expanded: Set<string> = new Set();
+  private _collapsedFolders: Set<string> = new Set();
   private _clickCb: ((name: string) => void) | null = null;
   private _deleteCb: ((name: string) => void) | null = null;
   private _currentTable: string | null = null;
@@ -47,6 +48,12 @@ export class PivotalExplorerWidget extends Widget {
   private _focusedName: string | null = null;
   private _listEl!: HTMLElement;
   private _statusEl!: HTMLElement;
+  private _pathRowEl!: HTMLElement;
+  private _pathInput!: HTMLInputElement;
+  private _saveBtnsEl!: HTMLElement;
+  private _saveBtn!: HTMLButtonElement;
+  private _savePath: string | null = null;
+  private _saveCb: ((dsl: string) => void) | null = null;
   private _contextMenu: HTMLElement | null = null;
   private _guiMenu: HTMLElement | null = null;
   private _newGuiCb: ((type: string) => void) | null = null;
@@ -66,15 +73,60 @@ export class PivotalExplorerWidget extends Widget {
       </div>
       <div class="pv-explorer-list"></div>
       <div class="pv-explorer-status">No active table</div>
+      <div class="pv-explorer-save-bar">
+        <div class="pv-explorer-path-row" hidden>
+          <input class="pv-explorer-path-input" placeholder="~/output/my_analysis" />
+          <button class="pv-btn pv-save-ok" title="Confirm">&#10003;</button>
+          <button class="pv-btn pv-save-cancel" title="Cancel">&#10005;</button>
+        </div>
+        <div class="pv-explorer-save-btns">
+          <button class="pv-btn pv-save-btn" title="Save package">Save</button>
+          <button class="pv-btn pv-saveas-btn" title="Save to a new path">Save As&#8230;</button>
+        </div>
+      </div>
     `;
 
-    this._listEl   = this.node.querySelector('.pv-explorer-list')   as HTMLElement;
-    this._statusEl = this.node.querySelector('.pv-explorer-status') as HTMLElement;
+    this._listEl    = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
+    this._statusEl  = this.node.querySelector('.pv-explorer-status')     as HTMLElement;
+    this._pathRowEl = this.node.querySelector('.pv-explorer-path-row')   as HTMLElement;
+    this._pathInput = this.node.querySelector('.pv-explorer-path-input') as HTMLInputElement;
+    this._saveBtnsEl = this.node.querySelector('.pv-explorer-save-btns') as HTMLElement;
+    this._saveBtn   = this.node.querySelector('.pv-save-btn')            as HTMLButtonElement;
 
-    const newChartBtn = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
+    const newChartBtn  = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
+    const saveOkBtn    = this.node.querySelector('.pv-save-ok')            as HTMLButtonElement;
+    const saveCancelBtn = this.node.querySelector('.pv-save-cancel')       as HTMLButtonElement;
+    const saveAsBtn    = this.node.querySelector('.pv-saveas-btn')         as HTMLButtonElement;
+
     newChartBtn.addEventListener('click', e => {
       e.stopPropagation();
       this._showGuiMenu(newChartBtn);
+    });
+
+    this._saveBtn.addEventListener('click', () => {
+      if (this._savePath) {
+        this._executeSave();
+      } else {
+        this._showPathInput();
+      }
+    });
+
+    saveAsBtn.addEventListener('click', () => this._showPathInput());
+
+    saveOkBtn.addEventListener('click', () => {
+      const val = this._pathInput.value.trim();
+      if (val) {
+        this._savePath = val;
+        this._hidePathInput();
+        this._executeSave();
+      }
+    });
+
+    saveCancelBtn.addEventListener('click', () => this._hidePathInput());
+
+    this._pathInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { saveOkBtn.click(); e.stopPropagation(); }
+      if (e.key === 'Escape') { saveCancelBtn.click(); e.stopPropagation(); }
     });
 
     this._renderEmpty();
@@ -118,7 +170,7 @@ export class PivotalExplorerWidget extends Widget {
         if (_lastKey === 'd' && now - _lastKeyTime < 500) { this._deleteCb?.(this._focusedName); }
         _lastKey = 'd';
         _lastKeyTime = now;
-        return; // skip the else-branch below
+        return;
       }
       _lastKey = e.key;
       _lastKeyTime = Date.now();
@@ -147,6 +199,10 @@ export class PivotalExplorerWidget extends Widget {
     this._newGuiCb = cb;
   }
 
+  setSaveCallback(cb: (dsl: string) => void): void {
+    this._saveCb = cb;
+  }
+
   getCurrentTable(): string | null {
     return this._currentTable;
   }
@@ -156,7 +212,6 @@ export class PivotalExplorerWidget extends Widget {
     for (const name of this._expanded) {
       if (!items.find(it => it.name === name)) this._expanded.delete(name);
     }
-    // If the current table was deleted, clear the status bar
     if (this._currentTable && !items.find(it => it.name === this._currentTable)) {
       this._currentTable = null;
       this._statusEl.textContent = 'No active table';
@@ -173,6 +228,37 @@ export class PivotalExplorerWidget extends Widget {
   setViewingItem(name: string | null): void {
     this._viewingItem = name;
     this._render();
+  }
+
+  // -------------------------------------------------------------------------
+  // Save helpers
+  // -------------------------------------------------------------------------
+
+  private _showPathInput(): void {
+    if (this._savePath) this._pathInput.value = this._savePath;
+    this._pathRowEl.removeAttribute('hidden');
+    this._saveBtnsEl.setAttribute('hidden', '');
+    this._pathInput.focus();
+    this._pathInput.select();
+  }
+
+  private _hidePathInput(): void {
+    this._pathRowEl.setAttribute('hidden', '');
+    this._saveBtnsEl.removeAttribute('hidden');
+  }
+
+  private _executeSave(): void {
+    if (!this._savePath) return;
+    const raw = this._savePath;
+    const lastSlash = Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\'));
+    const name = lastSlash >= 0 ? raw.slice(lastSlash + 1) : raw;
+    const dir  = lastSlash >= 0 ? raw.slice(0, lastSlash) : null;
+
+    let dsl = `%%pivotal\nsave "${name}"`;
+    if (dir) dsl += `\n    path "${dir}"`;
+    dsl += '\n    format parquet';
+
+    this._saveCb?.(dsl);
   }
 
   // -------------------------------------------------------------------------
@@ -261,55 +347,65 @@ export class PivotalExplorerWidget extends Widget {
       return;
     }
 
-    // Separate dataframes from derived items (charts / gt_tables with a source_df)
     const dfs    = this._items.filter(it => it.type === 'dataframe');
-    const dfNames = new Set(dfs.map(it => it.name));
+    const charts = this._items.filter(it => it.type === 'chart');
+    const tables = this._items.filter(it => it.type === 'gt_table');
 
-    // Children grouped by source df
-    const children = new Map<string, ExplorerItem[]>();
-    const orphans: ExplorerItem[] = [];
-    for (const item of this._items) {
-      if (item.type === 'dataframe') continue;
-      if (item.source_df && dfNames.has(item.source_df)) {
-        const arr = children.get(item.source_df) ?? [];
-        arr.push(item);
-        children.set(item.source_df, arr);
-      } else {
-        orphans.push(item);
-      }
-    }
+    this._renderFolder('data',   'Data',   dfs);
+    this._renderFolder('charts', 'Charts', charts);
+    this._renderFolder('tables', 'Tables', tables);
+  }
 
-    // Render each df followed by its children, then orphans
-    for (const df of dfs) {
-      this._renderItem(df);
-      const kids = children.get(df.name);
-      if (kids?.length) {
-        const childGroup = document.createElement('div');
-        childGroup.className = 'pv-explorer-children';
-        for (const child of kids) {
-          this._renderItem(child, childGroup);
-        }
-        this._listEl.appendChild(childGroup);
+  private _renderFolder(id: string, label: string, items: ExplorerItem[]): void {
+    if (!items.length) return;
+
+    const isCollapsed = this._collapsedFolders.has(id);
+
+    const header = document.createElement('div');
+    header.className = 'pv-explorer-folder-header';
+
+    const toggle = document.createElement('span');
+    toggle.className = 'pv-explorer-folder-toggle';
+    toggle.textContent = isCollapsed ? '▶' : '▼';
+    toggle.setAttribute('aria-hidden', 'true');
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'pv-explorer-folder-label';
+    labelEl.textContent = `${label}`;
+
+    const countEl = document.createElement('span');
+    countEl.className = 'pv-explorer-folder-count';
+    countEl.textContent = `${items.length}`;
+
+    header.appendChild(toggle);
+    header.appendChild(labelEl);
+    header.appendChild(countEl);
+    header.addEventListener('click', () => {
+      if (isCollapsed) this._collapsedFolders.delete(id);
+      else this._collapsedFolders.add(id);
+      this._render();
+    });
+
+    this._listEl.appendChild(header);
+
+    if (!isCollapsed) {
+      for (const item of items) {
+        this._renderItem(item);
       }
-    }
-    for (const item of orphans) {
-      this._renderItem(item);
     }
   }
 
-  private _renderItem(item: ExplorerItem, container: HTMLElement = this._listEl): void {
+  private _renderItem(item: ExplorerItem): void {
     const isExpanded = this._expanded.has(item.name);
     const hasColumns = item.type === 'dataframe' && !!(item.columns?.length);
     const isCurrent  = item.type === 'dataframe' && item.name === this._currentTable;
     const isViewing  = item.name === this._viewingItem;
-    const isChild    = item.type !== 'dataframe' && !!item.source_df;
 
     // --- Row ---
     const row = document.createElement('div');
     row.className = 'pv-explorer-row';
     if (isCurrent)                       row.classList.add('pv-current-table');
     if (item.name === this._focusedName) row.classList.add('pv-focused');
-    if (isChild)                         row.classList.add('pv-child-row');
     row.setAttribute('role', 'row');
 
     const toggle = document.createElement('span');
@@ -347,7 +443,6 @@ export class PivotalExplorerWidget extends Widget {
       row.appendChild(eyeEl);
     }
 
-    // Toggle expand on clicking the toggle arrow
     toggle.addEventListener('click', e => {
       e.stopPropagation();
       if (!hasColumns) return;
@@ -356,14 +451,12 @@ export class PivotalExplorerWidget extends Widget {
       this._render();
     });
 
-    // Track focused item and focus viewer on click
     row.addEventListener('click', () => {
       this._focusedName = item.name;
       this.node.focus();
       this._clickCb?.(item.name);
     });
 
-    // Right-click context menu
     row.addEventListener('contextmenu', e => {
       e.preventDefault();
       e.stopPropagation();
@@ -371,7 +464,7 @@ export class PivotalExplorerWidget extends Widget {
       this._showContextMenu(e.clientX, e.clientY, item.name);
     });
 
-    container.appendChild(row);
+    this._listEl.appendChild(row);
 
     // --- Column tree (when expanded) ---
     if (hasColumns && isExpanded) {
@@ -400,7 +493,7 @@ export class PivotalExplorerWidget extends Widget {
         colRow.appendChild(colDtype);
         colList.appendChild(colRow);
       }
-      container.appendChild(colList);
+      this._listEl.appendChild(colList);
     }
   }
 }
