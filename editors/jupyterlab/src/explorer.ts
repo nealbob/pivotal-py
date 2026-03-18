@@ -356,7 +356,13 @@ export class PivotalExplorerWidget extends Widget {
         colDtype.className = 'pv-explorer-col-dtype';
         colDtype.textContent = col.dtype;
 
+        const colType = document.createElement('span');
+        colType.className = `pv-explorer-col-type pv-col-type-${col.col_type ?? 'string'}`;
+        colType.textContent = col.col_type ?? '';
+        colType.title = col.col_type ?? '';
+
         colRow.appendChild(colName);
+        colRow.appendChild(colType);
         colRow.appendChild(colDtype);
         colList.appendChild(colRow);
       }

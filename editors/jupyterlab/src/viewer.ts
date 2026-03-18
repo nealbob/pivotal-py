@@ -7,12 +7,15 @@ import 'tabulator-tables/dist/css/tabulator_simple.min.css';
 // Payload types
 // ---------------------------------------------------------------------------
 
+export type SemanticColType = 'numeric' | 'categorical' | 'datetime' | 'boolean' | 'string';
+
 export interface DataFramePayload {
   type: 'dataframe';
   name: string;
   columns: string[];
   data: unknown[][];           // row-major: data[rowIdx][colIdx]
   dtypes: Record<string, string>;
+  col_types?: Record<string, SemanticColType>;
   shape: [number, number];
   truncated: boolean;
   viewer_font?: number;        // em units for font size (default 0.75)
@@ -48,7 +51,7 @@ export interface ExplorerItem {
   name: string;
   type: 'dataframe' | 'chart' | 'gt_table';
   shape?: [number, number];
-  columns?: { name: string; dtype: string }[];
+  columns?: { name: string; dtype: string; col_type?: SemanticColType }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +241,7 @@ export class PivotalViewerWidget extends Widget {
           name,
           type: 'dataframe' as const,
           shape: df.shape,
-          columns: df.columns.map(c => ({ name: c, dtype: df.dtypes[c] ?? '' })),
+          columns: df.columns.map(c => ({ name: c, dtype: df.dtypes[c] ?? '', col_type: df.col_types?.[c] })),
         };
       }
       if (msg.type === 'chart') return { name, type: 'chart' as const };
@@ -422,6 +425,7 @@ export class PivotalViewerWidget extends Widget {
     }
 
     const { columns, data, dtypes } = p;
+    const colTypes = p.col_types ?? {};
     const sigFigs = p.viewer_num_format ?? 5;
 
     // Float formatter: sigFigs significant digits, trim trailing zeros, keep sci notation
@@ -455,16 +459,35 @@ export class PivotalViewerWidget extends Widget {
         const dt = dtypes[col] ?? '';
         const isFloat = dt.startsWith('float');
         const isNum = isFloat || dt.startsWith('int');
-        const colDef: ColumnDefinition = {
+        const semType: SemanticColType = colTypes[col] ?? (isNum ? 'numeric' : 'string');
+
+        const colDef = {
           title: col, field: col,
           hozAlign: (isNum ? 'right' : 'left') as 'right' | 'left',
           sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
           tooltip: (dt || false) as string | false,
           resizable: true,
-        };
-        colDef.headerFilter = 'input' as never;
-        colDef.headerFilterFunc = 'like' as never;
-        colDef.headerFilterPlaceholder = ' ' as never;
+          headerFilterPopupIcon: '&#9660;',   // ▼ — opens filter in a popup
+        } as ColumnDefinition;
+
+        if (semType === 'categorical' || semType === 'boolean') {
+          // Build unique value list from the data
+          const vals = [...new Set(rows.map(r => r[col]))]
+            .filter(v => v !== null && v !== undefined && v !== '')
+            .sort((a, b) => String(a).localeCompare(String(b)));
+          colDef.headerFilter = 'list' as never;
+          colDef.headerFilterParams = { values: ['', ...vals], clearable: true } as never;
+        } else if (semType === 'numeric') {
+          colDef.headerFilter = 'number' as never;
+          colDef.headerFilterFunc = '>=' as never;
+          colDef.headerFilterPlaceholder = '≥' as never;
+        } else {
+          // string / datetime — plain text match
+          colDef.headerFilter = 'input' as never;
+          colDef.headerFilterFunc = 'like' as never;
+          colDef.headerFilterPlaceholder = ' ' as never;
+        }
+
         if (isFloat && floatFormatter) colDef.formatter = floatFormatter as never;
         return colDef;
       }),

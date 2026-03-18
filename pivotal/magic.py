@@ -17,6 +17,61 @@ from .dsl_parser import DSLParser
 # Object Viewer comm helper
 # ---------------------------------------------------------------------------
 
+def _infer_col_types(payload) -> dict:
+    """Infer semantic column types for the filter UI.
+
+    Returns {col: 'numeric'|'categorical'|'datetime'|'boolean'|'string'}.
+    Tries visions if available; falls back to dtype + cardinality heuristic.
+    """
+    import pandas as pd
+    col_types = {}
+    n = max(len(payload), 1)
+
+    # Optional: visions for richer semantic inference
+    try:
+        import visions
+        typeset = visions.StandardSet()
+        inferred = visions.infer_type(payload, typeset)
+        _vmap = {
+            'Integer': 'numeric', 'Float': 'numeric', 'Complex': 'numeric',
+            'DateTime': 'datetime', 'Date': 'datetime', 'TimeDelta': 'numeric',
+            'Boolean': 'boolean', 'Categorical': 'categorical',
+            'Object': 'string', 'String': 'string', 'URL': 'string',
+            'EmailAddress': 'string', 'IPAddress': 'string', 'UUID': 'string',
+            'Path': 'string', 'Geometry': 'string',
+        }
+        for col, vtype in inferred.items():
+            col_types[str(col)] = _vmap.get(type(vtype).__name__, 'string')
+        return col_types
+    except Exception:
+        pass
+
+    # Fallback: dtype + cardinality heuristic
+    for col in payload.columns:
+        col_str = str(col)
+        dt = str(payload[col].dtype)
+        if dt.startswith(('float', 'int', 'uint')) or dt in ('Int8', 'Int16', 'Int32', 'Int64',
+                                                               'UInt8', 'UInt16', 'UInt32', 'UInt64',
+                                                               'Float32', 'Float64'):
+            col_types[col_str] = 'numeric'
+        elif dt.startswith('datetime') or dt.startswith('date') or dt == 'period':
+            col_types[col_str] = 'datetime'
+        elif dt == 'bool' or dt == 'boolean':
+            col_types[col_str] = 'boolean'
+        elif dt == 'category':
+            col_types[col_str] = 'categorical'
+        else:
+            # object / string — use cardinality to decide
+            try:
+                n_unique = payload[col].nunique(dropna=True)
+                threshold = min(50, max(5, int(n * 0.3)))
+                col_types[col_str] = 'categorical' if n_unique <= threshold else 'string'
+            except Exception:
+                col_types[col_str] = 'string'
+
+    return col_types
+
+
 class _PivotalViewer:
     """Sends DataFrames and chart figures to the JupyterLab Object Viewer panel."""
 
@@ -83,6 +138,7 @@ class _PivotalViewer:
                 'columns': split['columns'],
                 'data': split['data'],       # list of rows (each row is a list of values)
                 'dtypes': {str(c): str(t) for c, t in payload.dtypes.items()},
+                'col_types': _infer_col_types(payload),
                 'shape': list(df.shape),
                 'truncated': truncated,
                 'viewer_font': viewer_font,

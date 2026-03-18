@@ -478,6 +478,23 @@
   font-family: var(--jp-code-font-family);
 }
 
+.pv-explorer-col-type {
+  flex-shrink: 0;
+  font-size: 0.7em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.85;
+}
+
+.pv-col-type-numeric   { background: rgba( 59, 130, 246, 0.15); color: #3b82f6; }
+.pv-col-type-categorical { background: rgba(168,  85, 247, 0.15); color: #a855f7; }
+.pv-col-type-datetime  { background: rgba( 16, 185, 129, 0.15); color: #10b981; }
+.pv-col-type-boolean   { background: rgba(245, 158,  11, 0.15); color: #f59e0b; }
+.pv-col-type-string    { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
 /* ---------------------------------------------------------------------------
    Page-layout view
    --------------------------------------------------------------------------- */
