@@ -447,6 +447,13 @@
   background: var(--jp-layout-color2);
 }
 
+/* JupyterLab bottom status bar item */
+.pv-statusbar-item {
+  font-size: var(--jp-ui-font-size1);
+  padding: 0 6px;
+  color: var(--jp-ui-font-color1);
+}
+
 /* Folder headers (Data / Charts / Tables) */
 .pv-explorer-folder-header {
   display: flex;
@@ -530,14 +537,19 @@
   line-height: 1;
 }
 
+.pv-explorer-save-bar {
+  align-items: flex-end;
+}
+
 .pv-save-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  width: 100%;
+  width: 80px;
   font-size: 0.85em;
   padding: 4px 8px;
+  flex-shrink: 0;
 }
 
 /* Expanded column list */

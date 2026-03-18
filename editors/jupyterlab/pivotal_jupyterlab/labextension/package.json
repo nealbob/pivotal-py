@@ -47,6 +47,7 @@
     "@jupyterlab/filebrowser": "^4.0.0",
     "@jupyterlab/notebook": "^4.0.0",
     "@jupyterlab/services": "^7.0.0",
+    "@jupyterlab/statusbar": "^4.0.0",
     "@jupyterlab/ui-components": "^4.0.0",
     "@lezer/highlight": "^1.0.0",
     "@lumino/messaging": "^2.0.0",
@@ -65,7 +66,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static/remoteEntry.ec4f1b0c329d2845c0b9.js",
+      "load": "static/remoteEntry.fd1bd1b76d64b22eca1b.js",
       "extension": "./extension",
       "style": "./style"
     }

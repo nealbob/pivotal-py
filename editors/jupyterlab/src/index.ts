@@ -24,8 +24,9 @@ import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton, Notification } from '@jupyterlab/apputils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
 import { FileDialog } from '@jupyterlab/filebrowser';
+import { IStatusBar } from '@jupyterlab/statusbar';
 import { PageConfig } from '@jupyterlab/coreutils';
-import { Menu } from '@lumino/widgets';
+import { Menu, Widget } from '@lumino/widgets';
 
 import { pivotalLanguage } from './language';
 import { PivotalViewerWidget, ViewerMessage } from './viewer';
@@ -438,8 +439,8 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   description: 'Object Viewer panel for DataFrames and charts from Pivotal cells',
   autoStart: true,
   requires: [INotebookTracker],
-  optional: [ISettingRegistry, IDocumentManager],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null, docManager: IDocumentManager | null) => {
+  optional: [ISettingRegistry, IDocumentManager, IStatusBar],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null, docManager: IDocumentManager | null, statusBar: IStatusBar | null) => {
     const viewer = getViewer();
     const explorer = getExplorer();
     explorer.title.icon = pivotalGreyIcon;
@@ -545,6 +546,21 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         void NotebookActions.run(notebook, panel.sessionContext);
       }
     });
+
+    // Status bar item showing the current active DataFrame
+    if (statusBar) {
+      const statusItem = new Widget();
+      statusItem.addClass('pv-statusbar-item');
+      statusItem.node.textContent = '';
+      explorer.setCurrentTableChangedCallback(name => {
+        statusItem.node.textContent = name ? `df: ${name}` : '';
+      });
+      statusBar.registerStatusItem('@pivotal/jupyterlab:current-table', {
+        item: statusItem,
+        align: 'left',
+        rank: 100,
+      });
+    }
 
     // Browse for a save directory using the JupyterLab file dialog
     explorer.setBrowseCallback(async () => {

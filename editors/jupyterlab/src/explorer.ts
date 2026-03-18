@@ -47,8 +47,8 @@ export class PivotalExplorerWidget extends Widget {
   private _viewingItem: string | null = null;
   private _focusedName: string | null = null;
   private _listEl!: HTMLElement;
-  private _statusEl!: HTMLElement;
   private _pathInput!: HTMLInputElement;
+  private _currentTableChangedCb: ((name: string | null) => void) | null = null;
   private _saveCb: ((dsl: string) => void) | null = null;
   private _browseCb: (() => Promise<string | null>) | null = null;
   private _contextMenu: HTMLElement | null = null;
@@ -69,10 +69,10 @@ export class PivotalExplorerWidget extends Widget {
         <button class="pv-btn pv-explorer-new-chart" title="New chart">+</button>
       </div>
       <div class="pv-explorer-list"></div>
-      <div class="pv-explorer-status">No active table</div>
       <div class="pv-explorer-save-bar">
         <div class="pv-explorer-path-row">
-          <input class="pv-explorer-path-input" placeholder="output/my_analysis" />
+          <input class="pv-explorer-path-input" placeholder="output/my_analysis"
+            spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" />
           <button class="pv-btn pv-browse-btn" title="Browse for folder">&#128193;</button>
         </div>
         <button class="pv-btn pv-save-btn" title="Save data package">
@@ -87,8 +87,7 @@ export class PivotalExplorerWidget extends Widget {
       </div>
     `;
 
-    this._listEl   = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
-    this._statusEl = this.node.querySelector('.pv-explorer-status')     as HTMLElement;
+    this._listEl    = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
     this._pathInput = this.node.querySelector('.pv-explorer-path-input') as HTMLInputElement;
 
     const newChartBtn = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
@@ -200,7 +199,7 @@ export class PivotalExplorerWidget extends Widget {
     }
     if (this._currentTable && !items.find(it => it.name === this._currentTable)) {
       this._currentTable = null;
-      this._statusEl.textContent = 'No active table';
+      this._currentTableChangedCb?.(null);
     }
     this._render();
   }
@@ -208,7 +207,11 @@ export class PivotalExplorerWidget extends Widget {
   setCurrentTable(name: string | null): void {
     this._currentTable = name;
     this._render();
-    this._statusEl.textContent = name ? `Current df: ${name}` : 'No active table';
+    this._currentTableChangedCb?.(name);
+  }
+
+  setCurrentTableChangedCallback(cb: (name: string | null) => void): void {
+    this._currentTableChangedCb = cb;
   }
 
   setViewingItem(name: string | null): void {

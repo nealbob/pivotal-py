@@ -47,6 +47,7 @@
     "@jupyterlab/filebrowser": "^4.0.0",
     "@jupyterlab/notebook": "^4.0.0",
     "@jupyterlab/services": "^7.0.0",
+    "@jupyterlab/statusbar": "^4.0.0",
     "@jupyterlab/ui-components": "^4.0.0",
     "@lezer/highlight": "^1.0.0",
     "@lumino/messaging": "^2.0.0",
