@@ -551,7 +551,9 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       if (!docManager) return null;
       const result = await FileDialog.getExistingDirectory({ manager: docManager });
       if (result.button.accept && result.value?.length) {
-        return result.value[0].path;
+        const relPath = result.value[0].path;
+        const serverRoot = PageConfig.getOption('serverRoot') || '';
+        return serverRoot ? `${serverRoot}/${relPath}` : relPath;
       }
       return null;
     });
