@@ -22,6 +22,8 @@ import {
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton, Notification } from '@jupyterlab/apputils';
+import { IDocumentManager } from '@jupyterlab/docmanager';
+import { FileDialog } from '@jupyterlab/filebrowser';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu } from '@lumino/widgets';
 
@@ -436,8 +438,8 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   description: 'Object Viewer panel for DataFrames and charts from Pivotal cells',
   autoStart: true,
   requires: [INotebookTracker],
-  optional: [ISettingRegistry],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null) => {
+  optional: [ISettingRegistry, IDocumentManager],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null, docManager: IDocumentManager | null) => {
     const viewer = getViewer();
     const explorer = getExplorer();
     explorer.title.icon = pivotalGreyIcon;
@@ -542,6 +544,16 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         active.model.sharedModel.setSource(dsl);
         void NotebookActions.run(notebook, panel.sessionContext);
       }
+    });
+
+    // Browse for a save directory using the JupyterLab file dialog
+    explorer.setBrowseCallback(async () => {
+      if (!docManager) return null;
+      const result = await FileDialog.getExistingDirectory({ manager: docManager });
+      if (result.button.accept && result.value?.length) {
+        return result.value[0].path;
+      }
+      return null;
     });
 
     // Clicking an explorer item focuses the viewer on that item

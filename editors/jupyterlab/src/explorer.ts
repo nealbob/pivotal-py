@@ -48,12 +48,9 @@ export class PivotalExplorerWidget extends Widget {
   private _focusedName: string | null = null;
   private _listEl!: HTMLElement;
   private _statusEl!: HTMLElement;
-  private _pathRowEl!: HTMLElement;
   private _pathInput!: HTMLInputElement;
-  private _saveBtnsEl!: HTMLElement;
-  private _saveBtn!: HTMLButtonElement;
-  private _savePath: string | null = null;
   private _saveCb: ((dsl: string) => void) | null = null;
+  private _browseCb: (() => Promise<string | null>) | null = null;
   private _contextMenu: HTMLElement | null = null;
   private _guiMenu: HTMLElement | null = null;
   private _newGuiCb: ((type: string) => void) | null = null;
@@ -74,59 +71,44 @@ export class PivotalExplorerWidget extends Widget {
       <div class="pv-explorer-list"></div>
       <div class="pv-explorer-status">No active table</div>
       <div class="pv-explorer-save-bar">
-        <div class="pv-explorer-path-row" hidden>
-          <input class="pv-explorer-path-input" placeholder="~/output/my_analysis" />
-          <button class="pv-btn pv-save-ok" title="Confirm">&#10003;</button>
-          <button class="pv-btn pv-save-cancel" title="Cancel">&#10005;</button>
+        <div class="pv-explorer-path-row">
+          <input class="pv-explorer-path-input" placeholder="output/my_analysis" />
+          <button class="pv-btn pv-browse-btn" title="Browse for folder">&#128193;</button>
         </div>
-        <div class="pv-explorer-save-btns">
-          <button class="pv-btn pv-save-btn" title="Save package">Save</button>
-          <button class="pv-btn pv-saveas-btn" title="Save to a new path">Save As&#8230;</button>
-        </div>
+        <button class="pv-btn pv-save-btn" title="Save data package">
+          <svg viewBox="0 0 14 14" width="12" height="12" fill="currentColor" style="flex-shrink:0">
+            <rect x="2" y="1" width="10" height="9" rx="0.5" opacity="0.9"/>
+            <rect x="4" y="1" width="4" height="3.5" rx="0.3" fill="var(--jp-layout-color1)" opacity="1"/>
+            <rect x="2" y="8" width="10" height="5" rx="0.5" opacity="0.7"/>
+            <rect x="4" y="9.5" width="6" height="2.5" rx="0.3" fill="var(--jp-layout-color1)" opacity="0.9"/>
+          </svg>
+          Save
+        </button>
       </div>
     `;
 
-    this._listEl    = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
-    this._statusEl  = this.node.querySelector('.pv-explorer-status')     as HTMLElement;
-    this._pathRowEl = this.node.querySelector('.pv-explorer-path-row')   as HTMLElement;
+    this._listEl   = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
+    this._statusEl = this.node.querySelector('.pv-explorer-status')     as HTMLElement;
     this._pathInput = this.node.querySelector('.pv-explorer-path-input') as HTMLInputElement;
-    this._saveBtnsEl = this.node.querySelector('.pv-explorer-save-btns') as HTMLElement;
-    this._saveBtn   = this.node.querySelector('.pv-save-btn')            as HTMLButtonElement;
 
-    const newChartBtn  = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
-    const saveOkBtn    = this.node.querySelector('.pv-save-ok')            as HTMLButtonElement;
-    const saveCancelBtn = this.node.querySelector('.pv-save-cancel')       as HTMLButtonElement;
-    const saveAsBtn    = this.node.querySelector('.pv-saveas-btn')         as HTMLButtonElement;
+    const newChartBtn = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
+    const saveBtn     = this.node.querySelector('.pv-save-btn')           as HTMLButtonElement;
+    const browseBtn   = this.node.querySelector('.pv-browse-btn')         as HTMLButtonElement;
 
     newChartBtn.addEventListener('click', e => {
       e.stopPropagation();
       this._showGuiMenu(newChartBtn);
     });
 
-    this._saveBtn.addEventListener('click', () => {
-      if (this._savePath) {
-        this._executeSave();
-      } else {
-        this._showPathInput();
+    saveBtn.addEventListener('click', () => this._executeSave());
+
+    browseBtn.addEventListener('click', async () => {
+      if (!this._browseCb) return;
+      const path = await this._browseCb();
+      if (path !== null) {
+        this._pathInput.value = path;
+        this._pathInput.focus();
       }
-    });
-
-    saveAsBtn.addEventListener('click', () => this._showPathInput());
-
-    saveOkBtn.addEventListener('click', () => {
-      const val = this._pathInput.value.trim();
-      if (val) {
-        this._savePath = val;
-        this._hidePathInput();
-        this._executeSave();
-      }
-    });
-
-    saveCancelBtn.addEventListener('click', () => this._hidePathInput());
-
-    this._pathInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { saveOkBtn.click(); e.stopPropagation(); }
-      if (e.key === 'Escape') { saveCancelBtn.click(); e.stopPropagation(); }
     });
 
     this._renderEmpty();
@@ -203,6 +185,10 @@ export class PivotalExplorerWidget extends Widget {
     this._saveCb = cb;
   }
 
+  setBrowseCallback(cb: () => Promise<string | null>): void {
+    this._browseCb = cb;
+  }
+
   getCurrentTable(): string | null {
     return this._currentTable;
   }
@@ -234,22 +220,9 @@ export class PivotalExplorerWidget extends Widget {
   // Save helpers
   // -------------------------------------------------------------------------
 
-  private _showPathInput(): void {
-    if (this._savePath) this._pathInput.value = this._savePath;
-    this._pathRowEl.removeAttribute('hidden');
-    this._saveBtnsEl.setAttribute('hidden', '');
-    this._pathInput.focus();
-    this._pathInput.select();
-  }
-
-  private _hidePathInput(): void {
-    this._pathRowEl.setAttribute('hidden', '');
-    this._saveBtnsEl.removeAttribute('hidden');
-  }
-
   private _executeSave(): void {
-    if (!this._savePath) return;
-    const raw = this._savePath;
+    const raw = this._pathInput.value.trim();
+    if (!raw) { this._pathInput.focus(); return; }
     const lastSlash = Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\'));
     const name = lastSlash >= 0 ? raw.slice(lastSlash + 1) : raw;
     const dir  = lastSlash >= 0 ? raw.slice(0, lastSlash) : null;

@@ -43,6 +43,8 @@
     "@jupyterlab/application": "^4.0.0",
     "@jupyterlab/apputils": "^4.0.0",
     "@jupyterlab/codemirror": "^4.0.0",
+    "@jupyterlab/docmanager": "^4.0.0",
+    "@jupyterlab/filebrowser": "^4.0.0",
     "@jupyterlab/notebook": "^4.0.0",
     "@jupyterlab/services": "^7.0.0",
     "@jupyterlab/ui-components": "^4.0.0",
@@ -63,7 +65,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static/remoteEntry.83567ec351cd4f8bca51.js",
+      "load": "static/remoteEntry.4793948090b58cac8acc.js",
       "extension": "./extension",
       "style": "./style"
     }
