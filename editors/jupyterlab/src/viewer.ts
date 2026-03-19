@@ -1,7 +1,57 @@
 import { Widget } from '@lumino/widgets';
 import { Message } from '@lumino/messaging';
-import { TabulatorFull as Tabulator, type ColumnDefinition } from 'tabulator-tables';
-import 'tabulator-tables/dist/css/tabulator_simple.min.css';
+import {
+  createGrid,
+  type GridOptions, type ColDef, type GridApi,
+  type IFloatingFilterComp, type IFloatingFilterParams,
+} from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+
+// ---------------------------------------------------------------------------
+// SelectFloatingFilter — custom <select> floating filter for categorical /
+// boolean columns. Pairs with agTextColumnFilter (equals mode) so no
+// Enterprise licence is needed.
+// ---------------------------------------------------------------------------
+
+class SelectFloatingFilter implements IFloatingFilterComp {
+  private _gui!: HTMLElement;
+  private _select!: HTMLSelectElement;
+
+  init(params: IFloatingFilterParams): void {
+    // Values are passed via filterParams.values (our custom field)
+    const values: string[] = ((params.filterParams as unknown) as Record<string, unknown>).values as string[] ?? [];
+
+    this._select = document.createElement('select');
+    this._select.className = 'pv-ag-select-filter';
+
+    for (const v of values) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v === '' ? '— All —' : String(v);
+      this._select.appendChild(opt);
+    }
+
+    this._select.addEventListener('change', () => {
+      const val = this._select.value;
+      params.parentFilterInstance(instance => {
+        instance.onFloatingFilterChanged(val ? 'equals' : null, val || null);
+      });
+    });
+
+    this._gui = document.createElement('div');
+    this._gui.className = 'pv-ag-select-wrapper';
+    this._gui.appendChild(this._select);
+  }
+
+  getGui(): HTMLElement { return this._gui; }
+
+  onParentModelChanged(parentModel: { filter?: string } | null): void {
+    this._select.value = parentModel?.filter ?? '';
+  }
+
+  destroy(): void { /* nothing to clean up */ }
+}
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -82,9 +132,9 @@ export class PivotalViewerWidget extends Widget {
   private _guiMenu: HTMLElement | null = null;
   private _zoomCb: ((factor: number) => void) | null = null;
 
-  // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
+  // Cache AG Grid DOM nodes + GridApi per DataFrame name so back/forward navigation
   // reattaches existing instances rather than rebuilding from scratch.
-  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement }> = new Map();
+  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement; api: GridApi }> = new Map();
 
   // Callback set by canvas renderers (_renderChartOnPage / _renderGtTableOnPage)
   // so that Lumino's onResize can trigger a re-layout when the panel is resized.
@@ -263,8 +313,11 @@ export class PivotalViewerWidget extends Widget {
   push(msg: ViewerMessage): void {
     const isNew = !this._latest.has(msg.name);
     this._latest.set(msg.name, msg);
-    // Evict stale cache entry so updated data gets a fresh Tabulator instance
-    if (!isNew) this._dfCache.delete(msg.name);
+    // Evict stale cache entry so updated data gets a fresh AG Grid instance
+    if (!isNew) {
+      this._dfCache.get(msg.name)?.api?.destroy();
+      this._dfCache.delete(msg.name);
+    }
     if (isNew) this._names.push(msg.name);
     this._index = this._names.indexOf(msg.name);
     this._render();
@@ -284,6 +337,7 @@ export class PivotalViewerWidget extends Widget {
     const idx = this._names.indexOf(name);
     if (idx < 0) return;
     this._latest.delete(name);
+    this._dfCache.get(name)?.api?.destroy();
     this._dfCache.delete(name);
     this._names.splice(idx, 1);
     this._index = Math.min(Math.max(this._index, 0), this._names.length - 1);
@@ -312,6 +366,7 @@ export class PivotalViewerWidget extends Widget {
 
   clear(): void {
     this._latest.clear();
+    for (const cached of this._dfCache.values()) cached.api?.destroy();
     this._dfCache.clear();
     this._names = [];
     this._index = -1;
@@ -405,7 +460,7 @@ export class PivotalViewerWidget extends Widget {
     this._delBtn.disabled   = false;
     this._clearBtn.disabled = false;
 
-    // Detach children without destroying them — keeps Tabulator instances alive in _dfCache
+    // Detach children without destroying them — keeps AG Grid instances alive in _dfCache
     while (this._body.firstChild) this._body.removeChild(this._body.firstChild);
     while (this._footer.firstChild) this._footer.removeChild(this._footer.firstChild);
 
@@ -415,7 +470,7 @@ export class PivotalViewerWidget extends Widget {
   }
 
   // -------------------------------------------------------------------------
-  // DataFrame — rendered with Tabulator (virtual DOM, sortable columns)
+  // DataFrame — rendered with AG Grid (virtual scroll, sortable, filterable)
   // -------------------------------------------------------------------------
 
   private _renderDataFrame(p: DataFramePayload): void {
@@ -428,13 +483,12 @@ export class PivotalViewerWidget extends Widget {
     }
 
     const { columns, data, dtypes } = p;
-    const colTypes = p.col_types ?? {};
     const sigFigs = p.viewer_num_format ?? 5;
 
     // Float formatter: sigFigs significant digits, trim trailing zeros, keep sci notation
     const floatFormatter = sigFigs > 0
-      ? (cell: { getValue(): unknown }) => {
-          const val = cell.getValue();
+      ? (params: { value: unknown }) => {
+          const val = params.value;
           if (val === null || val === undefined || val === '') return '';
           const n = Number(val);
           if (isNaN(n)) return String(val);
@@ -443,78 +497,96 @@ export class PivotalViewerWidget extends Widget {
         }
       : undefined;
 
-    // Convert row-major array to Tabulator row objects, prepend row index
-    const rows = data.map((row, i) => {
+    // Convert row-major array to row objects, prepend row index
+    const rowData = data.map((row, i) => {
       const obj: Record<string, unknown> = { _idx: i };
       columns.forEach((col, ci) => { obj[col] = row[ci]; });
       return obj;
     });
 
-    const colDefs: ColumnDefinition[] = [
+    const colDefs: ColDef[] = [
       {
-        title: '', field: '_idx',
-        frozen: true, width: 52, minWidth: 52,
-        hozAlign: 'right', headerSort: false, resizable: false,
-        cssClass: 'pv-tab-idx',
-        headerFilter: false as never,
+        field: '_idx',
+        headerName: '',
+        pinned: 'left',
+        width: 52,
+        minWidth: 52,
+        maxWidth: 52,
+        sortable: false,
+        filter: false,
+        floatingFilter: false,
+        resizable: false,
+        suppressMovable: true,
+        cellClass: 'pv-ag-idx',
+        headerClass: 'pv-ag-idx-header',
       },
       ...columns.map(col => {
         const dt = dtypes[col] ?? '';
         const isFloat = dt.startsWith('float');
         const isNum = isFloat || dt.startsWith('int');
-        const semType: SemanticColType = colTypes[col] ?? (isNum ? 'numeric' : 'string');
+        const semType = (p.col_types ?? {})[col] ?? (isNum ? 'numeric' : 'string');
 
-        const colDef = {
-          title: col, field: col,
-          hozAlign: (isNum ? 'right' : 'left') as 'right' | 'left',
-          sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
-          tooltip: (dt || false) as string | false,
+        const def: ColDef = {
+          field: col,
+          headerName: col,
+          type: isNum ? 'numericColumn' : undefined,
+          headerTooltip: dt || undefined,
           resizable: true,
-        } as ColumnDefinition;
+          sortable: true,
+        };
 
         if (semType === 'categorical' || semType === 'boolean') {
-          // Build unique value list from the data
-          const vals = [...new Set(rows.map(r => r[col]))]
-            .filter(v => v !== null && v !== undefined && v !== '')
-            .sort((a, b) => String(a).localeCompare(String(b)));
-          colDef.headerFilter = 'list' as never;
-          colDef.headerFilterParams = { values: ['', ...vals], clearable: true } as never;
+          // Unique sorted values for the select dropdown
+          const vals = [...new Set(rowData.map(r => String(r[col] ?? '')))]
+            .filter(v => v !== '')
+            .sort((a, b) => a.localeCompare(b));
+          def.filter = 'agTextColumnFilter';
+          def.filterParams = {
+            filterOptions: ['equals'],
+            defaultOption: 'equals',
+            suppressAndOrCondition: true,
+            values: ['', ...vals],  // passed through to SelectFloatingFilter
+          };
+          def.floatingFilterComponent = SelectFloatingFilter;
         } else if (semType === 'numeric') {
-          colDef.headerFilter = 'number' as never;
-          colDef.headerFilterFunc = '>=' as never;
-          colDef.headerFilterPlaceholder = '≥' as never;
+          def.filter = 'agNumberColumnFilter';
         } else {
-          // string / datetime — plain text match
-          colDef.headerFilter = 'input' as never;
-          colDef.headerFilterFunc = 'like' as never;
-          colDef.headerFilterPlaceholder = ' ' as never;
+          // string / datetime — text contains
+          def.filter = 'agTextColumnFilter';
+          def.filterParams = { filterOptions: ['contains'], defaultOption: 'contains' };
         }
 
-        if (isFloat && floatFormatter) colDef.formatter = floatFormatter as never;
-        return colDef;
+        if (isFloat && floatFormatter) def.valueFormatter = floatFormatter;
+
+        return def;
       }),
     ];
 
     const container = document.createElement('div');
-    container.className = 'pv-tab-container';
+    container.className = 'pv-ag-container ag-theme-alpine';
     container.style.fontSize = `${p.viewer_font ?? 1.0}em`;
 
-    new Tabulator(container, {
-      data: rows,
-      columns: colDefs,
-      layout: 'fitData',
-      height: '100%',
-      renderVertical: 'virtual',
+    const api = createGrid(container, {
+      rowData,
+      columnDefs: colDefs,
       rowHeight: 24,
-      nestedFieldSeparator: false,  // allow dots in column names (e.g. "2.6")
-      popupContainer: document.body as never,  // position filter popups relative to viewport
-    });
+      headerHeight: 28,
+      floatingFiltersHeight: 24,
+      defaultColDef: {
+        sortable: true,
+        filter: true,
+        floatingFilter: true,
+        resizable: true,
+      },
+      suppressFieldDotNotation: true,   // allow dots in column names (e.g. "2.6")
+      animateRows: false,
+    } as GridOptions);
 
     // Footer
-    const [totalShape, totalCols] = p.shape;
+    const [totalRows, totalCols] = p.shape;
     const truncMsg = p.truncated
-      ? `Showing ${data.length.toLocaleString()} of ${totalShape.toLocaleString()} rows`
-      : `${totalShape.toLocaleString()} rows × ${totalCols} cols`;
+      ? `Showing ${data.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+      : `${totalRows.toLocaleString()} rows × ${totalCols} cols`;
 
     const footer = document.createElement('div');
     footer.className = 'pv-footer-bar';
@@ -535,8 +607,8 @@ export class PivotalViewerWidget extends Widget {
       });
     }
 
-    // Cache nodes before appending so back/forward reuses live Tabulator instance
-    this._dfCache.set(p.name, { body: container, footer });
+    // Cache nodes before appending so back/forward reuses live AG Grid instance
+    this._dfCache.set(p.name, { body: container, footer, api });
     this._body.appendChild(container);
     this._footer.appendChild(footer);
   }
