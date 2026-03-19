@@ -1,30 +1,56 @@
 # Start JupyterLab in the pivotal conda environment
-# Usage: .\start_pivotal.ps1 [--execute] [path\to\notebook.ipynb]
-#   --execute  pre-run all cells before opening
+# Usage: .\start_pivotal.ps1 [-Execute] [-Notebook path\to\notebook.ipynb]
+#   -Execute  pre-run all cells before opening
 
 param(
     [switch]$Execute,
     [string]$Notebook = ""
 )
 
-# Activate conda env (conda must be initialised in PowerShell — run `conda init powershell` once)
-conda activate pivotal
+# --- Find jupyter in the pivotal conda environment ---
+# Search common conda install locations without requiring 'conda activate'
+$envName = "pivotal"
+$condaRoots = @(
+    "$env:USERPROFILE\.conda\envs\$envName",
+    "$env:ProgramData\miniconda3\envs\$envName",
+    "$env:USERPROFILE\miniconda3\envs\$envName",
+    "$env:USERPROFILE\anaconda3\envs\$envName",
+    "$env:ProgramData\anaconda3\envs\$envName",
+    "$env:USERPROFILE\miniforge3\envs\$envName"
+)
+$jupyterExe = $condaRoots |
+    ForEach-Object { "$_\Scripts\jupyter.exe" } |
+    Where-Object { Test-Path $_ } |
+    Select-Object -First 1
 
-# Kill any running Edge instances
+if (-not $jupyterExe) {
+    # Fall back to whatever jupyter is on PATH
+    $jupyterCmd = Get-Command jupyter -ErrorAction SilentlyContinue
+    $jupyterExe = if ($jupyterCmd) { $jupyterCmd.Source } else { $null }
+}
+if (-not $jupyterExe) {
+    Write-Error "Could not find jupyter. Activate the pivotal conda env or ensure jupyter is on PATH."
+    exit 1
+}
+Write-Host "Using jupyter: $jupyterExe"
+
+# --- Kill any running Edge instances ---
 Write-Host "Closing Edge..."
 Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-# Stop any running Jupyter servers
+# --- Stop any running Jupyter servers ---
 Write-Host "Stopping existing Jupyter servers..."
-$servers = jupyter server list 2>$null | Select-String ':\d+' | ForEach-Object { $_.Matches[0].Value.TrimStart(':') }
+$servers = & $jupyterExe server list 2>$null |
+    Select-String ':\d+' |
+    ForEach-Object { $_.Matches[0].Value.TrimStart(':') }
 foreach ($port in $servers) {
-    jupyter server stop $port 2>$null
+    & $jupyterExe server stop $port 2>$null
 }
 Get-Process -Name "jupyter*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-# Resolve notebook path
+# --- Resolve notebook path ---
 $notebookFile = ""
 $originalDir = Get-Location
 if ($Notebook) {
@@ -39,16 +65,18 @@ if ($Notebook) {
     }
 }
 
-# Pre-execute notebook if requested
+# --- Pre-execute notebook if requested ---
 if ($Execute -and $notebookFile) {
     Write-Host "Executing notebook cells..."
-    jupyter nbconvert --to notebook --execute --inplace $notebookFile
+    & $jupyterExe nbconvert --to notebook --execute --inplace $notebookFile
     Write-Host "Done."
 }
 
-# Start JupyterLab and capture URL
+# --- Start JupyterLab and capture URL ---
 $logFile = [System.IO.Path]::GetTempFileName()
-$proc = Start-Process jupyter -ArgumentList "lab --no-browser" -RedirectStandardOutput $logFile -RedirectStandardError $logFile -PassThru -NoNewWindow
+$proc = Start-Process $jupyterExe -ArgumentList "lab --no-browser" `
+    -RedirectStandardOutput $logFile -RedirectStandardError $logFile `
+    -PassThru -NoNewWindow
 
 Write-Host "Starting JupyterLab (pid $($proc.Id))..."
 
