@@ -1749,9 +1749,79 @@ sales = pkg.load_table("sales")
 
 ---
 
+## Development Setup
+
+### Prerequisites
+
+- [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda
+- Node.js 18+ (for the JupyterLab extension)
+- Git
+
+### 1. Clone and create environment
+
+```bash
+git clone https://github.com/nealbob/pivotal-py
+cd pivotal-py
+conda env create -f environment.yml
+conda activate pivotal
+```
+
+### 2. Install packages in dev mode
+
+```bash
+# Core package
+pip install -e .
+
+# JupyterLab extension (Linux/macOS)
+pip install -e editors/jupyterlab
+
+# JupyterLab extension (Windows)
+SKIP_JUPYTER_BUILDER=1 pip install -e editors/jupyterlab --no-build-isolation
+```
+
+### 3. Build the JupyterLab extension
+
+**Linux/macOS:**
+```bash
+cd editors/jupyterlab
+jlpm install
+jlpm build
+```
+
+**Windows:**
+```powershell
+cd editors\jupyterlab
+jlpm install           # or: node <path-to-yarn.js> install  (see note below)
+.\build.ps1            # replaces 'jlpm build'
+```
+
+> **Windows note:** `jlpm` works fine as a direct command but cannot be invoked
+> via Python subprocesses (e.g. `pip install` or `jupyter labextension build`)
+> because Python's path resolution doesn't handle Unix-style paths from Git Bash.
+> `build.ps1` works around this by calling `node.exe` and `tsc` directly.
+> After switching branches, re-run `build.ps1` to rebuild the extension.
+
+### 4. Run tests
+
+```bash
+pytest tests/
+```
+
+### Cross-platform notes
+
+| Task | Linux/macOS | Windows |
+|------|------------|---------|
+| Build extension | `jlpm build` | `.\editors\jupyterlab\build.ps1` |
+| Install extension | `pip install -e editors/jupyterlab` | `SKIP_JUPYTER_BUILDER=1 pip install -e editors/jupyterlab --no-build-isolation` |
+| Run JupyterLab | `./start_pivotal.sh` | `.\start_pivotal.ps1` |
+
+The Python core (`dsl_parser.py`, `magic.py`) is fully cross-platform. Only the JupyterLab extension build toolchain differs between platforms.
+
+---
+
 ## Contributing
 
-Contributions are welcome! 
+Contributions are welcome!
 
 ---
 
