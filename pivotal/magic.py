@@ -914,10 +914,9 @@ def settings_gui():
                 current = dict(obj.settings)
                 break
 
-    output_type_w = widgets.Dropdown(
-        options=['viewer', 'inline', 'both'],
-        value=current.get('output_type', 'viewer'),
-        description='', layout=_dd)
+    viewer_w = widgets.Checkbox(
+        value=current.get('viewer', True),
+        description='', indent=False)
     output_code_w = widgets.Checkbox(
         value=current.get('output_code', False),
         description='', indent=False)
@@ -946,7 +945,7 @@ def settings_gui():
 
     def _apply(_btn=None):
         parts = [
-            f'output_type={output_type_w.value}',
+            f'viewer={"true" if viewer_w.value else "false"}',
             f'output_code={"true" if output_code_w.value else "false"}',
             f'canvas={canvas_w.value}',
             f'chart_width={chart_width_w.value}',
@@ -966,7 +965,7 @@ def settings_gui():
     apply_btn.on_click(_apply)
 
     content = widgets.VBox([
-        _row(_lh('output type'),   output_type_w),
+        _row(_lh('viewer'),        viewer_w),
         _row(_lh('output code'),   output_code_w),
         _row(_lh('canvas'),        canvas_w),
         _row(_lh('chart width'),   chart_width_w),
@@ -1228,7 +1227,7 @@ class PivotalMagics(Magics):
 
     # Defaults — can be changed via %pivotal_set or overridden per-cell
     DEFAULT_SETTINGS = {
-        'output_type': 'viewer',   # viewer | inline | both
+        'viewer': True,             # True = send results to viewer panel; False = skip viewer comm
         'output_code': False,       # print generated Python code inline
         'canvas': 'none',           # none | a4 | a4_landscape | a3 | a3_landscape | letter | slide
         'margins': 25.4,            # page margin in mm (all sides) — 25.4 mm = 2.54 cm (MS Word default)
@@ -1244,8 +1243,8 @@ class PivotalMagics(Magics):
         for part in (line or '').split():
             k, _, v = part.partition('=')
             k, v = k.strip(), v.strip().lower()
-            if k == 'output_type' and v in ('viewer', 'inline', 'both'):
-                overrides['output_type'] = v
+            if k == 'viewer':
+                overrides['viewer'] = v in ('true', '1', 'yes')
             elif k == 'output_code':
                 overrides['output_code'] = v in ('true', '1', 'yes')
             elif k == 'canvas' and v in ('none', *_PAPER_SIZES_MM):
@@ -1282,14 +1281,14 @@ class PivotalMagics(Magics):
         """Set persistent Pivotal output options.
 
         Usage:
-            %pivotal_set output_type=viewer   # viewer | inline | both
+            %pivotal_set viewer=true          # send results to viewer panel (default)
+            %pivotal_set viewer=false         # skip viewer; use 'show' in DSL for inline output
             %pivotal_set output_code=true     # print generated Python code
-            %pivotal_set output_type=inline output_code=false
         """
         updates = self._parse_line_args(line)
         if not updates:
             print(f"Current settings: {self.settings}")
-            print("Usage: %pivotal_set output_type=viewer|inline|both output_code=true|false")
+            print("Usage: %pivotal_set viewer=true|false output_code=true|false")
             return
         self.settings.update(updates)
         print(f"Pivotal settings: {self.settings}")
@@ -1303,13 +1302,13 @@ class PivotalMagics(Magics):
         """Execute Pivotal DSL code.
 
         Per-cell options (override persistent settings for this cell only):
-            %%pivotal output_type=inline
+            %%pivotal viewer=false
             %%pivotal output_code=true
 
         Persistent settings: use %pivotal_set
         """
         s = self._effective_settings(line)
-        output_type = s['output_type']
+        use_viewer = s['viewer']
         output_code = s['output_code']
 
         self.shell.push({'pd': pd})
@@ -1339,16 +1338,17 @@ class PivotalMagics(Magics):
         python_code_list = self.parser.generate_code(results)
         combined = '\n\n'.join(python_code_list)
 
-        # In viewer-only mode, close each chart figure within the cell code so the
-        # inline backend's post-execute hook has nothing to render.
-        if output_type == 'viewer':
+        # When viewer mode is on, close chart figures that do NOT have 'show' set,
+        # so the inline backend's post-execute hook has nothing to render for them.
+        if use_viewer:
             close_stmts = []
             for node in results:
                 if isinstance(node, dict) and node.get('type') in ('plot', 'agg_plot'):
-                    chart_name = node.get('name') or node.get('table_name') or 'chart'
-                    close_stmts.append(
-                        f'import matplotlib.pyplot as _mpl; _mpl.close({chart_name})'
-                    )
+                    if not node.get('show'):
+                        chart_name = node.get('name') or node.get('table_name') or 'chart'
+                        close_stmts.append(
+                            f'import matplotlib.pyplot as _mpl; _mpl.close({chart_name})'
+                        )
             if close_stmts:
                 combined += '\n\n' + '\n'.join(close_stmts)
 
@@ -1360,15 +1360,12 @@ class PivotalMagics(Magics):
                 if cleaned:
                     print(cleaned)
 
-            if output_type in ('viewer', 'both'):
+            if use_viewer:
                 try:
                     _send_results_to_viewer(self._viewer, results, self.shell.user_ns, settings=s)
                     self._viewer.send_current_table(self.shell.user_ns.get('__table_name__'))
                 except Exception as e:
                     print(f"[Pivotal] viewer error: {e}")
-
-            if output_type in ('inline', 'both'):
-                _display_inline(results, self.shell.user_ns)
 
         # Execute any del commands collected above
         for _name in del_names:
@@ -1379,7 +1376,7 @@ class PivotalMagics(Magics):
 
 
 # ---------------------------------------------------------------------------
-# Inline display helper (used when output_type is 'inline' or 'both')
+# Inline display helper (kept for backwards compatibility)
 # ---------------------------------------------------------------------------
 
 def _display_inline(results: list, ns: dict):

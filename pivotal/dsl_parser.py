@@ -69,6 +69,10 @@ grammar_indented = r"""
                | apply_statement
                | table_statement
                | save_statement
+               | show_statement
+
+    show_statement: "show" SHOW_MODE? _NL?
+    SHOW_MODE: "head" | "summary"
 
     apply_statement: "apply" IDENTIFIER _NL?
 
@@ -82,6 +86,7 @@ grammar_indented = r"""
                   | "by" IDENTIFIER _NL?                  -> agg_plot_by
                   | "cols" NUMBER _NL?                    -> agg_plot_cols
                   | "canvas" IDENTIFIER _NL?              -> agg_plot_canvas
+                  | "show" _NL?                           -> agg_plot_show
 
     plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
 
@@ -93,6 +98,7 @@ grammar_indented = r"""
               | IDENTIFIER "=" value _NL?      -> plot_value_param
               | IDENTIFIER "=" list_value _NL? -> plot_list_param
               | IDENTIFIER list_value _NL?     -> plot_list_param
+              | "show" _NL?                   -> plot_show
 
     table_statement: "table" IDENTIFIER (_NL | _NL _INDENT table_params _DEDENT)?
 
@@ -115,6 +121,7 @@ grammar_indented = r"""
                | "summary" summary_spec ("," summary_spec)* _NL?                -> table_summary_line
                | "spanner" spanner_cols STRING _NL?                              -> table_spanner_line
                | "auto" "spanner" _NL?                                           -> table_auto_spanner
+               | "show" _NL?                                                      -> table_show
 
     spanner_cols: IDENTIFIER ("," IDENTIFIER)*
 
@@ -812,6 +819,26 @@ class DSLTransformer(Transformer):
             'func': str(func)
         }
 
+    def show_statement(self, *args):
+        mode = 'df'
+        for arg in args:
+            if isinstance(arg, Token) and arg.type == 'SHOW_MODE':
+                mode = str(arg)  # 'head' or 'summary'
+        return {
+            'type': 'show',
+            'table_name': self.current_table,
+            'mode': mode,
+        }
+
+    def plot_show(self):
+        return {'key': 'show'}
+
+    def agg_plot_show(self):
+        return {'key': 'show'}
+
+    def table_show(self):
+        return {'key': 'show'}
+
     def merge_statement(self, *args):
         """Handle merge statements"""
         
@@ -1153,14 +1180,21 @@ class DSLTransformer(Transformer):
         kwargs_str = ""
 
         identifiers = []
+        show = False
         for arg in args:
             if isinstance(arg, Token) and arg.type != '_NL':
                 identifiers.append(str(arg))
             elif isinstance(arg, str):
                 identifiers.append(arg)
             elif isinstance(arg, list):
-                # plot_params returns list of dicts with key/value/label
-                kwargs, kwargs_str = self._plot_kwargs(arg)
+                # Extract 'show' pseudo-param before passing to _plot_kwargs
+                filtered = []
+                for p in arg:
+                    if isinstance(p, dict) and p.get('key') == 'show' and 'value' not in p:
+                        show = True
+                    else:
+                        filtered.append(p)
+                kwargs, kwargs_str = self._plot_kwargs(filtered)
 
         if len(identifiers) == 1:
             name = identifiers[0]
@@ -1197,6 +1231,7 @@ class DSLTransformer(Transformer):
             'cols': n_cols,
             'style': style,
             'canvas': canvas,  # None means inherit global setting
+            'show': show,
         }
 
     def plot_params(self, *params):
@@ -1243,6 +1278,7 @@ class DSLTransformer(Transformer):
         by_col = None
         n_cols = None
         canvas = None
+        show = False
         for p in params:
             k = p.get('key')
             if k == 'x':
@@ -1258,6 +1294,8 @@ class DSLTransformer(Transformer):
                 n_cols = p['value']
             elif k == 'canvas':
                 canvas = p['value']
+            elif k == 'show':
+                show = True
 
         return {
             'type': 'agg_plot',
@@ -1272,6 +1310,7 @@ class DSLTransformer(Transformer):
             'by': by_col,
             'cols': n_cols,
             'canvas': canvas,
+            'show': show,
         }
 
     def agg_plot_params(self, *params):
@@ -1330,6 +1369,7 @@ class DSLTransformer(Transformer):
             'summary': [],
             'spanners': [],
             'style_file': None,
+            'show': False,
         }
         for p in params:
             if not isinstance(p, dict):
@@ -1346,6 +1386,7 @@ class DSLTransformer(Transformer):
             elif k == 'stripe':    node['stripe'] = True
             elif k == 'canvas':    node['canvas'] = p['value']
             elif k == 'style':        node['style_file'] = p['value']
+            elif k == 'show':         node['show'] = True
             elif k == 'summary_line': node['summary'].extend(p.get('specs', []))
             elif k == 'label_line':   node['labels'].extend(p.get('specs', []))
             elif k == 'format_line': node['formats'].append({kk: vv for kk, vv in p.items() if kk != 'key'})
@@ -2371,6 +2412,18 @@ class CodeGenerator:
     def generate_python_pandas(self, ast_node):
         return ast_node['code']
 
+    def generate_show_pandas(self, ast_node):
+        table = ast_node['table_name']
+        mode = ast_node.get('mode', 'df')
+        lines = ["from IPython.display import display as _ipyd"]
+        if mode == 'head':
+            lines.append(f"_ipyd({table}.head())")
+        elif mode == 'summary':
+            lines.append(f"_ipyd({table}.describe())")
+        else:
+            lines.append(f"_ipyd({table})")
+        return "\n".join(lines)
+
     def generate_plot_pandas(self, ast_node):
         kind = ast_node['kind']
         kwargs_str = ast_node['kwargs_str']
@@ -2445,6 +2498,12 @@ class CodeGenerator:
                 f"    if 'ytick.labelalignment' in _custom_style: plt.setp(_a.yaxis.get_majorticklabels(), ha=_custom_style['ytick.labelalignment'])",
             ]
 
+        if ast_node.get('show'):
+            lines += [
+                "from IPython.display import display as _ipyd",
+                f"_ipyd({chart_key})",
+            ]
+
         return "\n".join(lines)
 
     def generate_agg_plot_pandas(self, ast_node):
@@ -2510,6 +2569,13 @@ class CodeGenerator:
             f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
             f"globals()['_pivotal_charts'][{name!r}] = {{'fig': {name}, 'data': {df_name}.copy()}}",
         ]
+
+        if ast_node.get('show'):
+            lines += [
+                "from IPython.display import display as _ipyd",
+                f"_ipyd({name})",
+            ]
+
         return "\n".join(lines)
 
     def generate_gt_table_pandas(self, ast_node):
@@ -2744,6 +2810,13 @@ class CodeGenerator:
             f"'html': _gt_export_html, "
             f"'canvas': {canvas!r}}}"
         )
+
+        if ast_node.get('show'):
+            lines += [
+                "from IPython.display import display as _ipyd, HTML as _ipyHTML",
+                f"_ipyd(_ipyHTML(_gt_viewer_html))",
+            ]
+
         return "\n".join(lines)
 
     def generate_gt_table_polars(self, ast_node):

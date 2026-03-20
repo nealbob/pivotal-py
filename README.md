@@ -190,24 +190,25 @@ The Object Viewer is a persistent panel in the JupyterLab right sidebar. Each ti
 Control where results appear using `%pivotal_set` (persistent) or per-cell overrides on the `%%pivotal` line:
 
 ```python
-%pivotal_set output_type=viewer    # viewer (default) | inline | both
+%pivotal_set viewer=true           # send results to the Object Viewer (default)
+%pivotal_set viewer=false          # skip viewer; use 'show' in DSL for inline output
 %pivotal_set output_code=true      # print the generated Python code
 ```
 
 | Option | Values | Description |
 |---|---|---|
-| `output_type` | `viewer` (default) | Send DataFrames and charts to the Object Viewer only |
-| | `inline` | Display results inline in the notebook cell output |
-| | `both` | Send to viewer and display inline |
+| `viewer` | `true` (default) | Send DataFrames and charts to the Object Viewer panel |
+| | `false` | Skip viewer comm; use `show` statements in the DSL to display results inline |
 | `output_code` | `false` (default) | Do not print generated code |
 | | `true` | Print the generated pandas code below the cell |
 
 Override for a single cell:
 
 ```
-%%pivotal output_type=inline output_code=true
+%%pivotal viewer=false output_code=true
 df sales
     filter amount > 1000
+    show
 ```
 
 ### Autocomplete
@@ -1290,6 +1291,48 @@ my_analysis/
   tables/
     summary.html    ← fully self-contained, inline CSS
 ```
+
+---
+
+### Inline Display (`show`)
+
+Use `show` to display the current DataFrame, chart, or table inline in the notebook cell output. This is useful when working without the viewer panel (`viewer=false`) or when you want to inspect results mid-pipeline.
+
+#### Display the active DataFrame
+
+```pivotal
+df sales
+    filter price > 100
+    show             # display full DataFrame inline
+    show head        # display first 5 rows (df.head())
+    show summary     # display descriptive statistics (df.describe())
+```
+
+#### Display a chart inline
+
+Add `show` inside a `plot` or `agg plot` block:
+
+```pivotal
+df sales
+    plot bar revenue_by_region
+        x region
+        y revenue
+        show         # render the chart inline in the cell output
+```
+
+#### Display a table inline
+
+Add `show` inside a `table` block:
+
+```pivotal
+df sales
+    table sales_summary
+        title "Sales Summary"
+        format number
+        show         # render the GT table inline in the cell output
+```
+
+> **Note:** When `viewer=true` (the default), `show` displays results inline *in addition* to sending them to the viewer panel. Charts with `show` are not closed after execution, allowing the inline backend to render them.
 
 ---
 
