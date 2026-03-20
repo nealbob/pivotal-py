@@ -86,12 +86,12 @@
     "keywords-primary": {
       "comment": "Statement-opening commands",
       "name": "keyword.control.pivotal",
-      "match": "\\b(load|df|filter|select|assign|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|rename|apply|start|save|end|delete)\\b"
+      "match": "\\b(load|df|filter|select|assign|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|rename|apply|start|save|end|delete|show)\\b"
     },
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",
       "name": "keyword.other.pivotal",
-      "match": "\\b(from|where|as|on|by|rows|cols|agg)\\b"
+      "match": "\\b(from|where|as|on|by|rows|cols|agg|head|summary)\\b"
     },
     "keywords-merge-type": {
       "comment": "Merge type modifiers",

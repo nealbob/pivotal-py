@@ -182,7 +182,7 @@ const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
   'concat', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply', 'table', 'delete',
+  'distinct', 'python', 'save', 'apply', 'table', 'delete', 'show', 'show head', 'show summary',
   'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
 ];
 
