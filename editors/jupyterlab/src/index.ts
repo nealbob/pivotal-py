@@ -640,12 +640,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     app.commands.addCommand('pivotal:save-gui', {
       label: 'Save Data Package',
-      execute: () => {
-        const table = explorer.getCurrentTable();
-        insertAndRun(table
-          ? `import pivotal\npivotal.save_gui(${JSON.stringify(table)})`
-          : `import pivotal\npivotal.save_gui()`);
-      },
+      execute: () => insertAndRun('import pivotal\npivotal.save_gui()'),
     });
 
     app.commands.addCommand('pivotal:settings-gui', {

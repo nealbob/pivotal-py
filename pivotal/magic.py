@@ -772,8 +772,13 @@ def load_gui():
     ipy_display(accordion)
 
 
-def save_gui(df_name: str = None):
-    """Display an interactive widget for building %%pivotal save commands."""
+def save_gui():
+    """Display an interactive widget for building %%pivotal save commands.
+
+    The save command exports ALL DataFrames, charts, and GT tables in the
+    current session to a single frictionless data package folder.
+    Use include or exclude to limit which objects are exported.
+    """
     try:
         import ipywidgets as widgets
         from IPython.display import display as ipy_display
@@ -785,18 +790,18 @@ def save_gui(df_name: str = None):
     shell = IPython.get_ipython()
     ns = shell.user_ns if shell else {}
 
+    # Collect all exportable session objects: DataFrames, charts, GT tables
     try:
         import pandas as pd
         df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
     except ImportError:
         df_names = []
+    chart_names = list(ns.get('_pivotal_charts', {}).keys())
+    table_names = list(ns.get('_pivotal_gt_tables', {}).keys())
+    all_objects = df_names + chart_names + table_names
 
-    if not df_names:
-        print('[Pivotal] No DataFrames found in namespace.')
-        return
-
-    _dd  = widgets.Layout(width='180px')
-    _lbl = widgets.Layout(width='80px')
+    _dd  = widgets.Layout(width='220px')
+    _lbl = widgets.Layout(width='110px')
 
     def _lh(text):
         return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
@@ -804,31 +809,27 @@ def save_gui(df_name: str = None):
     def _row(*ws):
         return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
 
-    df_sel   = widgets.Dropdown(
-                   options=df_names,
-                   value=df_name if df_name in df_names else df_names[0],
-                   description='', layout=_dd)
-    pkg_name = widgets.Text(value='', placeholder='package name', description='', layout=_dd)
-    path_w   = widgets.Text(value='', placeholder='output/path  (optional)', description='',
-                            layout=widgets.Layout(width='260px'))
-    fmt_w    = widgets.Dropdown(
-                   options=['parquet', 'csv', 'excel', 'feather'],
-                   value='parquet', description='', layout=_dd)
-    excl_w   = widgets.SelectMultiple(
-                   options=[], description='', rows=6,
-                   layout=widgets.Layout(width='260px'))
-    output   = widgets.Output()
-    save_btn = widgets.Button(description='Save', button_style='primary',
-                              layout=widgets.Layout(width='80px'))
+    pkg_name    = widgets.Text(value='', placeholder='package name', description='', layout=_dd)
+    path_w      = widgets.Text(value='', placeholder='output/path  (optional)', description='',
+                               layout=widgets.Layout(width='280px'))
+    fmt_w       = widgets.Dropdown(options=['parquet', 'csv'], value='parquet',
+                                   description='', layout=_dd)
+    chart_fmt_w = widgets.Dropdown(options=['png', 'svg', 'pdf'], value='png',
+                                   description='', layout=_dd)
+    n_rows      = min(8, max(3, len(all_objects)))
+    include_w   = widgets.SelectMultiple(options=all_objects, description='', rows=n_rows,
+                                         layout=widgets.Layout(width='280px'))
+    exclude_w   = widgets.SelectMultiple(options=all_objects, description='', rows=n_rows,
+                                         layout=widgets.Layout(width='280px'))
+    output      = widgets.Output()
+    save_btn    = widgets.Button(description='Save', button_style='primary',
+                                 layout=widgets.Layout(width='80px'))
 
-    def _update_cols(*_):
-        df = ns.get(df_sel.value)
-        cols = list(df.columns) if df is not None else []
-        excl_w.options = cols
-        excl_w.value = []
-
-    df_sel.observe(_update_cols, names='value')
-    _update_cols()
+    summary_html = widgets.HTML(
+        f'<span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
+        f'{len(df_names)} df · {len(chart_names)} chart · {len(table_names)} table'
+        f'</span>'
+    )
 
     def _build_dsl(_btn=None):
         name = pkg_name.value.strip()
@@ -842,8 +843,13 @@ def save_gui(df_name: str = None):
         if path:
             dsl += f'\n    path "{path}"'
         dsl += f'\n    format {fmt_w.value}'
-        excluded = list(excl_w.value)
-        if excluded:
+        if chart_fmt_w.value != 'png':
+            dsl += f'\n    chart_format {chart_fmt_w.value}'
+        included = list(include_w.value)
+        excluded = list(exclude_w.value)
+        if included:
+            dsl += f'\n    include {", ".join(included)}'
+        elif excluded:
             dsl += f'\n    exclude {", ".join(excluded)}'
         viewer = _get_viewer()
         if viewer is not None:
@@ -856,12 +862,17 @@ def save_gui(df_name: str = None):
     save_btn.on_click(_build_dsl)
 
     content = widgets.VBox([
-        _row(_lh('df'),      df_sel),
-        _row(_lh('name'),    pkg_name),
-        _row(_lh('path'),    path_w),
-        _row(_lh('format'),  fmt_w),
-        widgets.HTML('<b style="line-height:2">exclude columns</b>'),
-        excl_w,
+        _row(_lh('package name'), pkg_name),
+        _row(_lh(''), summary_html),
+        _row(_lh('path'),         path_w),
+        _row(_lh('format'),       fmt_w),
+        _row(_lh('chart format'), chart_fmt_w),
+        widgets.HTML('<b>include</b> <span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
+                     '(select to include only these; leave empty = include all)</span>'),
+        include_w,
+        widgets.HTML('<b>exclude</b> <span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
+                     '(select to exclude; ignored if include is set)</span>'),
+        exclude_w,
         widgets.HBox([save_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ], layout=widgets.Layout(width='100%'))
