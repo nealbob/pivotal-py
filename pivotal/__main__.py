@@ -7,6 +7,7 @@ CLI entry point:
 import sys
 import os
 import json
+import re
 
 
 def _load_and_parse(path):
@@ -58,17 +59,20 @@ def notebook_to_python(path):
         if not source:
             continue
 
+        # Pivotal GUI cells — skip entirely (they just launch interactive widgets)
+        if re.match(r'^(import pivotal\s*\n\s*)?pivotal\.\w+_gui\(', source):
+            continue
+
         # %%pivotal cell — parse and generate Python
         if source.startswith('%%pivotal'):
             pivotal_src = source[len('%%pivotal'):].strip() + '\n'
 
             # Mirror magic.py pre-processing: strip `delete <name>` lines and
             # generate del statements, since the parser doesn't handle them
-            import re as _re
             del_names = []
             kept_lines = []
             for line in pivotal_src.split('\n'):
-                m = _re.match(r'^delete\s+(\w+)\s*$', line)
+                m = re.match(r'^delete\s+(\w+)\s*$', line)
                 if m:
                     del_names.append(m.group(1))
                 else:

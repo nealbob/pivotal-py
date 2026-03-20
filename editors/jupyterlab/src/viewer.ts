@@ -145,8 +145,6 @@ export class PivotalViewerWidget extends Widget {
   private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
   private _viewingItemCb: ((name: string | null) => void) | null = null;
   private _activateCb: (() => void) | null = null;
-  private _newGuiCb: ((type: string) => void) | null = null;
-  private _guiMenu: HTMLElement | null = null;
   private _zoomCb: ((factor: number) => void) | null = null;
 
   // Cache AG Grid DOM nodes + GridApi per DataFrame name so back/forward navigation
@@ -184,7 +182,6 @@ export class PivotalViewerWidget extends Widget {
           <button class="pv-btn pv-fwd"  title="Forward (Alt+])">&#9654;</button>
           <span class="pv-counter"></span>
         </div>
-        <button class="pv-btn pv-new-chart" title="New chart">+</button>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
         <button class="pv-btn pv-refresh"   title="Refresh">&#8635;</button>
         <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
@@ -212,33 +209,10 @@ export class PivotalViewerWidget extends Widget {
     this._clearBtn.disabled   = true;
     this._refreshBtn.disabled = true;
 
-    const newChartBtn = this.node.querySelector('.pv-new-chart') as HTMLButtonElement;
-
     this.node.tabIndex = -1;
-    let _lastKey = '';
-    let _lastKeyTime = 0;
-    this.node.addEventListener('keydown', e => {
-      if (e.key === 'h') { e.preventDefault(); this.back(); }
-      if (e.key === 'l') { e.preventDefault(); this.forward(); }
-      if (e.key === 'j') { e.preventDefault(); this._zoomCb?.(1.25); }
-      if (e.key === 'k') { e.preventDefault(); this._zoomCb?.(1 / 1.25); }
-      if (e.key === 'd') {
-        const now = Date.now();
-        if (_lastKey === 'd' && now - _lastKeyTime < 500) { this.deleteCurrent(); }
-        _lastKey = 'd';
-        _lastKeyTime = now;
-      } else {
-        _lastKey = e.key;
-        _lastKeyTime = Date.now();
-      }
-    });
 
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
-    newChartBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      this._showGuiMenu(newChartBtn);
-    });
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
@@ -259,46 +233,6 @@ export class PivotalViewerWidget extends Widget {
 
   setActivateCallback(cb: () => void): void {
     this._activateCb = cb;
-  }
-
-  setNewGuiCallback(cb: (type: string) => void): void {
-    this._newGuiCb = cb;
-  }
-
-  private _dismissGuiMenu(): void {
-    if (this._guiMenu) {
-      this._guiMenu.remove();
-      this._guiMenu = null;
-    }
-  }
-
-  private _showGuiMenu(anchor: HTMLElement): void {
-    this._dismissGuiMenu();
-    const menu = document.createElement('div');
-    menu.className = 'pv-gui-menu';
-    const items = [
-      { label: 'New plot',  type: 'plot'  },
-      { label: 'New pivot', type: 'pivot' },
-      { label: 'Load data', type: 'load'  },
-    ];
-    for (const item of items) {
-      const el = document.createElement('div');
-      el.className = 'pv-gui-menu-item';
-      el.textContent = item.label;
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        this._dismissGuiMenu();
-        this._newGuiCb?.(item.type);
-      });
-      menu.appendChild(el);
-    }
-    const rect = anchor.getBoundingClientRect();
-    menu.style.left = `${rect.left}px`;
-    menu.style.top  = `${rect.bottom + 2}px`;
-    document.body.appendChild(menu);
-    this._guiMenu = menu;
-    const dismiss = () => { this._dismissGuiMenu(); document.removeEventListener('click', dismiss, true); };
-    setTimeout(() => document.addEventListener('click', dismiss, true), 0);
   }
 
   focusItem(name: string): void {
@@ -380,6 +314,30 @@ export class PivotalViewerWidget extends Widget {
     const name = this._names[this._index];
     this._comm?.send({ type: 'delete', name });
     this.deleteItem(name);
+  }
+
+  // Apply a zoom multiplier to whatever is currently displayed.
+  zoom(factor: number): void {
+    this._zoomCb?.(factor);
+  }
+
+  // Focus the AG Grid so arrow-key navigation works after Alt+V.
+  focusGrid(): void {
+    const name = this._names[this._index];
+    if (name) {
+      const cached = this._dfCache.get(name);
+      if (cached?.api) {
+        try {
+          const cols = cached.api.getColumns();
+          if (cols && cols.length > 0) {
+            cached.api.ensureIndexVisible(0, 'top');
+            cached.api.setFocusedCell(0, cols[0]);
+            return;
+          }
+        } catch (_) { /* not a grid view — fall through */ }
+      }
+    }
+    this.node.focus();
   }
 
   // Delete a named item AND tell Python to delete it from the namespace.

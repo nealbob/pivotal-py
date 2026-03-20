@@ -140,30 +140,39 @@ The Object Viewer is a persistent panel in the JupyterLab right sidebar. Each ti
 | Shortcut | Action |
 |---|---|
 | `Alt+P` | Insert new `%%pivotal` cell below |
-| `Alt+V` | Show / focus the Object Viewer panel |
+| `Alt+L` | Insert Load Data Source cell |
+| `Alt+T` | Insert Pivot Table cell |
+| `Alt+C` | Insert Pivot Chart cell |
+| `Alt+S` | Insert Save Data Package cell |
+| `Alt+V` | Show viewer and focus the table (enables AG Grid keyboard navigation) |
 | `Alt+E` | Show / focus the Object Explorer panel |
 | `Alt+N` | Return focus to the notebook |
-| `Alt+[` | Viewer: navigate back |
-| `Alt+]` | Viewer: navigate forward |
+| `Alt+←` | Viewer: navigate back |
+| `Alt+→` | Viewer: navigate forward |
+| `Alt+=` | Viewer: zoom in (`=` is the `+` key) |
+| `Alt+-` | Viewer: zoom out |
+| `Alt+Delete` | Viewer: delete current object (also removes from Python namespace) |
 
 **Notebook command mode only (vim-style chords)**
 
 | Chord | Action |
 |---|---|
 | `pp` | Insert new `%%pivotal` cell below |
+| `ll` | Insert Load Data Source cell |
+| `tt` | Insert Pivot Table cell |
+| `cc` | Insert Pivot Chart cell |
+| `ss` | Insert Save Data Package cell |
 | `vv` | Show / focus the Object Viewer panel |
 | `ee` | Show / focus the Object Explorer panel |
 | `nn` | Return focus to the notebook |
 
-**Object Viewer** (click the viewer panel first to give it keyboard focus)
+**Object Viewer** — use `Alt+V` to focus the table, then navigate with AG Grid's built-in keys:
 
 | Key | Action |
 |---|---|
-| `h` / `←` | Navigate back |
-| `l` / `→` | Navigate forward |
-| `j` | Zoom in (charts only) |
-| `k` | Zoom out (charts only) |
-| `dd` | Delete current object (also removes from Python namespace) |
+| Arrow keys | Move between cells |
+| `Page Up` / `Page Down` | Scroll rows |
+| `Ctrl+Home` / `Ctrl+End` | Jump to first / last row |
 
 **Object Explorer** (click the explorer panel first to give it keyboard focus)
 
@@ -174,7 +183,7 @@ The Object Viewer is a persistent panel in the JupyterLab right sidebar. Each ti
 | `l` / `→` | Expand column list (DataFrames) or open in viewer |
 | `h` / `←` | Collapse expanded column list |
 | `Enter` / `Space` | Open focused item in viewer |
-| `Delete` or `dd` | Delete focused item (also removes from Python namespace) |
+| `Delete` | Delete focused item (also removes from Python namespace) |
 
 #### Output settings
 
@@ -301,7 +310,7 @@ load inventory "data/inventory_2024.csv"
     header 0
 
 # From a runtime variable (path stored in a Python variable)
-load df :my_path_variable
+load mydf :my_path_variable
 ```
 
 **Supported formats:** `.csv`, `.xlsx`, `.xls`, `.parquet`
