@@ -50,6 +50,77 @@ export const pivotalIcon = new LabIcon({
   svgstr: PIVOTAL_SVG,
 });
 
+// Colour pivot-wheel logo for the notebook toolbar.
+// Flat colours (no gradient IDs) so it renders correctly when the icon is
+// instantiated multiple times (one per open notebook).
+const PIVOTAL_COLOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="22" fill="#0F172A"/>
+  <circle cx="64" cy="64" r="40" fill="none" stroke="#1E3A5F" stroke-width="15" opacity="0.5"/>
+  <path d="M 67.49 24.15 A 40 40 0 0 1 100.25 80.90"
+        fill="none" stroke="#94A3B8" stroke-width="15" stroke-linecap="round"/>
+  <path d="M 96.77 86.94 A 40 40 0 0 1 31.23 86.94"
+        fill="none" stroke="#60A5FA" stroke-width="15" stroke-linecap="round"/>
+  <path d="M 27.75 80.90 A 40 40 0 0 1 60.51 24.15"
+        fill="none" stroke="#FBBF24" stroke-width="15" stroke-linecap="round"/>
+  <line x1="64" y1="64" x2="108.17" y2="47.93"
+        stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="64" y1="64" x2="40.50" y2="23.30"
+        stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+  <circle cx="64" cy="64" r="8.5" fill="white"/>
+  <circle cx="64" cy="64" r="4"   fill="#0F172A"/>
+</svg>`;
+
+export const pivotalColorIcon = new LabIcon({
+  name: 'pivotal:toolbar',
+  svgstr: PIVOTAL_COLOR_SVG,
+});
+
+// Menu item icons (16×16, currentColor so they adapt to light/dark theme)
+const ICON_LOAD_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <ellipse cx="8" cy="4" rx="5" ry="1.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <line x1="3" y1="4" x2="3" y2="12" stroke="currentColor" stroke-width="1.2"/>
+  <line x1="13" y1="4" x2="13" y2="12" stroke="currentColor" stroke-width="1.2"/>
+  <ellipse cx="8" cy="12" rx="5" ry="1.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <line x1="5" y1="7.3" x2="11" y2="7.3" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+  <line x1="5" y1="9.5" x2="11" y2="9.5" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+</svg>`;
+const ICON_TABLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <rect x="1.5" y="2" width="13" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <line x1="1.5" y1="6"   x2="14.5" y2="6"   stroke="currentColor" stroke-width="1.2"/>
+  <line x1="6"   y1="6"   x2="6"    y2="14"   stroke="currentColor" stroke-width="1.2"/>
+  <line x1="10.5" y1="6"  x2="10.5" y2="14"   stroke="currentColor" stroke-width="1.2"/>
+  <line x1="1.5" y1="10"  x2="14.5" y2="10"   stroke="currentColor" stroke-width="1.2"/>
+</svg>`;
+const ICON_CHART_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <line x1="2" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.2"/>
+  <rect x="2.5"  y="8" width="2.5" height="5" rx="0.3" fill="currentColor"/>
+  <rect x="6.5"  y="4" width="2.5" height="9" rx="0.3" fill="currentColor"/>
+  <rect x="10.5" y="6" width="2.5" height="7" rx="0.3" fill="currentColor"/>
+</svg>`;
+const ICON_SAVE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <path d="M2,2 L2,14 L14,14 L14,5 L11,2 Z"
+        fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+  <rect x="4.5" y="2" width="5" height="3.5" rx="0.3" fill="currentColor" opacity="0.5"/>
+  <rect x="3.5" y="9" width="9" height="4"   rx="0.5" fill="currentColor" opacity="0.35"/>
+</svg>`;
+const ICON_SETTINGS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.85"/>
+  <path d="M8,1.5 L9.1,3.5 L11.2,2.4 L12.6,3.8 L11.5,5.9 L13.5,7 L13.5,9 L11.5,10.1 L12.6,12.2 L11.2,13.6 L9.1,12.5 L8,14.5 L6.9,12.5 L4.8,13.6 L3.4,12.2 L4.5,10.1 L2.5,9 L2.5,7 L4.5,5.9 L3.4,3.8 L4.8,2.4 L6.9,3.5 Z"
+        fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+</svg>`;
+const ICON_CODE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <polyline points="5,4 1,8 5,12"  fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="11,4 15,8 11,12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="9.5" y1="3" x2="6.5" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+</svg>`;
+
+export const loadIcon     = new LabIcon({ name: 'pivotal:load',     svgstr: ICON_LOAD_SVG     });
+export const tableIcon    = new LabIcon({ name: 'pivotal:table',    svgstr: ICON_TABLE_SVG    });
+export const chartIcon    = new LabIcon({ name: 'pivotal:chart',    svgstr: ICON_CHART_SVG    });
+export const saveIcon     = new LabIcon({ name: 'pivotal:save',     svgstr: ICON_SAVE_SVG     });
+export const settingsIcon = new LabIcon({ name: 'pivotal:settings', svgstr: ICON_SETTINGS_SVG });
+export const codeIcon     = new LabIcon({ name: 'pivotal:code',     svgstr: ICON_CODE_SVG     });
+
 // Greyscale pivot-wheel logo for the left sidebar.
 // Same geometry as pivotal_logo.svg but rendered with currentColor so it
 // adapts to both JupyterLab light and dark themes. No background rect so
@@ -559,7 +630,8 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       label: 'Show Pivotal Viewer',
       execute: () => {
         activateViewer();
-        setTimeout(() => viewer.node.focus(), 100);
+        // Focus the AG Grid so arrow-key navigation works immediately
+        setTimeout(() => viewer.focusGrid(), 100);
       },
     });
 
@@ -579,6 +651,21 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     app.commands.addCommand('pivotal:viewer-forward', {
       label: 'Pivotal Viewer: Forward',
       execute: () => viewer.forward(),
+    });
+
+    app.commands.addCommand('pivotal:viewer-zoom-in', {
+      label: 'Pivotal Viewer: Zoom In',
+      execute: () => viewer.zoom(1.25),
+    });
+
+    app.commands.addCommand('pivotal:viewer-zoom-out', {
+      label: 'Pivotal Viewer: Zoom Out',
+      execute: () => viewer.zoom(1 / 1.25),
+    });
+
+    app.commands.addCommand('pivotal:viewer-delete', {
+      label: 'Pivotal Viewer: Delete Current Object',
+      execute: () => viewer.deleteCurrent(),
     });
 
     // New Pivotal cell command
@@ -615,11 +702,13 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     // --- GUI cell commands ---
     app.commands.addCommand('pivotal:load-gui', {
       label: 'Load Data Source',
+      icon: loadIcon,
       execute: () => insertAndRun('import pivotal\npivotal.load_gui()'),
     });
 
     app.commands.addCommand('pivotal:pivot-gui', {
       label: 'Insert Pivot Table',
+      icon: tableIcon,
       execute: () => {
         const table = explorer.getCurrentTable();
         insertAndRun(table
@@ -630,6 +719,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     app.commands.addCommand('pivotal:plot-gui', {
       label: 'Insert Pivot Chart',
+      icon: chartIcon,
       execute: () => {
         const table = explorer.getCurrentTable();
         insertAndRun(table
@@ -640,16 +730,19 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     app.commands.addCommand('pivotal:save-gui', {
       label: 'Save Data Package',
+      icon: saveIcon,
       execute: () => insertAndRun('import pivotal\npivotal.save_gui()'),
     });
 
     app.commands.addCommand('pivotal:settings-gui', {
       label: 'Settings',
+      icon: settingsIcon,
       execute: () => insertAndRun('import pivotal\npivotal.settings_gui()'),
     });
 
     app.commands.addCommand('pivotal:export-py', {
       label: 'Generate Python Code',
+      icon: codeIcon,
       execute: async () => {
         const panel = tracker.currentWidget;
         if (!panel) return;
@@ -688,16 +781,35 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     // Keyboard shortcuts — Alt+key works in all modes; chords only in command mode
     const CMD = '.jp-Notebook.jp-mod-commandMode';
 
-    app.commands.addKeyBinding({ command: 'pivotal:new-cell',      keys: ['Alt P'],    selector: 'body' });
-    app.commands.addKeyBinding({ command: 'pivotal:new-cell',      keys: ['P', 'P'],   selector: CMD    });
-    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',   keys: ['Alt V'],    selector: 'body' });
-    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',   keys: ['V', 'V'],   selector: CMD    });
-    app.commands.addKeyBinding({ command: 'pivotal:show-explorer', keys: ['Alt E'],    selector: 'body' });
-    app.commands.addKeyBinding({ command: 'pivotal:show-explorer', keys: ['E', 'E'],   selector: CMD    });
-    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['Alt N'],    selector: 'body' });
-    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['N', 'N'],   selector: CMD    });
-    app.commands.addKeyBinding({ command: 'pivotal:viewer-back',   keys: ['Alt ['],    selector: 'body' });
-    app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',keys: ['Alt ]'],    selector: 'body' });
+    // Panel / notebook focus
+    // Chords registered first so that Lumino (which searches newest-first) finds the
+    // Alt+key binding (registered last) when choosing which shortcut to display in menus.
+    app.commands.addKeyBinding({ command: 'pivotal:new-cell',       keys: ['P', 'P'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',    keys: ['V', 'V'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:show-explorer',  keys: ['E', 'E'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['N', 'N'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:load-gui',       keys: ['L', 'L'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:pivot-gui',      keys: ['T', 'T'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:plot-gui',       keys: ['C', 'C'],         selector: CMD    });
+    app.commands.addKeyBinding({ command: 'pivotal:save-gui',       keys: ['S', 'S'],         selector: CMD    });
+
+    // Alt+key bindings registered last — Lumino finds these first (newest-first search)
+    // so these are the shortcuts displayed in the toolbar menu.
+    app.commands.addKeyBinding({ command: 'pivotal:new-cell',       keys: ['Alt P'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:show-viewer',    keys: ['Alt V'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:show-explorer',  keys: ['Alt E'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:focus-notebook', keys: ['Alt N'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:load-gui',       keys: ['Alt L'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:pivot-gui',      keys: ['Alt T'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:plot-gui',       keys: ['Alt C'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:save-gui',       keys: ['Alt S'],          selector: 'body' });
+
+    // Viewer navigation (global — no viewer focus required)
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-back',     keys: ['Alt ArrowLeft'],  selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',  keys: ['Alt ArrowRight'], selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-zoom-in',  keys: ['Alt ='],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-zoom-out', keys: ['Alt -'],          selector: 'body' });
+    app.commands.addKeyBinding({ command: 'pivotal:viewer-delete',   keys: ['Alt Delete'],     selector: 'body' });
 
     // Add expanded Pivotal dropdown menu to every notebook toolbar
     tracker.widgetAdded.connect((_, panel) => {
@@ -714,14 +826,23 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       menu.addItem({ command: 'pivotal:export-py' });
 
       const btn = new ToolbarButton({
-        icon: pivotalGreyIcon,
+        icon: pivotalColorIcon,
         tooltip: 'Pivotal',
         onClick: () => {
           const rect = btn.node.getBoundingClientRect();
           menu.open(rect.left, rect.bottom);
         },
       });
-      panel.toolbar.addItem('pivotal-menu', btn);
+      btn.node.classList.add('pv-toolbar-btn');
+
+      // Insert before the spacer so the button stays visible on narrow notebooks
+      const toolbarNames = Array.from(panel.toolbar.names());
+      const spacerIdx = toolbarNames.indexOf('spacer');
+      if (spacerIdx >= 0) {
+        panel.toolbar.insertItem(spacerIdx, 'pivotal-menu', btn);
+      } else {
+        panel.toolbar.addItem('pivotal-menu', btn);
+      }
     });
 
     // Registry mapping gui_id → cell model for upsert behaviour

@@ -556,9 +556,7 @@ def plot_gui(df_name: str = None):
         widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ])
-    accordion = widgets.Accordion(children=[content], selected_index=0)
-    accordion.set_title(0, 'Pivotal Plot')
-    ipy_display(accordion)
+    _display_gui('Pivotal Plot', content)
 
 
 def pivot_gui(df_name: str = None):
@@ -705,9 +703,7 @@ def pivot_gui(df_name: str = None):
         widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ])
-    accordion = widgets.Accordion(children=[content], selected_index=0)
-    accordion.set_title(0, 'Pivotal Pivot')
-    ipy_display(accordion)
+    _display_gui('Pivotal Pivot', content)
 
 
 def load_gui():
@@ -766,10 +762,7 @@ def load_gui():
         widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ], layout=widgets.Layout(width='100%'))
-    accordion = widgets.Accordion(children=[content], selected_index=0,
-                                  layout=widgets.Layout(width='100%'))
-    accordion.set_title(0, 'Pivotal Load')
-    ipy_display(accordion)
+    _display_gui('Pivotal Load', content)
 
 
 def save_gui():
@@ -800,6 +793,8 @@ def save_gui():
     table_names = list(ns.get('_pivotal_gt_tables', {}).keys())
     all_objects = df_names + chart_names + table_names
 
+    import os
+
     _dd  = widgets.Layout(width='220px')
     _lbl = widgets.Layout(width='110px')
 
@@ -809,21 +804,37 @@ def save_gui():
     def _row(*ws):
         return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
 
-    pkg_name    = widgets.Text(value='', placeholder='package name', description='', layout=_dd)
-    path_w      = widgets.Text(value='', placeholder='output/path  (optional)', description='',
-                               layout=widgets.Layout(width='280px'))
+    pkg_name = widgets.Text(value='', placeholder='package name', description='', layout=_dd)
+
+    from ipyfilechooser import FileChooser
+    path_fc = FileChooser(os.getcwd(), show_hidden=False, show_only_dirs=True)
+    path_fc.title = ''
+    path_fc.layout.width = '100%'
+    path_fc._select.description = '📁'
+    path_fc._change_desc = '📁'
+    path_fc._filename.layout.display = 'none'
+
     fmt_w       = widgets.Dropdown(options=['parquet', 'csv'], value='parquet',
                                    description='', layout=_dd)
     chart_fmt_w = widgets.Dropdown(options=['png', 'svg', 'pdf'], value='png',
                                    description='', layout=_dd)
-    n_rows      = min(8, max(3, len(all_objects)))
-    include_w   = widgets.SelectMultiple(options=all_objects, description='', rows=n_rows,
-                                         layout=widgets.Layout(width='280px'))
-    exclude_w   = widgets.SelectMultiple(options=all_objects, description='', rows=n_rows,
-                                         layout=widgets.Layout(width='280px'))
-    output      = widgets.Output()
-    save_btn    = widgets.Button(description='Save', button_style='primary',
-                                 layout=widgets.Layout(width='80px'))
+
+    mode_w = widgets.ToggleButtons(
+        options=['all', 'include selected', 'exclude selected'],
+        value='all', description='',
+        style={'button_width': 'auto'},
+        layout=widgets.Layout(width='auto')
+    )
+    objects_w = widgets.SelectMultiple(options=all_objects, description='', rows=5,
+                                       disabled=True, layout=widgets.Layout(width='280px'))
+
+    def _on_mode(change):
+        objects_w.disabled = (mode_w.value == 'all')
+    mode_w.observe(_on_mode, names='value')
+
+    output   = widgets.Output()
+    save_btn = widgets.Button(description='Save', button_style='primary',
+                              layout=widgets.Layout(width='80px'))
 
     summary_html = widgets.HTML(
         f'<span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
@@ -839,18 +850,17 @@ def save_gui():
                 print('Enter a package name.')
             return
         dsl = f'%%pivotal\nsave "{name}"'
-        path = path_w.value.strip()
+        path = path_fc.selected_path
         if path:
             dsl += f'\n    path "{path}"'
         dsl += f'\n    format {fmt_w.value}'
         if chart_fmt_w.value != 'png':
             dsl += f'\n    chart_format {chart_fmt_w.value}'
-        included = list(include_w.value)
-        excluded = list(exclude_w.value)
-        if included:
-            dsl += f'\n    include {", ".join(included)}'
-        elif excluded:
-            dsl += f'\n    exclude {", ".join(excluded)}'
+        selected = list(objects_w.value)
+        if selected and mode_w.value == 'include selected':
+            dsl += f'\n    include {", ".join(selected)}'
+        elif selected and mode_w.value == 'exclude selected':
+            dsl += f'\n    exclude {", ".join(selected)}'
         viewer = _get_viewer()
         if viewer is not None:
             viewer.send_insert_cell(dsl)
@@ -864,22 +874,15 @@ def save_gui():
     content = widgets.VBox([
         _row(_lh('package name'), pkg_name),
         _row(_lh(''), summary_html),
-        _row(_lh('path'),         path_w),
+        path_fc,
         _row(_lh('format'),       fmt_w),
         _row(_lh('chart format'), chart_fmt_w),
-        widgets.HTML('<b>include</b> <span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
-                     '(select to include only these; leave empty = include all)</span>'),
-        include_w,
-        widgets.HTML('<b>exclude</b> <span style="color:var(--jp-ui-font-color2);font-size:0.85em">'
-                     '(select to exclude; ignored if include is set)</span>'),
-        exclude_w,
+        _row(_lh('objects'), mode_w),
+        objects_w,
         widgets.HBox([save_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ], layout=widgets.Layout(width='100%'))
-    accordion = widgets.Accordion(children=[content], selected_index=0,
-                                  layout=widgets.Layout(width='100%'))
-    accordion.set_title(0, 'Pivotal Save')
-    ipy_display(accordion)
+    _display_gui('Pivotal Save', content)
 
 
 def settings_gui():
@@ -973,9 +976,16 @@ def settings_gui():
         widgets.HBox([apply_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ], layout=widgets.Layout(width='100%'))
-    accordion = widgets.Accordion(children=[content], selected_index=0,
-                                  layout=widgets.Layout(width='100%'))
-    accordion.set_title(0, 'Pivotal Settings')
+    _display_gui('Pivotal Settings', content)
+
+
+def _display_gui(title: str, content: 'widgets.VBox') -> None:
+    """Display a GUI content VBox inside a collapsible accordion."""
+    import ipywidgets as widgets
+    from IPython.display import display as ipy_display
+
+    accordion = widgets.Accordion(children=[content], selected_index=0)
+    accordion.set_title(0, title)
     ipy_display(accordion)
 
 

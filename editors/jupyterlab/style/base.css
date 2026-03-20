@@ -1,5 +1,25 @@
 /* Pivotal JupyterLab extension styles */
 
+/* ---------------------------------------------------------------------------
+   Pivotal toolbar button
+   --------------------------------------------------------------------------- */
+
+/* Make the toolbar button icon slightly larger than the default 16px.
+   The svg elements with hardcoded fill/stroke values in the colour icon are
+   unaffected by JupyterLab's currentColor theming (which only overrides
+   elements that explicitly use currentColor or jp-icon-* classes). */
+.pv-toolbar-btn .jp-ToolbarButtonComponent-icon svg {
+  width: 21px !important;
+  height: 21px !important;
+}
+
+/* Vertically centre the small icons shown beside menu items.
+   Lumino renders them as inline-block; nudging the vertical-align keeps them
+   optically aligned with the label text. */
+.lm-Menu-itemIcon svg {
+  display: block;
+}
+
 /* Left border on %%pivotal cells to distinguish them from Python cells */
 .pv-pivotal-cell {
   border-left: 4px solid #616161;

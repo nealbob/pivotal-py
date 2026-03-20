@@ -210,23 +210,6 @@ export class PivotalViewerWidget extends Widget {
     this._refreshBtn.disabled = true;
 
     this.node.tabIndex = -1;
-    let _lastKey = '';
-    let _lastKeyTime = 0;
-    this.node.addEventListener('keydown', e => {
-      if (e.key === 'h') { e.preventDefault(); this.back(); }
-      if (e.key === 'l') { e.preventDefault(); this.forward(); }
-      if (e.key === 'j') { e.preventDefault(); this._zoomCb?.(1.25); }
-      if (e.key === 'k') { e.preventDefault(); this._zoomCb?.(1 / 1.25); }
-      if (e.key === 'd') {
-        const now = Date.now();
-        if (_lastKey === 'd' && now - _lastKeyTime < 500) { this.deleteCurrent(); }
-        _lastKey = 'd';
-        _lastKeyTime = now;
-      } else {
-        _lastKey = e.key;
-        _lastKeyTime = Date.now();
-      }
-    });
 
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
@@ -331,6 +314,30 @@ export class PivotalViewerWidget extends Widget {
     const name = this._names[this._index];
     this._comm?.send({ type: 'delete', name });
     this.deleteItem(name);
+  }
+
+  // Apply a zoom multiplier to whatever is currently displayed.
+  zoom(factor: number): void {
+    this._zoomCb?.(factor);
+  }
+
+  // Focus the AG Grid so arrow-key navigation works after Alt+V.
+  focusGrid(): void {
+    const name = this._names[this._index];
+    if (name) {
+      const cached = this._dfCache.get(name);
+      if (cached?.api) {
+        try {
+          const cols = cached.api.getColumns();
+          if (cols && cols.length > 0) {
+            cached.api.ensureIndexVisible(0, 'top');
+            cached.api.setFocusedCell(0, cols[0]);
+            return;
+          }
+        } catch (_) { /* not a grid view — fall through */ }
+      }
+    }
+    this.node.focus();
   }
 
   // Delete a named item AND tell Python to delete it from the namespace.
