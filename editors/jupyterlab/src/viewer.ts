@@ -1,53 +1,68 @@
 import { Widget } from '@lumino/widgets';
 import { Message } from '@lumino/messaging';
 import {
-  createGrid,
+  createGrid, AllCommunityModule, ModuleRegistry,
   type GridOptions, type ColDef, type GridApi,
-  type IFloatingFilterComp, type IFloatingFilterParams,
+  type IFilterComp, type IFilterParams, type IDoesFilterPassParams,
 } from 'ag-grid-community';
+
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 
-// ---------------------------------------------------------------------------
-// SelectFloatingFilter — custom <select> floating filter for categorical /
-// boolean columns. Pairs with agTextColumnFilter (equals mode) so no
-// Enterprise licence is needed.
-// ---------------------------------------------------------------------------
-
-class SelectFloatingFilter implements IFloatingFilterComp {
+// Popup (header ≡ click) filter for categorical/boolean columns.
+// Uses a custom div list so hover and selection highlighting work in all browsers.
+class SelectPopupFilter implements IFilterComp {
   private _gui!: HTMLElement;
-  private _select!: HTMLSelectElement;
+  private _list!: HTMLElement;
+  private _value = '';
+  private _params!: IFilterParams & { values?: string[] };
 
-  init(params: IFloatingFilterParams): void {
-    // Values are passed via filterParams.values (our custom field)
-    const values: string[] = ((params.filterParams as unknown) as Record<string, unknown>).values as string[] ?? [];
+  init(params: IFilterParams & { values?: string[] }): void {
+    this._params = params;
+    const values: string[] = params.values ?? [];
 
-    this._select = document.createElement('select');
-    this._select.className = 'pv-ag-select-filter';
+    this._list = document.createElement('div');
+    this._list.className = 'pv-filter-list';
 
     for (const v of values) {
-      const opt = document.createElement('option');
-      opt.value = v;
-      opt.textContent = v === '' ? '— All —' : String(v);
-      this._select.appendChild(opt);
+      const item = document.createElement('div');
+      item.className = 'pv-filter-option';
+      item.dataset['value'] = v;
+      item.textContent = v === '' ? 'All' : String(v);
+      if (v === '') item.classList.add('pv-filter-selected');  // 'All' highlighted by default
+      item.addEventListener('click', () => {
+        this._value = v;
+        this._list.querySelectorAll('.pv-filter-option').forEach(el =>
+          el.classList.toggle('pv-filter-selected', (el as HTMLElement).dataset['value'] === v)
+        );
+        params.filterChangedCallback();
+      });
+      this._list.appendChild(item);
     }
 
-    this._select.addEventListener('change', () => {
-      const val = this._select.value;
-      params.parentFilterInstance(instance => {
-        instance.onFloatingFilterChanged(val ? 'equals' : null, val || null);
-      });
-    });
-
     this._gui = document.createElement('div');
-    this._gui.className = 'pv-ag-select-wrapper';
-    this._gui.appendChild(this._select);
+    this._gui.appendChild(this._list);
   }
 
   getGui(): HTMLElement { return this._gui; }
 
-  onParentModelChanged(parentModel: { filter?: string } | null): void {
-    this._select.value = parentModel?.filter ?? '';
+  doesFilterPass(params: IDoesFilterPassParams): boolean {
+    if (!this.isFilterActive()) return true;
+    const colId = this._params.column.getColId();
+    return String((params.data as Record<string, unknown>)[colId] ?? '') === this._value;
+  }
+
+  isFilterActive(): boolean { return this._value !== ''; }
+
+  getModel(): { filterType: string; filter: string } | null {
+    return this.isFilterActive() ? { filterType: 'text', filter: this._value } : null;
+  }
+
+  setModel(model: { filter?: string } | null): void {
+    this._value = model?.filter ?? '';
+    this._list?.querySelectorAll('.pv-filter-option').forEach(el =>
+      el.classList.toggle('pv-filter-selected', (el as HTMLElement).dataset['value'] === this._value)
+    );
   }
 
   destroy(): void { /* nothing to clean up */ }
@@ -111,7 +126,9 @@ export interface ExplorerItem {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_LIMIT = 10_000;
+const DEFAULT_LIMIT = 20_000;
+const BASE_ROW_H = 26;   // px at zoom 1.0
+const BASE_HDR_H = 30;   // px at zoom 1.0
 
 // ---------------------------------------------------------------------------
 // PivotalViewerWidget
@@ -134,7 +151,7 @@ export class PivotalViewerWidget extends Widget {
 
   // Cache AG Grid DOM nodes + GridApi per DataFrame name so back/forward navigation
   // reattaches existing instances rather than rebuilding from scratch.
-  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement; api: GridApi }> = new Map();
+  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement; api: GridApi; applyZoom: (mult: number) => void; resetZoom: () => void }> = new Map();
 
   // Callback set by canvas renderers (_renderChartOnPage / _renderGtTableOnPage)
   // so that Lumino's onResize can trigger a re-layout when the panel is resized.
@@ -147,6 +164,7 @@ export class PivotalViewerWidget extends Widget {
   private _copyBtn!: HTMLButtonElement;
   private _delBtn!: HTMLButtonElement;
   private _clearBtn!: HTMLButtonElement;
+  private _refreshBtn!: HTMLButtonElement;
   private _body!: HTMLElement;
   private _footer!: HTMLElement;
 
@@ -160,14 +178,17 @@ export class PivotalViewerWidget extends Widget {
 
     this.node.innerHTML = `
       <div class="pv-header">
-        <button class="pv-btn pv-back"      title="Back (Alt+[)">&#9664;</button>
-        <span class="pv-title">—</span>
-        <span class="pv-counter"></span>
-        <button class="pv-btn pv-fwd"       title="Forward (Alt+])">&#9654;</button>
+        <div class="pv-nav">
+          <button class="pv-btn pv-back" title="Back (Alt+[)">&#9664;</button>
+          <span class="pv-title">—</span>
+          <button class="pv-btn pv-fwd"  title="Forward (Alt+])">&#9654;</button>
+          <span class="pv-counter"></span>
+        </div>
         <button class="pv-btn pv-new-chart" title="New chart">+</button>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
+        <button class="pv-btn pv-refresh"   title="Refresh">&#8635;</button>
         <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
-        <button class="pv-btn pv-clear"     title="Clear all">&#128465;</button>
+        <button class="pv-btn pv-clear"     title="Delete all">&#128465;</button>
       </div>
       <div class="pv-body"></div>
       <div class="pv-footer"></div>
@@ -179,15 +200,17 @@ export class PivotalViewerWidget extends Widget {
     this._fwdBtn    = this.node.querySelector('.pv-fwd')    as HTMLButtonElement;
     this._copyBtn   = this.node.querySelector('.pv-copy')   as HTMLButtonElement;
     this._delBtn    = this.node.querySelector('.pv-del')    as HTMLButtonElement;
-    this._clearBtn  = this.node.querySelector('.pv-clear')  as HTMLButtonElement;
-    this._body      = this.node.querySelector('.pv-body')   as HTMLElement;
+    this._clearBtn   = this.node.querySelector('.pv-clear')   as HTMLButtonElement;
+    this._refreshBtn = this.node.querySelector('.pv-refresh') as HTMLButtonElement;
+    this._body       = this.node.querySelector('.pv-body')    as HTMLElement;
     this._footer    = this.node.querySelector('.pv-footer') as HTMLElement;
 
     this._backBtn.disabled  = true;
     this._fwdBtn.disabled   = true;
     this._copyBtn.disabled  = true;
     this._delBtn.disabled   = true;
-    this._clearBtn.disabled = true;
+    this._clearBtn.disabled   = true;
+    this._refreshBtn.disabled = true;
 
     const newChartBtn = this.node.querySelector('.pv-new-chart') as HTMLButtonElement;
 
@@ -195,8 +218,8 @@ export class PivotalViewerWidget extends Widget {
     let _lastKey = '';
     let _lastKeyTime = 0;
     this.node.addEventListener('keydown', e => {
-      if (e.key === 'h' || e.key === 'ArrowLeft')  { e.preventDefault(); this.back(); }
-      if (e.key === 'l' || e.key === 'ArrowRight') { e.preventDefault(); this.forward(); }
+      if (e.key === 'h') { e.preventDefault(); this.back(); }
+      if (e.key === 'l') { e.preventDefault(); this.forward(); }
       if (e.key === 'j') { e.preventDefault(); this._zoomCb?.(1.25); }
       if (e.key === 'k') { e.preventDefault(); this._zoomCb?.(1 / 1.25); }
       if (e.key === 'd') {
@@ -219,6 +242,7 @@ export class PivotalViewerWidget extends Widget {
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
+    this._refreshBtn.addEventListener('click', () => this._refreshCurrent());
   }
 
   setComm(comm: { send(data: unknown): void }): void {
@@ -376,11 +400,20 @@ export class PivotalViewerWidget extends Widget {
     this._fwdBtn.disabled = true;
     this._copyBtn.disabled = true;
     this._delBtn.disabled = true;
-    this._clearBtn.disabled = true;
+    this._clearBtn.disabled   = true;
+    this._refreshBtn.disabled = true;
     this._body.innerHTML = '';
     this._footer.innerHTML = '';
     this._notifyContentChanged();
     this._viewingItemCb?.(null);
+  }
+
+  private _refreshCurrent(): void {
+    if (this._index < 0 || !this._names.length) return;
+    const name = this._names[this._index];
+    const inp = this._footer.querySelector('.pv-limit') as HTMLInputElement | null;
+    const limit = inp ? Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT) : DEFAULT_LIMIT;
+    this._comm?.send({ type: 'request', name, limit });
   }
 
   // -------------------------------------------------------------------------
@@ -456,9 +489,10 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl.textContent = `${this._index + 1} / ${this._names.length}`;
     this._backBtn.disabled  = this._index === 0;
     this._fwdBtn.disabled   = this._index === this._names.length - 1;
-    this._copyBtn.disabled  = false;
-    this._delBtn.disabled   = false;
-    this._clearBtn.disabled = false;
+    this._copyBtn.disabled    = false;
+    this._delBtn.disabled     = false;
+    this._clearBtn.disabled   = false;
+    this._refreshBtn.disabled = p.type !== 'dataframe';
 
     // Detach children without destroying them — keeps AG Grid instances alive in _dfCache
     while (this._body.firstChild) this._body.removeChild(this._body.firstChild);
@@ -479,6 +513,7 @@ export class PivotalViewerWidget extends Widget {
     if (cached) {
       this._body.appendChild(cached.body);
       this._footer.appendChild(cached.footer);
+      this._zoomCb = cached.applyZoom;
       return;
     }
 
@@ -536,18 +571,11 @@ export class PivotalViewerWidget extends Widget {
         };
 
         if (semType === 'categorical' || semType === 'boolean') {
-          // Unique sorted values for the select dropdown
           const vals = [...new Set(rowData.map(r => String(r[col] ?? '')))]
             .filter(v => v !== '')
             .sort((a, b) => a.localeCompare(b));
-          def.filter = 'agTextColumnFilter';
-          def.filterParams = {
-            filterOptions: ['equals'],
-            defaultOption: 'equals',
-            suppressAndOrCondition: true,
-            values: ['', ...vals],  // passed through to SelectFloatingFilter
-          };
-          def.floatingFilterComponent = SelectFloatingFilter;
+          def.filter = SelectPopupFilter;
+          def.filterParams = { values: ['', ...vals] };
         } else if (semType === 'numeric') {
           def.filter = 'agNumberColumnFilter';
         } else {
@@ -562,25 +590,85 @@ export class PivotalViewerWidget extends Widget {
       }),
     ];
 
+    ModuleRegistry.registerModules([AllCommunityModule]);
+
+    let zoomFactor = p.viewer_font ?? 1.0;
+
+    // Wrapper: zoom toolbar above the AG Grid container
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;height:100%;';
+
+    const zoomToolbar = document.createElement('div');
+    zoomToolbar.className = 'pv-chart-toolbar';
+    zoomToolbar.innerHTML = `
+      <button class="pv-btn pv-zoom-in"    title="Zoom in (j)">+</button>
+      <button class="pv-btn pv-zoom-out"   title="Zoom out (k)">−</button>
+      <button class="pv-btn pv-zoom-reset" title="Reset zoom">1:1</button>
+      <button class="pv-btn pv-fit-cols"   title="Fit columns to content">↔</button>
+    `;
+
+    // viewport clips the scaled container so it always fills the available space
+    const viewport = document.createElement('div');
+    viewport.style.cssText = 'position:relative; overflow:hidden; flex:1; min-height:0;';
+
     const container = document.createElement('div');
     container.className = 'pv-ag-container ag-theme-alpine';
-    container.style.fontSize = `${p.viewer_font ?? 1.0}em`;
+    container.style.cssText = 'position:absolute; top:0; left:0; transform-origin:top left;';
+    container.style.width  = `${100 / zoomFactor}%`;
+    container.style.height = `${100 / zoomFactor}%`;
+    container.style.transform = `scale(${zoomFactor})`;
+
+    viewport.appendChild(container);
+    wrapper.appendChild(zoomToolbar);
+    wrapper.appendChild(viewport);
+
+    // Append to DOM *before* createGrid so container.clientWidth is non-zero
+    // when onFirstDataRendered fires (which can happen synchronously).
+    this._body.appendChild(wrapper);
 
     const api = createGrid(container, {
       rowData,
       columnDefs: colDefs,
-      rowHeight: 24,
-      headerHeight: 28,
-      floatingFiltersHeight: 24,
+      rowHeight: BASE_ROW_H,
+      headerHeight: BASE_HDR_H,
       defaultColDef: {
         sortable: true,
         filter: true,
-        floatingFilter: true,
         resizable: true,
+        minWidth: 60,
+        maxWidth: 300,
+        width: 120,
       },
       suppressFieldDotNotation: true,   // allow dots in column names (e.g. "2.6")
       animateRows: false,
+      localeText: { filterOoo: '' },
+      onFirstDataRendered: (e) => {
+        // Best-effort auto-size after layout settles. The ↔ button is the
+        // reliable fallback if the panel was still animating open.
+        setTimeout(() => {
+          if (container.clientWidth > 0) e.api.autoSizeAllColumns(false);
+        }, 600);
+      },
     } as GridOptions);
+
+    const applyZoom = (mult: number) => {
+      zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
+      container.style.width  = `${100 / zoomFactor}%`;
+      container.style.height = `${100 / zoomFactor}%`;
+      container.style.transform = `scale(${zoomFactor})`;
+    };
+    const resetZoom = () => {
+      zoomFactor = 1.0;
+      container.style.width  = '100%';
+      container.style.height = '100%';
+      container.style.transform = 'scale(1)';
+    };
+
+    zoomToolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => applyZoom(1.25));
+    zoomToolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => applyZoom(1 / 1.25));
+    zoomToolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', resetZoom);
+    zoomToolbar.querySelector('.pv-fit-cols')!  .addEventListener('click', () => api.autoSizeAllColumns(false));
+    this._zoomCb = applyZoom;
 
     // Footer
     const [totalRows, totalCols] = p.shape;
@@ -595,7 +683,8 @@ export class PivotalViewerWidget extends Widget {
       ${p.truncated
         ? `<label class="pv-limit-label">Show:
             <input class="pv-limit" type="number" value="${data.length}" min="100" step="1000">
-            rows</label>`
+            rows</label>
+           <button class="pv-btn pv-show-all" title="Load all rows">Show all</button>`
         : ''}
     `;
 
@@ -605,11 +694,14 @@ export class PivotalViewerWidget extends Widget {
         const limit = Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT);
         if (this._comm) this._comm.send({ type: 'request', name: p.name, limit });
       });
+      const showAllBtn = footer.querySelector('.pv-show-all') as HTMLButtonElement;
+      showAllBtn.addEventListener('click', () => {
+        if (this._comm) this._comm.send({ type: 'request', name: p.name, limit: p.shape[0] });
+      });
     }
 
-    // Cache nodes before appending so back/forward reuses live AG Grid instance
-    this._dfCache.set(p.name, { body: container, footer, api });
-    this._body.appendChild(container);
+    // Cache the entry (wrapper already appended above, before createGrid)
+    this._dfCache.set(p.name, { body: wrapper, footer, api, applyZoom, resetZoom });
     this._footer.appendChild(footer);
   }
 

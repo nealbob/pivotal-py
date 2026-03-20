@@ -4,7 +4,7 @@
 
 param(
     [switch]$Execute,
-    [string]$Notebook = ""
+    [string]$Notebook = "C:\Code_win\pivotal-demo\football_demo.ipynb"
 )
 
 # --- Find jupyter in the pivotal conda environment ---
@@ -61,7 +61,7 @@ if ($Notebook) {
         Set-Location $notebookDir
         Write-Host "Notebook: $resolved"
     } else {
-        Write-Host "Warning: notebook not found: $Notebook — starting normally"
+        Write-Host "Warning: notebook not found: $Notebook - starting normally"
     }
 }
 
@@ -73,17 +73,20 @@ if ($Execute -and $notebookFile) {
 }
 
 # --- Start JupyterLab and capture URL ---
-$logFile = [System.IO.Path]::GetTempFileName()
+$stdoutLog = [System.IO.Path]::GetTempFileName()
+$stderrLog = [System.IO.Path]::GetTempFileName()
 $proc = Start-Process $jupyterExe -ArgumentList "lab --no-browser" `
-    -RedirectStandardOutput $logFile -RedirectStandardError $logFile `
+    -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog `
     -PassThru -NoNewWindow
 
 Write-Host "Starting JupyterLab (pid $($proc.Id))..."
 
+# JupyterLab writes its URL to stderr
 $url = ""
 for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
-    $content = Get-Content $logFile -ErrorAction SilentlyContinue
+    $content = (Get-Content $stdoutLog -ErrorAction SilentlyContinue) +
+               (Get-Content $stderrLog -ErrorAction SilentlyContinue)
     $match = $content | Select-String 'http://127\.0\.0\.1:\d+/lab\?token=[a-zA-Z0-9]+' | Select-Object -First 1
     if ($match) {
         $url = $match.Matches[0].Value
@@ -94,12 +97,13 @@ for ($i = 0; $i -lt 30; $i++) {
 if ($url) {
     $openUrl = $url
     if ($notebookFile) {
-        $openUrl = $url -replace '/lab\?', "/lab/tree/$notebookFile?"
+        $parts = $url -split '\?', 2
+        $openUrl = ($parts[0] -replace '/lab$', "/lab/tree/$notebookFile") + '?' + $parts[1]
     }
     Write-Host "Opening $openUrl"
     Start-Process $openUrl
 } else {
-    Write-Host "Could not detect server URL — check $logFile"
+    Write-Host "Could not detect server URL - check $logFile"
 }
 
 $proc.WaitForExit()

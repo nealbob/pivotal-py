@@ -54,3 +54,6 @@ output/*
 
 # Claude
 .claude/
+
+# start script
+start_pivotal.sh
