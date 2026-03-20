@@ -47,13 +47,8 @@ export class PivotalExplorerWidget extends Widget {
   private _viewingItem: string | null = null;
   private _focusedName: string | null = null;
   private _listEl!: HTMLElement;
-  private _pathInput!: HTMLInputElement;
   private _currentTableChangedCb: ((name: string | null) => void) | null = null;
-  private _saveCb: ((dsl: string) => void) | null = null;
-  private _browseCb: (() => Promise<string | null>) | null = null;
   private _contextMenu: HTMLElement | null = null;
-  private _guiMenu: HTMLElement | null = null;
-  private _newGuiCb: ((type: string) => void) | null = null;
 
   constructor() {
     super();
@@ -66,49 +61,11 @@ export class PivotalExplorerWidget extends Widget {
     this.node.innerHTML = `
       <div class="pv-explorer-header">
         <span class="pv-explorer-title">Pivotal Objects</span>
-        <button class="pv-btn pv-explorer-new-chart" title="New chart">+</button>
       </div>
       <div class="pv-explorer-list"></div>
-      <div class="pv-explorer-save-bar">
-        <div class="pv-explorer-path-row">
-          <input class="pv-explorer-path-input" placeholder="output/my_analysis"
-            spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" />
-          <button class="pv-btn pv-browse-btn" title="Browse for folder">&#128193;</button>
-        </div>
-        <button class="pv-btn pv-save-btn" title="Save data package">
-          <svg viewBox="0 0 14 14" width="12" height="12" fill="currentColor" style="flex-shrink:0">
-            <rect x="2" y="1" width="10" height="9" rx="0.5" opacity="0.9"/>
-            <rect x="4" y="1" width="4" height="3.5" rx="0.3" fill="var(--jp-layout-color1)" opacity="1"/>
-            <rect x="2" y="8" width="10" height="5" rx="0.5" opacity="0.7"/>
-            <rect x="4" y="9.5" width="6" height="2.5" rx="0.3" fill="var(--jp-layout-color1)" opacity="0.9"/>
-          </svg>
-          Save
-        </button>
-      </div>
     `;
 
-    this._listEl    = this.node.querySelector('.pv-explorer-list')       as HTMLElement;
-    this._pathInput = this.node.querySelector('.pv-explorer-path-input') as HTMLInputElement;
-
-    const newChartBtn = this.node.querySelector('.pv-explorer-new-chart') as HTMLButtonElement;
-    const saveBtn     = this.node.querySelector('.pv-save-btn')           as HTMLButtonElement;
-    const browseBtn   = this.node.querySelector('.pv-browse-btn')         as HTMLButtonElement;
-
-    newChartBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      this._showGuiMenu(newChartBtn);
-    });
-
-    saveBtn.addEventListener('click', () => this._executeSave());
-
-    browseBtn.addEventListener('click', async () => {
-      if (!this._browseCb) return;
-      const path = await this._browseCb();
-      if (path !== null) {
-        this._pathInput.value = path;
-        this._pathInput.focus();
-      }
-    });
+    this._listEl = this.node.querySelector('.pv-explorer-list') as HTMLElement;
 
     this._renderEmpty();
 
@@ -157,10 +114,9 @@ export class PivotalExplorerWidget extends Widget {
       _lastKeyTime = Date.now();
     });
 
-    // Dismiss menus on outside click
+    // Dismiss context menu on outside click
     document.addEventListener('click', () => {
       this._dismissContextMenu();
-      this._dismissGuiMenu();
     }, true);
   }
 
@@ -174,18 +130,6 @@ export class PivotalExplorerWidget extends Widget {
 
   setDeleteCallback(cb: (name: string) => void): void {
     this._deleteCb = cb;
-  }
-
-  setNewGuiCallback(cb: (type: string) => void): void {
-    this._newGuiCb = cb;
-  }
-
-  setSaveCallback(cb: (dsl: string) => void): void {
-    this._saveCb = cb;
-  }
-
-  setBrowseCallback(cb: () => Promise<string | null>): void {
-    this._browseCb = cb;
   }
 
   getCurrentTable(): string | null {
@@ -220,24 +164,6 @@ export class PivotalExplorerWidget extends Widget {
   }
 
   // -------------------------------------------------------------------------
-  // Save helpers
-  // -------------------------------------------------------------------------
-
-  private _executeSave(): void {
-    const raw = this._pathInput.value.trim();
-    if (!raw) { this._pathInput.focus(); return; }
-    const lastSlash = Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\'));
-    const name = lastSlash >= 0 ? raw.slice(lastSlash + 1) : raw;
-    const dir  = lastSlash >= 0 ? raw.slice(0, lastSlash) : null;
-
-    let dsl = `%%pivotal\nsave "${name}"`;
-    if (dir) dsl += `\n    path "${dir}"`;
-    dsl += '\n    format parquet';
-
-    this._saveCb?.(dsl);
-  }
-
-  // -------------------------------------------------------------------------
   // Rendering
   // -------------------------------------------------------------------------
 
@@ -246,40 +172,6 @@ export class PivotalExplorerWidget extends Widget {
     this._render();
     this._listEl.querySelector('.pv-explorer-row.pv-focused')
       ?.scrollIntoView({ block: 'nearest' });
-  }
-
-  private _dismissGuiMenu(): void {
-    if (this._guiMenu) {
-      this._guiMenu.remove();
-      this._guiMenu = null;
-    }
-  }
-
-  private _showGuiMenu(anchor: HTMLElement): void {
-    this._dismissGuiMenu();
-    const menu = document.createElement('div');
-    menu.className = 'pv-gui-menu';
-    const items = [
-      { label: 'New plot',  type: 'plot'  },
-      { label: 'New pivot', type: 'pivot' },
-      { label: 'Load data', type: 'load'  },
-    ];
-    for (const item of items) {
-      const el = document.createElement('div');
-      el.className = 'pv-gui-menu-item';
-      el.textContent = item.label;
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        this._dismissGuiMenu();
-        this._newGuiCb?.(item.type);
-      });
-      menu.appendChild(el);
-    }
-    const rect = anchor.getBoundingClientRect();
-    menu.style.left = `${rect.left}px`;
-    menu.style.top  = `${rect.bottom + 2}px`;
-    document.body.appendChild(menu);
-    this._guiMenu = menu;
   }
 
   private _dismissContextMenu(): void {

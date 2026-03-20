@@ -22,8 +22,6 @@ import {
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton, Notification } from '@jupyterlab/apputils';
-import { IDocumentManager } from '@jupyterlab/docmanager';
-import { FileDialog } from '@jupyterlab/filebrowser';
 import { IStatusBar } from '@jupyterlab/statusbar';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
@@ -439,8 +437,8 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
   description: 'Object Viewer panel for DataFrames and charts from Pivotal cells',
   autoStart: true,
   requires: [INotebookTracker],
-  optional: [ISettingRegistry, IDocumentManager, IStatusBar],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null, docManager: IDocumentManager | null, statusBar: IStatusBar | null) => {
+  optional: [ISettingRegistry, IStatusBar],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, settings: ISettingRegistry | null, statusBar: IStatusBar | null) => {
     const viewer = getViewer();
     const explorer = getExplorer();
     explorer.title.icon = pivotalGreyIcon;
@@ -512,23 +510,11 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     viewer.setViewingItemCallback(name => explorer.setViewingItem(name));
 
     // Insert a gui cell into the active notebook
-    const insertGuiCell = (type: string) => {
+    // Helper: insert a new code cell below the active cell and run it
+    const insertAndRun = (code: string) => {
       const panel = tracker.currentWidget;
       if (!panel) return;
       const notebook = panel.content;
-      const table = explorer.getCurrentTable();
-      let code: string;
-      if (type === 'pivot') {
-        code = table
-          ? `import pivotal\npivotal.pivot_gui(${JSON.stringify(table)})`
-          : `import pivotal\npivotal.pivot_gui()`;
-      } else if (type === 'load') {
-        code = `import pivotal\npivotal.load_gui()`;
-      } else {
-        code = table
-          ? `import pivotal\npivotal.plot_gui(${JSON.stringify(table)})`
-          : `import pivotal\npivotal.plot_gui()`;
-      }
       NotebookActions.insertBelow(notebook);
       const active = notebook.activeCell;
       if (active) {
@@ -536,22 +522,6 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         void NotebookActions.run(notebook, panel.sessionContext);
       }
     };
-
-    explorer.setNewGuiCallback(type => insertGuiCell(type));
-    viewer.setNewGuiCallback(type => insertGuiCell(type));
-
-    // Save package from explorer
-    explorer.setSaveCallback(dsl => {
-      const panel = tracker.currentWidget;
-      if (!panel) return;
-      const notebook = panel.content;
-      NotebookActions.insertBelow(notebook);
-      const active = notebook.activeCell;
-      if (active) {
-        active.model.sharedModel.setSource(dsl);
-        void NotebookActions.run(notebook, panel.sessionContext);
-      }
-    });
 
     // Status bar item showing the current active DataFrame
     if (statusBar) {
@@ -567,18 +537,6 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         rank: 100,
       });
     }
-
-    // Browse for a save directory using the JupyterLab file dialog
-    explorer.setBrowseCallback(async () => {
-      if (!docManager) return null;
-      const result = await FileDialog.getExistingDirectory({ manager: docManager });
-      if (result.button.accept && result.value?.length) {
-        const relPath = result.value[0].path;
-        const serverRoot = PageConfig.getOption('serverRoot') || '';
-        return serverRoot ? `${serverRoot}/${relPath}` : relPath;
-      }
-      return null;
-    });
 
     // Clicking an explorer item focuses the viewer on that item
     explorer.setItemClickCallback(name => {
@@ -654,8 +612,49 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       },
     });
 
+    // --- GUI cell commands ---
+    app.commands.addCommand('pivotal:load-gui', {
+      label: 'Load Data Source',
+      execute: () => insertAndRun('import pivotal\npivotal.load_gui()'),
+    });
+
+    app.commands.addCommand('pivotal:pivot-gui', {
+      label: 'Insert Pivot Table',
+      execute: () => {
+        const table = explorer.getCurrentTable();
+        insertAndRun(table
+          ? `import pivotal\npivotal.pivot_gui(${JSON.stringify(table)})`
+          : `import pivotal\npivotal.pivot_gui()`);
+      },
+    });
+
+    app.commands.addCommand('pivotal:plot-gui', {
+      label: 'Insert Pivot Chart',
+      execute: () => {
+        const table = explorer.getCurrentTable();
+        insertAndRun(table
+          ? `import pivotal\npivotal.plot_gui(${JSON.stringify(table)})`
+          : `import pivotal\npivotal.plot_gui()`);
+      },
+    });
+
+    app.commands.addCommand('pivotal:save-gui', {
+      label: 'Save Data Package',
+      execute: () => {
+        const table = explorer.getCurrentTable();
+        insertAndRun(table
+          ? `import pivotal\npivotal.save_gui(${JSON.stringify(table)})`
+          : `import pivotal\npivotal.save_gui()`);
+      },
+    });
+
+    app.commands.addCommand('pivotal:settings-gui', {
+      label: 'Settings',
+      execute: () => insertAndRun('import pivotal\npivotal.settings_gui()'),
+    });
+
     app.commands.addCommand('pivotal:export-py', {
-      label: 'Export Notebook to Python',
+      label: 'Generate Python Code',
       execute: async () => {
         const panel = tracker.currentWidget;
         if (!panel) return;
@@ -705,10 +704,17 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     app.commands.addKeyBinding({ command: 'pivotal:viewer-back',   keys: ['Alt ['],    selector: 'body' });
     app.commands.addKeyBinding({ command: 'pivotal:viewer-forward',keys: ['Alt ]'],    selector: 'body' });
 
-    // Add a single Pivotal dropdown button to every notebook toolbar
+    // Add expanded Pivotal dropdown menu to every notebook toolbar
     tracker.widgetAdded.connect((_, panel) => {
       const menu = new Menu({ commands: app.commands });
       menu.addItem({ command: 'pivotal:new-cell' });
+      menu.addItem({ type: 'separator' });
+      menu.addItem({ command: 'pivotal:load-gui' });
+      menu.addItem({ command: 'pivotal:pivot-gui' });
+      menu.addItem({ command: 'pivotal:plot-gui' });
+      menu.addItem({ command: 'pivotal:save-gui' });
+      menu.addItem({ type: 'separator' });
+      menu.addItem({ command: 'pivotal:settings-gui' });
       menu.addItem({ type: 'separator' });
       menu.addItem({ command: 'pivotal:export-py' });
 

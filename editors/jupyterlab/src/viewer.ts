@@ -145,8 +145,6 @@ export class PivotalViewerWidget extends Widget {
   private _contentChangedCb: ((items: ExplorerItem[]) => void) | null = null;
   private _viewingItemCb: ((name: string | null) => void) | null = null;
   private _activateCb: (() => void) | null = null;
-  private _newGuiCb: ((type: string) => void) | null = null;
-  private _guiMenu: HTMLElement | null = null;
   private _zoomCb: ((factor: number) => void) | null = null;
 
   // Cache AG Grid DOM nodes + GridApi per DataFrame name so back/forward navigation
@@ -184,7 +182,6 @@ export class PivotalViewerWidget extends Widget {
           <button class="pv-btn pv-fwd"  title="Forward (Alt+])">&#9654;</button>
           <span class="pv-counter"></span>
         </div>
-        <button class="pv-btn pv-new-chart" title="New chart">+</button>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
         <button class="pv-btn pv-refresh"   title="Refresh">&#8635;</button>
         <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
@@ -212,8 +209,6 @@ export class PivotalViewerWidget extends Widget {
     this._clearBtn.disabled   = true;
     this._refreshBtn.disabled = true;
 
-    const newChartBtn = this.node.querySelector('.pv-new-chart') as HTMLButtonElement;
-
     this.node.tabIndex = -1;
     let _lastKey = '';
     let _lastKeyTime = 0;
@@ -235,10 +230,6 @@ export class PivotalViewerWidget extends Widget {
 
     this._backBtn.addEventListener('click', () => this.back());
     this._fwdBtn.addEventListener('click', () => this.forward());
-    newChartBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      this._showGuiMenu(newChartBtn);
-    });
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
@@ -259,46 +250,6 @@ export class PivotalViewerWidget extends Widget {
 
   setActivateCallback(cb: () => void): void {
     this._activateCb = cb;
-  }
-
-  setNewGuiCallback(cb: (type: string) => void): void {
-    this._newGuiCb = cb;
-  }
-
-  private _dismissGuiMenu(): void {
-    if (this._guiMenu) {
-      this._guiMenu.remove();
-      this._guiMenu = null;
-    }
-  }
-
-  private _showGuiMenu(anchor: HTMLElement): void {
-    this._dismissGuiMenu();
-    const menu = document.createElement('div');
-    menu.className = 'pv-gui-menu';
-    const items = [
-      { label: 'New plot',  type: 'plot'  },
-      { label: 'New pivot', type: 'pivot' },
-      { label: 'Load data', type: 'load'  },
-    ];
-    for (const item of items) {
-      const el = document.createElement('div');
-      el.className = 'pv-gui-menu-item';
-      el.textContent = item.label;
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        this._dismissGuiMenu();
-        this._newGuiCb?.(item.type);
-      });
-      menu.appendChild(el);
-    }
-    const rect = anchor.getBoundingClientRect();
-    menu.style.left = `${rect.left}px`;
-    menu.style.top  = `${rect.bottom + 2}px`;
-    document.body.appendChild(menu);
-    this._guiMenu = menu;
-    const dismiss = () => { this._dismissGuiMenu(); document.removeEventListener('click', dismiss, true); };
-    setTimeout(() => document.addEventListener('click', dismiss, true), 0);
   }
 
   focusItem(name: string): void {

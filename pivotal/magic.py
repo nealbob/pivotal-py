@@ -772,6 +772,202 @@ def load_gui():
     ipy_display(accordion)
 
 
+def save_gui(df_name: str = None):
+    """Display an interactive widget for building %%pivotal save commands."""
+    try:
+        import ipywidgets as widgets
+        from IPython.display import display as ipy_display
+        import IPython
+    except ImportError:
+        print('[Pivotal] ipywidgets is required for save_gui. Install with: pip install ipywidgets')
+        return
+
+    shell = IPython.get_ipython()
+    ns = shell.user_ns if shell else {}
+
+    try:
+        import pandas as pd
+        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+    except ImportError:
+        df_names = []
+
+    if not df_names:
+        print('[Pivotal] No DataFrames found in namespace.')
+        return
+
+    _dd  = widgets.Layout(width='180px')
+    _lbl = widgets.Layout(width='80px')
+
+    def _lh(text):
+        return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
+
+    def _row(*ws):
+        return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
+
+    df_sel   = widgets.Dropdown(
+                   options=df_names,
+                   value=df_name if df_name in df_names else df_names[0],
+                   description='', layout=_dd)
+    pkg_name = widgets.Text(value='', placeholder='package name', description='', layout=_dd)
+    path_w   = widgets.Text(value='', placeholder='output/path  (optional)', description='',
+                            layout=widgets.Layout(width='260px'))
+    fmt_w    = widgets.Dropdown(
+                   options=['parquet', 'csv', 'excel', 'feather'],
+                   value='parquet', description='', layout=_dd)
+    excl_w   = widgets.SelectMultiple(
+                   options=[], description='', rows=6,
+                   layout=widgets.Layout(width='260px'))
+    output   = widgets.Output()
+    save_btn = widgets.Button(description='Save', button_style='primary',
+                              layout=widgets.Layout(width='80px'))
+
+    def _update_cols(*_):
+        df = ns.get(df_sel.value)
+        cols = list(df.columns) if df is not None else []
+        excl_w.options = cols
+        excl_w.value = []
+
+    df_sel.observe(_update_cols, names='value')
+    _update_cols()
+
+    def _build_dsl(_btn=None):
+        name = pkg_name.value.strip()
+        if not name:
+            with output:
+                output.clear_output()
+                print('Enter a package name.')
+            return
+        dsl = f'%%pivotal\nsave "{name}"'
+        path = path_w.value.strip()
+        if path:
+            dsl += f'\n    path "{path}"'
+        dsl += f'\n    format {fmt_w.value}'
+        excluded = list(excl_w.value)
+        if excluded:
+            dsl += f'\n    exclude {", ".join(excluded)}'
+        viewer = _get_viewer()
+        if viewer is not None:
+            viewer.send_insert_cell(dsl)
+        else:
+            with output:
+                output.clear_output()
+                print('Generated DSL:\n' + dsl)
+
+    save_btn.on_click(_build_dsl)
+
+    content = widgets.VBox([
+        _row(_lh('df'),      df_sel),
+        _row(_lh('name'),    pkg_name),
+        _row(_lh('path'),    path_w),
+        _row(_lh('format'),  fmt_w),
+        widgets.HTML('<b style="line-height:2">exclude columns</b>'),
+        excl_w,
+        widgets.HBox([save_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
+        output,
+    ], layout=widgets.Layout(width='100%'))
+    accordion = widgets.Accordion(children=[content], selected_index=0,
+                                  layout=widgets.Layout(width='100%'))
+    accordion.set_title(0, 'Pivotal Save')
+    ipy_display(accordion)
+
+
+def settings_gui():
+    """Display an interactive widget for configuring %%pivotal / %pivotal_set options."""
+    try:
+        import ipywidgets as widgets
+        from IPython.display import display as ipy_display
+        import IPython
+    except ImportError:
+        print('[Pivotal] ipywidgets is required for settings_gui. Install with: pip install ipywidgets')
+        return
+
+    _dd  = widgets.Layout(width='180px')
+    _lbl = widgets.Layout(width='120px')
+
+    def _lh(text):
+        return widgets.HTML(f'<b style="line-height:1.8">{text}</b>', layout=_lbl)
+
+    def _row(*ws):
+        return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
+
+    # Read current settings from the active magic instance if available
+    current = {}
+    shell = IPython.get_ipython()
+    if shell:
+        for fn in shell.magics_manager.magics.get('cell', {}).values():
+            obj = getattr(fn, '__self__', None)
+            if obj is not None and isinstance(obj, PivotalMagics) and hasattr(obj, 'settings'):
+                current = dict(obj.settings)
+                break
+
+    output_type_w = widgets.Dropdown(
+        options=['viewer', 'inline', 'both'],
+        value=current.get('output_type', 'viewer'),
+        description='', layout=_dd)
+    output_code_w = widgets.Checkbox(
+        value=current.get('output_code', False),
+        description='', indent=False)
+    canvas_w = widgets.Dropdown(
+        options=['none', 'a4', 'a4_landscape', 'a3', 'a3_landscape', 'letter', 'slide'],
+        value=current.get('canvas', 'none'),
+        description='', layout=_dd)
+    chart_width_w = widgets.Dropdown(
+        options=['full', 'half'],
+        value=current.get('chart_width', 'full'),
+        description='', layout=_dd)
+    viewer_font_w = widgets.BoundedFloatText(
+        value=current.get('viewer_font', 1.0),
+        min=0.5, max=3.0, step=0.1,
+        description='', layout=widgets.Layout(width='100px'))
+    viewer_num_format_w = widgets.BoundedIntText(
+        value=current.get('viewer_num_format', 5),
+        min=0, max=10, step=1,
+        description='', layout=widgets.Layout(width='100px'))
+    use_visions_w = widgets.Checkbox(
+        value=current.get('use_visions', False),
+        description='', indent=False)
+    output = widgets.Output()
+    apply_btn = widgets.Button(description='Apply', button_style='primary',
+                               layout=widgets.Layout(width='80px'))
+
+    def _apply(_btn=None):
+        parts = [
+            f'output_type={output_type_w.value}',
+            f'output_code={"true" if output_code_w.value else "false"}',
+            f'canvas={canvas_w.value}',
+            f'chart_width={chart_width_w.value}',
+            f'viewer_font={viewer_font_w.value}',
+            f'viewer_num_format={int(viewer_num_format_w.value)}',
+            f'use_visions={"true" if use_visions_w.value else "false"}',
+        ]
+        code = '%pivotal_set ' + ' '.join(parts)
+        viewer = _get_viewer()
+        if viewer is not None:
+            viewer.send_insert_cell(code)
+        else:
+            with output:
+                output.clear_output()
+                print(code)
+
+    apply_btn.on_click(_apply)
+
+    content = widgets.VBox([
+        _row(_lh('output type'),   output_type_w),
+        _row(_lh('output code'),   output_code_w),
+        _row(_lh('canvas'),        canvas_w),
+        _row(_lh('chart width'),   chart_width_w),
+        _row(_lh('viewer zoom'),   viewer_font_w),
+        _row(_lh('num. format'),   viewer_num_format_w),
+        _row(_lh('use visions'),   use_visions_w),
+        widgets.HBox([apply_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
+        output,
+    ], layout=widgets.Layout(width='100%'))
+    accordion = widgets.Accordion(children=[content], selected_index=0,
+                                  layout=widgets.Layout(width='100%'))
+    accordion.set_title(0, 'Pivotal Settings')
+    ipy_display(accordion)
+
+
 def _get_viewer() -> '_PivotalViewer | None':
     """Return the active _PivotalViewer if one exists, else None."""
     import IPython

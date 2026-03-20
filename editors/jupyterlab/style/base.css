@@ -91,30 +91,6 @@
   color: var(--jp-success-color1, #2e7d32);
 }
 
-/* GUI action popup menu */
-.pv-gui-menu {
-  position: fixed;
-  z-index: 10000;
-  background: var(--jp-layout-color1);
-  border: 1px solid var(--jp-border-color1);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  min-width: 160px;
-  padding: 4px 0;
-}
-
-.pv-gui-menu-item {
-  padding: 5px 12px;
-  font-size: 0.9em;
-  cursor: pointer;
-  color: var(--jp-ui-font-color1);
-  white-space: nowrap;
-}
-
-.pv-gui-menu-item:hover {
-  background: var(--jp-layout-color3);
-}
-
 /* Body — grows to fill panel */
 .pv-body {
   flex: 1;
@@ -551,60 +527,6 @@
   padding: 0 5px;
   min-width: 16px;
   text-align: center;
-}
-
-/* Save bar */
-.pv-explorer-save-bar {
-  flex-shrink: 0;
-  border-top: 1px solid var(--jp-border-color1);
-  padding: 5px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pv-explorer-path-row {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.pv-explorer-path-input {
-  flex: 1;
-  font-size: 0.8em;
-  padding: 2px 5px;
-  background: var(--jp-layout-color1);
-  color: var(--jp-ui-font-color1);
-  border: 1px solid var(--jp-border-color1);
-  border-radius: 3px;
-  min-width: 0;
-}
-
-.pv-explorer-path-input:focus {
-  outline: none;
-  border-color: var(--jp-brand-color1);
-}
-
-.pv-browse-btn {
-  flex-shrink: 0;
-  padding: 1px 4px;
-  font-size: 0.9em;
-  line-height: 1;
-}
-
-.pv-explorer-save-bar {
-  align-items: flex-end;
-}
-
-.pv-save-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 80px;
-  font-size: 0.85em;
-  padding: 4px 8px;
-  flex-shrink: 0;
 }
 
 /* Expanded column list */

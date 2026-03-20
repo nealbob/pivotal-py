@@ -1,6 +1,6 @@
 from .dsl_parser import DSLParser
 from .package import Package
-from .magic import update, delete, plot_gui, pivot_gui, load_gui
+from .magic import update, delete, plot_gui, pivot_gui, load_gui, save_gui, settings_gui
 
 def load_ipython_extension(ipython):
     from .magic import load_ipython_extension as magic_load
@@ -20,4 +20,5 @@ try:
 except NameError:
     pass  # Not running inside IPython
 
-__all__ = ['DSLParser', 'Package', 'load_ipython_extension', 'update', 'delete', 'plot_gui', 'pivot_gui', 'load_gui']
+__all__ = ['DSLParser', 'Package', 'load_ipython_extension', 'update', 'delete',
+           'plot_gui', 'pivot_gui', 'load_gui', 'save_gui', 'settings_gui']
