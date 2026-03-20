@@ -52,8 +52,7 @@
     "@lezer/highlight": "^1.0.0",
     "@lumino/messaging": "^2.0.0",
     "@lumino/widgets": "^2.0.0",
-    "@types/tabulator-tables": "^6.3.1",
-    "tabulator-tables": "^6.4.0"
+    "ag-grid-community": "^33.0.0"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^4.0.0",

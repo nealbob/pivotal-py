@@ -1,7 +1,72 @@
 import { Widget } from '@lumino/widgets';
 import { Message } from '@lumino/messaging';
-import { TabulatorFull as Tabulator, type ColumnDefinition } from 'tabulator-tables';
-import 'tabulator-tables/dist/css/tabulator_simple.min.css';
+import {
+  createGrid, AllCommunityModule, ModuleRegistry,
+  type GridOptions, type ColDef, type GridApi,
+  type IFilterComp, type IFilterParams, type IDoesFilterPassParams,
+} from 'ag-grid-community';
+
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+
+// Popup (header ≡ click) filter for categorical/boolean columns.
+// Uses a custom div list so hover and selection highlighting work in all browsers.
+class SelectPopupFilter implements IFilterComp {
+  private _gui!: HTMLElement;
+  private _list!: HTMLElement;
+  private _value = '';
+  private _params!: IFilterParams & { values?: string[] };
+
+  init(params: IFilterParams & { values?: string[] }): void {
+    this._params = params;
+    const values: string[] = params.values ?? [];
+
+    this._list = document.createElement('div');
+    this._list.className = 'pv-filter-list';
+
+    for (const v of values) {
+      const item = document.createElement('div');
+      item.className = 'pv-filter-option';
+      item.dataset['value'] = v;
+      item.textContent = v === '' ? 'All' : String(v);
+      if (v === '') item.classList.add('pv-filter-selected');  // 'All' highlighted by default
+      item.addEventListener('click', () => {
+        this._value = v;
+        this._list.querySelectorAll('.pv-filter-option').forEach(el =>
+          el.classList.toggle('pv-filter-selected', (el as HTMLElement).dataset['value'] === v)
+        );
+        params.filterChangedCallback();
+      });
+      this._list.appendChild(item);
+    }
+
+    this._gui = document.createElement('div');
+    this._gui.appendChild(this._list);
+  }
+
+  getGui(): HTMLElement { return this._gui; }
+
+  doesFilterPass(params: IDoesFilterPassParams): boolean {
+    if (!this.isFilterActive()) return true;
+    const colId = this._params.column.getColId();
+    return String((params.data as Record<string, unknown>)[colId] ?? '') === this._value;
+  }
+
+  isFilterActive(): boolean { return this._value !== ''; }
+
+  getModel(): { filterType: string; filter: string } | null {
+    return this.isFilterActive() ? { filterType: 'text', filter: this._value } : null;
+  }
+
+  setModel(model: { filter?: string } | null): void {
+    this._value = model?.filter ?? '';
+    this._list?.querySelectorAll('.pv-filter-option').forEach(el =>
+      el.classList.toggle('pv-filter-selected', (el as HTMLElement).dataset['value'] === this._value)
+    );
+  }
+
+  destroy(): void { /* nothing to clean up */ }
+}
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -61,7 +126,9 @@ export interface ExplorerItem {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_LIMIT = 10_000;
+const DEFAULT_LIMIT = 20_000;
+const BASE_ROW_H = 26;   // px at zoom 1.0
+const BASE_HDR_H = 30;   // px at zoom 1.0
 
 // ---------------------------------------------------------------------------
 // PivotalViewerWidget
@@ -82,9 +149,9 @@ export class PivotalViewerWidget extends Widget {
   private _guiMenu: HTMLElement | null = null;
   private _zoomCb: ((factor: number) => void) | null = null;
 
-  // Cache live Tabulator DOM nodes per DataFrame name so back/forward navigation
+  // Cache AG Grid DOM nodes + GridApi per DataFrame name so back/forward navigation
   // reattaches existing instances rather than rebuilding from scratch.
-  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement }> = new Map();
+  private _dfCache: Map<string, { body: HTMLElement; footer: HTMLElement; api: GridApi; applyZoom: (mult: number) => void; resetZoom: () => void }> = new Map();
 
   // Callback set by canvas renderers (_renderChartOnPage / _renderGtTableOnPage)
   // so that Lumino's onResize can trigger a re-layout when the panel is resized.
@@ -97,6 +164,7 @@ export class PivotalViewerWidget extends Widget {
   private _copyBtn!: HTMLButtonElement;
   private _delBtn!: HTMLButtonElement;
   private _clearBtn!: HTMLButtonElement;
+  private _refreshBtn!: HTMLButtonElement;
   private _body!: HTMLElement;
   private _footer!: HTMLElement;
 
@@ -110,14 +178,17 @@ export class PivotalViewerWidget extends Widget {
 
     this.node.innerHTML = `
       <div class="pv-header">
-        <button class="pv-btn pv-back"      title="Back (Alt+[)">&#9664;</button>
-        <span class="pv-title">—</span>
-        <span class="pv-counter"></span>
-        <button class="pv-btn pv-fwd"       title="Forward (Alt+])">&#9654;</button>
+        <div class="pv-nav">
+          <button class="pv-btn pv-back" title="Back (Alt+[)">&#9664;</button>
+          <span class="pv-title">—</span>
+          <button class="pv-btn pv-fwd"  title="Forward (Alt+])">&#9654;</button>
+          <span class="pv-counter"></span>
+        </div>
         <button class="pv-btn pv-new-chart" title="New chart">+</button>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
+        <button class="pv-btn pv-refresh"   title="Refresh">&#8635;</button>
         <button class="pv-btn pv-del"       title="Delete object">&#10005;</button>
-        <button class="pv-btn pv-clear"     title="Clear all">&#128465;</button>
+        <button class="pv-btn pv-clear"     title="Delete all">&#128465;</button>
       </div>
       <div class="pv-body"></div>
       <div class="pv-footer"></div>
@@ -129,15 +200,17 @@ export class PivotalViewerWidget extends Widget {
     this._fwdBtn    = this.node.querySelector('.pv-fwd')    as HTMLButtonElement;
     this._copyBtn   = this.node.querySelector('.pv-copy')   as HTMLButtonElement;
     this._delBtn    = this.node.querySelector('.pv-del')    as HTMLButtonElement;
-    this._clearBtn  = this.node.querySelector('.pv-clear')  as HTMLButtonElement;
-    this._body      = this.node.querySelector('.pv-body')   as HTMLElement;
+    this._clearBtn   = this.node.querySelector('.pv-clear')   as HTMLButtonElement;
+    this._refreshBtn = this.node.querySelector('.pv-refresh') as HTMLButtonElement;
+    this._body       = this.node.querySelector('.pv-body')    as HTMLElement;
     this._footer    = this.node.querySelector('.pv-footer') as HTMLElement;
 
     this._backBtn.disabled  = true;
     this._fwdBtn.disabled   = true;
     this._copyBtn.disabled  = true;
     this._delBtn.disabled   = true;
-    this._clearBtn.disabled = true;
+    this._clearBtn.disabled   = true;
+    this._refreshBtn.disabled = true;
 
     const newChartBtn = this.node.querySelector('.pv-new-chart') as HTMLButtonElement;
 
@@ -145,8 +218,8 @@ export class PivotalViewerWidget extends Widget {
     let _lastKey = '';
     let _lastKeyTime = 0;
     this.node.addEventListener('keydown', e => {
-      if (e.key === 'h' || e.key === 'ArrowLeft')  { e.preventDefault(); this.back(); }
-      if (e.key === 'l' || e.key === 'ArrowRight') { e.preventDefault(); this.forward(); }
+      if (e.key === 'h') { e.preventDefault(); this.back(); }
+      if (e.key === 'l') { e.preventDefault(); this.forward(); }
       if (e.key === 'j') { e.preventDefault(); this._zoomCb?.(1.25); }
       if (e.key === 'k') { e.preventDefault(); this._zoomCb?.(1 / 1.25); }
       if (e.key === 'd') {
@@ -169,6 +242,7 @@ export class PivotalViewerWidget extends Widget {
     this._copyBtn.addEventListener('click', () => this._copyToClipboard());
     this._delBtn.addEventListener('click', () => this.deleteCurrent());
     this._clearBtn.addEventListener('click', () => this.clear());
+    this._refreshBtn.addEventListener('click', () => this._refreshCurrent());
   }
 
   setComm(comm: { send(data: unknown): void }): void {
@@ -263,8 +337,11 @@ export class PivotalViewerWidget extends Widget {
   push(msg: ViewerMessage): void {
     const isNew = !this._latest.has(msg.name);
     this._latest.set(msg.name, msg);
-    // Evict stale cache entry so updated data gets a fresh Tabulator instance
-    if (!isNew) this._dfCache.delete(msg.name);
+    // Evict stale cache entry so updated data gets a fresh AG Grid instance
+    if (!isNew) {
+      this._dfCache.get(msg.name)?.api?.destroy();
+      this._dfCache.delete(msg.name);
+    }
     if (isNew) this._names.push(msg.name);
     this._index = this._names.indexOf(msg.name);
     this._render();
@@ -284,6 +361,7 @@ export class PivotalViewerWidget extends Widget {
     const idx = this._names.indexOf(name);
     if (idx < 0) return;
     this._latest.delete(name);
+    this._dfCache.get(name)?.api?.destroy();
     this._dfCache.delete(name);
     this._names.splice(idx, 1);
     this._index = Math.min(Math.max(this._index, 0), this._names.length - 1);
@@ -312,6 +390,7 @@ export class PivotalViewerWidget extends Widget {
 
   clear(): void {
     this._latest.clear();
+    for (const cached of this._dfCache.values()) cached.api?.destroy();
     this._dfCache.clear();
     this._names = [];
     this._index = -1;
@@ -321,11 +400,20 @@ export class PivotalViewerWidget extends Widget {
     this._fwdBtn.disabled = true;
     this._copyBtn.disabled = true;
     this._delBtn.disabled = true;
-    this._clearBtn.disabled = true;
+    this._clearBtn.disabled   = true;
+    this._refreshBtn.disabled = true;
     this._body.innerHTML = '';
     this._footer.innerHTML = '';
     this._notifyContentChanged();
     this._viewingItemCb?.(null);
+  }
+
+  private _refreshCurrent(): void {
+    if (this._index < 0 || !this._names.length) return;
+    const name = this._names[this._index];
+    const inp = this._footer.querySelector('.pv-limit') as HTMLInputElement | null;
+    const limit = inp ? Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT) : DEFAULT_LIMIT;
+    this._comm?.send({ type: 'request', name, limit });
   }
 
   // -------------------------------------------------------------------------
@@ -401,11 +489,12 @@ export class PivotalViewerWidget extends Widget {
     this._counterEl.textContent = `${this._index + 1} / ${this._names.length}`;
     this._backBtn.disabled  = this._index === 0;
     this._fwdBtn.disabled   = this._index === this._names.length - 1;
-    this._copyBtn.disabled  = false;
-    this._delBtn.disabled   = false;
-    this._clearBtn.disabled = false;
+    this._copyBtn.disabled    = false;
+    this._delBtn.disabled     = false;
+    this._clearBtn.disabled   = false;
+    this._refreshBtn.disabled = p.type !== 'dataframe';
 
-    // Detach children without destroying them — keeps Tabulator instances alive in _dfCache
+    // Detach children without destroying them — keeps AG Grid instances alive in _dfCache
     while (this._body.firstChild) this._body.removeChild(this._body.firstChild);
     while (this._footer.firstChild) this._footer.removeChild(this._footer.firstChild);
 
@@ -415,7 +504,7 @@ export class PivotalViewerWidget extends Widget {
   }
 
   // -------------------------------------------------------------------------
-  // DataFrame — rendered with Tabulator (virtual DOM, sortable columns)
+  // DataFrame — rendered with AG Grid (virtual scroll, sortable, filterable)
   // -------------------------------------------------------------------------
 
   private _renderDataFrame(p: DataFramePayload): void {
@@ -424,17 +513,17 @@ export class PivotalViewerWidget extends Widget {
     if (cached) {
       this._body.appendChild(cached.body);
       this._footer.appendChild(cached.footer);
+      this._zoomCb = cached.applyZoom;
       return;
     }
 
     const { columns, data, dtypes } = p;
-    const colTypes = p.col_types ?? {};
     const sigFigs = p.viewer_num_format ?? 5;
 
     // Float formatter: sigFigs significant digits, trim trailing zeros, keep sci notation
     const floatFormatter = sigFigs > 0
-      ? (cell: { getValue(): unknown }) => {
-          const val = cell.getValue();
+      ? (params: { value: unknown }) => {
+          const val = params.value;
           if (val === null || val === undefined || val === '') return '';
           const n = Number(val);
           if (isNaN(n)) return String(val);
@@ -443,78 +532,149 @@ export class PivotalViewerWidget extends Widget {
         }
       : undefined;
 
-    // Convert row-major array to Tabulator row objects, prepend row index
-    const rows = data.map((row, i) => {
+    // Convert row-major array to row objects, prepend row index
+    const rowData = data.map((row, i) => {
       const obj: Record<string, unknown> = { _idx: i };
       columns.forEach((col, ci) => { obj[col] = row[ci]; });
       return obj;
     });
 
-    const colDefs: ColumnDefinition[] = [
+    const colDefs: ColDef[] = [
       {
-        title: '', field: '_idx',
-        frozen: true, width: 52, minWidth: 52,
-        hozAlign: 'right', headerSort: false, resizable: false,
-        cssClass: 'pv-tab-idx',
-        headerFilter: false as never,
+        field: '_idx',
+        headerName: '',
+        pinned: 'left',
+        width: 52,
+        minWidth: 52,
+        maxWidth: 52,
+        sortable: false,
+        filter: false,
+        floatingFilter: false,
+        resizable: false,
+        suppressMovable: true,
+        cellClass: 'pv-ag-idx',
+        headerClass: 'pv-ag-idx-header',
       },
       ...columns.map(col => {
         const dt = dtypes[col] ?? '';
         const isFloat = dt.startsWith('float');
         const isNum = isFloat || dt.startsWith('int');
-        const semType: SemanticColType = colTypes[col] ?? (isNum ? 'numeric' : 'string');
+        const semType = (p.col_types ?? {})[col] ?? (isNum ? 'numeric' : 'string');
 
-        const colDef = {
-          title: col, field: col,
-          hozAlign: (isNum ? 'right' : 'left') as 'right' | 'left',
-          sorter: (isNum ? 'number' : 'string') as 'number' | 'string',
-          tooltip: (dt || false) as string | false,
+        const def: ColDef = {
+          field: col,
+          headerName: col,
+          type: isNum ? 'numericColumn' : undefined,
+          headerTooltip: dt || undefined,
           resizable: true,
-        } as ColumnDefinition;
+          sortable: true,
+        };
 
         if (semType === 'categorical' || semType === 'boolean') {
-          // Build unique value list from the data
-          const vals = [...new Set(rows.map(r => r[col]))]
-            .filter(v => v !== null && v !== undefined && v !== '')
-            .sort((a, b) => String(a).localeCompare(String(b)));
-          colDef.headerFilter = 'list' as never;
-          colDef.headerFilterParams = { values: ['', ...vals], clearable: true } as never;
+          const vals = [...new Set(rowData.map(r => String(r[col] ?? '')))]
+            .filter(v => v !== '')
+            .sort((a, b) => a.localeCompare(b));
+          def.filter = SelectPopupFilter;
+          def.filterParams = { values: ['', ...vals] };
         } else if (semType === 'numeric') {
-          colDef.headerFilter = 'number' as never;
-          colDef.headerFilterFunc = '>=' as never;
-          colDef.headerFilterPlaceholder = '≥' as never;
+          def.filter = 'agNumberColumnFilter';
         } else {
-          // string / datetime — plain text match
-          colDef.headerFilter = 'input' as never;
-          colDef.headerFilterFunc = 'like' as never;
-          colDef.headerFilterPlaceholder = ' ' as never;
+          // string / datetime — text contains
+          def.filter = 'agTextColumnFilter';
+          def.filterParams = { filterOptions: ['contains'], defaultOption: 'contains' };
         }
 
-        if (isFloat && floatFormatter) colDef.formatter = floatFormatter as never;
-        return colDef;
+        if (isFloat && floatFormatter) def.valueFormatter = floatFormatter;
+
+        return def;
       }),
     ];
 
-    const container = document.createElement('div');
-    container.className = 'pv-tab-container';
-    container.style.fontSize = `${p.viewer_font ?? 1.0}em`;
+    ModuleRegistry.registerModules([AllCommunityModule]);
 
-    new Tabulator(container, {
-      data: rows,
-      columns: colDefs,
-      layout: 'fitData',
-      height: '100%',
-      renderVertical: 'virtual',
-      rowHeight: 24,
-      nestedFieldSeparator: false,  // allow dots in column names (e.g. "2.6")
-      popupContainer: document.body as never,  // position filter popups relative to viewport
-    });
+    let zoomFactor = p.viewer_font ?? 1.0;
+
+    // Wrapper: zoom toolbar above the AG Grid container
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;height:100%;';
+
+    const zoomToolbar = document.createElement('div');
+    zoomToolbar.className = 'pv-chart-toolbar';
+    zoomToolbar.innerHTML = `
+      <button class="pv-btn pv-zoom-in"    title="Zoom in (j)">+</button>
+      <button class="pv-btn pv-zoom-out"   title="Zoom out (k)">−</button>
+      <button class="pv-btn pv-zoom-reset" title="Reset zoom">1:1</button>
+      <button class="pv-btn pv-fit-cols"   title="Fit columns to content">↔</button>
+    `;
+
+    // viewport clips the scaled container so it always fills the available space
+    const viewport = document.createElement('div');
+    viewport.style.cssText = 'position:relative; overflow:hidden; flex:1; min-height:0;';
+
+    const container = document.createElement('div');
+    container.className = 'pv-ag-container ag-theme-alpine';
+    container.style.cssText = 'position:absolute; top:0; left:0; transform-origin:top left;';
+    container.style.width  = `${100 / zoomFactor}%`;
+    container.style.height = `${100 / zoomFactor}%`;
+    container.style.transform = `scale(${zoomFactor})`;
+
+    viewport.appendChild(container);
+    wrapper.appendChild(zoomToolbar);
+    wrapper.appendChild(viewport);
+
+    // Append to DOM *before* createGrid so container.clientWidth is non-zero
+    // when onFirstDataRendered fires (which can happen synchronously).
+    this._body.appendChild(wrapper);
+
+    const api = createGrid(container, {
+      rowData,
+      columnDefs: colDefs,
+      rowHeight: BASE_ROW_H,
+      headerHeight: BASE_HDR_H,
+      defaultColDef: {
+        sortable: true,
+        filter: true,
+        resizable: true,
+        minWidth: 60,
+        maxWidth: 300,
+        width: 120,
+      },
+      suppressFieldDotNotation: true,   // allow dots in column names (e.g. "2.6")
+      animateRows: false,
+      localeText: { filterOoo: '' },
+      onFirstDataRendered: (e) => {
+        // Best-effort auto-size after layout settles. The ↔ button is the
+        // reliable fallback if the panel was still animating open.
+        setTimeout(() => {
+          if (container.clientWidth > 0) e.api.autoSizeAllColumns(false);
+        }, 600);
+      },
+    } as GridOptions);
+
+    const applyZoom = (mult: number) => {
+      zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
+      container.style.width  = `${100 / zoomFactor}%`;
+      container.style.height = `${100 / zoomFactor}%`;
+      container.style.transform = `scale(${zoomFactor})`;
+    };
+    const resetZoom = () => {
+      zoomFactor = 1.0;
+      container.style.width  = '100%';
+      container.style.height = '100%';
+      container.style.transform = 'scale(1)';
+    };
+
+    zoomToolbar.querySelector('.pv-zoom-in')!   .addEventListener('click', () => applyZoom(1.25));
+    zoomToolbar.querySelector('.pv-zoom-out')!  .addEventListener('click', () => applyZoom(1 / 1.25));
+    zoomToolbar.querySelector('.pv-zoom-reset')!.addEventListener('click', resetZoom);
+    zoomToolbar.querySelector('.pv-fit-cols')!  .addEventListener('click', () => api.autoSizeAllColumns(false));
+    this._zoomCb = applyZoom;
 
     // Footer
-    const [totalShape, totalCols] = p.shape;
+    const [totalRows, totalCols] = p.shape;
     const truncMsg = p.truncated
-      ? `Showing ${data.length.toLocaleString()} of ${totalShape.toLocaleString()} rows`
-      : `${totalShape.toLocaleString()} rows × ${totalCols} cols`;
+      ? `Showing ${data.length.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+      : `${totalRows.toLocaleString()} rows × ${totalCols} cols`;
 
     const footer = document.createElement('div');
     footer.className = 'pv-footer-bar';
@@ -523,7 +683,8 @@ export class PivotalViewerWidget extends Widget {
       ${p.truncated
         ? `<label class="pv-limit-label">Show:
             <input class="pv-limit" type="number" value="${data.length}" min="100" step="1000">
-            rows</label>`
+            rows</label>
+           <button class="pv-btn pv-show-all" title="Load all rows">Show all</button>`
         : ''}
     `;
 
@@ -533,11 +694,14 @@ export class PivotalViewerWidget extends Widget {
         const limit = Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT);
         if (this._comm) this._comm.send({ type: 'request', name: p.name, limit });
       });
+      const showAllBtn = footer.querySelector('.pv-show-all') as HTMLButtonElement;
+      showAllBtn.addEventListener('click', () => {
+        if (this._comm) this._comm.send({ type: 'request', name: p.name, limit: p.shape[0] });
+      });
     }
 
-    // Cache nodes before appending so back/forward reuses live Tabulator instance
-    this._dfCache.set(p.name, { body: container, footer });
-    this._body.appendChild(container);
+    // Cache the entry (wrapper already appended above, before createGrid)
+    this._dfCache.set(p.name, { body: wrapper, footer, api, applyZoom, resetZoom });
     this._footer.appendChild(footer);
   }
 

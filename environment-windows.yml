@@ -1,0 +1,40 @@
+name: pivotal
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - jupyterlab=4.5
+  - notebook
+  - ipykernel
+  - ipython
+  - ipywidgets
+  - numpy
+  - pandas=3
+  - matplotlib
+  - scikit-learn
+  - scipy
+  - statsmodels
+  - seaborn
+  - plotly
+  - lark
+  - pyarrow
+  - duckdb
+  - sqlalchemy
+  - pyyaml
+  - requests
+  - pip
+  - pip:
+      - great-tables
+      - css-inline
+      - ipyfilechooser
+      - ipylab
+      - narwhals
+      - anywidget
+      - sweetviz
+      - pygwalker
+      - variable-inspector
+      - nbconvert
+      - pytest
+      - hatchling
+      - hatch-jupyter-builder
+      # pivotal packages installed separately in dev mode (pip install -e)

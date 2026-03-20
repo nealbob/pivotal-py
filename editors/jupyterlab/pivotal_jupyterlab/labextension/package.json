@@ -52,8 +52,7 @@
     "@lezer/highlight": "^1.0.0",
     "@lumino/messaging": "^2.0.0",
     "@lumino/widgets": "^2.0.0",
-    "@types/tabulator-tables": "^6.3.1",
-    "tabulator-tables": "^6.4.0"
+    "ag-grid-community": "^33.0.0"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^4.0.0",
@@ -66,7 +65,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static/remoteEntry.fd1bd1b76d64b22eca1b.js",
+      "load": "static\\remoteEntry.40b26d5eba78523d20bc.js",
       "extension": "./extension",
       "style": "./style"
     }

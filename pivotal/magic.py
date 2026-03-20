@@ -86,7 +86,7 @@ def _infer_col_types(payload, use_visions: bool = False) -> dict:
 class _PivotalViewer:
     """Sends DataFrames and chart figures to the JupyterLab Object Viewer panel."""
 
-    MAX_ROWS = 10_000
+    MAX_ROWS = 20_000
 
     def __init__(self, shell):
         self._shell = shell

@@ -38,12 +38,22 @@
   min-height: 32px;
 }
 
+/* Nav group: back + title + fwd + counter — takes available space */
+.pv-nav {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .pv-title {
   flex: 1;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .pv-counter {
@@ -59,8 +69,8 @@
   border-radius: 3px;
   color: var(--jp-ui-font-color1);
   cursor: pointer;
-  font-size: 0.85em;
-  padding: 2px 6px;
+  font-size: 0.95em;
+  padding: 3px 8px;
   line-height: 1.4;
   flex-shrink: 0;
 }
@@ -151,88 +161,133 @@
 }
 
 /* ---------------------------------------------------------------------------
-   DataFrame table — Tabulator
+   DataFrame table — AG Grid
    --------------------------------------------------------------------------- */
 
-.pv-tab-container {
+.pv-ag-container {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  height: 100%;
+
+  /* Map AG Grid theme variables to JupyterLab CSS variables so both light and
+     dark JupyterLab themes work automatically. */
+  --ag-background-color: var(--jp-layout-color1);
+  --ag-odd-row-background-color: var(--jp-layout-color1);
+  --ag-header-background-color: #d4d4d4;
+  --ag-border-color: var(--jp-border-color1);
+  --ag-header-column-separator-height: 100%;
+  --ag-secondary-border-color: var(--jp-border-color2);
+  --ag-row-border-color: var(--jp-border-color2);
+  --ag-foreground-color: var(--jp-ui-font-color1);
+  --ag-header-foreground-color: var(--jp-ui-font-color1);
+  --ag-secondary-foreground-color: var(--jp-ui-font-color2);
+  --ag-row-hover-color: var(--jp-layout-color3);
+  --ag-selected-row-background-color: var(--jp-brand-color3, rgba(25, 118, 210, 0.15));
+  --ag-font-family: 'Aptos Narrow', 'Arial Narrow', Arial, var(--jp-ui-font-family);
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: #aaaaaa;
+  --ag-cell-horizontal-border: solid var(--jp-border-color2);
+  --ag-input-focus-border-color: var(--jp-brand-color1);
+  --ag-input-border-color: var(--jp-border-color2);
+  --ag-input-background-color: var(--jp-layout-color1);
+  --ag-popup-background-color: var(--jp-layout-color1);
+  --ag-range-selection-border-color: var(--jp-brand-color1);
 }
 
-/* Override Tabulator simple theme to match JupyterLab.
-   !important is required on background/color rules because Tabulator's own
-   simple theme uses longer selectors (e.g. .tabulator .tabulator-header .tabulator-col)
-   that outweigh our two-class selectors without it. */
-.pv-tab-container .tabulator {
-  border: none;
-  background: var(--jp-layout-color1);
-  font-family: 'Aptos Narrow', 'Arial Narrow', Arial, var(--jp-ui-font-family);
-  font-size: inherit;
+/* Force header rows grey — direct override in case CSS variable doesn't propagate */
+.pv-ag-container .ag-header-row {
+  background-color: #d4d4d4 !important;
 }
 
-.pv-tab-container .tabulator-header {
+/* Vertical separator lines between header cells */
+.pv-ag-container .ag-header-cell {
+  border-right: 1px solid #aaaaaa !important;
+}
+
+/* Row index column — muted, right-aligned, separated by a heavier border */
+.pv-ag-container .pv-ag-idx {
   background: var(--jp-layout-color2) !important;
-  border-bottom: 2px solid var(--jp-border-color1);
-  color: var(--jp-ui-font-color1) !important;
-}
-
-.pv-tab-container .tabulator-col {
-  background: var(--jp-layout-color2) !important;
-  border-right: 1px solid var(--jp-border-color2);
-  color: var(--jp-ui-font-color1) !important;
-}
-
-.pv-tab-container .tabulator-col .tabulator-col-title {
-  font-weight: 600;
-  color: var(--jp-ui-font-color1) !important;
-}
-
-.pv-tab-container .tabulator-row {
-  background: var(--jp-layout-color1) !important;
-  border-bottom: 1px solid var(--jp-border-color2);
-  color: var(--jp-ui-font-color1);
-  min-height: unset;
-}
-
-.pv-tab-container .tabulator-row:hover {
-  background: var(--jp-layout-color3) !important;
-}
-
-.pv-tab-container .tabulator-cell {
-  border-right: 1px solid var(--jp-border-color2);
-  padding: 2px 8px;
-  color: var(--jp-ui-font-color1) !important;
-}
-
-/* Row index column */
-.pv-tab-container .tabulator-cell.pv-tab-idx,
-.pv-tab-container .tabulator-col.pv-tab-idx {
-  background: var(--jp-layout-color2) !important;
-  border-right: 2px solid var(--jp-border-color1) !important;
   color: var(--jp-ui-font-color2) !important;
+  text-align: right;
+  padding-right: 6px;
 }
 
-/* Sort arrows */
-.pv-tab-container .tabulator-col .tabulator-col-sorter {
+.pv-ag-container .pv-ag-idx-header {
+  background: var(--jp-layout-color2) !important;
+}
+
+/* Heavier separator after the index column */
+.pv-ag-container .ag-pinned-left-cols-container {
+  border-right: 2px solid var(--jp-border-color1) !important;
+}
+
+/* Cell padding + vertical column separator lines */
+.pv-ag-container .ag-cell {
+  padding-left: 8px;
+  padding-right: 8px;
+  border-right: 1px solid var(--jp-border-color2) !important;
+}
+
+/* The browser renders a native magnifying-glass icon inside AG Grid filter
+   inputs (type="search"). Push text cursor past the icon with left padding,
+   and suppress the webkit search cancel button. */
+.ag-filter .ag-input-field-input {
+  padding-left: 22px !important;
+}
+.ag-filter .ag-input-field-input::-webkit-search-decoration,
+.ag-filter .ag-input-field-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* Filter popup — solid opaque background with border */
+.pv-ag-container .ag-popup,
+.pv-ag-container .ag-filter,
+.pv-ag-container .ag-filter-body-wrapper,
+.pv-ag-container .ag-simple-filter-body-wrapper {
+  background: var(--jp-layout-color1) !important;
+  color: var(--jp-ui-font-color1);
+}
+
+.pv-ag-container .ag-filter {
+  border: 1px solid var(--jp-border-color1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Ensure sort icons are visible */
+.pv-ag-container .ag-sort-indicator-icon {
   color: var(--jp-ui-font-color2);
 }
 
-/* Header filter inputs */
-.pv-tab-container .tabulator-header-filter input {
-  background: var(--jp-layout-color1) !important;
-  color: var(--jp-ui-font-color1) !important;
-  border: 1px solid var(--jp-border-color2) !important;
-  border-radius: 2px;
-  padding: 1px 4px;
-  font-size: 0.9em;
-  width: 100%;
-  box-sizing: border-box;
+.pv-ag-container .ag-sort-order {
+  color: var(--jp-ui-font-color2);
 }
 
-.pv-tab-container .tabulator-header-filter input:focus {
-  outline: none;
-  border-color: var(--jp-brand-color1) !important;
+/* Custom list for categorical column filter popup */
+.pv-filter-list {
+  margin: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--jp-border-color2);
+  border-radius: 3px;
+}
+
+.pv-filter-option {
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  color: var(--jp-ui-font-color1);
+  white-space: nowrap;
+}
+
+.pv-filter-option:hover {
+  background: var(--jp-layout-color3);
+}
+
+.pv-filter-option.pv-filter-selected {
+  background: var(--jp-brand-color3, rgba(25, 118, 210, 0.15));
+  color: var(--jp-brand-color1, #1976d2);
+  font-weight: 500;
 }
 
 

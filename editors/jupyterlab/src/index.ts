@@ -495,7 +495,13 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         if (!viewer.isAttached) {
           viewer.title.label = 'Pivotal Viewer';
           viewer.title.closable = true;
-          app.shell.add(viewer, viewerArea as 'main' | 'down', { rank: 900 });
+          const addOpts: Record<string, unknown> = { rank: 900 };
+          if (viewerArea === 'main') {
+            // Split the viewer to the right of the current notebook automatically.
+            const refId = tracker.currentWidget?.id;
+            if (refId) { addOpts['mode'] = 'split-right'; addOpts['ref'] = refId; }
+          }
+          app.shell.add(viewer, viewerArea as 'main' | 'down', addOpts as any);
         }
       }
       app.shell.activateById(viewer.id);
