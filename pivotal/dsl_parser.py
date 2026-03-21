@@ -3181,6 +3181,282 @@ class CodeGenerator:
             sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} {join_type} {right} USING ({using})"
         return f'_pvt.execute("{sql}")'
 
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 2
+    # ------------------------------------------------------------------
+
+    _DDB_AGG_MAP = {
+        'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG', 'count': 'COUNT',
+        'min': 'MIN', 'max': 'MAX', 'median': 'MEDIAN', 'std': 'STDDEV',
+        'nunique': 'COUNT_DISTINCT',  # placeholder — handled explicitly below
+    }
+
+    @staticmethod
+    def _ddb_agg_expr(col, func, alias, weight=None):
+        """Return a SQL agg expression string for one agg_list item."""
+        if func == 'wavg':
+            return f"SUM({col} * {weight}) / NULLIF(SUM({weight}), 0) AS {alias}"
+        if func == 'nunique':
+            return f"COUNT(DISTINCT {col}) AS {alias}"
+        sql_func = CodeGenerator._DDB_AGG_MAP.get(func, func.upper())
+        return f"{sql_func}({col}) AS {alias}"
+
+    @staticmethod
+    def _ddb_by_parts(by):
+        """Return (by_list, has_vars, by_list_code).
+
+        by_list      — list of static column names (None if has_vars)
+        has_vars     — True when any column is a Python var reference
+        by_list_code — Python expression that evaluates to the by list at runtime
+        """
+        if isinstance(by, dict) and by.get('type') == 'var':
+            v = by['name']
+            return None, True, f"({v} if isinstance({v}, list) else [{v}])"
+        if isinstance(by, list):
+            has_vars = any(isinstance(item, dict) and item.get('type') == 'var'
+                           for item in by)
+            if has_vars:
+                code = '[]'
+                for item in by:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        v = item['name']
+                        code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                    else:
+                        code += f" + ['{item}']"
+                return None, True, code
+            return list(by), False, repr(list(by))
+        col = str(by)
+        return [col], False, repr([col])
+
+    def generate_groupby_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        by = ast_node['by']
+        agg_list = ast_node.get('agg_list', [])
+
+        by_list, has_var_by, by_list_code = self._ddb_by_parts(by)
+        agg_has_vars = any(
+            isinstance(item.get('column'), dict) and item['column'].get('type') == 'var'
+            for item in agg_list
+        )
+        needs_runtime = has_var_by or agg_has_vars
+
+        # ── Static path ────────────────────────────────────────────────
+        if not needs_runtime:
+            group_by_sql = ', '.join(by_list)
+
+            if agg_list:
+                sel_parts = list(by_list)
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias', f"{col}_{func}")
+                    sel_parts.append(self._ddb_agg_expr(col, func, alias,
+                                                         item.get('weight')))
+                sel = ', '.join(sel_parts)
+                sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t} GROUP BY {group_by_sql}"
+                return f'_pvt.execute("{sql}")'
+            else:
+                # No agg → SUM all non-by numeric columns; column names/types unknown at codegen
+                _num_types = "{'INTEGER','BIGINT','DOUBLE','FLOAT','DECIMAL','HUGEINT','SMALLINT','TINYINT','REAL','UBIGINT','UINTEGER','USMALLINT','UTINYINT','FLOAT4','FLOAT8'}"
+                lines = [
+                    f"_ddb_desc = _pvt.execute('DESCRIBE {t}').fetchall()",
+                    f"_ddb_by   = {by_list!r}",
+                    f"_ddb_vals = [r[0] for r in _ddb_desc if r[0] not in _ddb_by"
+                    f"             and r[1].upper().split('(')[0] in {_num_types}]",
+                    f"_ddb_sel  = ', '.join(_ddb_by) + (', ' + ', '.join("
+                    f"f'SUM({{c}}) AS {{c}}' for c in _ddb_vals) if _ddb_vals else '')",
+                    f"_ddb_grp  = ', '.join(_ddb_by)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} '
+                    f'FROM {t} GROUP BY {{_ddb_grp}}")',
+                ]
+                return '\n'.join(lines)
+
+        # ── Runtime path (variable by or agg columns) ──────────────────
+        lines = [f"_ddb_by = {by_list_code}"]
+        if agg_list:
+            lines.append("_ddb_sel_parts = list(_ddb_by)")
+            for item in agg_list:
+                col = item['column']
+                func = item['func']
+                alias = item.get('alias',
+                                  f"agg_{func}" if isinstance(col, dict) else f"{col}_{func}")
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    if func == 'wavg':
+                        wt = item.get('weight', '')
+                        lines.append(
+                            f"_ddb_sel_parts.append("
+                            f"f'SUM({{{v}}} * {wt}) / NULLIF(SUM({wt}), 0) AS {alias}')"
+                        )
+                    elif func == 'nunique':
+                        lines.append(
+                            f"_ddb_sel_parts.append(f'COUNT(DISTINCT {{{v}}}) AS {alias}')"
+                        )
+                    else:
+                        sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                        lines.append(
+                            f"_ddb_sel_parts.append(f'{sql_func}({{{v}}}) AS {alias}')"
+                        )
+                else:
+                    expr = self._ddb_agg_expr(col, func, alias, item.get('weight'))
+                    lines.append(f"_ddb_sel_parts.append({expr!r})")
+            lines.append("_ddb_sel = ', '.join(_ddb_sel_parts)")
+        else:
+            _num_types = "{'INTEGER','BIGINT','DOUBLE','FLOAT','DECIMAL','HUGEINT','SMALLINT','TINYINT','REAL','UBIGINT','UINTEGER','USMALLINT','UTINYINT','FLOAT4','FLOAT8'}"
+            lines += [
+                f"_ddb_desc = _pvt.execute('DESCRIBE {t}').fetchall()",
+                f"_ddb_vals = [r[0] for r in _ddb_desc if r[0] not in _ddb_by"
+                f"             and r[1].upper().split('(')[0] in {_num_types}]",
+                "_ddb_sel  = ', '.join(_ddb_by) + (', ' + ', '.join("
+                "f'SUM({c}) AS {c}' for c in _ddb_vals) if _ddb_vals else '')",
+            ]
+        lines += [
+            "_ddb_grp = ', '.join(_ddb_by)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} '
+            f'FROM {t} GROUP BY {{_ddb_grp}}")',
+        ]
+        return '\n'.join(lines)
+
+    def generate_pivot_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        index = ast_node['index']    # rows → GROUP BY
+        columns = ast_node['columns']  # pivot column → ON
+        agg_list = ast_node.get('agg_list', [])
+
+        def _static_cols(arg):
+            """Return list of strings if arg is fully static, else None."""
+            if not arg:
+                return []
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return None
+            if isinstance(arg, list):
+                if any(isinstance(i, dict) and i.get('type') == 'var' for i in arg):
+                    return None
+                return [str(a) for a in arg]
+            return [str(arg)]
+
+        def _runtime_col_code(arg):
+            """Return Python expression that evaluates to a list at runtime."""
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                v = arg['name']
+                return f"({v} if isinstance({v}, list) else [{v}])"
+            if isinstance(arg, list):
+                code = '[]'
+                for item in arg:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        v = item['name']
+                        code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                    else:
+                        code += f" + ['{item}']"
+                return code
+            return repr([str(arg)])
+
+        index_cols = _static_cols(index)
+        on_cols    = _static_cols(columns)
+        agg_has_vars = any(isinstance(item.get('column'), dict) for item in agg_list)
+        needs_runtime = (index_cols is None) or (on_cols is None) or agg_has_vars
+
+        # Build static USING clause when possible
+        using_parts = []
+        if not agg_has_vars and agg_list:
+            for item in agg_list:
+                col  = item['column']
+                func = item['func']
+                alias = item.get('alias')  # None if not explicitly specified
+                sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                expr = f"{sql_func}({col})"
+                if alias:
+                    expr += f" AS {alias}"
+                using_parts.append(expr)
+
+        if not needs_runtime:
+            on_col    = on_cols[0] if on_cols else ''
+            group_by  = ', '.join(index_cols) if index_cols else ''
+            using     = ', '.join(using_parts) if using_parts else ''
+
+            parts = [f"PIVOT {t}"]
+            if on_col:
+                parts.append(f"ON {on_col}")
+            if using:
+                parts.append(f"USING {using}")
+            if group_by:
+                parts.append(f"GROUP BY {group_by}")
+
+            sql = f"CREATE OR REPLACE TABLE {t} AS {' '.join(parts)}"
+            return f'_pvt.execute("{sql}")'
+
+        # ── Runtime path ───────────────────────────────────────────────
+        lines = []
+        if on_cols is None:
+            lines.append(f"_ddb_on = {_runtime_col_code(columns)}[0]")
+            on_expr = '{_ddb_on}'
+        else:
+            on_expr = on_cols[0] if on_cols else ''
+
+        if index_cols is None:
+            lines.append(f"_ddb_idx = {_runtime_col_code(index)}")
+            grp_expr = "{', '.join(_ddb_idx)}"
+        else:
+            grp_expr = ', '.join(index_cols) if index_cols else ''
+
+        if agg_has_vars:
+            lines.append("_ddb_using_parts = []")
+            for item in agg_list:
+                col  = item['column']
+                func = item['func']
+                alias = item.get('alias')  # None if not explicitly specified
+                sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    base = f"f'{sql_func}({{{v}}})"
+                    if alias:
+                        base += f" AS {alias}"
+                    lines.append(f"_ddb_using_parts.append({base}')")
+                else:
+                    base_expr = f"{sql_func}({col})"
+                    if alias:
+                        base_expr += f" AS {alias}"
+                    lines.append(f"_ddb_using_parts.append({base_expr!r})")
+            using_expr = "{', '.join(_ddb_using_parts)}"
+        else:
+            using_expr = ', '.join(using_parts) if using_parts else ''
+
+        pivot_sql = f"CREATE OR REPLACE TABLE {t} AS PIVOT {t}"
+        if on_expr:
+            pivot_sql += f" ON {on_expr}"
+        if using_expr:
+            pivot_sql += f" USING {using_expr}"
+        if grp_expr:
+            pivot_sql += f" GROUP BY {grp_expr}"
+        lines.append(f'_pvt.execute(f"{pivot_sql}")')
+        return '\n'.join(lines)
+
+    def generate_unpivot_duckdb(self, ast_node):
+        t         = ast_node['table_name']
+        id_vars   = ast_node['id_vars']   # list of strings
+        value_vars = ast_node['value_vars']  # list of strings or empty
+        var_name  = ast_node['var_name']
+        value_name = ast_node['value_name']
+
+        if value_vars:
+            on_cols = ', '.join(value_vars)
+            sql = (f"CREATE OR REPLACE TABLE {t} AS "
+                   f"UNPIVOT {t} ON {on_cols} "
+                   f"INTO NAME '{var_name}' VALUE '{value_name}'")
+            return f'_pvt.execute("{sql}")'
+
+        # value_vars not specified → melt all non-id columns (runtime DESCRIBE)
+        lines = [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_id   = {id_vars!r}",
+            f"_ddb_vals = [c for c in _ddb_cols if c not in _ddb_id]",
+            f"_ddb_on   = ', '.join(_ddb_vals)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS '
+            f"UNPIVOT {t} ON {{_ddb_on}} "
+            f"INTO NAME '{var_name}' VALUE '{value_name}'\")",
+        ]
+        return '\n'.join(lines)
+
     # Future: Add SQL generators
     def generate_sort_sql(self, ast_node):
         order_clause = ', '.join([f"{col} {'ASC' if asc else 'DESC'}" 

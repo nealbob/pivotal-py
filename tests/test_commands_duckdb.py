@@ -545,3 +545,284 @@ def test_codegen_preamble_duckdb(parser):
     assert 'import duckdb' in code
     assert '_pivotal_ddb' in code
     assert '_pvt = globals()' in code
+
+
+# ===========================================================================
+# Phase 2 — groupby, pivot, unpivot
+# ===========================================================================
+
+@pytest.fixture
+def region_df():
+    return pd.DataFrame({
+        'region':   ['N', 'N', 'S', 'S'],
+        'amount':   [100, 300, 200, 400],
+        'weight':   [1,   3,   2,   2],
+        'category': ['A', 'B', 'A', 'B'],
+    })
+
+
+@pytest.fixture
+def wide_df():
+    return pd.DataFrame({
+        'region': ['North', 'South'],
+        'jan':    [100,     200],
+        'feb':    [150,     250],
+        'mar':    [120,     180],
+    })
+
+
+# ---------------------------------------------------------------------------
+# groupby — basic aggregation
+# ---------------------------------------------------------------------------
+
+def test_groupby_sum_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount as total\n', ns)
+    df = fetch(ns, 'data')
+    assert set(df.columns) >= {'region', 'total'}
+    n_total = df[df['region'] == 'N']['total'].iloc[0]
+    s_total = df[df['region'] == 'S']['total'].iloc[0]
+    assert n_total == 400
+    assert s_total == 600
+
+
+def test_groupby_avg_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg avg amount as mean_amt\n', ns)
+    df = fetch(ns, 'data')
+    n_mean = df[df['region'] == 'N']['mean_amt'].iloc[0]
+    s_mean = df[df['region'] == 'S']['mean_amt'].iloc[0]
+    assert n_mean == pytest.approx(200.0)
+    assert s_mean == pytest.approx(300.0)
+
+
+def test_groupby_count_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg count amount as n\n', ns)
+    df = fetch(ns, 'data')
+    assert all(df['n'] == 2)
+
+
+def test_groupby_nunique_duckdb(parser):
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'N', 'S', 'S'],
+        'amount': [100, 100, 200, 300, 300],
+    })
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    result = fetch(ns, 'data')
+    n_val = result[result['region'] == 'N']['n'].iloc[0]
+    s_val = result[result['region'] == 'S']['n'].iloc[0]
+    assert n_val == 2   # 100 and 200
+    assert s_val == 1   # only 300
+
+
+def test_groupby_wavg_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    df = fetch(ns, 'data')
+    n_wa = df[df['region'] == 'N']['wa'].iloc[0]
+    s_wa = df[df['region'] == 'S']['wa'].iloc[0]
+    assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
+    assert s_wa == pytest.approx(300.0)   # (200*2 + 400*2) / (2+2)
+
+
+def test_groupby_multi_agg_duckdb(parser, region_df):
+    """Multiple agg functions in one groupby."""
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'df data\ngroup by region\n    agg sum amount as total, avg amount as avg_amt\n',
+        ns,
+    )
+    df = fetch(ns, 'data')
+    assert 'total' in df.columns
+    assert 'avg_amt' in df.columns
+    n = df[df['region'] == 'N'].iloc[0]
+    assert n['total'] == 400
+    assert n['avg_amt'] == pytest.approx(200.0)
+
+
+def test_groupby_multi_column_by_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'df data\ngroup by region, category\n    agg sum amount as total\n',
+        ns,
+    )
+    df = fetch(ns, 'data')
+    assert len(df) == 4  # all 4 region+category combos are unique
+    assert set(df.columns) >= {'region', 'category', 'total'}
+
+
+def test_groupby_no_agg_duckdb(parser, region_df):
+    """groupby with no agg list sums all value columns."""
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n', ns)
+    df = fetch(ns, 'data')
+    assert len(df) == 2
+    assert 'region' in df.columns
+
+
+def test_groupby_result_has_correct_rows_duckdb(parser, sample_df):
+    conn = make_conn('sales', sample_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df sales\ngroup by category\n    agg sum price as total_price, count price as n\n', ns)
+    df = fetch(ns, 'sales')
+    assert len(df) == 2  # Electronics and Furniture
+    elec = df[df['category'] == 'Electronics'].iloc[0]
+    assert elec['n'] == 3
+
+
+# ---------------------------------------------------------------------------
+# groupby — codegen
+# ---------------------------------------------------------------------------
+
+def test_codegen_groupby_sum_duckdb(parser):
+    nodes = parser.parse('df sales\ngroup by region\n    agg sum amount as total\n')
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'SUM(amount) AS total' in code
+    assert 'GROUP BY region' in code
+
+
+def test_codegen_groupby_wavg_duckdb(parser):
+    nodes = parser.parse('df data\ngroup by region\n    agg wavg amount weight as wa\n')
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'SUM(amount * weight)' in code
+    assert 'GROUP BY region' in code
+
+
+def test_codegen_groupby_nunique_duckdb(parser):
+    nodes = parser.parse('df data\ngroup by region\n    agg nunique amount as n\n')
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'COUNT(DISTINCT amount) AS n' in code
+
+
+# ---------------------------------------------------------------------------
+# pivot
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def pivot_df():
+    return pd.DataFrame({
+        'product':  ['Laptop', 'Laptop', 'Mouse',   'Mouse'],
+        'region':   ['North',  'South',  'North',   'South'],
+        'revenue':  [1000,     1500,     200,       300],
+    })
+
+
+def test_pivot_basic_duckdb(parser, pivot_df):
+    """Pivot: group by product, pivot on region, sum revenue."""
+    conn = make_conn('sales', pivot_df)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        ns,
+    )
+    df = fetch(ns, 'sales')
+    assert 'product' in df.columns
+    assert len(df) == 2   # Laptop and Mouse
+
+
+def test_pivot_values_correct_duckdb(parser, pivot_df):
+    conn = make_conn('sales', pivot_df)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        ns,
+    )
+    df = fetch(ns, 'sales').set_index('product')
+    laptop = df.loc['Laptop']
+    assert laptop['North'] == 1000
+    assert laptop['South'] == 1500
+
+
+def test_pivot_codegen_duckdb(parser):
+    dsl = 'df sales\npivot\n    agg sum revenue as rev_sum\n    rows product\n    cols region\n'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
+    assert 'PIVOT' in code
+    assert 'SUM(revenue) AS rev_sum' in code
+    assert 'ON region' in code
+    assert 'GROUP BY product' in code
+
+
+# ---------------------------------------------------------------------------
+# unpivot
+# ---------------------------------------------------------------------------
+
+def test_unpivot_basic_duckdb(parser, wide_df):
+    """unpivot with id only melts all non-id columns."""
+    conn = make_conn('sales', wide_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df sales\nunpivot\n    id region\n', ns)
+    df = fetch(ns, 'sales')
+    assert 'region' in df.columns
+    assert 'variable' in df.columns
+    assert 'value' in df.columns
+    assert len(df) == 6   # 2 rows × 3 month cols
+    assert set(df['variable']) == {'jan', 'feb', 'mar'}
+
+
+def test_unpivot_with_cols_duckdb(parser, wide_df):
+    conn = make_conn('sales', wide_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
+    df = fetch(ns, 'sales')
+    assert set(df['variable']) == {'jan', 'feb'}
+    assert len(df) == 4
+
+
+def test_unpivot_custom_names_duckdb(parser, wide_df):
+    conn = make_conn('sales', wide_df)
+    ns = ddb_ns(conn)
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
+    run_ddb(parser, dsl, ns)
+    df = fetch(ns, 'sales')
+    assert 'month' in df.columns
+    assert 'amount' in df.columns
+
+
+def test_unpivot_values_correct_duckdb(parser, wide_df):
+    conn = make_conn('sales', wide_df)
+    ns = ddb_ns(conn)
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n'
+    run_ddb(parser, dsl, ns)
+    df = fetch(ns, 'sales').set_index('region')
+    assert df.loc['North', 'amount'] == 100
+    assert df.loc['South', 'amount'] == 200
+
+
+def test_unpivot_multiple_id_cols_duckdb(parser):
+    df = pd.DataFrame({
+        'region': ['North', 'South'],
+        'year':   [2023,    2023],
+        'q1':     [100,     200],
+        'q2':     [150,     250],
+    })
+    conn = make_conn('sales', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df sales\nunpivot\n    id region, year\n', ns)
+    result = fetch(ns, 'sales')
+    assert 'region' in result.columns
+    assert 'year' in result.columns
+    assert set(result['variable']) == {'q1', 'q2'}
+
+
+def test_unpivot_codegen_duckdb(parser, wide_df):
+    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
+    nodes = parser.parse(dsl)
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'UNPIVOT' in code
+    assert 'jan, feb' in code
+    assert "NAME 'month'" in code
+    assert "VALUE 'amount'" in code
