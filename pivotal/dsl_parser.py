@@ -841,23 +841,29 @@ class DSLTransformer(Transformer):
 
     def merge_statement(self, *args):
         """Handle merge statements"""
-        
-        # First arg is always merge_type (Token or None)
-        merge_type = args[0] if args and isinstance(args[0], Token) else 'inner'
-        
-        # Second arg is always right_table (Token)
-        right_table = args[1] if len(args) > 1 else None
-        
+
+        # MERGE_TYPE is optional and comes before "merge".  Distinguish it from
+        # RIGHT_TABLE by checking the Token's type attribute.
+        idx = 0
+        merge_type = 'inner'
+        if args and isinstance(args[0], Token) and args[0].type == 'MERGE_TYPE':
+            merge_type = str(args[0])
+            idx = 1
+
+        # Next token is RIGHT_TABLE
+        right_table = args[idx] if idx < len(args) else None
+        idx += 1
+
         # Remaining args are optional: keys (Tree with data='keys') or params (list)
         keys = None
         params = None
-        
-        for arg in args[2:]:
-            if isinstance(arg, Tree) and arg.data == 'keys':
+
+        for arg in args[idx:]:
+            if isinstance(arg, Tree) and str(arg.data) == 'keys':
                 keys = arg
             elif isinstance(arg, list):
                 params = arg
-        
+
         if keys:
             keys = keys.children
             key_list = [str(col) for col in keys]
@@ -2894,7 +2900,287 @@ class CodeGenerator:
                 query_parts.append(operators[i])
 
         return ' '.join(query_parts), needs_python_engine
-    
+
+    # ------------------------------------------------------------------
+    # DuckDB backend helpers
+    # ------------------------------------------------------------------
+
+    def duckdb_preamble(self):
+        """Return Python code that sets up the persistent DuckDB connection."""
+        return (
+            "import duckdb as _ddb\n"
+            "if '_pivotal_ddb' not in globals(): globals()['_pivotal_ddb'] = _ddb.connect()\n"
+            "_pvt = globals()['_pivotal_ddb']"
+        )
+
+    def _build_sql_where(self, conditions, operators):
+        """Build a SQL WHERE clause from filter conditions.
+
+        Returns:
+            (where_clause, preamble_lines, use_fstring)
+            where_clause   — SQL fragment (may contain {placeholder} if use_fstring)
+            preamble_lines — Python lines to emit before the execute call
+            use_fstring    — if True, wrap the SQL string in f"..." for runtime injection
+        """
+        parts = []
+        preamble = []
+        use_fstring = False
+        sql_op_map = {'==': '=', '!=': '<>', '<': '<', '>': '>', '<=': '<=', '>=': '>='}
+
+        for i, cond in enumerate(conditions):
+            col = cond['column']
+            comparator = cond['comparator']
+            val = cond['value']
+            # Quote column names that contain spaces
+            sql_col = f'"{col}"' if ' ' in str(col) else col
+
+            if comparator == 'between':
+                lo, hi = val
+                parts.append(f"{sql_col} BETWEEN {lo} AND {hi}")
+            elif comparator == 'contains':
+                parts.append(f"{sql_col} LIKE '%{val}%'")
+            elif comparator == 'not contains':
+                parts.append(f"{sql_col} NOT LIKE '%{val}%'")
+            elif comparator == 'startswith':
+                parts.append(f"{sql_col} LIKE '{val}%'")
+            elif comparator == 'endswith':
+                parts.append(f"{sql_col} LIKE '%{val}'")
+            elif isinstance(val, dict) and val.get('type') == 'var':
+                var_name = val['name']
+                if comparator in ('in', 'not in'):
+                    tmp = f"_ddb_in_{i}"
+                    preamble.append(f"{tmp} = ', '.join(repr(v) for v in {var_name})")
+                    sql_in_op = 'NOT IN' if comparator == 'not in' else 'IN'
+                    parts.append(f"{sql_col} {sql_in_op} ({{{tmp}}})")
+                    use_fstring = True
+                else:
+                    sql_op = sql_op_map.get(comparator, comparator)
+                    parts.append(f"{sql_col} {sql_op} {{{var_name}}}")
+                    use_fstring = True
+            elif comparator in ('in', 'not in'):
+                sql_in_op = 'NOT IN' if comparator == 'not in' else 'IN'
+                if isinstance(val, list):
+                    items = ', '.join(repr(v) for v in val)
+                else:
+                    items = repr(val)
+                parts.append(f"{sql_col} {sql_in_op} ({items})")
+            elif isinstance(val, _LiteralStr):
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} '{val}'")
+            elif isinstance(val, str):
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} {val}")
+            else:
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} {val}")
+
+            if i < len(operators):
+                parts.append(operators[i].upper())
+
+        return ' '.join(parts), preamble, use_fstring
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 1
+    # ------------------------------------------------------------------
+
+    def generate_validate_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+        check = (
+            f"_pvt_tables = [r[0] for r in _pvt.execute('SHOW TABLES').fetchall()]\n"
+            f"if '{t}' not in _pvt_tables: raise NameError(\"DuckDB table '{t}' does not exist\")"
+        )
+        return f"{check}\n{marker}"
+
+    def generate_copy_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        src = ast_node['copy_from']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {src}")\n{marker}'
+
+    def generate_load_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        source = ast_node['source']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+
+        if isinstance(source, dict) and source.get('type') == 'var':
+            var = source['name']
+            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
+            load_code = (
+                f"_src = {var}.replace('\\\\', '/')\n"
+                f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
+                f"if _ext in ('xlsx', 'xls'):\n"
+                f"    _df_tmp = pd.read_excel(_src)\n"
+                f"    _pvt.register('_load_tmp', _df_tmp)\n"
+                f"    _pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')\n"
+                f"elif _ext == 'parquet':\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet('{{_src}}')\")\n"
+                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
+                f"    _pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
+                f"    _pvt.execute(f\"ATTACH '{{_src}}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")\n"
+                f"else:\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv('{{_src}}')\")"
+            )
+        else:
+            # Normalise to forward slashes so Windows paths are safe inside SQL strings
+            source_str = str(source).replace('\\', '/')
+            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+            if ext in ('xlsx', 'xls'):
+                load_code = (
+                    f"_df_tmp = pd.read_excel('{source_str}')\n"
+                    f"_pvt.register('_load_tmp', _df_tmp)\n"
+                    f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')"
+                )
+            elif ext == 'parquet':
+                load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet(\'{source_str}\')")'
+            elif ext in ('sqlite', 'db', 'sqlite3'):
+                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
+                load_code = (
+                    f"_pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
+                    f"_pvt.execute(\"ATTACH '{source_str}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                    f"_pvt.execute(\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")"
+                )
+            else:
+                load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv(\'{source_str}\')")'
+
+        return f"{load_code}\n{marker}"
+
+    def generate_filter_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        where, preamble, use_fstring = self._build_sql_where(
+            ast_node['conditions'], ast_node['operators']
+        )
+        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {where}"
+        lines = list(preamble)
+        if use_fstring:
+            lines.append(f'_pvt.execute(f"{sql}")')
+        else:
+            lines.append(f'_pvt.execute("{sql}")')
+        return '\n'.join(lines)
+
+    def generate_select_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            col_list_code = '[]'
+            for col in columns:
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    col_list_code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                else:
+                    col_list_code += f" + ['{col}']"
+            if renames:
+                lines = [
+                    f"_cols = {col_list_code}",
+                    f"_rename = {renames!r}",
+                    "_sel = ', '.join(f'{c} AS {_rename[c]}' if c in _rename else c for c in _cols)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+                ]
+            else:
+                lines = [
+                    f"_cols = {col_list_code}",
+                    "_sel = ', '.join(_cols)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+                ]
+            return '\n'.join(lines)
+
+        # Static column list
+        if renames:
+            sel_parts = [f"{col} AS {renames[col]}" if col in renames else col for col in columns]
+        else:
+            sel_parts = list(columns)
+        sel = ', '.join(sel_parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t}")'
+
+    def generate_rename_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        renames = ast_node['renames']
+        lines = [
+            f"_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_rename = {renames!r}",
+            "_sel = ', '.join(f'{c} AS {_rename[c]}' if c in _rename else c for c in _cols)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+        ]
+        return '\n'.join(lines)
+
+    def generate_sort_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            parts_code = '[]'
+            for col, asc in zip(columns, ascending):
+                direction = 'ASC' if asc else 'DESC'
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    parts_code += (
+                        f" + [f'{{c}} {direction}' for c in "
+                        f"({v} if isinstance({v}, list) else [{v}])]"
+                    )
+                else:
+                    parts_code += f" + ['{col} {direction}']"
+            lines = [
+                f"_order = {parts_code}",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} ORDER BY {{\\", \\".join(_order)}}")',
+            ]
+            return '\n'.join(lines)
+
+        order = ', '.join(
+            f"{col} {'ASC' if asc else 'DESC'}"
+            for col, asc in zip(columns, ascending)
+        )
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} ORDER BY {order}")'
+
+    def generate_drop_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        excl = ', '.join(ast_node['columns'])
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}) FROM {t}")'
+
+    def generate_distinct_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        cols = ast_node['columns']
+        if cols:
+            sel = ', '.join(cols)
+            return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT DISTINCT {sel} FROM {t}")'
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT DISTINCT * FROM {t}")'
+
+    def generate_concat_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        union = ' UNION ALL '.join(
+            [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        )
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {union}")'
+
+    def generate_merge_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        right = ast_node['right_table']
+        keys = ast_node['keys']
+        how = ast_node['how']
+        join_map = {
+            'inner': 'INNER JOIN',
+            'left': 'LEFT JOIN',
+            'right': 'RIGHT JOIN',
+            'outer': 'FULL OUTER JOIN',
+        }
+        join_type = join_map.get(how, 'INNER JOIN')
+
+        if not keys or keys == '':
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} NATURAL {join_type} {right}"
+        else:
+            if isinstance(keys, list):
+                using = ', '.join(keys)
+            else:
+                using = str(keys).strip("[]'\"")
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} {join_type} {right} USING ({using})"
+        return f'_pvt.execute("{sql}")'
+
     # Future: Add SQL generators
     def generate_sort_sql(self, ast_node):
         order_clause = ', '.join([f"{col} {'ASC' if asc else 'DESC'}" 
@@ -3123,12 +3409,15 @@ class DSLParser:
         if backend and backend != self.code_generator.backend:
             # Create new generator if backend changed
             self.code_generator = CodeGenerator(backend)
-        
+
         python_code = []
+        if backend == 'duckdb':
+            python_code.append(self.code_generator.duckdb_preamble())
+
         for ast_node in ast_list:
             code = self.code_generator.generate(ast_node)
             python_code.append(code)
-        
+
         return python_code
 
     def export(self, code):
@@ -3195,9 +3484,18 @@ class DSLParser:
             return None
 
         python_code_list = self.generate_code(results, backend=backend)
-        
-        i = 0 
-        for python_code in python_code_list:
+
+        # For DuckDB the first element is the connection preamble — exec it
+        # separately so the results[i] index stays aligned with the statements.
+        if backend == 'duckdb' and python_code_list:
+            preamble = python_code_list[0]
+            python_code_list = python_code_list[1:]
+            try:
+                exec(preamble, globals_dict)
+            except Exception as e:
+                print(f"DuckDB preamble error: {e}")
+
+        for i, python_code in enumerate(python_code_list):
             print(f"Executing: {python_code}")
             try:
                 exec(python_code, globals_dict)
@@ -3209,7 +3507,6 @@ class DSLParser:
                     print(df.head())
             except Exception as e:
                 print(f"Execution error: {e}")
-            i+=1
         
         # Update autocomplete info after execution
         self.update_autocomplete_info(globals_dict)

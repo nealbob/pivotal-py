@@ -14,6 +14,7 @@ setup(
         "sqlalchemy",
         "ipywidgets",
         "ipyfilechooser",
+        "duckdb",
     ],
     license="MIT",
     classifiers=[
