@@ -181,8 +181,9 @@ grammar_indented = r"""
               | "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> assign_by
 
     case_list: case_branch+ case_default?
-    case_branch: "where" condition_list ":" expression _NL
+    case_branch: "where" condition_list ":" CASE_BRANCH_EXPR _NL
     case_default: CASE_DEFAULT_EXPR _NL
+    CASE_BRANCH_EXPR: /[^\n]+/
     CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
@@ -560,16 +561,21 @@ class DSLTransformer(Transformer):
 
     def case_branch(self, condition_list, expression):
         temp = self._build_conditional_statement(condition_list)
+        # CASE_BRANCH_EXPR captures raw text including quotes, e.g. '"premium"' or 'price * 1.1'
         return {
             'type': 'case_branch',
             'query_str': temp['query_str'],
             'conditions': temp['ast']['conditions'],
             'operators': temp['ast']['operators'],
-            'expression': str(expression),
+            'expression': str(expression).strip(),
         }
 
     def case_default(self, token):
-        return {'type': 'case_default', 'expression': str(token).strip()}
+        expr = str(token).strip()
+        # Strip the leading 'else:' keyword that the CASE_DEFAULT_EXPR terminal captures
+        if expr.lower().startswith('else:'):
+            expr = expr[5:].strip()
+        return {'type': 'case_default', 'expression': expr}
 
     def case_list(self, *args):
         return list(args)
@@ -3454,6 +3460,305 @@ class CodeGenerator:
             f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS '
             f"UNPIVOT {t} ON {{_ddb_on}} "
             f"INTO NAME '{var_name}' VALUE '{value_name}'\")",
+        ]
+        return '\n'.join(lines)
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 3
+    # ------------------------------------------------------------------
+
+    # ── Expression / string helpers ────────────────────────────────────
+
+    @staticmethod
+    def _translate_assign_expr_to_sql(expr):
+        """Minimal translation of a pandas-eval expression to SQL.
+        - Converts double-quoted string literals to single-quoted.
+        - Uppercases common SQL function names.
+        """
+        import re
+        result = re.sub(r'"([^"]*)"', lambda m: "'" + m.group(1) + "'", expr)
+        return result
+
+    def _try_sql_string_concat(self, expr):
+        """Translate col + "lit" + col concatenation to SQL col || 'lit' || col.
+        Returns the SQL string, or None if not recognised as string concat."""
+        if '+' not in expr or ('"' not in expr and "'" not in expr):
+            return None
+        tokens = self._split_on_plus(expr)
+        if len(tokens) < 2:
+            return None
+        parts = []
+        for tok in tokens:
+            tok = tok.strip()
+            if (tok.startswith('"') and tok.endswith('"')) or \
+               (tok.startswith("'") and tok.endswith("'")):
+                parts.append("'" + tok[1:-1] + "'")
+            elif re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', tok):
+                parts.append(tok)   # bare column name in SQL
+            else:
+                return None         # unrecognised token — fall through
+        return ' || '.join(parts)
+
+    def _try_sql_string_func(self, expr):
+        """Translate a string-function call to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1).lower()
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        first = args[0].strip()
+        rest  = [a.strip() for a in args[1:]]
+        _simple = {'upper': 'UPPER', 'lower': 'LOWER', 'trim': 'TRIM',
+                   'ltrim': 'LTRIM', 'rtrim': 'RTRIM', 'len': 'LENGTH'}
+        if func in _simple:
+            return f"{_simple[func]}({first})"
+        if func == 'left'   and len(rest) == 1: return f"LEFT({first}, {rest[0]})"
+        if func == 'right'  and len(rest) == 1: return f"RIGHT({first}, {rest[0]})"
+        if func == 'substr' and len(rest) == 2: return f"SUBSTR({first}, {rest[0]}, {rest[1]})"
+        if func == 'replace' and len(rest) == 2:
+            a = rest[0].strip("'\""); b = rest[1].strip("'\"")
+            return f"REPLACE({first}, '{a}', '{b}')"
+        return None
+
+    def _substitute_agg_calls_sql(self, expr, by_cols):
+        """Replace sum(col) / wavg(col, wt) in expr with SQL window function calls."""
+        if by_cols:
+            part_str = ', '.join(by_cols) if isinstance(by_cols, list) else str(by_cols)
+            over = f" OVER (PARTITION BY {part_str})"
+        else:
+            over = ' OVER ()'
+
+        def replace_wavg(m):
+            col, wt = m.group(1), m.group(2)
+            return f"(SUM({col} * {wt}){over}) / NULLIF(SUM({wt}){over}, 0)"
+
+        def replace_agg(m):
+            func = m.group(1).lower()
+            col  = m.group(2)
+            sf   = self._DDB_AGG_MAP.get(func, func.upper())
+            return f"{sf}({col}){over}"
+
+        new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
+        return new_expr
+
+    @staticmethod
+    def _ddb_window(partition, order_col, frame=None):
+        """Build a SQL OVER (...) clause string (without OVER keyword)."""
+        parts = []
+        if partition:
+            part_str = ', '.join(partition) if isinstance(partition, list) else str(partition)
+            parts.append(f"PARTITION BY {part_str}")
+        if order_col:
+            parts.append(f"ORDER BY {order_col}")
+        if frame:
+            parts.append(frame)
+        return ' '.join(parts)
+
+    # ── Shared helper: add/replace a column in a DuckDB table ─────────
+
+    @staticmethod
+    def _ddb_upsert_col_lines(t, result_col, sql_expr, use_fstring=False):
+        """Return Python code lines that add or replace `result_col` in table `t`
+        using the given SQL expression (already a valid SQL fragment).
+        Uses runtime DESCRIBE so it works whether the column is new or existing."""
+        lines = [
+            f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {result_col!r})",
+        ]
+        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {sql_expr} AS {result_col} FROM {t}"
+        lines.append(f'_pvt.execute(f"{sql}")')
+        return lines
+
+    # ── assign ────────────────────────────────────────────────────────
+
+    def generate_assign_duckdb(self, ast_node):
+        t      = ast_node['table_name']
+        target = ast_node['target']
+
+        # ── Multi-case (CASE WHEN … THEN … ELSE …) ─────────────────
+        if ast_node.get('cases'):
+            cases    = ast_node['cases']
+            branches = [c for c in cases if c['type'] == 'case_branch']
+            defaults = [c for c in cases if c['type'] == 'case_default']
+
+            when_parts = []
+            all_preamble = []
+            uses_fstr = False
+            for b in branches:
+                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                all_preamble.extend(preamble)
+                uses_fstr = uses_fstr or uf
+                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                when_parts.append(f"WHEN {where} THEN {sql_expr}")
+
+            if defaults:
+                else_expr = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
+            else:
+                case_sql = f"CASE {' '.join(when_parts)} ELSE NULL END"
+
+            lines = (all_preamble +
+                     self._ddb_upsert_col_lines(t, target, case_sql, uses_fstr))
+            return '\n'.join(lines)
+
+        expr      = ast_node['expression']
+        by_cols   = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        operators  = ast_node.get('operators')
+
+        # ── By-clause agg calls → window functions ─────────────────
+        sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
+        if sql_expr_with_agg != expr:
+            sql_expr_translated = self._translate_assign_expr_to_sql(sql_expr_with_agg)
+            return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
+
+        # ── Translate expression to SQL ────────────────────────────
+        sql_str = self._try_sql_string_func(expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_concat(expr)
+        if sql_str is None:
+            sql_str = self._translate_assign_expr_to_sql(expr)
+
+        # ── Conditional (where clause) → CASE WHEN ─────────────────
+        if conditions:
+            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            # ELSE clause: keep existing value if column exists, else NULL
+            # Use runtime check via DESCRIBE (already emitted by _ddb_upsert_col_lines)
+            case_sql_tmpl = (
+                f"CASE WHEN {where} THEN {sql_str} "
+                f"ELSE (CASE WHEN '{{target_exists}}' = 'yes' THEN {target} ELSE NULL END) END"
+            )
+            # Simpler: build two versions and choose at runtime
+            case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
+            case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            desc_line = f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]"
+            sel_line  = f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {target!r})"
+            choose_sql = (
+                f"_ddb_case = ("
+                f'"{case_sql_existing}" if {target!r} in _ddb_desc '
+                f'else "{case_sql_new}")'
+            )
+            exec_line = f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {{_ddb_case}} AS {target} FROM {t}")'
+            lines = list(preamble) + [desc_line, sel_line, choose_sql, exec_line]
+            return '\n'.join(lines)
+
+        # ── Simple expression ───────────────────────────────────────
+        return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_str))
+
+    # ── rank ──────────────────────────────────────────────────────────
+
+    def generate_rank_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        col        = ast_node['column']
+        ascending  = ast_node['ascending']
+        pct        = ast_node.get('pct', False)
+        partition  = ast_node['partition']
+        result_col = ast_node['result_col']
+
+        rank_func  = 'PERCENT_RANK()' if pct else 'RANK()'
+        order_dir  = 'ASC' if ascending else 'DESC'
+        win = self._ddb_window(partition, f"{col} {order_dir}")
+        sql_expr = f"{rank_func} OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── lag / lead ────────────────────────────────────────────────────
+
+    def generate_shift_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        col        = ast_node['column']
+        periods    = ast_node['periods']
+        func       = ast_node['func']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        sql_func = 'LAG' if func == 'lag' else 'LEAD'
+        win = self._ddb_window(partition, order_col)
+        sql_expr = f"{sql_func}({col}, {periods}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── cumulative ────────────────────────────────────────────────────
+
+    def generate_cumulative_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        func       = ast_node['func']
+        col        = ast_node['column']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _cum_map   = {'cumsum': 'SUM', 'cummean': 'AVG', 'cummin': 'MIN', 'cummax': 'MAX'}
+        sql_func   = _cum_map.get(func, 'SUM')
+        frame      = 'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        sql_expr = f"{sql_func}({col}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── rolling ───────────────────────────────────────────────────────
+
+    def generate_rolling_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        func       = ast_node['func']
+        col        = ast_node['column']
+        window     = ast_node['window']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _roll_map = {'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG',
+                     'min': 'MIN', 'max': 'MAX', 'std': 'STDDEV'}
+        sql_func  = _roll_map.get(func, func.upper())
+        frame     = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        sql_expr = f"{sql_func}({col}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── fillna ────────────────────────────────────────────────────────
+
+    def generate_fillna_duckdb(self, ast_node):
+        t   = ast_node['table_name']
+        val = ast_node['value']
+
+        if isinstance(val, str):
+            # String fill value: store in _ddb_fillval; use it in SQL with single quotes
+            fill_val_line = f"_ddb_fillval = {repr(str(val))}"
+            sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
+        elif val is None:
+            fill_val_line = None
+            sel_line = "_ddb_sel = ', '.join(f'COALESCE({c}, NULL) AS {c}' for c in _ddb_cols)"
+        else:
+            fill_val_line = f"_ddb_fillval = {val}"
+            sel_line = "_ddb_sel = ', '.join(f'COALESCE({c}, {_ddb_fillval}) AS {c}' for c in _ddb_cols)"
+
+        lines = []
+        if fill_val_line:
+            lines.append(fill_val_line)
+        lines += [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            sel_line,
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
+        ]
+        return '\n'.join(lines)
+
+    # ── dropna ────────────────────────────────────────────────────────
+
+    def generate_dropna_duckdb(self, ast_node):
+        t    = ast_node['table_name']
+        cols = ast_node.get('columns', [])
+
+        if cols:
+            not_null = ' AND '.join(f"{c} IS NOT NULL" for c in cols)
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {not_null}"
+            return f'_pvt.execute("{sql}")'
+
+        # No columns specified — drop any row with a NULL in any column (runtime DESCRIBE)
+        lines = [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_where = ' AND '.join(f'{{c}} IS NOT NULL' for c in _ddb_cols)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {{_ddb_where}}")',
         ]
         return '\n'.join(lines)
 
