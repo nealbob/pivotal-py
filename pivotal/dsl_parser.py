@@ -3818,12 +3818,325 @@ class CodeGenerator:
         pandas_code = self.generate_gt_table_pandas(dict(ast_node, table_name=df_var))
         return '\n'.join(mat_lines) + '\n' + pandas_code
 
-    # Future: Add SQL generators
+    # ------------------------------------------------------------------
+    # SQL CTE backend
+    # Each generator returns one of:
+    #   None         — skip silently
+    #   str "-- ..." — emit as comment, no CTE created
+    #   str (other)  — SELECT body; caller wraps in "alias AS (...)"
+    # ------------------------------------------------------------------
+
+    def _sql_current(self, table_name):
+        """Return the current CTE alias for table_name (or the real table if first seen)."""
+        return self._sql_state.get(table_name, table_name)
+
+    def generate_validate_table_sql(self, ast_node):
+        t = ast_node['table_name']
+        return f"SELECT * FROM {t}"
+
+    def generate_copy_table_sql(self, ast_node):
+        src = ast_node['copy_from']
+        return f"SELECT * FROM {src}"
+
+    def generate_load_table_sql(self, ast_node):
+        source = ast_node['source']
+        if isinstance(source, dict) and source.get('type') == 'var':
+            return f"-- [skipped: load from Python variable not supported in SQL CTE mode]"
+        source_str = str(source).replace('\\', '/')
+        ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+        if ext == 'parquet':
+            return f"SELECT * FROM read_parquet('{source_str}')"
+        if ext in ('xlsx', 'xls'):
+            return f"-- [skipped: Excel load requires Python runtime]"
+        return f"SELECT * FROM read_csv('{source_str}')"
+
+    def generate_filter_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        where, preamble, use_fstring = self._build_sql_where(
+            ast_node['conditions'], ast_node['operators'])
+        if use_fstring or preamble:
+            return f"-- [skipped: filter with Python variable reference]"
+        return f"SELECT * FROM {from_alias} WHERE {where}"
+
+    def generate_select_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        has_vars = any(isinstance(c, dict) and c.get('type') == 'var' for c in columns)
+        if has_vars:
+            return f"-- [skipped: select with Python variable column list]"
+        if renames:
+            sel_parts = [f"{c} AS {renames[c]}" if c in renames else c for c in columns]
+        else:
+            sel_parts = list(columns)
+        return f"SELECT {', '.join(sel_parts)} FROM {from_alias}"
+
+    def generate_rename_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        renames = ast_node['renames']  # {old: new, ...}
+        excl = ', '.join(renames.keys())
+        new_cols = ', '.join(f"{old} AS {new}" for old, new in renames.items())
+        return f"SELECT * EXCLUDE ({excl}), {new_cols} FROM {from_alias}"
+
     def generate_sort_sql(self, ast_node):
-        order_clause = ', '.join([f"{col} {'ASC' if asc else 'DESC'}" 
-                                 for col, asc in zip(ast_node['columns'], ast_node['ascending'])])
-        return f"SELECT * FROM {ast_node['table_name']} ORDER BY {order_clause}"
-    
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        has_vars = any(isinstance(c, dict) and c.get('type') == 'var' for c in columns)
+        if has_vars:
+            return f"-- [skipped: sort with Python variable columns]"
+        order = ', '.join(
+            f"{col} {'ASC' if asc else 'DESC'}"
+            for col, asc in zip(columns, ascending)
+        )
+        return f"SELECT * FROM {from_alias} ORDER BY {order}"
+
+    def generate_drop_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        excl = ', '.join(ast_node['columns'])
+        return f"SELECT * EXCLUDE ({excl}) FROM {from_alias}"
+
+    def generate_distinct_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node['columns']
+        if cols:
+            return f"SELECT DISTINCT {', '.join(cols)} FROM {from_alias}"
+        return f"SELECT DISTINCT * FROM {from_alias}"
+
+    def generate_concat_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        union_parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' UNION ALL '.join(union_parts)
+
+    def generate_merge_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        right = ast_node['right_table']
+        keys = ast_node['keys']
+        how = ast_node['how']
+        join_map = {
+            'inner': 'INNER JOIN', 'left': 'LEFT JOIN',
+            'right': 'RIGHT JOIN', 'outer': 'FULL OUTER JOIN',
+        }
+        join_type = join_map.get(how, 'INNER JOIN')
+        if not keys or keys == '':
+            return f"SELECT * FROM {from_alias} NATURAL {join_type} {right}"
+        using = ', '.join(keys) if isinstance(keys, list) else str(keys).strip("[]'\"")
+        return f"SELECT * FROM {from_alias} {join_type} {right} USING ({using})"
+
+    def generate_groupby_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        by = ast_node['by']
+        agg_list = ast_node.get('agg_list', [])
+        by_list, has_var_by, _ = self._ddb_by_parts(by)
+        if has_var_by:
+            return f"-- [skipped: groupby with Python variable columns]"
+        group_by_sql = ', '.join(by_list)
+        if not agg_list:
+            return f"-- [skipped: groupby without explicit agg_list requires runtime schema]"
+        agg_has_vars = any(
+            isinstance(item.get('column'), dict) and item['column'].get('type') == 'var'
+            for item in agg_list
+        )
+        if agg_has_vars:
+            return f"-- [skipped: groupby with Python variable agg columns]"
+        sel_parts = list(by_list)
+        for item in agg_list:
+            col = item['column']
+            func = item['func']
+            alias = item.get('alias', f"{col}_{func}")
+            sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+        return f"SELECT {', '.join(sel_parts)} FROM {from_alias} GROUP BY {group_by_sql}"
+
+    def generate_pivot_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        index = ast_node['index']
+        columns = ast_node['columns']
+        agg_list = ast_node.get('agg_list', [])
+        # Only handle static (non-variable) args
+        def _as_str_list(arg):
+            if not arg:
+                return []
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return None
+            if isinstance(arg, list):
+                if any(isinstance(i, dict) for i in arg):
+                    return None
+                return [str(a) for a in arg]
+            return [str(arg)]
+        index_cols = _as_str_list(index)
+        on_cols    = _as_str_list(columns)
+        if index_cols is None or on_cols is None:
+            return f"-- [skipped: pivot with Python variable columns]"
+        using_parts = []
+        for item in agg_list:
+            col = item['column']
+            if isinstance(col, dict):
+                return f"-- [skipped: pivot with Python variable agg column]"
+            func = item['func']
+            alias = item.get('alias')
+            sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+            expr = f"{sql_func}({col})"
+            if alias:
+                expr += f" AS {alias}"
+            using_parts.append(expr)
+        using_sql  = ', '.join(using_parts) if using_parts else 'COUNT(*)'
+        on_sql     = ', '.join(on_cols) if on_cols else ''
+        group_sql  = f" GROUP BY {', '.join(index_cols)}" if index_cols else ''
+        pivot_body = f"SELECT * FROM PIVOT {from_alias}"
+        if on_sql:
+            pivot_body += f" ON {on_sql}"
+        pivot_body += f" USING {using_sql}{group_sql}"
+        return pivot_body
+
+    def generate_unpivot_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        value_vars = ast_node.get('value_vars', [])
+        var_name   = ast_node['var_name']
+        value_name = ast_node['value_name']
+        if not value_vars:
+            return f"-- [skipped: unpivot without explicit value_vars requires runtime schema]"
+        on_cols = ', '.join(value_vars)
+        return (f"SELECT * FROM UNPIVOT {from_alias} ON {on_cols} "
+                f"INTO NAME '{var_name}' VALUE '{value_name}'")
+
+    def generate_assign_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        target = ast_node['target']
+        if ast_node.get('cases'):
+            cases    = ast_node['cases']
+            branches = [c for c in cases if c['type'] == 'case_branch']
+            defaults = [c for c in cases if c['type'] == 'case_default']
+            when_parts = []
+            for b in branches:
+                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                if uf or preamble:
+                    return f"-- [skipped: assign with Python variable in condition]"
+                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                when_parts.append(f"WHEN {where} THEN {sql_expr}")
+            else_expr = (self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                         if defaults else 'NULL')
+            case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
+            return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
+        expr     = ast_node['expression']
+        by_cols  = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        operators  = ast_node.get('operators')
+        sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
+        sql_str = self._try_sql_string_func(sql_expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_concat(sql_expr)
+        if sql_str is None:
+            sql_str = self._translate_assign_expr_to_sql(sql_expr)
+        if conditions:
+            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            if use_fstring or preamble:
+                return f"-- [skipped: assign with Python variable in condition]"
+            case_sql = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
+        return f"SELECT *, {sql_str} AS {target} FROM {from_alias}"
+
+    def generate_rank_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        col        = ast_node['column']
+        ascending  = ast_node['ascending']
+        pct        = ast_node.get('pct', False)
+        partition  = ast_node['partition']
+        result_col = ast_node['result_col']
+        rank_func  = 'PERCENT_RANK()' if pct else 'RANK()'
+        order_dir  = 'ASC' if ascending else 'DESC'
+        win = self._ddb_window(partition, f"{col} {order_dir}")
+        return f"SELECT *, {rank_func} OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_shift_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        col        = ast_node['column']
+        periods    = ast_node['periods']
+        func       = ast_node['func']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        sql_func   = 'LAG' if func == 'lag' else 'LEAD'
+        win = self._ddb_window(partition, order_col)
+        return f"SELECT *, {sql_func}({col}, {periods}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_cumulative_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        func       = ast_node['func']
+        col        = ast_node['column']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        _cum_map   = {'cumsum': 'SUM', 'cummean': 'AVG', 'cummin': 'MIN', 'cummax': 'MAX'}
+        sql_func   = _cum_map.get(func, 'SUM')
+        frame      = 'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_rolling_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        func       = ast_node['func']
+        col        = ast_node['column']
+        window     = ast_node['window']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        _roll_map  = {'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG',
+                      'min': 'MIN', 'max': 'MAX', 'std': 'STDDEV'}
+        sql_func   = _roll_map.get(func, func.upper())
+        frame      = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_fillna_sql(self, ast_node):
+        # fillna in DSL has no column list — always requires runtime schema
+        return f"-- [skipped: fillna requires runtime schema in SQL CTE mode]"
+
+    def generate_dropna_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node.get('columns', [])
+        if not cols:
+            return f"-- [skipped: dropna without explicit column list requires runtime schema]"
+        not_null = ' AND '.join(f"{c} IS NOT NULL" for c in cols)
+        return f"SELECT * FROM {from_alias} WHERE {not_null}"
+
+    # Python-only operations — skip in SQL CTE mode
+    def generate_python_sql(self, ast_node):
+        return f"-- [skipped: python block not supported in SQL CTE mode]"
+
+    def generate_apply_sql(self, ast_node):
+        return f"-- [skipped: apply not supported in SQL CTE mode]"
+
+    def generate_show_sql(self, ast_node):
+        return None  # silent skip
+
+    def generate_plot_sql(self, ast_node):
+        return None
+
+    def generate_agg_plot_sql(self, ast_node):
+        return None
+
+    def generate_gt_table_sql(self, ast_node):
+        return None
+
+
     # Future: Add Spark generators (commented out to avoid import issues)
     # def generate_sort_spark(self, ast_node):
     #     from pyspark.sql import functions as F
@@ -4047,6 +4360,9 @@ class DSLParser:
             # Create new generator if backend changed
             self.code_generator = CodeGenerator(backend)
 
+        if backend == 'sql':
+            return self._generate_code_sql(ast_list)
+
         python_code = []
         if backend == 'duckdb':
             python_code.append(self.code_generator.duckdb_preamble())
@@ -4056,6 +4372,50 @@ class DSLParser:
             python_code.append(code)
 
         return python_code
+
+    def _generate_code_sql(self, ast_list):
+        """Assemble a SQL CTE chain from ast_list. Returns [sql_string]."""
+        cg = self.code_generator
+        # Per-call state initialised on the generator object
+        cg._sql_state   = {}   # table_name -> current CTE alias
+        cg._sql_counter = [0]  # mutable int wrapped in list
+
+        cte_pairs = []   # [(alias, select_body), ...]
+        comments  = []   # comment lines emitted above the WITH block
+
+        for ast_node in ast_list:
+            if not isinstance(ast_node, dict):
+                continue  # skip error strings or non-dict entries
+            stmt_type  = ast_node.get('type', '')
+            table_name = ast_node.get('table_name', '_unknown')
+            method     = f"generate_{stmt_type}_sql"
+
+            if hasattr(cg, method):
+                result = getattr(cg, method)(ast_node)
+            else:
+                result = f"-- [skipped: no SQL generator for '{stmt_type}']"
+
+            if result is None:
+                continue
+            if isinstance(result, str) and result.startswith('--'):
+                comments.append(result)
+                continue
+            # result is a SELECT body — wrap it in a CTE alias
+            idx   = cg._sql_counter[0]
+            cg._sql_counter[0] += 1
+            alias = f"_cte_{idx}_{table_name}"
+            cte_pairs.append((alias, result))
+            cg._sql_state[table_name] = alias
+
+        if not cte_pairs:
+            return ['\n'.join(comments) or '-- (no SQL output)']
+
+        cte_parts = [f"{alias} AS (\n  {body}\n)" for alias, body in cte_pairs]
+        last_alias = cte_pairs[-1][0]
+        sql = "WITH\n" + ",\n".join(cte_parts) + f"\nSELECT * FROM {last_alias}"
+        if comments:
+            sql = '\n'.join(comments) + '\n' + sql
+        return [sql]
 
     def export(self, code):
         """Parse DSL code and return generated Python code as a string
