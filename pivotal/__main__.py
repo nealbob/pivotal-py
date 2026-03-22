@@ -39,8 +39,15 @@ def compile_to_python(path):
     print(f"Compiled to: {py_path}")
 
 
-def notebook_to_python(path):
-    """Export a Jupyter notebook to a .py file, converting %%pivotal cells to Python."""
+def notebook_to_python(path, backend='pandas'):
+    """Export a Jupyter notebook to a .py file, converting %%pivotal cells to Python.
+
+    Args:
+        path:    Absolute path to the .ipynb file.
+        backend: Code generation backend — 'pandas' (default), 'duckdb', or 'sql'.
+                 'sql' cells are exported as a SQL string printed at the end of each
+                 pivotal block rather than as executable Python.
+    """
     from .dsl_parser import DSLParser
 
     with open(path, 'r', encoding='utf-8') as f:
@@ -63,9 +70,12 @@ def notebook_to_python(path):
         if re.match(r'^(import pivotal\s*\n\s*)?pivotal\.\w+_gui\(', source):
             continue
 
-        # %%pivotal cell — parse and generate Python
+        # %%pivotal cell — parse and generate code for the chosen backend
         if source.startswith('%%pivotal'):
-            pivotal_src = source[len('%%pivotal'):].strip() + '\n'
+            # Strip the magic line (may contain per-cell args like backend=duckdb —
+            # those are ignored here; the export dialog backend choice takes precedence)
+            first_nl = source.find('\n')
+            pivotal_src = (source[first_nl + 1:] if first_nl != -1 else '').strip() + '\n'
 
             # Mirror magic.py pre-processing: strip `delete <name>` lines and
             # generate del statements, since the parser doesn't handle them
@@ -85,24 +95,40 @@ def notebook_to_python(path):
                 sections.append(f"# [Cell {cell_num}] Pivotal parse error — original source:\n"
                                 + '\n'.join('# ' + l for l in pivotal_src.splitlines()))
             else:
-                code_blocks = parser.generate_code(results)
-                if del_names:
+                code_blocks = parser.generate_code(results, backend=backend)
+                if del_names and backend != 'sql':
                     code_blocks.append('\n'.join(f'del {n}' for n in del_names))
-                header = f"# [Cell {cell_num}] pivotal"
-                sections.append(header + '\n' + '\n\n'.join(code_blocks))
+                cell_header = f"# [Cell {cell_num}] pivotal → {backend}"
+                sections.append(cell_header + '\n' + '\n\n'.join(code_blocks))
         else:
-            # Regular Python cell — include as-is
-            sections.append(f"# [Cell {cell_num}]\n{source}")
+            # Regular Python cell — include as-is (skip for sql-only export)
+            if backend != 'sql':
+                sections.append(f"# [Cell {cell_num}]\n{source}")
 
     py_path = os.path.splitext(path)[0] + '.py'
-    header = (
+
+    if backend == 'duckdb':
+        imports = (
+            "import duckdb\n"
+            "import pandas as pd\n"
+        )
+    elif backend == 'sql':
+        imports = (
+            "# SQL export — paste each query into your SQL tool of choice.\n"
+            "# Python-only operations (plot, apply, etc.) are omitted.\n"
+        )
+    else:
+        imports = "import pandas as pd\n"
+
+    file_header = (
         f"# Generated from: {os.path.basename(path)}\n"
+        f"# Backend: {backend}\n"
         f"# Do not edit directly — edit the source notebook instead.\n"
-        f"import pandas as pd\n"
+        + imports
     )
     with open(py_path, 'w', encoding='utf-8') as f:
-        f.write(header + '\n\n' + '\n\n'.join(sections) + '\n')
-    print(f"Exported to: {py_path}")
+        f.write(file_header + '\n\n' + '\n\n'.join(sections) + '\n')
+    print(f"Exported ({backend}): {py_path}")
 
 
 def main():

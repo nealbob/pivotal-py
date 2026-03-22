@@ -21,7 +21,7 @@ import {
   Completion,
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
-import { ToolbarButton, Notification } from '@jupyterlab/apputils';
+import { ToolbarButton, Notification, InputDialog } from '@jupyterlab/apputils';
 import { IStatusBar } from '@jupyterlab/statusbar';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
@@ -750,13 +750,23 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         const kernel = panel.context.sessionContext.session?.kernel;
         if (!kernel) { Notification.emit('No active kernel — run a cell first.', 'warning'); return; }
 
+        // Ask which backend to use
+        const backendResult = await InputDialog.getItem({
+          title: 'Export as Python — choose backend',
+          items: ['pandas', 'duckdb', 'sql'],
+          current: 0,
+          label: 'Backend',
+        });
+        if (!backendResult.button.accept) return;  // user cancelled
+        const backend = backendResult.value ?? 'pandas';
+
         // Construct absolute path using the JupyterLab server root
         const serverRoot = PageConfig.getOption('serverRoot') || PageConfig.getOption('rootUri') || '';
         const absPath = serverRoot ? `${serverRoot}/${relPath}` : relPath;
 
         const code = [
           'from pivotal.__main__ import notebook_to_python as _ntp',
-          `_ntp(${JSON.stringify(absPath)})`,
+          `_ntp(${JSON.stringify(absPath)}, backend=${JSON.stringify(backend)})`,
         ].join('\n');
 
         let errorText = '';
@@ -773,7 +783,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         if (errorText) {
           Notification.emit(`Export failed: ${errorText}`, 'error', { autoClose: false });
         } else {
-          Notification.emit(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`, 'success', { autoClose: 5000 });
+          Notification.emit(`Exported (${backend}): ${relPath.replace(/\.ipynb$/, '.py')}`, 'success', { autoClose: 5000 });
         }
       },
     });
