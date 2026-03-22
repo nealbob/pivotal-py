@@ -3762,6 +3762,62 @@ class CodeGenerator:
         ]
         return '\n'.join(lines)
 
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 4
+    # (show / plot / gt_table materialise the table to pandas first)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _ddb_materialize(t):
+        """Return (lines, df_var_name): lines that fetch a DuckDB table into pandas."""
+        df_var = f"_df_{t}"
+        lines = [f"{df_var} = _pvt.execute('SELECT * FROM {t}').df()"]
+        return lines, df_var
+
+    def generate_python_duckdb(self, ast_node):
+        """Pass raw Python code through verbatim (user handles _pvt if needed)."""
+        return ast_node['code']
+
+    def generate_apply_duckdb(self, ast_node):
+        """Materialise to pandas, apply user function, re-register as DuckDB table."""
+        t    = ast_node['table_name']
+        func = ast_node['func']
+        mat_lines, df_var = self._ddb_materialize(t)
+        lines = mat_lines + [
+            f"{df_var} = {func}({df_var})",
+            f"_pvt.register('_tmp_{t}', {df_var})",
+            f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _tmp_{t}')",
+        ]
+        return '\n'.join(lines)
+
+    def generate_show_duckdb(self, ast_node):
+        """Materialise table then display using the pandas show generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_show_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_plot_duckdb(self, ast_node):
+        """Materialise table then plot using the pandas plot generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_plot_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_agg_plot_duckdb(self, ast_node):
+        """Materialise table then agg-plot using the pandas agg_plot generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_agg_plot_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_gt_table_duckdb(self, ast_node):
+        """Materialise table then build GT table using the pandas gt_table generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_gt_table_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
     # Future: Add SQL generators
     def generate_sort_sql(self, ast_node):
         order_clause = ', '.join([f"{col} {'ASC' if asc else 'DESC'}" 
