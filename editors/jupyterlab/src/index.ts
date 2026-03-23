@@ -741,7 +741,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     });
 
     app.commands.addCommand('pivotal:export-py', {
-      label: 'Export Python or SQL',
+      label: 'Export to Code File',
       icon: codeIcon,
       execute: async () => {
         const panel = tracker.currentWidget;
@@ -753,7 +753,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         // Ask which format to export
         const ITEMS = ['Pandas (.py)', 'DuckDB (.py)', 'SQL (.sql)', 'Pivotal (.pivotal)'];
         const formatResult = await InputDialog.getItem({
-          title: 'Export Python or SQL',
+          title: 'Export to Code File',
           items: ITEMS,
           current: 0,
           label: 'Format',
