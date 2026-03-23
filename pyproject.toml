@@ -76,6 +76,9 @@ all = [
 [project.scripts]
 pivotal = "pivotal.__main__:main"
 
+[project.entry-points."pygments.lexers"]
+pivotal = "pivotal.lexer:PivotalLexer"
+
 [project.urls]
 Homepage = "https://github.com/hughevan/pivotal-py"
 Repository = "https://github.com/hughevan/pivotal-py"

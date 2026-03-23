@@ -1,0 +1,66 @@
+site_name: Pivotal
+site_description: A pipeline-oriented data transformation DSL for Python and Jupyter
+repo_url: https://github.com/nealbob/pivotal-py
+repo_name: nealbob/pivotal-py
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Syntax Reference:
+    - syntax/index.md
+    - Data Sources: syntax/data-sources.md
+    - Filtering: syntax/filtering.md
+    - Selection: syntax/selection.md
+    - Column Expressions: syntax/transformation.md
+    - Sorting: syntax/sorting.md
+    - Grouping & Aggregation: syntax/grouping.md
+    - Joining: syntax/joining.md
+    - Pivot Tables: syntax/reshaping.md
+    - Window Functions: syntax/window-functions.md
+    - Missing Data: syntax/missing-data.md
+    - Python Integration: syntax/python-interop.md
+    - Output: syntax/output.md
+    - Saving: syntax/saving.md
+  - Backends: backends.md
+  - Editors:
+    - JupyterLab: jupyter.md
+    - VS Code: vscode.md
+  - Python API: api.md
+  - CLI: cli.md
