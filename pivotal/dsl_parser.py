@@ -181,8 +181,9 @@ grammar_indented = r"""
               | "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> assign_by
 
     case_list: case_branch+ case_default?
-    case_branch: "where" condition_list ":" expression _NL
+    case_branch: "where" condition_list ":" CASE_BRANCH_EXPR _NL
     case_default: CASE_DEFAULT_EXPR _NL
+    CASE_BRANCH_EXPR: /[^\n]+/
     CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
@@ -560,16 +561,21 @@ class DSLTransformer(Transformer):
 
     def case_branch(self, condition_list, expression):
         temp = self._build_conditional_statement(condition_list)
+        # CASE_BRANCH_EXPR captures raw text including quotes, e.g. '"premium"' or 'price * 1.1'
         return {
             'type': 'case_branch',
             'query_str': temp['query_str'],
             'conditions': temp['ast']['conditions'],
             'operators': temp['ast']['operators'],
-            'expression': str(expression),
+            'expression': str(expression).strip(),
         }
 
     def case_default(self, token):
-        return {'type': 'case_default', 'expression': str(token).strip()}
+        expr = str(token).strip()
+        # Strip the leading 'else:' keyword that the CASE_DEFAULT_EXPR terminal captures
+        if expr.lower().startswith('else:'):
+            expr = expr[5:].strip()
+        return {'type': 'case_default', 'expression': expr}
 
     def case_list(self, *args):
         return list(args)
@@ -841,23 +847,29 @@ class DSLTransformer(Transformer):
 
     def merge_statement(self, *args):
         """Handle merge statements"""
-        
-        # First arg is always merge_type (Token or None)
-        merge_type = args[0] if args and isinstance(args[0], Token) else 'inner'
-        
-        # Second arg is always right_table (Token)
-        right_table = args[1] if len(args) > 1 else None
-        
+
+        # MERGE_TYPE is optional and comes before "merge".  Distinguish it from
+        # RIGHT_TABLE by checking the Token's type attribute.
+        idx = 0
+        merge_type = 'inner'
+        if args and isinstance(args[0], Token) and args[0].type == 'MERGE_TYPE':
+            merge_type = str(args[0])
+            idx = 1
+
+        # Next token is RIGHT_TABLE
+        right_table = args[idx] if idx < len(args) else None
+        idx += 1
+
         # Remaining args are optional: keys (Tree with data='keys') or params (list)
         keys = None
         params = None
-        
-        for arg in args[2:]:
-            if isinstance(arg, Tree) and arg.data == 'keys':
+
+        for arg in args[idx:]:
+            if isinstance(arg, Tree) and str(arg.data) == 'keys':
                 keys = arg
             elif isinstance(arg, list):
                 params = arg
-        
+
         if keys:
             keys = keys.children
             key_list = [str(col) for col in keys]
@@ -2894,13 +2906,1237 @@ class CodeGenerator:
                 query_parts.append(operators[i])
 
         return ' '.join(query_parts), needs_python_engine
-    
-    # Future: Add SQL generators
+
+    # ------------------------------------------------------------------
+    # DuckDB backend helpers
+    # ------------------------------------------------------------------
+
+    def duckdb_preamble(self):
+        """Return Python code that sets up the persistent DuckDB connection."""
+        return (
+            "import duckdb as _ddb\n"
+            "if '_pivotal_ddb' not in globals(): globals()['_pivotal_ddb'] = _ddb.connect()\n"
+            "_pvt = globals()['_pivotal_ddb']"
+        )
+
+    def _build_sql_where(self, conditions, operators):
+        """Build a SQL WHERE clause from filter conditions.
+
+        Returns:
+            (where_clause, preamble_lines, use_fstring)
+            where_clause   — SQL fragment (may contain {placeholder} if use_fstring)
+            preamble_lines — Python lines to emit before the execute call
+            use_fstring    — if True, wrap the SQL string in f"..." for runtime injection
+        """
+        parts = []
+        preamble = []
+        use_fstring = False
+        sql_op_map = {'==': '=', '!=': '<>', '<': '<', '>': '>', '<=': '<=', '>=': '>='}
+
+        for i, cond in enumerate(conditions):
+            col = cond['column']
+            comparator = cond['comparator']
+            val = cond['value']
+            # Quote column names that contain spaces
+            sql_col = f'"{col}"' if ' ' in str(col) else col
+
+            if comparator == 'between':
+                lo, hi = val
+                parts.append(f"{sql_col} BETWEEN {lo} AND {hi}")
+            elif comparator == 'contains':
+                parts.append(f"{sql_col} LIKE '%{val}%'")
+            elif comparator == 'not contains':
+                parts.append(f"{sql_col} NOT LIKE '%{val}%'")
+            elif comparator == 'startswith':
+                parts.append(f"{sql_col} LIKE '{val}%'")
+            elif comparator == 'endswith':
+                parts.append(f"{sql_col} LIKE '%{val}'")
+            elif isinstance(val, dict) and val.get('type') == 'var':
+                var_name = val['name']
+                if comparator in ('in', 'not in'):
+                    tmp = f"_ddb_in_{i}"
+                    preamble.append(f"{tmp} = ', '.join(repr(v) for v in {var_name})")
+                    sql_in_op = 'NOT IN' if comparator == 'not in' else 'IN'
+                    parts.append(f"{sql_col} {sql_in_op} ({{{tmp}}})")
+                    use_fstring = True
+                else:
+                    sql_op = sql_op_map.get(comparator, comparator)
+                    parts.append(f"{sql_col} {sql_op} {{{var_name}}}")
+                    use_fstring = True
+            elif comparator in ('in', 'not in'):
+                sql_in_op = 'NOT IN' if comparator == 'not in' else 'IN'
+                if isinstance(val, list):
+                    items = ', '.join(repr(v) for v in val)
+                else:
+                    items = repr(val)
+                parts.append(f"{sql_col} {sql_in_op} ({items})")
+            elif isinstance(val, _LiteralStr):
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} '{val}'")
+            elif isinstance(val, str):
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} {val}")
+            else:
+                sql_op = sql_op_map.get(comparator, comparator)
+                parts.append(f"{sql_col} {sql_op} {val}")
+
+            if i < len(operators):
+                parts.append(operators[i].upper())
+
+        return ' '.join(parts), preamble, use_fstring
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 1
+    # ------------------------------------------------------------------
+
+    def generate_validate_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+        check = (
+            f"_pvt_tables = [r[0] for r in _pvt.execute('SHOW TABLES').fetchall()]\n"
+            f"if '{t}' not in _pvt_tables: raise NameError(\"DuckDB table '{t}' does not exist\")"
+        )
+        return f"{check}\n{marker}"
+
+    def generate_copy_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        src = ast_node['copy_from']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {src}")\n{marker}'
+
+    def generate_load_table_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        source = ast_node['source']
+        marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+
+        if isinstance(source, dict) and source.get('type') == 'var':
+            var = source['name']
+            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
+            load_code = (
+                f"_src = {var}.replace('\\\\', '/')\n"
+                f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
+                f"if _ext in ('xlsx', 'xls'):\n"
+                f"    _df_tmp = pd.read_excel(_src)\n"
+                f"    _pvt.register('_load_tmp', _df_tmp)\n"
+                f"    _pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')\n"
+                f"elif _ext == 'parquet':\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet('{{_src}}')\")\n"
+                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
+                f"    _pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
+                f"    _pvt.execute(f\"ATTACH '{{_src}}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")\n"
+                f"else:\n"
+                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv('{{_src}}')\")"
+            )
+        else:
+            # Normalise to forward slashes so Windows paths are safe inside SQL strings
+            source_str = str(source).replace('\\', '/')
+            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+            if ext in ('xlsx', 'xls'):
+                load_code = (
+                    f"_df_tmp = pd.read_excel('{source_str}')\n"
+                    f"_pvt.register('_load_tmp', _df_tmp)\n"
+                    f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')"
+                )
+            elif ext == 'parquet':
+                load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet(\'{source_str}\')")'
+            elif ext in ('sqlite', 'db', 'sqlite3'):
+                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
+                load_code = (
+                    f"_pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
+                    f"_pvt.execute(\"ATTACH '{source_str}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                    f"_pvt.execute(\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")"
+                )
+            else:
+                load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv(\'{source_str}\')")'
+
+        return f"{load_code}\n{marker}"
+
+    def generate_filter_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        where, preamble, use_fstring = self._build_sql_where(
+            ast_node['conditions'], ast_node['operators']
+        )
+        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {where}"
+        lines = list(preamble)
+        if use_fstring:
+            lines.append(f'_pvt.execute(f"{sql}")')
+        else:
+            lines.append(f'_pvt.execute("{sql}")')
+        return '\n'.join(lines)
+
+    def generate_select_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            col_list_code = '[]'
+            for col in columns:
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    col_list_code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                else:
+                    col_list_code += f" + ['{col}']"
+            if renames:
+                lines = [
+                    f"_cols = {col_list_code}",
+                    f"_rename = {renames!r}",
+                    "_sel = ', '.join(f'{c} AS {_rename[c]}' if c in _rename else c for c in _cols)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+                ]
+            else:
+                lines = [
+                    f"_cols = {col_list_code}",
+                    "_sel = ', '.join(_cols)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+                ]
+            return '\n'.join(lines)
+
+        # Static column list
+        if renames:
+            sel_parts = [f"{col} AS {renames[col]}" if col in renames else col for col in columns]
+        else:
+            sel_parts = list(columns)
+        sel = ', '.join(sel_parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t}")'
+
+    def generate_rename_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        renames = ast_node['renames']
+        lines = [
+            f"_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_rename = {renames!r}",
+            "_sel = ', '.join(f'{c} AS {_rename[c]}' if c in _rename else c for c in _cols)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+        ]
+        return '\n'.join(lines)
+
+    def generate_sort_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            parts_code = '[]'
+            for col, asc in zip(columns, ascending):
+                direction = 'ASC' if asc else 'DESC'
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    parts_code += (
+                        f" + [f'{{c}} {direction}' for c in "
+                        f"({v} if isinstance({v}, list) else [{v}])]"
+                    )
+                else:
+                    parts_code += f" + ['{col} {direction}']"
+            lines = [
+                f"_order = {parts_code}",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} ORDER BY {{\\", \\".join(_order)}}")',
+            ]
+            return '\n'.join(lines)
+
+        order = ', '.join(
+            f"{col} {'ASC' if asc else 'DESC'}"
+            for col, asc in zip(columns, ascending)
+        )
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} ORDER BY {order}")'
+
+    def generate_drop_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        excl = ', '.join(ast_node['columns'])
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}) FROM {t}")'
+
+    def generate_distinct_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        cols = ast_node['columns']
+        if cols:
+            sel = ', '.join(cols)
+            return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT DISTINCT {sel} FROM {t}")'
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT DISTINCT * FROM {t}")'
+
+    def generate_concat_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        union = ' UNION ALL '.join(
+            [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        )
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {union}")'
+
+    def generate_merge_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        right = ast_node['right_table']
+        keys = ast_node['keys']
+        how = ast_node['how']
+        join_map = {
+            'inner': 'INNER JOIN',
+            'left': 'LEFT JOIN',
+            'right': 'RIGHT JOIN',
+            'outer': 'FULL OUTER JOIN',
+        }
+        join_type = join_map.get(how, 'INNER JOIN')
+
+        if not keys or keys == '':
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} NATURAL {join_type} {right}"
+        else:
+            if isinstance(keys, list):
+                using = ', '.join(keys)
+            else:
+                using = str(keys).strip("[]'\"")
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} {join_type} {right} USING ({using})"
+        return f'_pvt.execute("{sql}")'
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 2
+    # ------------------------------------------------------------------
+
+    _DDB_AGG_MAP = {
+        'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG', 'count': 'COUNT',
+        'min': 'MIN', 'max': 'MAX', 'median': 'MEDIAN', 'std': 'STDDEV',
+        'nunique': 'COUNT_DISTINCT',  # placeholder — handled explicitly below
+    }
+
+    @staticmethod
+    def _ddb_agg_expr(col, func, alias, weight=None):
+        """Return a SQL agg expression string for one agg_list item."""
+        if func == 'wavg':
+            return f"SUM({col} * {weight}) / NULLIF(SUM({weight}), 0) AS {alias}"
+        if func == 'nunique':
+            return f"COUNT(DISTINCT {col}) AS {alias}"
+        sql_func = CodeGenerator._DDB_AGG_MAP.get(func, func.upper())
+        return f"{sql_func}({col}) AS {alias}"
+
+    @staticmethod
+    def _ddb_by_parts(by):
+        """Return (by_list, has_vars, by_list_code).
+
+        by_list      — list of static column names (None if has_vars)
+        has_vars     — True when any column is a Python var reference
+        by_list_code — Python expression that evaluates to the by list at runtime
+        """
+        if isinstance(by, dict) and by.get('type') == 'var':
+            v = by['name']
+            return None, True, f"({v} if isinstance({v}, list) else [{v}])"
+        if isinstance(by, list):
+            has_vars = any(isinstance(item, dict) and item.get('type') == 'var'
+                           for item in by)
+            if has_vars:
+                code = '[]'
+                for item in by:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        v = item['name']
+                        code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                    else:
+                        code += f" + ['{item}']"
+                return None, True, code
+            return list(by), False, repr(list(by))
+        col = str(by)
+        return [col], False, repr([col])
+
+    def generate_groupby_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        by = ast_node['by']
+        agg_list = ast_node.get('agg_list', [])
+
+        by_list, has_var_by, by_list_code = self._ddb_by_parts(by)
+        agg_has_vars = any(
+            isinstance(item.get('column'), dict) and item['column'].get('type') == 'var'
+            for item in agg_list
+        )
+        needs_runtime = has_var_by or agg_has_vars
+
+        # ── Static path ────────────────────────────────────────────────
+        if not needs_runtime:
+            group_by_sql = ', '.join(by_list)
+
+            if agg_list:
+                sel_parts = list(by_list)
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias', f"{col}_{func}")
+                    sel_parts.append(self._ddb_agg_expr(col, func, alias,
+                                                         item.get('weight')))
+                sel = ', '.join(sel_parts)
+                sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t} GROUP BY {group_by_sql}"
+                return f'_pvt.execute("{sql}")'
+            else:
+                # No agg → SUM all non-by numeric columns; column names/types unknown at codegen
+                _num_types = "{'INTEGER','BIGINT','DOUBLE','FLOAT','DECIMAL','HUGEINT','SMALLINT','TINYINT','REAL','UBIGINT','UINTEGER','USMALLINT','UTINYINT','FLOAT4','FLOAT8'}"
+                lines = [
+                    f"_ddb_desc = _pvt.execute('DESCRIBE {t}').fetchall()",
+                    f"_ddb_by   = {by_list!r}",
+                    f"_ddb_vals = [r[0] for r in _ddb_desc if r[0] not in _ddb_by"
+                    f"             and r[1].upper().split('(')[0] in {_num_types}]",
+                    f"_ddb_sel  = ', '.join(_ddb_by) + (', ' + ', '.join("
+                    f"f'SUM({{c}}) AS {{c}}' for c in _ddb_vals) if _ddb_vals else '')",
+                    f"_ddb_grp  = ', '.join(_ddb_by)",
+                    f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} '
+                    f'FROM {t} GROUP BY {{_ddb_grp}}")',
+                ]
+                return '\n'.join(lines)
+
+        # ── Runtime path (variable by or agg columns) ──────────────────
+        lines = [f"_ddb_by = {by_list_code}"]
+        if agg_list:
+            lines.append("_ddb_sel_parts = list(_ddb_by)")
+            for item in agg_list:
+                col = item['column']
+                func = item['func']
+                alias = item.get('alias',
+                                  f"agg_{func}" if isinstance(col, dict) else f"{col}_{func}")
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    if func == 'wavg':
+                        wt = item.get('weight', '')
+                        lines.append(
+                            f"_ddb_sel_parts.append("
+                            f"f'SUM({{{v}}} * {wt}) / NULLIF(SUM({wt}), 0) AS {alias}')"
+                        )
+                    elif func == 'nunique':
+                        lines.append(
+                            f"_ddb_sel_parts.append(f'COUNT(DISTINCT {{{v}}}) AS {alias}')"
+                        )
+                    else:
+                        sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                        lines.append(
+                            f"_ddb_sel_parts.append(f'{sql_func}({{{v}}}) AS {alias}')"
+                        )
+                else:
+                    expr = self._ddb_agg_expr(col, func, alias, item.get('weight'))
+                    lines.append(f"_ddb_sel_parts.append({expr!r})")
+            lines.append("_ddb_sel = ', '.join(_ddb_sel_parts)")
+        else:
+            _num_types = "{'INTEGER','BIGINT','DOUBLE','FLOAT','DECIMAL','HUGEINT','SMALLINT','TINYINT','REAL','UBIGINT','UINTEGER','USMALLINT','UTINYINT','FLOAT4','FLOAT8'}"
+            lines += [
+                f"_ddb_desc = _pvt.execute('DESCRIBE {t}').fetchall()",
+                f"_ddb_vals = [r[0] for r in _ddb_desc if r[0] not in _ddb_by"
+                f"             and r[1].upper().split('(')[0] in {_num_types}]",
+                "_ddb_sel  = ', '.join(_ddb_by) + (', ' + ', '.join("
+                "f'SUM({c}) AS {c}' for c in _ddb_vals) if _ddb_vals else '')",
+            ]
+        lines += [
+            "_ddb_grp = ', '.join(_ddb_by)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} '
+            f'FROM {t} GROUP BY {{_ddb_grp}}")',
+        ]
+        return '\n'.join(lines)
+
+    def generate_pivot_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        index = ast_node['index']    # rows → GROUP BY
+        columns = ast_node['columns']  # pivot column → ON
+        agg_list = ast_node.get('agg_list', [])
+
+        def _static_cols(arg):
+            """Return list of strings if arg is fully static, else None."""
+            if not arg:
+                return []
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return None
+            if isinstance(arg, list):
+                if any(isinstance(i, dict) and i.get('type') == 'var' for i in arg):
+                    return None
+                return [str(a) for a in arg]
+            return [str(arg)]
+
+        def _runtime_col_code(arg):
+            """Return Python expression that evaluates to a list at runtime."""
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                v = arg['name']
+                return f"({v} if isinstance({v}, list) else [{v}])"
+            if isinstance(arg, list):
+                code = '[]'
+                for item in arg:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        v = item['name']
+                        code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                    else:
+                        code += f" + ['{item}']"
+                return code
+            return repr([str(arg)])
+
+        index_cols = _static_cols(index)
+        on_cols    = _static_cols(columns)
+        agg_has_vars = any(isinstance(item.get('column'), dict) for item in agg_list)
+        needs_runtime = (index_cols is None) or (on_cols is None) or agg_has_vars
+
+        # Build static USING clause when possible
+        using_parts = []
+        if not agg_has_vars and agg_list:
+            for item in agg_list:
+                col  = item['column']
+                func = item['func']
+                alias = item.get('alias')  # None if not explicitly specified
+                sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                expr = f"{sql_func}({col})"
+                if alias:
+                    expr += f" AS {alias}"
+                using_parts.append(expr)
+
+        if not needs_runtime:
+            on_col    = on_cols[0] if on_cols else ''
+            group_by  = ', '.join(index_cols) if index_cols else ''
+            using     = ', '.join(using_parts) if using_parts else ''
+
+            parts = [f"PIVOT {t}"]
+            if on_col:
+                parts.append(f"ON {on_col}")
+            if using:
+                parts.append(f"USING {using}")
+            if group_by:
+                parts.append(f"GROUP BY {group_by}")
+
+            sql = f"CREATE OR REPLACE TABLE {t} AS {' '.join(parts)}"
+            return f'_pvt.execute("{sql}")'
+
+        # ── Runtime path ───────────────────────────────────────────────
+        lines = []
+        if on_cols is None:
+            lines.append(f"_ddb_on = {_runtime_col_code(columns)}[0]")
+            on_expr = '{_ddb_on}'
+        else:
+            on_expr = on_cols[0] if on_cols else ''
+
+        if index_cols is None:
+            lines.append(f"_ddb_idx = {_runtime_col_code(index)}")
+            grp_expr = "{', '.join(_ddb_idx)}"
+        else:
+            grp_expr = ', '.join(index_cols) if index_cols else ''
+
+        if agg_has_vars:
+            lines.append("_ddb_using_parts = []")
+            for item in agg_list:
+                col  = item['column']
+                func = item['func']
+                alias = item.get('alias')  # None if not explicitly specified
+                sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    v = col['name']
+                    base = f"f'{sql_func}({{{v}}})"
+                    if alias:
+                        base += f" AS {alias}"
+                    lines.append(f"_ddb_using_parts.append({base}')")
+                else:
+                    base_expr = f"{sql_func}({col})"
+                    if alias:
+                        base_expr += f" AS {alias}"
+                    lines.append(f"_ddb_using_parts.append({base_expr!r})")
+            using_expr = "{', '.join(_ddb_using_parts)}"
+        else:
+            using_expr = ', '.join(using_parts) if using_parts else ''
+
+        pivot_sql = f"CREATE OR REPLACE TABLE {t} AS PIVOT {t}"
+        if on_expr:
+            pivot_sql += f" ON {on_expr}"
+        if using_expr:
+            pivot_sql += f" USING {using_expr}"
+        if grp_expr:
+            pivot_sql += f" GROUP BY {grp_expr}"
+        lines.append(f'_pvt.execute(f"{pivot_sql}")')
+        return '\n'.join(lines)
+
+    def generate_unpivot_duckdb(self, ast_node):
+        t         = ast_node['table_name']
+        id_vars   = ast_node['id_vars']   # list of strings
+        value_vars = ast_node['value_vars']  # list of strings or empty
+        var_name  = ast_node['var_name']
+        value_name = ast_node['value_name']
+
+        if value_vars:
+            on_cols = ', '.join(value_vars)
+            sql = (f"CREATE OR REPLACE TABLE {t} AS "
+                   f"UNPIVOT {t} ON {on_cols} "
+                   f"INTO NAME '{var_name}' VALUE '{value_name}'")
+            return f'_pvt.execute("{sql}")'
+
+        # value_vars not specified → melt all non-id columns (runtime DESCRIBE)
+        lines = [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_id   = {id_vars!r}",
+            f"_ddb_vals = [c for c in _ddb_cols if c not in _ddb_id]",
+            f"_ddb_on   = ', '.join(_ddb_vals)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS '
+            f"UNPIVOT {t} ON {{_ddb_on}} "
+            f"INTO NAME '{var_name}' VALUE '{value_name}'\")",
+        ]
+        return '\n'.join(lines)
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 3
+    # ------------------------------------------------------------------
+
+    # ── Expression / string helpers ────────────────────────────────────
+
+    @staticmethod
+    def _translate_assign_expr_to_sql(expr):
+        """Minimal translation of a pandas-eval expression to SQL.
+        - Converts double-quoted string literals to single-quoted.
+        - Uppercases common SQL function names.
+        """
+        import re
+        result = re.sub(r'"([^"]*)"', lambda m: "'" + m.group(1) + "'", expr)
+        return result
+
+    def _try_sql_string_concat(self, expr):
+        """Translate col + "lit" + col concatenation to SQL col || 'lit' || col.
+        Returns the SQL string, or None if not recognised as string concat."""
+        if '+' not in expr or ('"' not in expr and "'" not in expr):
+            return None
+        tokens = self._split_on_plus(expr)
+        if len(tokens) < 2:
+            return None
+        parts = []
+        for tok in tokens:
+            tok = tok.strip()
+            if (tok.startswith('"') and tok.endswith('"')) or \
+               (tok.startswith("'") and tok.endswith("'")):
+                parts.append("'" + tok[1:-1] + "'")
+            elif re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', tok):
+                parts.append(tok)   # bare column name in SQL
+            else:
+                return None         # unrecognised token — fall through
+        return ' || '.join(parts)
+
+    def _try_sql_string_func(self, expr):
+        """Translate a string-function call to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1).lower()
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        first = args[0].strip()
+        rest  = [a.strip() for a in args[1:]]
+        _simple = {'upper': 'UPPER', 'lower': 'LOWER', 'trim': 'TRIM',
+                   'ltrim': 'LTRIM', 'rtrim': 'RTRIM', 'len': 'LENGTH'}
+        if func in _simple:
+            return f"{_simple[func]}({first})"
+        if func == 'left'   and len(rest) == 1: return f"LEFT({first}, {rest[0]})"
+        if func == 'right'  and len(rest) == 1: return f"RIGHT({first}, {rest[0]})"
+        if func == 'substr' and len(rest) == 2: return f"SUBSTR({first}, {rest[0]}, {rest[1]})"
+        if func == 'replace' and len(rest) == 2:
+            a = rest[0].strip("'\""); b = rest[1].strip("'\"")
+            return f"REPLACE({first}, '{a}', '{b}')"
+        return None
+
+    def _substitute_agg_calls_sql(self, expr, by_cols):
+        """Replace sum(col) / wavg(col, wt) in expr with SQL window function calls."""
+        if by_cols:
+            part_str = ', '.join(by_cols) if isinstance(by_cols, list) else str(by_cols)
+            over = f" OVER (PARTITION BY {part_str})"
+        else:
+            over = ' OVER ()'
+
+        def replace_wavg(m):
+            col, wt = m.group(1), m.group(2)
+            return f"(SUM({col} * {wt}){over}) / NULLIF(SUM({wt}){over}, 0)"
+
+        def replace_agg(m):
+            func = m.group(1).lower()
+            col  = m.group(2)
+            sf   = self._DDB_AGG_MAP.get(func, func.upper())
+            return f"{sf}({col}){over}"
+
+        new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
+        return new_expr
+
+    @staticmethod
+    def _ddb_window(partition, order_col, frame=None):
+        """Build a SQL OVER (...) clause string (without OVER keyword)."""
+        parts = []
+        if partition:
+            part_str = ', '.join(partition) if isinstance(partition, list) else str(partition)
+            parts.append(f"PARTITION BY {part_str}")
+        if order_col:
+            parts.append(f"ORDER BY {order_col}")
+        if frame:
+            parts.append(frame)
+        return ' '.join(parts)
+
+    # ── Shared helper: add/replace a column in a DuckDB table ─────────
+
+    @staticmethod
+    def _ddb_upsert_col_lines(t, result_col, sql_expr, use_fstring=False):
+        """Return Python code lines that add or replace `result_col` in table `t`
+        using the given SQL expression (already a valid SQL fragment).
+        Uses runtime DESCRIBE so it works whether the column is new or existing."""
+        lines = [
+            f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {result_col!r})",
+        ]
+        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {sql_expr} AS {result_col} FROM {t}"
+        lines.append(f'_pvt.execute(f"{sql}")')
+        return lines
+
+    # ── assign ────────────────────────────────────────────────────────
+
+    def generate_assign_duckdb(self, ast_node):
+        t      = ast_node['table_name']
+        target = ast_node['target']
+
+        # ── Multi-case (CASE WHEN … THEN … ELSE …) ─────────────────
+        if ast_node.get('cases'):
+            cases    = ast_node['cases']
+            branches = [c for c in cases if c['type'] == 'case_branch']
+            defaults = [c for c in cases if c['type'] == 'case_default']
+
+            when_parts = []
+            all_preamble = []
+            uses_fstr = False
+            for b in branches:
+                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                all_preamble.extend(preamble)
+                uses_fstr = uses_fstr or uf
+                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                when_parts.append(f"WHEN {where} THEN {sql_expr}")
+
+            if defaults:
+                else_expr = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
+            else:
+                case_sql = f"CASE {' '.join(when_parts)} ELSE NULL END"
+
+            lines = (all_preamble +
+                     self._ddb_upsert_col_lines(t, target, case_sql, uses_fstr))
+            return '\n'.join(lines)
+
+        expr      = ast_node['expression']
+        by_cols   = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        operators  = ast_node.get('operators')
+
+        # ── By-clause agg calls → window functions ─────────────────
+        sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
+        if sql_expr_with_agg != expr:
+            sql_expr_translated = self._translate_assign_expr_to_sql(sql_expr_with_agg)
+            return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
+
+        # ── Translate expression to SQL ────────────────────────────
+        sql_str = self._try_sql_string_func(expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_concat(expr)
+        if sql_str is None:
+            sql_str = self._translate_assign_expr_to_sql(expr)
+
+        # ── Conditional (where clause) → CASE WHEN ─────────────────
+        if conditions:
+            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            # ELSE clause: keep existing value if column exists, else NULL
+            # Use runtime check via DESCRIBE (already emitted by _ddb_upsert_col_lines)
+            case_sql_tmpl = (
+                f"CASE WHEN {where} THEN {sql_str} "
+                f"ELSE (CASE WHEN '{{target_exists}}' = 'yes' THEN {target} ELSE NULL END) END"
+            )
+            # Simpler: build two versions and choose at runtime
+            case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
+            case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            desc_line = f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]"
+            sel_line  = f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {target!r})"
+            choose_sql = (
+                f"_ddb_case = ("
+                f'"{case_sql_existing}" if {target!r} in _ddb_desc '
+                f'else "{case_sql_new}")'
+            )
+            exec_line = f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {{_ddb_case}} AS {target} FROM {t}")'
+            lines = list(preamble) + [desc_line, sel_line, choose_sql, exec_line]
+            return '\n'.join(lines)
+
+        # ── Simple expression ───────────────────────────────────────
+        return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_str))
+
+    # ── rank ──────────────────────────────────────────────────────────
+
+    def generate_rank_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        col        = ast_node['column']
+        ascending  = ast_node['ascending']
+        pct        = ast_node.get('pct', False)
+        partition  = ast_node['partition']
+        result_col = ast_node['result_col']
+
+        rank_func  = 'PERCENT_RANK()' if pct else 'RANK()'
+        order_dir  = 'ASC' if ascending else 'DESC'
+        win = self._ddb_window(partition, f"{col} {order_dir}")
+        sql_expr = f"{rank_func} OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── lag / lead ────────────────────────────────────────────────────
+
+    def generate_shift_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        col        = ast_node['column']
+        periods    = ast_node['periods']
+        func       = ast_node['func']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        sql_func = 'LAG' if func == 'lag' else 'LEAD'
+        win = self._ddb_window(partition, order_col)
+        sql_expr = f"{sql_func}({col}, {periods}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── cumulative ────────────────────────────────────────────────────
+
+    def generate_cumulative_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        func       = ast_node['func']
+        col        = ast_node['column']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _cum_map   = {'cumsum': 'SUM', 'cummean': 'AVG', 'cummin': 'MIN', 'cummax': 'MAX'}
+        sql_func   = _cum_map.get(func, 'SUM')
+        frame      = 'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        sql_expr = f"{sql_func}({col}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── rolling ───────────────────────────────────────────────────────
+
+    def generate_rolling_duckdb(self, ast_node):
+        t          = ast_node['table_name']
+        func       = ast_node['func']
+        col        = ast_node['column']
+        window     = ast_node['window']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _roll_map = {'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG',
+                     'min': 'MIN', 'max': 'MAX', 'std': 'STDDEV'}
+        sql_func  = _roll_map.get(func, func.upper())
+        frame     = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        sql_expr = f"{sql_func}({col}) OVER ({win})"
+        return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
+
+    # ── fillna ────────────────────────────────────────────────────────
+
+    def generate_fillna_duckdb(self, ast_node):
+        t   = ast_node['table_name']
+        val = ast_node['value']
+
+        if isinstance(val, str):
+            # String fill value: store in _ddb_fillval; use it in SQL with single quotes
+            fill_val_line = f"_ddb_fillval = {repr(str(val))}"
+            sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
+        elif val is None:
+            fill_val_line = None
+            sel_line = "_ddb_sel = ', '.join(f'COALESCE({c}, NULL) AS {c}' for c in _ddb_cols)"
+        else:
+            fill_val_line = f"_ddb_fillval = {val}"
+            sel_line = "_ddb_sel = ', '.join(f'COALESCE({c}, {_ddb_fillval}) AS {c}' for c in _ddb_cols)"
+
+        lines = []
+        if fill_val_line:
+            lines.append(fill_val_line)
+        lines += [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            sel_line,
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
+        ]
+        return '\n'.join(lines)
+
+    # ── dropna ────────────────────────────────────────────────────────
+
+    def generate_dropna_duckdb(self, ast_node):
+        t    = ast_node['table_name']
+        cols = ast_node.get('columns', [])
+
+        if cols:
+            not_null = ' AND '.join(f"{c} IS NOT NULL" for c in cols)
+            sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {not_null}"
+            return f'_pvt.execute("{sql}")'
+
+        # No columns specified — drop any row with a NULL in any column (runtime DESCRIBE)
+        lines = [
+            f"_ddb_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+            f"_ddb_where = ' AND '.join(f'{{c}} IS NOT NULL' for c in _ddb_cols)",
+            f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {{_ddb_where}}")',
+        ]
+        return '\n'.join(lines)
+
+    # ------------------------------------------------------------------
+    # DuckDB code generators — Phase 4
+    # (show / plot / gt_table materialise the table to pandas first)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _ddb_materialize(t):
+        """Return (lines, df_var_name): lines that fetch a DuckDB table into pandas."""
+        df_var = f"_df_{t}"
+        lines = [f"{df_var} = _pvt.execute('SELECT * FROM {t}').df()"]
+        return lines, df_var
+
+    def generate_python_duckdb(self, ast_node):
+        """Pass raw Python code through verbatim (user handles _pvt if needed)."""
+        return ast_node['code']
+
+    def generate_apply_duckdb(self, ast_node):
+        """Materialise to pandas, apply user function, re-register as DuckDB table."""
+        t    = ast_node['table_name']
+        func = ast_node['func']
+        mat_lines, df_var = self._ddb_materialize(t)
+        lines = mat_lines + [
+            f"{df_var} = {func}({df_var})",
+            f"_pvt.register('_tmp_{t}', {df_var})",
+            f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _tmp_{t}')",
+        ]
+        return '\n'.join(lines)
+
+    def generate_show_duckdb(self, ast_node):
+        """Materialise table then display using the pandas show generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_show_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_plot_duckdb(self, ast_node):
+        """Materialise table then plot using the pandas plot generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_plot_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_agg_plot_duckdb(self, ast_node):
+        """Materialise table then agg-plot using the pandas agg_plot generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_agg_plot_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    def generate_gt_table_duckdb(self, ast_node):
+        """Materialise table then build GT table using the pandas gt_table generator."""
+        t = ast_node['table_name']
+        mat_lines, df_var = self._ddb_materialize(t)
+        pandas_code = self.generate_gt_table_pandas(dict(ast_node, table_name=df_var))
+        return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    # ------------------------------------------------------------------
+    # SQL CTE backend
+    # Each generator returns one of:
+    #   None         — skip silently
+    #   str "-- ..." — emit as comment, no CTE created
+    #   str (other)  — SELECT body; caller wraps in "alias AS (...)"
+    # ------------------------------------------------------------------
+
+    def _sql_current(self, table_name):
+        """Return the current CTE alias for table_name (or the real table if first seen)."""
+        return self._sql_state.get(table_name, table_name)
+
+    def generate_validate_table_sql(self, ast_node):
+        t = ast_node['table_name']
+        return f"SELECT * FROM {t}"
+
+    def generate_copy_table_sql(self, ast_node):
+        src = ast_node['copy_from']
+        return f"SELECT * FROM {src}"
+
+    def generate_load_table_sql(self, ast_node):
+        source = ast_node['source']
+        if isinstance(source, dict) and source.get('type') == 'var':
+            return f"-- [skipped: load from Python variable not supported in SQL CTE mode]"
+        source_str = str(source).replace('\\', '/')
+        ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+        if ext == 'parquet':
+            return f"SELECT * FROM read_parquet('{source_str}')"
+        if ext in ('xlsx', 'xls'):
+            return f"-- [skipped: Excel load requires Python runtime]"
+        return f"SELECT * FROM read_csv('{source_str}')"
+
+    def generate_filter_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        where, preamble, use_fstring = self._build_sql_where(
+            ast_node['conditions'], ast_node['operators'])
+        if use_fstring or preamble:
+            return f"-- [skipped: filter with Python variable reference]"
+        return f"SELECT * FROM {from_alias} WHERE {where}"
+
+    def generate_select_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        has_vars = any(isinstance(c, dict) and c.get('type') == 'var' for c in columns)
+        if has_vars:
+            return f"-- [skipped: select with Python variable column list]"
+        if renames:
+            sel_parts = [f"{c} AS {renames[c]}" if c in renames else c for c in columns]
+        else:
+            sel_parts = list(columns)
+        return f"SELECT {', '.join(sel_parts)} FROM {from_alias}"
+
+    def generate_rename_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        renames = ast_node['renames']  # {old: new, ...}
+        excl = ', '.join(renames.keys())
+        new_cols = ', '.join(f"{old} AS {new}" for old, new in renames.items())
+        return f"SELECT * EXCLUDE ({excl}), {new_cols} FROM {from_alias}"
+
     def generate_sort_sql(self, ast_node):
-        order_clause = ', '.join([f"{col} {'ASC' if asc else 'DESC'}" 
-                                 for col, asc in zip(ast_node['columns'], ast_node['ascending'])])
-        return f"SELECT * FROM {ast_node['table_name']} ORDER BY {order_clause}"
-    
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        has_vars = any(isinstance(c, dict) and c.get('type') == 'var' for c in columns)
+        if has_vars:
+            return f"-- [skipped: sort with Python variable columns]"
+        order = ', '.join(
+            f"{col} {'ASC' if asc else 'DESC'}"
+            for col, asc in zip(columns, ascending)
+        )
+        return f"SELECT * FROM {from_alias} ORDER BY {order}"
+
+    def generate_drop_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        excl = ', '.join(ast_node['columns'])
+        return f"SELECT * EXCLUDE ({excl}) FROM {from_alias}"
+
+    def generate_distinct_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node['columns']
+        if cols:
+            return f"SELECT DISTINCT {', '.join(cols)} FROM {from_alias}"
+        return f"SELECT DISTINCT * FROM {from_alias}"
+
+    def generate_concat_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        union_parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' UNION ALL '.join(union_parts)
+
+    def generate_merge_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        right = ast_node['right_table']
+        keys = ast_node['keys']
+        how = ast_node['how']
+        join_map = {
+            'inner': 'INNER JOIN', 'left': 'LEFT JOIN',
+            'right': 'RIGHT JOIN', 'outer': 'FULL OUTER JOIN',
+        }
+        join_type = join_map.get(how, 'INNER JOIN')
+        if not keys or keys == '':
+            return f"SELECT * FROM {from_alias} NATURAL {join_type} {right}"
+        using = ', '.join(keys) if isinstance(keys, list) else str(keys).strip("[]'\"")
+        return f"SELECT * FROM {from_alias} {join_type} {right} USING ({using})"
+
+    def generate_groupby_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        by = ast_node['by']
+        agg_list = ast_node.get('agg_list', [])
+        by_list, has_var_by, _ = self._ddb_by_parts(by)
+        if has_var_by:
+            return f"-- [skipped: groupby with Python variable columns]"
+        group_by_sql = ', '.join(by_list)
+        if not agg_list:
+            return f"-- [skipped: groupby without explicit agg_list requires runtime schema]"
+        agg_has_vars = any(
+            isinstance(item.get('column'), dict) and item['column'].get('type') == 'var'
+            for item in agg_list
+        )
+        if agg_has_vars:
+            return f"-- [skipped: groupby with Python variable agg columns]"
+        sel_parts = list(by_list)
+        for item in agg_list:
+            col = item['column']
+            func = item['func']
+            alias = item.get('alias', f"{col}_{func}")
+            sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+        return f"SELECT {', '.join(sel_parts)} FROM {from_alias} GROUP BY {group_by_sql}"
+
+    def generate_pivot_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        index = ast_node['index']
+        columns = ast_node['columns']
+        agg_list = ast_node.get('agg_list', [])
+        # Only handle static (non-variable) args
+        def _as_str_list(arg):
+            if not arg:
+                return []
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return None
+            if isinstance(arg, list):
+                if any(isinstance(i, dict) for i in arg):
+                    return None
+                return [str(a) for a in arg]
+            return [str(arg)]
+        index_cols = _as_str_list(index)
+        on_cols    = _as_str_list(columns)
+        if index_cols is None or on_cols is None:
+            return f"-- [skipped: pivot with Python variable columns]"
+        using_parts = []
+        for item in agg_list:
+            col = item['column']
+            if isinstance(col, dict):
+                return f"-- [skipped: pivot with Python variable agg column]"
+            func = item['func']
+            alias = item.get('alias')
+            sql_func = self._DDB_AGG_MAP.get(func, func.upper())
+            expr = f"{sql_func}({col})"
+            if alias:
+                expr += f" AS {alias}"
+            using_parts.append(expr)
+        using_sql  = ', '.join(using_parts) if using_parts else 'COUNT(*)'
+        on_sql     = ', '.join(on_cols) if on_cols else ''
+        group_sql  = f" GROUP BY {', '.join(index_cols)}" if index_cols else ''
+        pivot_body = f"SELECT * FROM PIVOT {from_alias}"
+        if on_sql:
+            pivot_body += f" ON {on_sql}"
+        pivot_body += f" USING {using_sql}{group_sql}"
+        return pivot_body
+
+    def generate_unpivot_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        value_vars = ast_node.get('value_vars', [])
+        var_name   = ast_node['var_name']
+        value_name = ast_node['value_name']
+        if not value_vars:
+            return f"-- [skipped: unpivot without explicit value_vars requires runtime schema]"
+        on_cols = ', '.join(value_vars)
+        return (f"SELECT * FROM UNPIVOT {from_alias} ON {on_cols} "
+                f"INTO NAME '{var_name}' VALUE '{value_name}'")
+
+    def generate_assign_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        target = ast_node['target']
+        if ast_node.get('cases'):
+            cases    = ast_node['cases']
+            branches = [c for c in cases if c['type'] == 'case_branch']
+            defaults = [c for c in cases if c['type'] == 'case_default']
+            when_parts = []
+            for b in branches:
+                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                if uf or preamble:
+                    return f"-- [skipped: assign with Python variable in condition]"
+                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                when_parts.append(f"WHEN {where} THEN {sql_expr}")
+            else_expr = (self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                         if defaults else 'NULL')
+            case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
+            return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
+        expr     = ast_node['expression']
+        by_cols  = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        operators  = ast_node.get('operators')
+        sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
+        sql_str = self._try_sql_string_func(sql_expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_concat(sql_expr)
+        if sql_str is None:
+            sql_str = self._translate_assign_expr_to_sql(sql_expr)
+        if conditions:
+            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            if use_fstring or preamble:
+                return f"-- [skipped: assign with Python variable in condition]"
+            case_sql = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
+        return f"SELECT *, {sql_str} AS {target} FROM {from_alias}"
+
+    def generate_rank_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        col        = ast_node['column']
+        ascending  = ast_node['ascending']
+        pct        = ast_node.get('pct', False)
+        partition  = ast_node['partition']
+        result_col = ast_node['result_col']
+        rank_func  = 'PERCENT_RANK()' if pct else 'RANK()'
+        order_dir  = 'ASC' if ascending else 'DESC'
+        win = self._ddb_window(partition, f"{col} {order_dir}")
+        return f"SELECT *, {rank_func} OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_shift_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        col        = ast_node['column']
+        periods    = ast_node['periods']
+        func       = ast_node['func']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        sql_func   = 'LAG' if func == 'lag' else 'LEAD'
+        win = self._ddb_window(partition, order_col)
+        return f"SELECT *, {sql_func}({col}, {periods}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_cumulative_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        func       = ast_node['func']
+        col        = ast_node['column']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        _cum_map   = {'cumsum': 'SUM', 'cummean': 'AVG', 'cummin': 'MIN', 'cummax': 'MAX'}
+        sql_func   = _cum_map.get(func, 'SUM')
+        frame      = 'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_rolling_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        func       = ast_node['func']
+        col        = ast_node['column']
+        window     = ast_node['window']
+        partition  = ast_node['partition']
+        order_col  = ast_node['order_col']
+        result_col = ast_node['result_col']
+        _roll_map  = {'sum': 'SUM', 'mean': 'AVG', 'avg': 'AVG',
+                      'min': 'MIN', 'max': 'MAX', 'std': 'STDDEV'}
+        sql_func   = _roll_map.get(func, func.upper())
+        frame      = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
+        win = self._ddb_window(partition, order_col, frame)
+        return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
+
+    def generate_fillna_sql(self, ast_node):
+        # fillna in DSL has no column list — always requires runtime schema
+        return f"-- [skipped: fillna requires runtime schema in SQL CTE mode]"
+
+    def generate_dropna_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node.get('columns', [])
+        if not cols:
+            return f"-- [skipped: dropna without explicit column list requires runtime schema]"
+        not_null = ' AND '.join(f"{c} IS NOT NULL" for c in cols)
+        return f"SELECT * FROM {from_alias} WHERE {not_null}"
+
+    # Python-only operations — skip in SQL CTE mode
+    def generate_python_sql(self, ast_node):
+        return f"-- [skipped: python block not supported in SQL CTE mode]"
+
+    def generate_apply_sql(self, ast_node):
+        return f"-- [skipped: apply not supported in SQL CTE mode]"
+
+    def generate_show_sql(self, ast_node):
+        return None  # silent skip
+
+    def generate_plot_sql(self, ast_node):
+        return None
+
+    def generate_agg_plot_sql(self, ast_node):
+        return None
+
+    def generate_gt_table_sql(self, ast_node):
+        return None
+
+
     # Future: Add Spark generators (commented out to avoid import issues)
     # def generate_sort_spark(self, ast_node):
     #     from pyspark.sql import functions as F
@@ -2939,6 +4175,9 @@ class CodeGenerator:
     def generate_save_polars(self, ast_node):
         return self.generate_save_pandas(ast_node)
 
+    def generate_save_duckdb(self, ast_node):
+        return self.generate_save_pandas(ast_node)
+
     def generate_load_all_pandas(self, ast_node):
         return (
             f"globals().update(_pivotal_pkg.load_all())\n"
@@ -2948,11 +4187,17 @@ class CodeGenerator:
     def generate_load_all_polars(self, ast_node):
         return self.generate_load_all_pandas(ast_node)
 
+    def generate_load_all_duckdb(self, ast_node):
+        return self.generate_load_all_pandas(ast_node)
+
     def generate_load_package_table_pandas(self, ast_node):
         name = ast_node['table_name']
         return f"{name} = _pivotal_pkg.load_table({repr(name)})"
 
     def generate_load_package_table_polars(self, ast_node):
+        return self.generate_load_package_table_pandas(ast_node)
+
+    def generate_load_package_table_duckdb(self, ast_node):
         return self.generate_load_package_table_pandas(ast_node)
 
 
@@ -3123,13 +4368,63 @@ class DSLParser:
         if backend and backend != self.code_generator.backend:
             # Create new generator if backend changed
             self.code_generator = CodeGenerator(backend)
-        
+
+        if backend == 'sql':
+            return self._generate_code_sql(ast_list)
+
         python_code = []
+        if backend == 'duckdb':
+            python_code.append(self.code_generator.duckdb_preamble())
+
         for ast_node in ast_list:
             code = self.code_generator.generate(ast_node)
             python_code.append(code)
-        
+
         return python_code
+
+    def _generate_code_sql(self, ast_list):
+        """Assemble a SQL CTE chain from ast_list. Returns [sql_string]."""
+        cg = self.code_generator
+        # Per-call state initialised on the generator object
+        cg._sql_state   = {}   # table_name -> current CTE alias
+        cg._sql_counter = [0]  # mutable int wrapped in list
+
+        cte_pairs = []   # [(alias, select_body), ...]
+        comments  = []   # comment lines emitted above the WITH block
+
+        for ast_node in ast_list:
+            if not isinstance(ast_node, dict):
+                continue  # skip error strings or non-dict entries
+            stmt_type  = ast_node.get('type', '')
+            table_name = ast_node.get('table_name', '_unknown')
+            method     = f"generate_{stmt_type}_sql"
+
+            if hasattr(cg, method):
+                result = getattr(cg, method)(ast_node)
+            else:
+                result = f"-- [skipped: no SQL generator for '{stmt_type}']"
+
+            if result is None:
+                continue
+            if isinstance(result, str) and result.startswith('--'):
+                comments.append(result)
+                continue
+            # result is a SELECT body — wrap it in a CTE alias
+            idx   = cg._sql_counter[0]
+            cg._sql_counter[0] += 1
+            alias = f"_cte_{idx}_{table_name}"
+            cte_pairs.append((alias, result))
+            cg._sql_state[table_name] = alias
+
+        if not cte_pairs:
+            return ['\n'.join(comments) or '-- (no SQL output)']
+
+        cte_parts = [f"{alias} AS (\n  {body}\n)" for alias, body in cte_pairs]
+        last_alias = cte_pairs[-1][0]
+        sql = "WITH\n" + ",\n".join(cte_parts) + f"\nSELECT * FROM {last_alias}"
+        if comments:
+            sql = '\n'.join(comments) + '\n' + sql
+        return [sql]
 
     def export(self, code):
         """Parse DSL code and return generated Python code as a string
@@ -3195,9 +4490,18 @@ class DSLParser:
             return None
 
         python_code_list = self.generate_code(results, backend=backend)
-        
-        i = 0 
-        for python_code in python_code_list:
+
+        # For DuckDB the first element is the connection preamble — exec it
+        # separately so the results[i] index stays aligned with the statements.
+        if backend == 'duckdb' and python_code_list:
+            preamble = python_code_list[0]
+            python_code_list = python_code_list[1:]
+            try:
+                exec(preamble, globals_dict)
+            except Exception as e:
+                print(f"DuckDB preamble error: {e}")
+
+        for i, python_code in enumerate(python_code_list):
             print(f"Executing: {python_code}")
             try:
                 exec(python_code, globals_dict)
@@ -3209,7 +4513,6 @@ class DSLParser:
                     print(df.head())
             except Exception as e:
                 print(f"Execution error: {e}")
-            i+=1
         
         # Update autocomplete info after execution
         self.update_autocomplete_info(globals_dict)

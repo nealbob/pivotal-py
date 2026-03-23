@@ -14,6 +14,8 @@ Check out this live demo of Pivotal in Jupyter lab:
 
 **Readable, Writable Syntax** - Write data transformations in a simple SQL-like language
 
+**Multiple Backends** - Compiles to pandas (default), in-process DuckDB, or pure SQL CTEs
+
 **Pandas-Powered** - Compiles to pandas, integrates with python code
 
 **Pipeline-Oriented** - Piped by default. Chain operations naturally with indentation blocks
@@ -49,6 +51,7 @@ Check out this live demo of Pivotal in Jupyter lab:
   - [Plotting](#plotting)
   - [Publication-Ready Tables](#publication-ready-tables)
   - [Package Management](#package-management)
+- [Backends](#backends)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 
@@ -1439,15 +1442,113 @@ save "sales_pipeline"
 ---
 
 
+## Backends
+
+Pivotal supports three execution backends. The DSL syntax is identical across all three — only the backend changes.
+
+| Backend | Keyword | What it does |
+|---|---|---|
+| **pandas** | `"pandas"` | Default. Compiles to pandas DataFrame operations, executed in Python. |
+| **DuckDB** | `"duckdb"` | Compiles to SQL and runs against an in-process DuckDB database. Fast for large datasets. |
+| **SQL CTE** | `"sql"` | Generates a single pure-SQL string (`WITH ... AS (...)`) with no Python runtime dependency. |
+
+### Choosing a backend
+
+- **pandas** — best for general use, full Python integration, and access to `apply`, `python`, `plot`, `table`
+- **duckdb** — best for large datasets where SQL execution is faster than pandas; all data lives in an in-memory DuckDB connection
+- **sql** — best for exporting transformations as a reusable SQL query (e.g. for a data warehouse or BI tool); any Python-only operations (`apply`, `plot`, etc.) are skipped with a comment
+
+### Changing the backend
+
+#### Python API
+
+Pass `backend=` to `execute()` or `generate_code()`:
+
+```python
+import pivotal
+
+parser = pivotal.DSLParser()
+
+dsl = """
+df sales
+    filter price > 100
+    group by category
+        agg sum price as total
+    sort total desc
+"""
+
+# pandas (default)
+ns = {}
+parser.execute(dsl, ns)
+
+# DuckDB — tables live in a DuckDB connection at ns['_pivotal_ddb']
+import duckdb
+conn = duckdb.connect()
+conn.execute("CREATE TABLE sales AS SELECT * FROM read_csv('sales.csv')")
+ns = {'_pivotal_ddb': conn}
+parser.execute(dsl, ns, backend='duckdb')
+result = conn.execute("SELECT * FROM sales").df()
+
+# SQL CTE — returns a single SQL string, nothing is executed
+ast = parser.parse(dsl)
+sql_blocks = parser.generate_code(ast, backend='sql')
+print(sql_blocks[0])
+# WITH
+# _cte_0_sales AS (SELECT * FROM sales),
+# _cte_1_sales AS (SELECT * FROM _cte_0_sales WHERE price > 100),
+# ...
+# SELECT * FROM _cte_N_sales
+```
+
+#### JupyterLab (`%%pivotal`)
+
+Pass `backend=` on the cell magic line:
+
+```
+%%pivotal backend=duckdb
+df sales
+    filter price > 100
+    group by category
+        agg sum price as total
+```
+
+Or set it persistently for the notebook session:
+
+```python
+%pivotal_set backend=duckdb
+```
+
+#### VS Code / CLI
+
+Pass `--backend` when running from the command line:
+
+```bash
+python -m pivotal analysis.pivotal --backend duckdb
+```
+
+### DuckDB backend notes
+
+- A persistent DuckDB connection is created automatically and stored as `_pivotal_ddb` in the namespace.
+- `load` reads CSV and Parquet files directly via DuckDB's `read_csv` / `read_parquet` — no intermediate pandas step.
+- `apply`, `plot`, `agg plot`, and `table` materialise the DuckDB table to a pandas DataFrame first, then delegate to the pandas generator.
+- `python` blocks execute verbatim in the shared namespace, with `_pvt` as a shorthand for the DuckDB connection.
+
+### SQL CTE backend notes
+
+- Output is a single SQL string — nothing is executed by Pivotal.
+- The SQL uses DuckDB dialect (`EXCLUDE`, `PIVOT`, window functions, `read_csv`) but is broadly compatible with other modern SQL engines.
+- Operations that require Python (`apply`, `plot`, `agg plot`, `table`, `python`) are omitted with a `-- [skipped: ...]` comment.
+- `fillna` and `dropna` without an explicit column list are also skipped (they require inspecting the live schema at runtime).
+
+---
+
 ## API Reference
 
 ### DSLParser
 
 ```python
-parser = pivotal.DSLParser(backend="pandas")
+parser = pivotal.DSLParser()
 ```
-
-**`backend`** — code generation backend: `"pandas"` (default).
 
 #### Methods
 
@@ -1462,10 +1563,16 @@ Raises `ValueError` for keyword-collision errors; returns `{'error': ...}` for
 all other parse errors.
 
 ##### `generate_code(ast: list, backend: str = "pandas") -> list[str]`
-Convert an AST to a list of Python code-block strings.
+Convert an AST to generated code blocks.
+
+- `"pandas"` (default) — returns a list of Python code strings, one per statement
+- `"duckdb"` — returns a list of Python code strings that execute SQL via a DuckDB connection
+- `"sql"` — returns a single-element list containing a complete `WITH ... AS (...)` SQL string
 
 ```python
-blocks = parser.generate_code(ast)
+blocks = parser.generate_code(ast)                    # pandas
+blocks = parser.generate_code(ast, backend='duckdb')  # duckdb
+sql    = parser.generate_code(ast, backend='sql')[0]  # sql CTE string
 ```
 
 ##### `execute(code: str, globals_dict: dict, backend: str = "pandas", verbose: bool = True) -> None`
@@ -1480,7 +1587,7 @@ parser.execute(dsl_code, ns, verbose=False)
 **Parameters:**
 - `code` — Pivotal DSL code string
 - `globals_dict` — namespace dict to execute in; DataFrames are added here
-- `backend` — `"pandas"` (default)
+- `backend` — `"pandas"` (default), `"duckdb"`, or `"sql"` (see [Backends](#backends))
 - `verbose` — print execution summary (default: `True`)
 
 ##### `export(code: str) -> str | None`

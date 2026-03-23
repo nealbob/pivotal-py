@@ -21,7 +21,7 @@ import {
   Completion,
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
-import { ToolbarButton, Notification } from '@jupyterlab/apputils';
+import { ToolbarButton, Notification, InputDialog } from '@jupyterlab/apputils';
 import { IStatusBar } from '@jupyterlab/statusbar';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
@@ -741,7 +741,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     });
 
     app.commands.addCommand('pivotal:export-py', {
-      label: 'Generate Python Code',
+      label: 'Export Python or SQL',
       icon: codeIcon,
       execute: async () => {
         const panel = tracker.currentWidget;
@@ -750,14 +750,42 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         const kernel = panel.context.sessionContext.session?.kernel;
         if (!kernel) { Notification.emit('No active kernel — run a cell first.', 'warning'); return; }
 
+        // Ask which format to export
+        const ITEMS = ['Pandas (.py)', 'DuckDB (.py)', 'SQL (.sql)', 'Pivotal (.pivotal)'];
+        const formatResult = await InputDialog.getItem({
+          title: 'Export Python or SQL',
+          items: ITEMS,
+          current: 0,
+          label: 'Format',
+        });
+        if (!formatResult.button.accept) return;  // user cancelled
+        const label = formatResult.value ?? 'Pandas (.py)';
+
         // Construct absolute path using the JupyterLab server root
         const serverRoot = PageConfig.getOption('serverRoot') || PageConfig.getOption('rootUri') || '';
         const absPath = serverRoot ? `${serverRoot}/${relPath}` : relPath;
 
-        const code = [
-          'from pivotal.__main__ import notebook_to_python as _ntp',
-          `_ntp(${JSON.stringify(absPath)})`,
-        ].join('\n');
+        let code: string;
+        let ext: string;
+        if (label === 'Pivotal (.pivotal)') {
+          ext  = '.pivotal';
+          code = [
+            'from pivotal.__main__ import notebook_to_pivotal as _ntp',
+            `_ntp(${JSON.stringify(absPath)})`,
+          ].join('\n');
+        } else {
+          const backendMap: Record<string, string> = {
+            'Pandas (.py)': 'pandas',
+            'DuckDB (.py)': 'duckdb',
+            'SQL (.sql)':   'sql',
+          };
+          const backend = backendMap[label] ?? 'pandas';
+          ext  = backend === 'sql' ? '.sql' : '.py';
+          code = [
+            'from pivotal.__main__ import notebook_to_python as _ntp',
+            `_ntp(${JSON.stringify(absPath)}, backend=${JSON.stringify(backend)})`,
+          ].join('\n');
+        }
 
         let errorText = '';
         const future = kernel.requestExecute({ code });
@@ -773,7 +801,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         if (errorText) {
           Notification.emit(`Export failed: ${errorText}`, 'error', { autoClose: false });
         } else {
-          Notification.emit(`Exported: ${relPath.replace(/\.ipynb$/, '.py')}`, 'success', { autoClose: 5000 });
+          Notification.emit(`Exported (${label}): ${relPath.replace(/\.ipynb$/, ext)}`, 'success', { autoClose: 5000 });
         }
       },
     });

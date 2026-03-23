@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pivotal"
+version = "0.1.0"
+description = "A pipeline-oriented data transformation DSL for Python and Jupyter"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Hugh Evans" },
+]
+keywords = [
+    "data",
+    "dataframe",
+    "transformation",
+    "dsl",
+    "pandas",
+    "duckdb",
+    "sql",
+    "jupyter",
+    "pipeline",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+# Core dependencies — always installed
+dependencies = [
+    "lark>=1.1",
+    "pandas>=1.5",
+    "matplotlib>=3.5",
+]
+
+[project.optional-dependencies]
+# pip install pivotal[duckdb]
+duckdb = [
+    "duckdb>=0.9",
+]
+# pip install pivotal[tables]
+tables = [
+    "great-tables>=0.5",
+    "css_inline>=0.13",
+]
+# pip install pivotal[jupyter]  — GUI widgets (plot_gui, load_gui, etc.)
+jupyter = [
+    "ipywidgets>=8.0",
+    "ipyfilechooser>=0.6",
+]
+# pip install pivotal[sql]  — database connectivity for save/load
+sql = [
+    "sqlalchemy>=2.0",
+]
+# pip install pivotal[all]
+all = [
+    "duckdb>=0.9",
+    "great-tables>=0.5",
+    "css_inline>=0.13",
+    "ipywidgets>=8.0",
+    "ipyfilechooser>=0.6",
+    "sqlalchemy>=2.0",
+]
+
+[project.scripts]
+pivotal = "pivotal.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/hughevan/pivotal-py"
+Repository = "https://github.com/hughevan/pivotal-py"
+"Bug Tracker" = "https://github.com/hughevan/pivotal-py/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pivotal*"]
