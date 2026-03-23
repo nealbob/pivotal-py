@@ -2,6 +2,20 @@
 
 Pivotal is designed to be embedded in Python. When its built-in operations are not enough, you can drop into Python directly.
 
+## Single-line Python statements
+
+For a single Python statement, write it on the same line as `python` — no `end` required:
+
+```pivotal
+df sales
+    python sales["price"] = sales["price"].str.replace("$", "").astype(float)
+    python sales = sales.dropna(subset=["amount"])
+```
+
+This is convenient for quick one-liner transformations without the overhead of a full block.
+
+---
+
 ## `python...end` blocks
 
 Embed arbitrary Python code in a Pivotal script. The block's contents are executed in the same namespace as the rest of the script, so tables defined in Pivotal are available as Python variables and vice versa.
