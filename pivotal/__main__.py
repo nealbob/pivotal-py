@@ -1,8 +1,9 @@
 """
 CLI entry point:
-  python -m pivotal <file.pivotal>                  — execute a .pivotal file
-  python -m pivotal --compile <file.pivotal>         — compile to a .py file
-  python -m pivotal --export-py <notebook.ipynb>    — export notebook to a .py file
+  python -m pivotal <file.pivotal>                     — execute a .pivotal file
+  python -m pivotal --compile <file.pivotal>            — compile to a .py file
+  python -m pivotal --export-py <notebook.ipynb>       — export notebook to a .py file
+  python -m pivotal --export-pivotal <notebook.ipynb>  — export notebook to a .pivotal file
 """
 import sys
 import os
@@ -95,7 +96,12 @@ def notebook_to_python(path, backend='pandas'):
                 sections.append(f"# [Cell {cell_num}] Pivotal parse error — original source:\n"
                                 + '\n'.join('# ' + l for l in pivotal_src.splitlines()))
             else:
-                code_blocks = parser.generate_code(results, backend=backend)
+                try:
+                    code_blocks = parser.generate_code(results, backend=backend)
+                except Exception as exc:
+                    print(f"Warning: codegen error in cell {cell_num} ({backend}): {exc}", file=sys.stderr)
+                    code_blocks = [f"# [Cell {cell_num}] codegen error ({backend}): {exc}\n"
+                                   + '\n'.join('# ' + l for l in pivotal_src.splitlines())]
                 if del_names and backend != 'sql':
                     code_blocks.append('\n'.join(f'del {n}' for n in del_names))
                 cell_header = f"# [Cell {cell_num}] pivotal → {backend}"
@@ -105,7 +111,8 @@ def notebook_to_python(path, backend='pandas'):
             if backend != 'sql':
                 sections.append(f"# [Cell {cell_num}]\n{source}")
 
-    py_path = os.path.splitext(path)[0] + '.py'
+    ext = '.sql' if backend == 'sql' else '.py'
+    py_path = os.path.splitext(path)[0] + ext
 
     if backend == 'duckdb':
         imports = (
@@ -114,21 +121,67 @@ def notebook_to_python(path, backend='pandas'):
         )
     elif backend == 'sql':
         imports = (
-            "# SQL export — paste each query into your SQL tool of choice.\n"
-            "# Python-only operations (plot, apply, etc.) are omitted.\n"
+            "-- SQL export — paste each query into your SQL tool of choice.\n"
+            "-- Python-only operations (plot, apply, etc.) are omitted.\n"
         )
     else:
         imports = "import pandas as pd\n"
 
+    comment = '--' if backend == 'sql' else '#'
     file_header = (
-        f"# Generated from: {os.path.basename(path)}\n"
-        f"# Backend: {backend}\n"
-        f"# Do not edit directly — edit the source notebook instead.\n"
+        f"{comment} Generated from: {os.path.basename(path)}\n"
+        f"{comment} Backend: {backend}\n"
+        f"{comment} Do not edit directly — edit the source notebook instead.\n"
         + imports
     )
     with open(py_path, 'w', encoding='utf-8') as f:
         f.write(file_header + '\n\n' + '\n\n'.join(sections) + '\n')
     print(f"Exported ({backend}): {py_path}")
+
+
+def notebook_to_pivotal(path):
+    """Export a Jupyter notebook to a .pivotal file.
+
+    %%pivotal cells are written as-is (DSL source).
+    Regular Python cells are wrapped in python...end blocks.
+    GUI cells are skipped.
+    """
+    with open(path, 'r', encoding='utf-8') as f:
+        nb = json.load(f)
+
+    sections = []
+    cell_num = 0
+
+    for cell in nb.get('cells', []):
+        if cell['cell_type'] != 'code':
+            continue
+
+        cell_num += 1
+        source = ''.join(cell['source']).strip()
+        if not source:
+            continue
+
+        # GUI cells — skip entirely
+        if re.match(r'^(import pivotal\s*\n\s*)?pivotal\.\w+_gui\(', source):
+            continue
+
+        if source.startswith('%%pivotal'):
+            # Strip the magic line and write DSL source as-is
+            first_nl = source.find('\n')
+            pivotal_src = (source[first_nl + 1:] if first_nl != -1 else '').strip()
+            sections.append(f"# [Cell {cell_num}]\n{pivotal_src}")
+        else:
+            # Wrap Python cell in python...end block
+            sections.append(f"# [Cell {cell_num}]\npython\n{source}\nend")
+
+    pivotal_path = os.path.splitext(path)[0] + '.pivotal'
+    file_header = (
+        f"# Generated from: {os.path.basename(path)}\n"
+        f"# Do not edit directly — edit the source notebook instead.\n"
+    )
+    with open(pivotal_path, 'w', encoding='utf-8') as f:
+        f.write(file_header + '\n' + '\n\n'.join(sections) + '\n')
+    print(f"Exported (pivotal): {pivotal_path}")
 
 
 def main():
@@ -157,6 +210,17 @@ def main():
             print(f"Error: file not found: {path}", file=sys.stderr)
             sys.exit(1)
         notebook_to_python(path)
+        return
+
+    if sys.argv[1] == '--export-pivotal':
+        if len(sys.argv) < 3:
+            print("Usage: python -m pivotal --export-pivotal <notebook.ipynb>", file=sys.stderr)
+            sys.exit(1)
+        path = sys.argv[2]
+        if not os.path.isfile(path):
+            print(f"Error: file not found: {path}", file=sys.stderr)
+            sys.exit(1)
+        notebook_to_pivotal(path)
         return
 
     path = sys.argv[1]

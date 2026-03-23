@@ -1234,7 +1234,8 @@ class PivotalMagics(Magics):
         'chart_width': 'full',      # full | half  (fraction of usable page width)
         'viewer_font': 1.0,         # em units for DataFrame viewer font size
         'viewer_num_format': 5,     # significant digits for float columns (0 = no formatting)
-        'use_visions': False,     # True = use visions for type inference if installed
+        'use_visions': False,       # True = use visions for type inference if installed
+        'backend': 'pandas',        # pandas | duckdb | sql
     }
 
     def _parse_line_args(self, line: str) -> dict:
@@ -1268,6 +1269,8 @@ class PivotalMagics(Magics):
                     pass
             elif k == 'use_visions':
                 overrides['use_visions'] = v in ('true', '1', 'yes')
+            elif k == 'backend' and v in ('pandas', 'duckdb', 'sql'):
+                overrides['backend'] = v
         return overrides
 
     def _effective_settings(self, line: str) -> dict:
@@ -1335,7 +1338,7 @@ class PivotalMagics(Magics):
             print(f"Pivotal Parse Error: {results['error']}")
             return
 
-        python_code_list = self.parser.generate_code(results)
+        python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
         combined = '\n\n'.join(python_code_list)
 
         # When viewer mode is on, close chart figures that do NOT have 'show' set,

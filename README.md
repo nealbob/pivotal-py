@@ -1456,7 +1456,7 @@ Pivotal supports three execution backends. The DSL syntax is identical across al
 
 - **pandas** — best for general use, full Python integration, and access to `apply`, `python`, `plot`, `table`
 - **duckdb** — best for large datasets where SQL execution is faster than pandas; all data lives in an in-memory DuckDB connection
-- **sql** — best for exporting transformations as a reusable SQL query (e.g. for a data warehouse or BI tool); Python-only operations (`apply`, `plot`, etc.) are skipped with a comment
+- **sql** — best for exporting transformations as a reusable SQL query (e.g. for a data warehouse or BI tool); any Python-only operations (`apply`, `plot`, etc.) are skipped with a comment
 
 ### Changing the backend
 

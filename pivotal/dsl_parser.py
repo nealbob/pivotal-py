@@ -4175,6 +4175,9 @@ class CodeGenerator:
     def generate_save_polars(self, ast_node):
         return self.generate_save_pandas(ast_node)
 
+    def generate_save_duckdb(self, ast_node):
+        return self.generate_save_pandas(ast_node)
+
     def generate_load_all_pandas(self, ast_node):
         return (
             f"globals().update(_pivotal_pkg.load_all())\n"
@@ -4184,11 +4187,17 @@ class CodeGenerator:
     def generate_load_all_polars(self, ast_node):
         return self.generate_load_all_pandas(ast_node)
 
+    def generate_load_all_duckdb(self, ast_node):
+        return self.generate_load_all_pandas(ast_node)
+
     def generate_load_package_table_pandas(self, ast_node):
         name = ast_node['table_name']
         return f"{name} = _pivotal_pkg.load_table({repr(name)})"
 
     def generate_load_package_table_polars(self, ast_node):
+        return self.generate_load_package_table_pandas(ast_node)
+
+    def generate_load_package_table_duckdb(self, ast_node):
         return self.generate_load_package_table_pandas(ast_node)
 
 
