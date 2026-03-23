@@ -1,4 +1,4 @@
-# Joining
+# Merge and Concatenate
 
 The `merge` statement joins two tables. The active table is the left table; the named table is the right table.
 
@@ -88,3 +88,19 @@ df enriched from orders
     filter status == "complete"
     select order_id, date, customer_name, product_name, amount
 ```
+
+---
+
+## `concat` — stack tables vertically
+
+Append rows from another table onto the active table:
+
+```pivotal
+df all_sales from jan_sales
+    concat feb_sales
+
+df all_sales from q1
+    concat q2, q3, q4
+```
+
+Both tables must have compatible columns. Extra columns in either table will be filled with `null` for the rows where they are absent.

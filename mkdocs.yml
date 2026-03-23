@@ -51,7 +51,7 @@ nav:
     - Column Expressions: syntax/transformation.md
     - Sorting: syntax/sorting.md
     - Grouping & Aggregation: syntax/grouping.md
-    - Joining: syntax/joining.md
+    - Merge and Concatenate: syntax/joining.md
     - Pivot Tables: syntax/reshaping.md
     - Window Functions: syntax/window-functions.md
     - Missing Data: syntax/missing-data.md

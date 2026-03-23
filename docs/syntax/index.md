@@ -83,7 +83,7 @@ load data "path/to/file.csv"
 | [`rolling`](window-functions.md) | Rolling window statistics |
 | [`fillna`](missing-data.md) | Fill missing values |
 | [`dropna`](missing-data.md) | Drop rows with missing values |
-| [`concat`](missing-data.md) | Stack tables vertically |
+| [`concat`](joining.md) | Stack tables vertically |
 | [`python...end`](python-interop.md) | Embed Python code |
 | [`apply`](python-interop.md) | Apply a Python function to a table |
 | [`show`](output.md) | Display inline |

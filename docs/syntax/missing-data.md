@@ -51,18 +51,3 @@ df complete from raw
     dropna customer_id, product_id, date
 ```
 
----
-
-## `concat` — stack tables vertically
-
-Append rows from another table onto the active table:
-
-```pivotal
-df all_sales from jan_sales
-    concat feb_sales
-
-df all_sales from q1
-    concat q2, q3, q4
-```
-
-Both tables must have compatible columns. Extra columns in either table will be filled with `null` for the rows where they are absent.
