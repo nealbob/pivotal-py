@@ -1,3 +1,9 @@
+/* Logo size */
+.md-header__button.md-logo img {
+  height: 48px;
+  width:  48px;
+}
+
 /* Pivotal brand colours — drawn from the logo */
 
 /* Light scheme */
