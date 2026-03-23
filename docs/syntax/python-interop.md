@@ -1,4 +1,4 @@
-# Python Interop
+# Python Integration
 
 Pivotal is designed to be embedded in Python. When its built-in operations are not enough, you can drop into Python directly.
 
@@ -6,7 +6,7 @@ Pivotal is designed to be embedded in Python. When its built-in operations are n
 
 Embed arbitrary Python code in a Pivotal script. The block's contents are executed in the same namespace as the rest of the script, so tables defined in Pivotal are available as Python variables and vice versa.
 
-```
+```pivotal
 python
     import numpy as np
 
@@ -33,7 +33,7 @@ In a `%%pivotal` cell, `python...end` blocks can reference any variable from the
 threshold = 1000
 ```
 
-```
+```pivotal
 %%pivotal
 python
     filtered = sales[sales["amount"] > threshold]
@@ -44,7 +44,7 @@ end
 
 `python...end` blocks run in the file's execution namespace. Tables created before the block are available:
 
-```
+```pivotal
 load data "file.csv"
 
 python
@@ -56,11 +56,31 @@ end
 
 ---
 
+## User-defined functions
+
+Define Python functions in a `python...end` block and call them in column expressions:
+
+```pivotal
+python
+    def clean_price(s):
+        return s.str.replace("$", "").astype(float)
+
+    def initials(s):
+        return s.str[0].str.upper()
+end
+
+df sales
+    price = clean_price(price)
+    abbr = initials(name)
+```
+
+---
+
 ## `apply` — apply a Python function to a table
 
-Apply a Python function that takes a DataFrame and returns a DataFrame.
+Apply a Python function that takes a DataFrame and returns a DataFrame:
 
-```
+```pivotal
 python
     def remove_outliers(df):
         lo = df["price"].quantile(0.05)
@@ -95,7 +115,7 @@ regions = ["North", "South"]
 path = "data/sales.csv"
 ```
 
-```
+```pivotal
 load sales :path
 
 df filtered from sales
@@ -131,7 +151,7 @@ summary_df = parser.namespace['summary']
 print(summary_df)
 ```
 
-In Jupyter, tables are available directly:
+In Jupyter, tables are available directly in the next cell:
 
 ```python
 %%pivotal

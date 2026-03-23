@@ -4,7 +4,7 @@ The `merge` statement joins two tables. The active table is the left table; the 
 
 ## Basic merge (inner join)
 
-```
+```pivotal
 df enriched from sales
     merge customers on customer_id
 ```
@@ -15,7 +15,7 @@ Keeps only rows where `customer_id` exists in both tables.
 
 Prefix the merge with the join type:
 
-```
+```pivotal
 df enriched from sales
     left merge customers on customer_id
 
@@ -41,14 +41,14 @@ df enriched from sales
 
 ### Single key
 
-```
+```pivotal
 df result from sales
     left merge customers on customer_id
 ```
 
 ### Multiple keys
 
-```
+```pivotal
 df result from orders
     left merge inventory on product_id, warehouse_id
 ```
@@ -57,7 +57,7 @@ df result from orders
 
 When the join columns have different names in each table:
 
-```
+```pivotal
 df result from sales
     left merge customers
         left_on id
@@ -68,7 +68,7 @@ df result from sales
 
 When both tables have columns with the same name (other than the join key), suffixes are added automatically. Customise them:
 
-```
+```pivotal
 df result from sales
     left merge targets
         on region, category
@@ -77,7 +77,7 @@ df result from sales
 
 ## Example: enriching a fact table
 
-```
+```pivotal
 load orders "orders.csv"
 load customers "customers.csv"
 load products "products.csv"

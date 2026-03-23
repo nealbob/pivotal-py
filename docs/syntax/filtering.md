@@ -2,7 +2,7 @@
 
 The `filter` statement keeps rows that match a condition. Rows that do not match are dropped.
 
-```
+```pivotal
 df active from sales
     filter status == "active"
 ```
@@ -18,7 +18,7 @@ df active from sales
 | `>=` | Greater than or equal |
 | `<=` | Less than or equal |
 
-```
+```pivotal
 filter price > 100
 filter quantity != 0
 filter status == "active"
@@ -30,7 +30,7 @@ filter discount <= 0.5
 
 Combine conditions with `and` / `or`:
 
-```
+```pivotal
 filter amount > 1000 and category == "premium"
 filter status == "active" or price > 500
 filter region == "North" and status == "active" and amount > 100
@@ -43,7 +43,7 @@ filter region == "North" and status == "active" and amount > 100
 
 Test whether a value is in a list:
 
-```
+```pivotal
 filter region in ["North", "South", "East"]
 filter category not in ["test", "draft"]
 ```
@@ -54,7 +54,7 @@ Use a Python variable for the list:
 valid_regions = ["North", "South"]
 ```
 
-```
+```pivotal
 filter region in :valid_regions
 ```
 
@@ -62,7 +62,7 @@ filter region in :valid_regions
 
 Test whether a value falls within an inclusive range:
 
-```
+```pivotal
 filter price between [100, 500]
 filter score between [0.8, 1.0]
 ```
@@ -78,7 +78,7 @@ filter score between [0.8, 1.0]
 | `endswith "x"` | String ends with suffix |
 | `not endswith "x"` | String does not end with suffix |
 
-```
+```pivotal
 filter product contains "Laptop"
 filter name not contains "test"
 filter event startswith "login"
@@ -94,7 +94,7 @@ min_price = 100
 target_region = "North"
 ```
 
-```
+```pivotal
 filter price > :min_price
 filter region == :target_region
 ```
@@ -103,7 +103,7 @@ filter region == :target_region
 
 Multiple `filter` lines under the same `df` are applied in sequence (AND logic):
 
-```
+```pivotal
 df result from sales
     filter status == "active"
     filter amount > 500

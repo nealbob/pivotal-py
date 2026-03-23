@@ -100,7 +100,7 @@ See [Python API](api.md) for full reference.
 
 Create a file called `analysis.pivotal`:
 
-```
+```pivotal
 # analysis.pivotal
 
 load sales "data/sales.csv"
@@ -135,7 +135,7 @@ See [CLI](cli.md) for all commands.
 
 Most operations act on the **active table**, set with `df`:
 
-```
+```pivotal
 df sales           # set sales as the active table
     filter ...     # operates on sales
     sort ...       # still operating on sales
@@ -143,7 +143,7 @@ df sales           # set sales as the active table
 
 Create a new table derived from an existing one:
 
-```
+```pivotal
 df top_sales from sales   # new table 'top_sales', reads from 'sales'
     filter revenue > 1000
     sort revenue desc
@@ -153,7 +153,7 @@ df top_sales from sales   # new table 'top_sales', reads from 'sales'
 
 Sub-options and clauses are indented under their parent statement. The exact number of spaces doesn't matter — just be consistent:
 
-```
+```pivotal
 df summary from sales
     group by region         # indented under df
         agg sum revenue     # indented under group by
@@ -162,7 +162,7 @@ df summary from sales
 
 ### Comments
 
-```
+```pivotal
 # Hash comments
 
 -- Double-dash comments
@@ -181,7 +181,7 @@ my_threshold = 1000
 regions = ["North", "South"]
 ```
 
-```
+```pivotal
 df filtered from sales
     filter revenue > :my_threshold
     filter region in :regions

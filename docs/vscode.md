@@ -99,7 +99,7 @@ Splits the file by `#%%` section markers and sends each section as a `%%pivotal`
 
 Use `#%%` to divide a `.pivotal` file into sections:
 
-```
+```pivotal
 #%% Load data
 load sales "data/sales.csv"
 load customers "customers.csv"

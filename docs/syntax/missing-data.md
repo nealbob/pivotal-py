@@ -6,19 +6,19 @@ Replace `null` / `NaN` values with a constant.
 
 ### Fill all columns
 
-```
+```pivotal
 df clean from raw
     fillna 0
 ```
 
-```
+```pivotal
 df clean from raw
     fillna "unknown"
 ```
 
 ### Fill specific columns
 
-```
+```pivotal
 df clean from raw
     fillna price=0, name="unknown", region="N/A"
 ```
@@ -32,7 +32,7 @@ df clean from raw
 
 ### Drop rows with any missing value
 
-```
+```pivotal
 df complete from raw
     dropna
 ```
@@ -41,12 +41,12 @@ df complete from raw
 
 Only drop a row if any of the listed columns are null:
 
-```
+```pivotal
 df complete from raw
     dropna price, quantity
 ```
 
-```
+```pivotal
 df complete from raw
     dropna customer_id, product_id, date
 ```
@@ -57,7 +57,7 @@ df complete from raw
 
 Append rows from another table onto the active table:
 
-```
+```pivotal
 df all_sales from jan_sales
     concat feb_sales
 

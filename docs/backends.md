@@ -24,7 +24,7 @@ parser.execute(dsl, backend='pandas')
 parser.generate_code(results, backend='pandas')
 ```
 
-```
+```pivotal
 # Jupyter — set for the session
 %pivotal_set backend=pandas
 
@@ -43,7 +43,7 @@ parser.execute(dsl, backend='duckdb')
 parser.generate_code(results, backend='duckdb')
 ```
 
-```
+```pivotal
 %pivotal_set backend=duckdb
 
 %%pivotal backend=duckdb
@@ -67,7 +67,7 @@ Useful for:
 parser.generate_code(results, backend='sql')
 ```
 
-```
+```pivotal
 %pivotal_set backend=sql
 ```
 
@@ -98,13 +98,13 @@ SELECT * FROM _cte_1_sales
 
 Persistent for the session:
 
-```
+```pivotal
 %pivotal_set backend=duckdb
 ```
 
 Override for a single cell:
 
-```
+```pivotal
 %%pivotal backend=duckdb
 df summary from sales
     group by region

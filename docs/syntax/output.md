@@ -4,7 +4,7 @@
 
 Display the current state of the active table inline in the notebook or terminal output.
 
-```
+```pivotal
 df sales
     filter price > 100
     show
@@ -12,7 +12,7 @@ df sales
 
 ### Variants
 
-```
+```pivotal
 show          # full table
 show head     # first 5 rows
 show summary  # descriptive statistics (like df.describe())
@@ -20,7 +20,7 @@ show summary  # descriptive statistics (like df.describe())
 
 `show` can appear mid-pipeline — it displays the table at that point without interrupting subsequent operations:
 
-```
+```pivotal
 df sales
     filter status == "active"
     show head              # peek at filtered data
@@ -37,7 +37,7 @@ Create a matplotlib chart from the active table.
 
 ### Basic syntax
 
-```
+```pivotal
 df summary
     plot <chart_name>
         kind "<chart_type>"
@@ -50,7 +50,7 @@ df summary
 
 The chart type can be specified directly after `plot`:
 
-```
+```pivotal
 df summary
     plot bar revenue_chart
         x category
@@ -87,7 +87,7 @@ df summary
 
 ### Examples
 
-```
+```pivotal
 df trends
     plot line price_trend
         x date
@@ -96,7 +96,7 @@ df trends
         legend False
 ```
 
-```
+```pivotal
 df raw
     plot scatter price_qty
         x price
@@ -106,7 +106,7 @@ df raw
         title "Price vs Quantity"
 ```
 
-```
+```pivotal
 df sales
     plot bar regional_chart
         x category
@@ -124,7 +124,7 @@ Create a formatted table using [Great Tables](https://posit-dev.github.io/great-
 
 ### Basic table
 
-```
+```pivotal
 df results
     table summary
         title "Sales Summary"
@@ -133,7 +133,7 @@ df results
 
 ### Full options
 
-```
+```pivotal
 df results
     table report
         title "Season Results"
@@ -167,7 +167,7 @@ df results
 
 **Font**
 
-```
+```pivotal
 font size 11          # font size in pt
 font "Georgia"        # font family
 ```
@@ -176,7 +176,7 @@ font "Georgia"        # font family
 
 The stub is the leftmost identifying column(s):
 
-```
+```pivotal
 stub product                     # single column
 stub product "Product"           # with custom header label
 stub product, category           # column + group-by
@@ -187,7 +187,7 @@ stub product, category "Item"    # all three
 
 Group columns under a shared header:
 
-```
+```pivotal
 spanner price, quantity "Metrics"
 spanner revenue, cost, profit "Financials"
 auto spanner    # infer from MultiIndex column names
@@ -195,13 +195,13 @@ auto spanner    # infer from MultiIndex column names
 
 **Column labels**
 
-```
+```pivotal
 label goals as "Goals Scored", win_rate as "Win %", revenue as "Revenue (£)"
 ```
 
 **Formatting**
 
-```
+```pivotal
 format number 2           # all numeric cols, 2 decimal places
 format integer            # all numeric cols, no decimals
 format col as number 2    # specific column
@@ -212,7 +212,7 @@ format col as date
 
 **Summary rows**
 
-```
+```pivotal
 summary sum                          # one "Total" row
 summary sum as "Total"               # explicit label
 summary sum as "Total", mean as "Avg"  # multiple summary rows
@@ -220,7 +220,7 @@ summary sum as "Total", mean as "Avg"  # multiple summary rows
 
 **Inline display**
 
-```
+```pivotal
 table my_table
     title "Results"
     show    # render inline in notebook

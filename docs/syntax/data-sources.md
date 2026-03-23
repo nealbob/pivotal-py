@@ -4,11 +4,11 @@
 
 Load a CSV, Excel, or Parquet file into a named table.
 
-```
+```pivotal
 load <table_name> "<file_path>"
 ```
 
-```
+```pivotal
 load sales "data/sales.csv"
 load products "catalog.xlsx"
 load transactions "archive.parquet"
@@ -16,7 +16,7 @@ load transactions "archive.parquet"
 
 Use a Python variable for the path:
 
-```
+```pivotal
 load data :my_file_path
 ```
 
@@ -24,7 +24,7 @@ load data :my_file_path
 
 Indent options beneath the `load` statement:
 
-```
+```pivotal
 load sales "data/sales.csv"
     header 0           # row index of header (default 0)
     names ["product", "quantity", "price"]  # override column names
@@ -43,7 +43,7 @@ load sales "data/sales.csv"
 
 Make an existing table the active table for subsequent operations:
 
-```
+```pivotal
 df sales
     filter price > 100
     sort price desc
@@ -53,13 +53,13 @@ df sales
 
 Create a new table by applying operations to an existing one. The original is unchanged:
 
-```
+```pivotal
 df top_sales from sales
     filter revenue > 1000
     sort revenue desc
 ```
 
-```
+```pivotal
 df summary from orders
     group by region
         agg sum amount as total
@@ -67,14 +67,14 @@ df summary from orders
 
 The `from <table>` clause is optional. Without it, operations apply to the named table in-place:
 
-```
+```pivotal
 df sales              # operates on 'sales', modifying it
     filter active == True
 ```
 
 With `from`, a new table is created:
 
-```
+```pivotal
 df active_sales from sales    # creates 'active_sales', 'sales' unchanged
     filter active == True
 ```
@@ -83,7 +83,7 @@ df active_sales from sales    # creates 'active_sales', 'sales' unchanged
 
 Multiple `df` blocks can be chained — the output of one becomes the input of the next:
 
-```
+```pivotal
 load raw "data.csv"
 
 df cleaned from raw
@@ -102,7 +102,7 @@ df summary from cleaned
 
 Remove a table from memory:
 
-```
+```pivotal
 delete sales
 delete temp_table
 ```
@@ -115,7 +115,7 @@ In Jupyter, this is equivalent to `del sales` in Python.
 
 Append rows from one table onto another:
 
-```
+```pivotal
 df all_sales from jan
     concat feb
     concat mar
@@ -123,7 +123,7 @@ df all_sales from jan
 
 Append multiple tables at once:
 
-```
+```pivotal
 df all_sales from q1
     concat q2, q3, q4
 ```

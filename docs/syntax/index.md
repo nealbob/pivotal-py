@@ -6,7 +6,7 @@ Pivotal is a line-oriented pipeline language. Each statement occupies one or mor
 
 A Pivotal script is a sequence of **blocks**. Each block begins with a top-level statement (`load`, `df`, `save`, `delete`) and its indented sub-statements:
 
-```
+```pivotal
 load sales "data/sales.csv"      # top-level: load a file
 
 df summary from sales             # top-level: define a table
@@ -24,7 +24,7 @@ Indentation is significant but flexible — any consistent number of spaces or t
 
 ## Comments
 
-```
+```pivotal
 # Single-line comment (hash)
 
 -- Single-line comment (SQL style)
@@ -42,7 +42,7 @@ threshold = 500
 categories = ["A", "B"]
 ```
 
-```
+```pivotal
 df filtered from sales
     filter amount > :threshold
     filter category in :categories
@@ -55,7 +55,7 @@ This works in Jupyter (referencing notebook variables) and in the Python API (re
 
 Strings use double quotes:
 
-```
+```pivotal
 filter name == "Alice"
 load data "path/to/file.csv"
 ```
@@ -71,9 +71,8 @@ load data "path/to/file.csv"
 | [`drop`](selection.md) | Remove specific columns |
 | [`distinct`](selection.md) | Remove duplicate rows |
 | [`assign`](transformation.md) | Create or modify columns |
-| [`rename`](transformation.md) | Rename columns |
+| [`rename`](selection.md) | Rename columns |
 | [`sort`](sorting.md) | Sort rows |
-| [`head`](sorting.md) | Keep first N rows |
 | [`group by`](grouping.md) | Aggregate by groups |
 | [`merge`](joining.md) | Join two tables |
 | [`pivot`](reshaping.md) | Pivot to wide format |

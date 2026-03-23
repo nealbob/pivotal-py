@@ -1,10 +1,10 @@
-# Transformation
+# Column Expressions
 
-The `assign` statement creates new columns or modifies existing ones. Each assignment is written as `column_name = expression`, indented under the `df` statement.
+Create new columns or modify existing ones by writing `column_name = expression` indented under the `df` statement.
 
 ## Simple expressions
 
-```
+```pivotal
 df sales
     revenue = price * quantity
     margin = (revenue - cost) / revenue
@@ -28,7 +28,7 @@ Any arithmetic expression is valid: `+`, `-`, `*`, `/`, `**` (power).
 | `len(col)` | String length |
 | `replace(col, old, new)` | Replace substring |
 
-```
+```pivotal
 df products
     name = upper(name)
     code = left(sku, 4)
@@ -40,7 +40,7 @@ df products
 
 **String concatenation** with `+`:
 
-```
+```pivotal
 df contacts
     full_name = last_name + ", " + first_name
     label = code + "-" + region
@@ -48,7 +48,7 @@ df contacts
 
 **Nesting** is supported:
 
-```
+```pivotal
 df products
     abbr = upper(left(name, 3))
 ```
@@ -66,7 +66,7 @@ Use aggregate functions to compute values relative to the whole table:
 | `max(col)` | Maximum |
 | `count(col)` | Count |
 
-```
+```pivotal
 df sales
     pct_of_total = amount / sum(amount)
     z_score = (amount - mean(amount)) / std(amount)
@@ -74,7 +74,7 @@ df sales
 
 **Windowed aggregates** — compute the aggregate within groups using `by`:
 
-```
+```pivotal
 df sales
     pct_of_region = amount / sum(amount)
         by region
@@ -87,7 +87,7 @@ df sales
 
 Create a column with different values depending on a condition:
 
-```
+```pivotal
 df sales
     discounted_price = price * 0.9
         where category == "clearance"
@@ -99,7 +99,7 @@ Rows where the condition is false receive `null` / `NaN`. To provide a fallback,
 
 Test multiple conditions in order; the last line is the default (else):
 
-```
+```pivotal
 df sales
     tier =
         where amount > 500: "Gold"
@@ -107,7 +107,7 @@ df sales
         "Bronze"
 ```
 
-```
+```pivotal
 df products
     price_band =
         where price > 1000: "premium"
@@ -115,7 +115,7 @@ df products
         "budget"
 ```
 
-```
+```pivotal
 df sales
     adjusted =
         where amount > 500: amount * 2
@@ -124,28 +124,3 @@ df sales
 ```
 
 The conditions are evaluated in order; the first match wins. The final line (no `where`) is the default value.
-
-## User-defined functions
-
-Define a Python function in a `python...end` block, then use it in an expression:
-
-```
-python
-    def clean_price(s):
-        return s.str.replace("$", "").astype(float)
-end
-
-df sales
-    price = clean_price(price)
-```
-
-See [Python Interop](python-interop.md) for details.
-
-## `rename` — rename columns
-
-```
-df sales
-    rename unit_price as price, prod_name as product
-```
-
-Rename multiple columns in one statement.

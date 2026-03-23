@@ -6,7 +6,7 @@ Export tables and charts to a self-contained data package (a directory of files)
 
 ### Basic save
 
-```
+```pivotal
 save "my_analysis"
 ```
 
@@ -14,7 +14,7 @@ Saves all tables and charts in the current session to a directory named `my_anal
 
 ### Options
 
-```
+```pivotal
 save "my_analysis"
     path "~/projects/output"        # output directory (default: current dir)
     format parquet                   # file format: csv (default) or parquet
@@ -35,7 +35,7 @@ save "my_analysis"
 
 Load all tables from a previously saved package:
 
-```
+```pivotal
 python
     import pivotal
     _pivotal_pkg = pivotal.Package.open("my_analysis")
@@ -46,7 +46,7 @@ load_all
 
 Load a specific table:
 
-```
+```pivotal
 load_package_table sales
 ```
 
@@ -56,7 +56,7 @@ load_package_table sales
 
 Remove a table from the current session to free memory:
 
-```
+```pivotal
 delete raw_import
 delete temp, scratch
 ```

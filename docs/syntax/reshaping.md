@@ -1,4 +1,4 @@
-# Reshaping
+# Pivot Tables
 
 ## `pivot` — wide format
 
@@ -6,7 +6,7 @@ Pivot a long table into wide format by spreading a column's values across multip
 
 ### Minimal pivot
 
-```
+```pivotal
 df pivot_table from sales
     pivot
         agg sum amount
@@ -18,7 +18,7 @@ This creates a table where each unique value of `region` becomes a column, and e
 
 ### Multiple aggregations
 
-```
+```pivotal
 df summary from sales
     pivot
         agg sum revenue, mean quantity
@@ -28,7 +28,7 @@ df summary from sales
 
 ### Multiple row and column dimensions
 
-```
+```pivotal
 df detailed from sales
     pivot
         agg sum sales, mean profit
@@ -54,7 +54,7 @@ Convert wide-format data (multiple value columns) to long format (single value c
 
 Specify the ID column(s) to keep fixed:
 
-```
+```pivotal
 df long from monthly_sales
     unpivot
         id region
@@ -64,7 +64,7 @@ All other columns become rows, with a generated `variable` and `value` column.
 
 ### Specify value columns
 
-```
+```pivotal
 df long from monthly_sales
     unpivot
         id region
@@ -75,7 +75,7 @@ Columns not listed in `id` or `cols` are dropped.
 
 ### Custom column names
 
-```
+```pivotal
 df long from monthly_sales
     unpivot
         id region
@@ -86,7 +86,7 @@ df long from monthly_sales
 
 ### Multiple ID columns
 
-```
+```pivotal
 df long from sales
     unpivot
         id region, year

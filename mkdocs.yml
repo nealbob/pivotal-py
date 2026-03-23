@@ -5,6 +5,8 @@ repo_name: nealbob/pivotal-py
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   palette:
     - scheme: default
       primary: indigo
@@ -46,14 +48,14 @@ nav:
     - Data Sources: syntax/data-sources.md
     - Filtering: syntax/filtering.md
     - Selection: syntax/selection.md
-    - Transformation: syntax/transformation.md
-    - Sorting & Limiting: syntax/sorting.md
+    - Column Expressions: syntax/transformation.md
+    - Sorting: syntax/sorting.md
     - Grouping & Aggregation: syntax/grouping.md
     - Joining: syntax/joining.md
-    - Reshaping: syntax/reshaping.md
+    - Pivot Tables: syntax/reshaping.md
     - Window Functions: syntax/window-functions.md
     - Missing Data: syntax/missing-data.md
-    - Python Interop: syntax/python-interop.md
+    - Python Integration: syntax/python-interop.md
     - Output: syntax/output.md
     - Saving: syntax/saving.md
   - Backends: backends.md

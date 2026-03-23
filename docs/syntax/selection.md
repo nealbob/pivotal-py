@@ -4,12 +4,12 @@
 
 Keep only the specified columns, in the given order:
 
-```
+```pivotal
 df lean from customers
     select customer_id, name, email
 ```
 
-```
+```pivotal
 df report from sales
     select product, region, revenue, date
 ```
@@ -18,7 +18,7 @@ df report from sales
 
 Remove specific columns, keep everything else:
 
-```
+```pivotal
 df clean from raw
     drop internal_id, debug_flag, temp_col
 ```
@@ -29,7 +29,7 @@ df clean from raw
 
 Remove rows where every column is identical to another row:
 
-```
+```pivotal
 df unique from sales
     distinct
 ```
@@ -38,7 +38,7 @@ df unique from sales
 
 Keep the first occurrence for each unique combination of the specified columns:
 
-```
+```pivotal
 df unique_products from sales
     distinct product, category
 ```
@@ -48,7 +48,7 @@ df unique_products from sales
 
 ## `rename` — rename columns
 
-```
+```pivotal
 df renamed from sales
     rename product as item, quantity as qty, unit_price as price
 ```
