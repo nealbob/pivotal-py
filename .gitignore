@@ -52,6 +52,9 @@ Thumbs.db
 output/*
 !output/.gitkeep
 
+# MkDocs generated site
+site/
+
 # Claude
 .claude/
 

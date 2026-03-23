@@ -2,7 +2,7 @@
 
 <img src="pivotal_logo.svg" width="120">
 
-**Pivotal** is a pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal` files — Pivotal compiles them to pandas, DuckDB, or SQL.
+**Pivotal** is an ultra-simple data transformation language for Python. Do all your data processing and analysis within Python without getting bogged down in Pandas syntax or SQL.
 
 <img src="ataglance.png" width="600">
 
@@ -12,19 +12,17 @@ Check out the live demo in JupyterLab:
 
 ## Features
 
-**Readable syntax** — write data transformations in a clean, line-oriented DSL that reads top-to-bottom
+**Readable, Writable syntax** — write data transformations in a simple declarative syntax
 
-**Multiple backends** — compile to pandas (default), in-process DuckDB, or pure SQL CTEs
+**Multiple backends** — compile to Pandas (default), in-process DuckDB (SQL)
 
 **Pipeline-oriented** — chain operations naturally with indentation blocks
 
-**JupyterLab integration** — `%%pivotal` cell magic with an interactive viewer panel, syntax highlighting, autocomplete, and no-code pivot tables and charts
+**JupyterLab integration** — `%%pivotal` cell magic interactive object explorer and viewer, syntax highlighting, autocomplete, export notebook to Python code
 
-**VS Code integration** — syntax highlighting, autocomplete, interactive execution, and code export
+**VS Code integration** — syntax highlighting, autocomplete, interactive execution, and Python code export
 
 **Plotting and tables** — simple syntax for charts and publication-ready tables via matplotlib and Great Tables
-
-**Export to code** — convert any notebook to `.py`, `.sql`, or `.pivotal` files
 
 **Data packages** — export all notebook output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
 
