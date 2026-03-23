@@ -1,0 +1,29 @@
+/* Pivotal brand colours — drawn from the logo */
+
+/* Light scheme */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:        #1E293B;   /* dark navy — logo background */
+  --md-primary-fg-color--light: #334155;
+  --md-primary-fg-color--dark:  #0F172A;
+  --md-primary-bg-color:        #ffffff;   /* white text on dark header */
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color:              #D97706;   /* amber/gold from logo */
+  --md-accent-fg-color--transparent: rgba(217, 119, 6, 0.1);
+  --md-accent-bg-color:              #ffffff;
+  --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
+}
+
+/* Dark scheme */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #1E293B;
+  --md-primary-fg-color--light: #334155;
+  --md-primary-fg-color--dark:  #0F172A;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color:              #FCD34D;   /* brighter amber for dark bg */
+  --md-accent-fg-color--transparent: rgba(252, 211, 77, 0.1);
+  --md-accent-bg-color:              #ffffff;
+  --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
+}
