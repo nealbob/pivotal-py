@@ -109,23 +109,5 @@ delete temp_table
 
 In Jupyter, this is equivalent to `del sales` in Python.
 
----
-
-## `concat` — stack tables vertically
-
-Append rows from one table onto another:
-
-```pivotal
-df all_sales from jan
-    concat feb
-    concat mar
-```
-
-Append multiple tables at once:
-
-```pivotal
-df all_sales from q1
-    concat q2, q3, q4
-```
 
 Tables must have compatible columns.
