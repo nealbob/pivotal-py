@@ -343,8 +343,15 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
                 seen_tables[name] = True
 
     # Send each table's post-execution state
+    ddb_conn = ns.get('_pivotal_ddb')
     for name in seen_tables:
         obj = ns.get(name)
+        if not isinstance(obj, pd.DataFrame) and ddb_conn is not None:
+            try:
+                obj = ddb_conn.execute(f"SELECT * FROM {name}").df()
+                ns[name] = obj
+            except Exception:
+                pass
         if isinstance(obj, pd.DataFrame):
             viewer.send_dataframe(
                 name, obj,
