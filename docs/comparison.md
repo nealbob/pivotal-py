@@ -9,7 +9,7 @@ All examples assume a Jupyter notebook context.
 ## Pivotal
 
 ```python
-import pivotal  # once per notebook
+import pivotal
 ```
 
 ```pivotal
