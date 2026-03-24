@@ -1,18 +1,11 @@
-# Language Comparison
+import re
 
-The same analysis written in Pivotal and four alternatives. The example loads invoice and customer data, calculates income after fees, summarises by customer, and saves the result.
+# Characters that require Shift on a US keyboard
+SHIFT_CHARS = set('!@#$%^&*()_+{}|:"<>?~')
 
-All examples assume a Jupyter notebook context.
-
----
-
-## Pivotal
-
-```python
-import pivotal  # once per notebook
-```
-
-```pivotal
+examples = {
+    "Pivotal": """\
+import pivotal
 %%pivotal
 load invoices "invoices.csv"
 load customers "customers.csv"
@@ -32,14 +25,10 @@ df summary from invoices
     select customer_id, name, sum_income
 
 save "my_analysis"
-    path "~/projects/output"
-```
+    path "~/projects/output"\
+""",
 
----
-
-## pandas
-
-```python
+    "pandas": """\
 import pandas as pd
 
 invoices = pd.read_csv("invoices.csv")
@@ -67,16 +56,10 @@ summary["name"] = summary["last_name"] + ", " + summary["first_name"]
 summary = summary[["customer_id", "name", "sum_income"]]
 
 invoices.to_csv("~/projects/output/invoices.csv", index=False)
-summary.to_csv("~/projects/output/my_analysis.csv", index=False)
-```
+summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
+""",
 
-Readable with method chaining, but requires knowing the `agg` dict-of-tuples syntax, that `.reset_index()` is needed after `groupby`, and that column assignment must happen outside the chain.
-
----
-
-## Polars
-
-```python
+    "Polars": """\
 import polars as pl
 
 invoices = pl.read_csv("invoices.csv")
@@ -109,29 +92,17 @@ summary = (
 )
 
 invoices.write_csv("~/projects/output/invoices.csv")
-summary.write_csv("~/projects/output/my_analysis.csv")
-```
+summary.write_csv("~/projects/output/my_analysis.csv")\
+""",
 
-Fast and expressive, but every column reference requires `pl.col()` and every literal `pl.lit()`. The ceremony adds up across a longer pipeline.
-
----
-
-## SQL (%%sql magic via DuckDB)
-
-[JupySQL](https://jupysql.ploomber.io/) provides `%%sql` cell magic backed by DuckDB, which means you can write clean SQL directly in a notebook cell.
-
-```python
-# Setup cell (once per notebook)
+    "%%sql": """\
 %load_ext sql
 %sql duckdb://
-```
-
-```sql
 %%sql
 WITH enriched AS (
     SELECT *,
-        0.8            AS transaction_fees,
-        total - 0.8    AS income
+        0.8 AS transaction_fees,
+        total - 0.8 AS income
     FROM read_csv_auto('invoices.csv')
     WHERE invoice_date >= '1970-01-16'
 ),
@@ -142,9 +113,9 @@ filtered AS (
 grouped AS (
     SELECT
         customer_id,
-        AVG(total)   AS mean_total,
-        SUM(income)  AS sum_income,
-        COUNT(*)     AS ct
+        AVG(total) AS mean_total,
+        SUM(income) AS sum_income,
+        COUNT(*) AS ct
     FROM filtered
     GROUP BY customer_id
 )
@@ -154,24 +125,12 @@ SELECT
     g.sum_income
 FROM grouped g
 LEFT JOIN read_csv_auto('customers.csv') c ON g.customer_id = c.customer_id
-ORDER BY g.sum_income DESC
-```
+ORDER BY g.sum_income DESC\
+""",
 
-CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
-
----
-
-## PRQL
-
-[PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal.
-
-```python
-# Setup cell (once per notebook)
+    "PRQL": """\
 import prql_python as prql
 import duckdb
-```
-
-```
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
@@ -190,26 +149,39 @@ sort {-sum_income}
 join side:left customers (==customer_id)
 derive name = last_name + ", " + first_name
 select {customer_id, name, sum_income}
-```
-
-```python
-# Execute and save
 sql = prql.compile(prql_query)
 summary = duckdb.sql(sql).df()
-summary.to_csv("~/projects/output/my_analysis.csv", index=False)
-```
+summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
+""",
+}
 
-PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The cost is that it compiles to SQL rather than executing directly, so Python glue is still needed for file I/O and execution, and loading/saving data requires stepping outside the language.
+def count_keypresses(text):
+    count = 0
+    for char in text:
+        if char == '\n':
+            count += 1  # Enter
+        elif char == '\t':
+            count += 4  # Tab (or spaces — count as typed)
+        elif char in SHIFT_CHARS:
+            count += 2  # Shift + key
+        elif char.isupper():
+            count += 2  # Shift + letter
+        else:
+            count += 1  # regular char inc. space
+    return count
 
----
+def count_tokens(text):
+    # Approximate LLM tokenisation: words and punctuation as separate tokens
+    return len(re.findall(r'[a-zA-Z0-9_]+|[^\w\s]|\S', text))
 
-## Summary
+def non_blank_lines(text):
+    return sum(1 for l in text.splitlines() if l.strip())
 
-| | Pivotal | pandas | Polars | %%sql | PRQL |
-|---|---|---|---|---|---|
-| Lines | 18 | 23 | 29 | 30 | 23 |
-| Characters | 539 | 866 | 911 | 668 | 583 |
-| Key presses | 570 | 976 | 1061 | 827 | 632 |
-| Tokens | 101 | 256 | 299 | 151 | 136 |
-
-Key press count assumes shift+key = 2 presses for uppercase letters and special characters (`(`, `"`, `_`, `{` etc.). Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).
+print(f"{'':12} {'Lines':>6} {'Chars':>6} {'Keypresses':>11} {'Tokens':>7}")
+print("-" * 46)
+for name, code in examples.items():
+    lines  = non_blank_lines(code)
+    chars  = len(code)
+    kp     = count_keypresses(code)
+    tokens = count_tokens(code)
+    print(f"{name:12} {lines:>6} {chars:>6} {kp:>11} {tokens:>7}")
