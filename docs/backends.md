@@ -14,7 +14,7 @@ Pivotal supports three execution backends. The same DSL source runs unchanged on
 | Output | Python objects | Python objects | `.sql` file |
 | Best for | Interactive exploration | Large datasets, production | Sharing with SQL users |
 
-## pandas (default)
+## Pandas (default)
 
 The default backend. Uses pandas DataFrames throughout. Best for interactive analysis and datasets that fit comfortably in memory.
 
