@@ -108,7 +108,6 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 
 === "DuckDB / SQL"
 
-
     ```python
     # Setup cell (once per notebook)
     %load_ext sql
