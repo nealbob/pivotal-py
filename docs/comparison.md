@@ -128,33 +128,33 @@ Fast and expressive, but every column reference requires `pl.col()` and every li
 
 ```sql
 %%sql
-WITH enriched AS (
-    SELECT *,
-        0.8            AS transaction_fees,
-        total - 0.8    AS income
-    FROM read_csv_auto('invoices.csv')
-    WHERE invoice_date >= '1970-01-16'
+with enriched as (
+    select *,
+        0.8 as transaction_fees,
+        total - 0.8 as income
+    from read_csv_auto('invoices.csv')
+    where invoice_date >= '1970-01-16'
 ),
-filtered AS (
-    SELECT * FROM enriched
-    WHERE income > 1
+filtered as (
+    select * from enriched
+    where income > 1
 ),
-grouped AS (
-    SELECT
+grouped as (
+    select
         customer_id,
-        AVG(total)   AS mean_total,
-        SUM(income)  AS sum_income,
-        COUNT(*)     AS ct
-    FROM filtered
-    GROUP BY customer_id
+        avg(total) as mean_total,
+        sum(income) as sum_income,
+        count(*) as ct
+    from filtered
+    group by customer_id
 )
-SELECT
+select
     g.customer_id,
-    c.last_name || ', ' || c.first_name AS name,
+    c.last_name || ', ' || c.first_name as name,
     g.sum_income
-FROM grouped g
-LEFT JOIN read_csv_auto('customers.csv') c ON g.customer_id = c.customer_id
-ORDER BY g.sum_income DESC
+from grouped g
+left join read_csv_auto('customers.csv') c on g.customer_id = c.customer_id
+order by g.sum_income desc
 ```
 
 CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
@@ -211,7 +211,7 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 30 | 25 |
 | Characters | 539 | 866 | 911 | 668 | 561 |
-| Key presses | 570 | 976 | 1,061 | 827 | 609 |
+| Key presses | 570 | 976 | 1,061 | 716 | 609 |
 | Tokens | 101 | 256 | 299 | 151 | 137 |
 
-Key press count assumes shift+key = 2 presses for uppercase letters and special characters (`(`, `"`, `_`, `{` etc.). Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).
+Key press count assumes shift+key = 2 presses for special characters (`(`, `"`, `_`, `{` etc.) and uppercase letters. SQL keywords are written lowercase since SQL is case-insensitive. Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).

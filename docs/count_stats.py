@@ -99,33 +99,33 @@ summary.write_csv("~/projects/output/my_analysis.csv")\
 %load_ext sql
 %sql duckdb://
 %%sql
-WITH enriched AS (
-    SELECT *,
-        0.8 AS transaction_fees,
-        total - 0.8 AS income
-    FROM read_csv_auto('invoices.csv')
-    WHERE invoice_date >= '1970-01-16'
+with enriched as (
+    select *,
+        0.8 as transaction_fees,
+        total - 0.8 as income
+    from read_csv_auto('invoices.csv')
+    where invoice_date >= '1970-01-16'
 ),
-filtered AS (
-    SELECT * FROM enriched
-    WHERE income > 1
+filtered as (
+    select * from enriched
+    where income > 1
 ),
-grouped AS (
-    SELECT
+grouped as (
+    select
         customer_id,
-        AVG(total) AS mean_total,
-        SUM(income) AS sum_income,
-        COUNT(*) AS ct
-    FROM filtered
-    GROUP BY customer_id
+        avg(total) as mean_total,
+        sum(income) as sum_income,
+        count(*) as ct
+    from filtered
+    group by customer_id
 )
-SELECT
+select
     g.customer_id,
-    c.last_name || ', ' || c.first_name AS name,
+    c.last_name || ', ' || c.first_name as name,
     g.sum_income
-FROM grouped g
-LEFT JOIN read_csv_auto('customers.csv') c ON g.customer_id = c.customer_id
-ORDER BY g.sum_income DESC\
+from grouped g
+left join read_csv_auto('customers.csv') c on g.customer_id = c.customer_id
+order by g.sum_income desc\
 """,
 
     "PRQL": """\
