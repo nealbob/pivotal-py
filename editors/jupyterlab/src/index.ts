@@ -522,8 +522,11 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     const applyViewerWidth = () => {
       if (viewerArea === 'right') {
+        // Cap at 50% of the viewport so the notebook always gets at least half
+        // the screen on small laptops / tablets.
+        const px = Math.min(viewerWidth, Math.floor(window.innerWidth * 0.5));
         document.documentElement.style.setProperty(
-          '--jp-sidebar-default-width', viewerWidth + 'px'
+          '--jp-sidebar-default-width', px + 'px'
         );
       }
     };
