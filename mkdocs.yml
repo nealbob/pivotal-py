@@ -62,6 +62,7 @@ nav:
     - Output: syntax/output.md
     - Saving: syntax/saving.md
   - Backends: backends.md
+  - Comparison: comparison.md
   - Editors:
     - JupyterLab: jupyter.md
     - VS Code: vscode.md

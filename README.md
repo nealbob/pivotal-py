@@ -2,18 +2,9 @@
 
 <img src="pivotal_logo.svg" width="120">
 
-**Pivotal** is an ultra-simple data transformation language for Python. Do all your data processing and analysis within Python without getting bogged down in Pandas syntax or SQL.
+**Pivotal** is a simple data transformation language for Python. Process and analyze your data within Python without getting bogged down in Pandas syntax or SQL.
 
-<table>
-<tr>
-<td><b>Pivotal</b></td>
-<td><b>pandas</b></td>
-</tr>
-<tr>
-<td><img src="ataglance.png"></td>
-<td><img src="ataglance_py.png"></td>
-</tr>
-</table>
+<img src="ataglance.png" width="600">
 
 Check out the live demo in JupyterLab:
 
@@ -27,7 +18,7 @@ Check out the live demo in JupyterLab:
 
 **Pipeline-oriented** — chain operations naturally with indentation blocks
 
-**JupyterLab integration** — `%%pivotal` cell magic interactive object explorer and viewer, syntax highlighting, autocomplete, export notebook to Python code
+**JupyterLab integration** — `%%pivotal` cell magic, interactive object viewer, syntax highlighting, autocomplete, export to Python code
 
 **VS Code integration** — syntax highlighting, autocomplete, interactive execution, and Python code export
 
