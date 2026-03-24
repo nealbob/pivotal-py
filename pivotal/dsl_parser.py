@@ -3190,7 +3190,14 @@ class CodeGenerator:
         }
         join_type = join_map.get(how, 'INNER JOIN')
 
-        if not keys or keys == '':
+        kwargs = ast_node.get('kwargs', {})
+        left_on = kwargs.get('left_on')
+        right_on = kwargs.get('right_on')
+
+        if left_on and right_on:
+            sql = (f"CREATE OR REPLACE TABLE {t} AS SELECT {t}.*, {right}.* "
+                   f"FROM {t} {join_type} {right} ON {t}.{left_on} = {right}.{right_on}")
+        elif not keys or keys == '':
             sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} NATURAL {join_type} {right}"
         else:
             if isinstance(keys, list):

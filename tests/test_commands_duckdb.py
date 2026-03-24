@@ -504,6 +504,19 @@ def test_merge_multi_key_duckdb(parser):
     assert 'label' in df.columns
 
 
+def test_merge_left_on_right_on_duckdb(parser):
+    """left_on/right_on with different column names must use ON clause, not NATURAL JOIN."""
+    orders = pd.DataFrame({'order_id': [1, 2, 3], 'cust_id': [10, 20, 10]})
+    customers = pd.DataFrame({'id': [10, 20], 'name': ['Alice', 'Bob']})
+    conn = make_conn('orders', orders, 'customers', customers)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df orders\nleft merge customers\n    left_on cust_id\n    right_on id\n', ns)
+    df = fetch(ns, 'orders')
+    assert 'name' in df.columns
+    assert df[df['cust_id'] == 10]['name'].iloc[0] == 'Alice'
+    assert df[df['cust_id'] == 20]['name'].iloc[0] == 'Bob'
+
+
 # ---------------------------------------------------------------------------
 # Codegen-only tests (no execution — verify generated SQL)
 # ---------------------------------------------------------------------------
