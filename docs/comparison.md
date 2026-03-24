@@ -1,6 +1,6 @@
 # Language Comparison
 
-The same analysis example (based on the [PRQL website](https://prql-lang.org/)) written in Pivotal and four alternatives. All examples assume a Jupyter notebook context.
+The same analysis example (based on the [PRQL website](https://prql-lang.org/)) written in Pivotal and four alternatives. All examples assume a Jupyter notebook context. 
 
 ---
 

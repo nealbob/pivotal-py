@@ -53,21 +53,6 @@ Install from the VS Code Marketplace, or build locally from `editors/vscode`.
 
 ---
 
-## Quick start
-
-```python
-%%pivotal
-load sales "data/sales.csv"
-
-df summary from sales
-    filter status == "active"
-    group by region
-        agg sum revenue as total, count id as deals
-    sort total desc
-```
-
----
-
 ## Documentation
 
 Full documentation including the complete syntax reference, backend guide, and API reference:
