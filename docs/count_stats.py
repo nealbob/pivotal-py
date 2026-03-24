@@ -5,7 +5,7 @@ SHIFT_CHARS = set('!@#$%^&*()_+{}|:"<>?~')
 
 examples = {
     "Pivotal": """\
-%load_ext pivotal
+import pivotal
 %%pivotal
 load invoices "invoices.csv"
 load customers "customers.csv"
