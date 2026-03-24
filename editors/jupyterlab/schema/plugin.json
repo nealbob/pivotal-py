@@ -9,6 +9,14 @@
       "type": "string",
       "enum": ["right", "main", "down"],
       "default": "right"
+    },
+    "viewerWidth": {
+      "title": "Right sidebar initial width (px)",
+      "description": "Initial width in pixels of the right sidebar when viewerArea is 'right'. JupyterLab reads --jp-sidebar-default-width on first load; after you manually resize the panel, your preference is saved and this setting has no further effect.",
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 2000,
+      "default": 600
     }
   },
   "additionalProperties": false

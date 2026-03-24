@@ -518,12 +518,22 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
     app.shell.add(explorer, 'left', { rank: 100 });
 
     let viewerArea = 'right';
+    let viewerWidth = 600;
+
+    const applyViewerWidth = () => {
+      if (viewerArea === 'right') {
+        document.documentElement.style.setProperty(
+          '--jp-sidebar-default-width', viewerWidth + 'px'
+        );
+      }
+    };
 
     // For 'right': add once at startup (sidebar widgets persist).
     // For 'main': add lazily on first use so the layout restorer doesn't
     //             clobber the tab before any data has arrived.
     const addViewerToRight = () => {
       app.shell.add(viewer, 'right', { rank: 900 });
+      applyViewerWidth();
     };
 
     const applyArea = (area: string) => {
@@ -544,9 +554,12 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
 
     if (settings) {
       settings.load('@pivotal/jupyterlab:plugin').then(s => {
+        viewerWidth = (s.get('viewerWidth').composite as number) ?? 600;
         applyArea((s.get('viewerArea').composite as string) ?? 'right');
         s.changed.connect(() => {
+          viewerWidth = (s.get('viewerWidth').composite as number) ?? 600;
           applyArea((s.get('viewerArea').composite as string) ?? 'right');
+          applyViewerWidth();
         });
       }).catch(() => {
         viewerArea = 'right';
