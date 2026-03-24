@@ -2,9 +2,18 @@
 
 The same analysis written in Pivotal and four alternatives. The example loads invoice and customer data, calculates income after fees, summarises by customer, and saves the result.
 
+All examples assume a Jupyter notebook context.
+
+---
+
 ## Pivotal
 
+```python
+import pivotal  # once per notebook
+```
+
 ```pivotal
+%%pivotal
 load invoices "invoices.csv"
 load customers "customers.csv"
 
@@ -61,7 +70,7 @@ invoices.to_csv("~/projects/output/invoices.csv", index=False)
 summary.to_csv("~/projects/output/my_analysis.csv", index=False)
 ```
 
-The pandas version is idiomatic and readable with method chaining, but requires knowing the `agg` dict-of-tuples syntax, that `.reset_index()` is needed after `groupby`, and that column assignment must happen outside the chain.
+Readable with method chaining, but requires knowing the `agg` dict-of-tuples syntax, that `.reset_index()` is needed after `groupby`, and that column assignment must happen outside the chain.
 
 ---
 
@@ -103,68 +112,27 @@ invoices.write_csv("~/projects/output/invoices.csv")
 summary.write_csv("~/projects/output/my_analysis.csv")
 ```
 
-Polars is expressive and fast, but requires wrapping every column reference in `pl.col()` and every literal in `pl.lit()`. The syntax is more verbose than pandas for column assignment.
+Fast and expressive, but every column reference requires `pl.col()` and every literal `pl.lit()`. The ceremony adds up across a longer pipeline.
 
 ---
 
-## DuckDB
+## SQL (%%sql magic via DuckDB)
 
-DuckDB can be used directly from Python with SQL strings. CTEs keep it readable:
+[JupySQL](https://jupysql.ploomber.io/) provides `%%sql` cell magic backed by DuckDB, which means you can write clean SQL directly in a notebook cell.
 
 ```python
-import duckdb
-
-invoices = duckdb.read_csv("invoices.csv")
-customers = duckdb.read_csv("customers.csv")
-
-summary = duckdb.sql("""
-    WITH enriched AS (
-        SELECT *,
-            0.8            AS transaction_fees,
-            total - 0.8    AS income
-        FROM invoices
-        WHERE invoice_date >= '1970-01-16'
-    ),
-    filtered AS (
-        SELECT * FROM enriched
-        WHERE income > 1
-    ),
-    grouped AS (
-        SELECT
-            customer_id,
-            AVG(total)   AS mean_total,
-            SUM(income)  AS sum_income,
-            COUNT(*)     AS ct
-        FROM filtered
-        GROUP BY customer_id
-    )
-    SELECT
-        g.customer_id,
-        c.last_name || ', ' || c.first_name AS name,
-        g.sum_income
-    FROM grouped g
-    LEFT JOIN customers c ON g.customer_id = c.customer_id
-    ORDER BY g.sum_income DESC
-""")
-
-duckdb.sql("COPY (SELECT * FROM grouped) TO '~/projects/output/invoices.csv'")
-summary.write_csv("~/projects/output/my_analysis.csv")
+# Setup cell (once per notebook)
+%load_ext sql
+%sql duckdb://
 ```
 
-DuckDB with CTEs is actually quite readable for pure query logic. The cost is switching mental models between Python and SQL within the same file, and the saving/loading boilerplate around the SQL block.
-
----
-
-## SQL
-
-Pure SQL, as you would write it in a `.sql` file or query editor:
-
 ```sql
+%%sql
 WITH enriched AS (
     SELECT *,
         0.8            AS transaction_fees,
         total - 0.8    AS income
-    FROM invoices
+    FROM read_csv_auto('invoices.csv')
     WHERE invoice_date >= '1970-01-16'
 ),
 filtered AS (
@@ -179,29 +147,69 @@ grouped AS (
         COUNT(*)     AS ct
     FROM filtered
     GROUP BY customer_id
-),
-result AS (
-    SELECT
-        g.customer_id,
-        c.last_name || ', ' || c.first_name AS name,
-        g.sum_income
-    FROM grouped g
-    LEFT JOIN customers c ON g.customer_id = c.customer_id
-    ORDER BY g.sum_income DESC
 )
-SELECT * FROM result;
+SELECT
+    g.customer_id,
+    c.last_name || ', ' || c.first_name AS name,
+    g.sum_income
+FROM grouped g
+LEFT JOIN read_csv_auto('customers.csv') c ON g.customer_id = c.customer_id
+ORDER BY g.sum_income DESC
 ```
 
-SQL with CTEs reads almost like a pipeline and is familiar to analysts. The limitations show up at the edges: no native file I/O, no Python interop, multi-step mutations require new CTEs, and the result has to be wired into Python separately to do anything further with it.
+CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
+
+---
+
+## PRQL
+
+[PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal.
+
+```python
+# Setup cell (once per notebook)
+import prql_python as prql
+import duckdb
+```
+
+```
+from invoices
+filter invoice_date >= @1970-01-16
+derive {
+    transaction_fees = 0.8,
+    income = total - 0.8,
+}
+filter income > 1
+group {customer_id} (
+    aggregate {
+        mean_total = average total,
+        sum_income = sum income,
+        ct = count total,
+    }
+)
+sort {-sum_income}
+join side:left customers (==customer_id)
+derive name = last_name + ", " + first_name
+select {customer_id, name, sum_income}
+```
+
+```python
+# Execute and save
+sql = prql.compile(prql_query)
+summary = duckdb.sql(sql).df()
+summary.to_csv("~/projects/output/my_analysis.csv", index=False)
+```
+
+PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The cost is that it compiles to SQL rather than executing directly, so Python glue is still needed for file I/O and execution, and loading/saving data requires stepping outside the language.
 
 ---
 
 ## Summary
 
-| | Pivotal | pandas | Polars | DuckDB | SQL |
+| | Pivotal | pandas | Polars | %%sql | PRQL |
 |---|---|---|---|---|---|
-| Lines (this example) | 19 | 24 | 26 | 30 | 26 |
-| Syntax to learn | Minimal | Medium | Verbose | SQL | SQL |
-| Python interop | Native | Native | Native | Partial | None |
-| Performance | pandas/DuckDB | Good | Excellent | Excellent | — |
-| File I/O | Built-in | Manual | Manual | Manual | None |
+| Lines (this example) | 20 | 24 | 26 | 24 | 20 + glue |
+| Syntax to learn | Minimal | Medium | Verbose | SQL | New DSL |
+| Python interop | Native | Native | Native | Via Python cell | Via Python glue |
+| Performance | pandas/DuckDB | Good | Excellent | Excellent | Depends on backend |
+| File I/O | Built-in | Manual | Manual | Manual | Manual |
+| Multi-step mutations | Natural | Natural | Natural | Requires CTEs | Requires new pipeline |
