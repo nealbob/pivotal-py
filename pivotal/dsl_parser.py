@@ -2924,6 +2924,7 @@ class CodeGenerator:
         """Return Python code that sets up the persistent DuckDB connection."""
         return (
             "import duckdb as _ddb\n"
+            "import pandas as pd\n"
             "if '_pivotal_ddb' not in globals(): globals()['_pivotal_ddb'] = _ddb.connect()\n"
             "_pvt = globals()['_pivotal_ddb']"
         )
@@ -3031,9 +3032,11 @@ class CodeGenerator:
                 f"elif _ext == 'parquet':\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet('{{_src}}')\")\n"
                 f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
-                f"    _pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
-                f"    _pvt.execute(f\"ATTACH IF NOT EXISTS '{{_src}}' AS _sqlite_db (TYPE SQLITE, READ_ONLY)\")\n"
-                f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")\n"
+                f"    import sqlite3 as _sqlite3\n"
+                f"    with _sqlite3.connect(_src) as _conn:\n"
+                f"        _df_tmp = pd.read_sql('SELECT * FROM {t}', _conn)\n"
+                f"    _pvt.register('_load_tmp', _df_tmp)\n"
+                f"    _pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')\n"
                 f"else:\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv('{{_src}}')\")"
             )
@@ -3050,11 +3053,12 @@ class CodeGenerator:
             elif ext == 'parquet':
                 load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet(\'{source_str}\')")'
             elif ext in ('sqlite', 'db', 'sqlite3'):
-                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
                 load_code = (
-                    f"_pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
-                    f"_pvt.execute(\"ATTACH IF NOT EXISTS '{source_str}' AS _sqlite_db (TYPE SQLITE, READ_ONLY)\")\n"
-                    f"_pvt.execute(\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")"
+                    f"import sqlite3 as _sqlite3\n"
+                    f"with _sqlite3.connect('{source_str}') as _conn:\n"
+                    f"    _df_tmp = pd.read_sql('SELECT * FROM {t}', _conn)\n"
+                    f"_pvt.register('_load_tmp', _df_tmp)\n"
+                    f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')"
                 )
             else:
                 load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv(\'{source_str}\')")'

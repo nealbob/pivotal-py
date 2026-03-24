@@ -1210,6 +1210,16 @@ class PivotalMagics(Magics):
                 block_stack.append(('skip', indent, {}))
                 continue
 
+            # _pvt.execute('SQL') → show just the SQL string
+            if stripped.startswith('_pvt.execute('):
+                inner = stripped[len('_pvt.execute('):].rstrip(')')
+                # strip outer quotes (plain or f-string)
+                inner = re.sub(r'^f?["\']', '', inner)
+                inner = re.sub(r'["\']$', '', inner)
+                if inner:
+                    result.append(' ' * indent + inner)
+                continue
+
             # Lines whose first token starts with _ (internal variables)
             if re.match(r'_[a-zA-Z]', stripped):
                 # If it's `_var = obj.method(...)`, show just the RHS
@@ -1250,7 +1260,7 @@ class PivotalMagics(Magics):
         overrides = {}
         for part in (line or '').split():
             k, _, v = part.partition('=')
-            k, v = k.strip(), v.strip().lower()
+            k, v = k.strip().rstrip(','), v.strip().rstrip(',').lower()
             if k == 'viewer':
                 overrides['viewer'] = v in ('true', '1', 'yes')
             elif k == 'output_code':
