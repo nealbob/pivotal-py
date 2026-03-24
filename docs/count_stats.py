@@ -157,7 +157,19 @@ summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
 """,
 }
 
-def count_keypresses(text):
+def indent_to_tabs(text, indent_size=4):
+    """Replace leading spaces with tabs so each indent level = 1 key press."""
+    lines = []
+    for line in text.splitlines():
+        stripped = line.lstrip(' ')
+        n_spaces = len(line) - len(stripped)
+        n_tabs = n_spaces // indent_size
+        remainder = n_spaces % indent_size
+        lines.append('\t' * n_tabs + ' ' * remainder + stripped)
+    return '\n'.join(lines)
+
+def count_keypresses(text, indent_size=4):
+    text = indent_to_tabs(text, indent_size)
     count = 0
     for char in text:
         if char == '\n':
@@ -179,11 +191,13 @@ def count_tokens(text):
 def non_blank_lines(text):
     return sum(1 for l in text.splitlines() if l.strip())
 
+indent_sizes = {"PRQL": 2}
+
 print(f"{'':12} {'Lines':>6} {'Chars':>6} {'Keypresses':>11} {'Tokens':>7}")
 print("-" * 46)
 for name, code in examples.items():
     lines  = non_blank_lines(code)
     chars  = len(code)
-    kp     = count_keypresses(code)
+    kp     = count_keypresses(code, indent_size=indent_sizes.get(name, 4))
     tokens = count_tokens(code)
     print(f"{name:12} {lines:>6} {chars:>6} {kp:>11} {tokens:>7}")

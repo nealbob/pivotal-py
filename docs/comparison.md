@@ -211,7 +211,7 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 30 | 25 |
 | Characters | 539 | 866 | 911 | 668 | 561 |
-| Key presses | 570 | 976 | 1,061 | 716 | 609 |
+| Key presses | 534 | 937 | 983 | 647 | 598 |
 | Tokens | 101 | 256 | 299 | 151 | 137 |
 
 Key press count assumes shift+key = 2 presses for special characters (`(`, `"`, `_`, `{` etc.) and uppercase letters. SQL keywords are written lowercase since SQL is case-insensitive. Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).
