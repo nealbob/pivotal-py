@@ -116,6 +116,16 @@ def test_assign_string_concat_duckdb(parser):
     assert list(result['full']) == ['Alice Smith', 'Bob Jones']
 
 
+def test_assign_string_concat_with_funcs_duckdb(parser):
+    """left()/right() joined with a string literal must use || not +."""
+    df = pd.DataFrame({'season': ['2014/2015', '2015/2016']})
+    conn = make_conn('matches', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df matches\nseason_clean = left(season,4) + "-" + right(season,2)\n', ns)
+    result = fetch(ns, 'matches')
+    assert list(result['season_clean']) == ['2014-15', '2015-16']
+
+
 def test_assign_string_upper_duckdb(parser):
     df = pd.DataFrame({'name': ['alice', 'bob']})
     conn = make_conn('people', df)
