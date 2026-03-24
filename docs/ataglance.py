@@ -1,3 +1,5 @@
+import pandas as pd
+
 invoices = pd.read_csv("invoices.csv")
 customers = pd.read_csv("customers.csv")
 
@@ -24,3 +26,4 @@ summary = summary[["customer_id", "name", "sum_income"]]
 
 summary.to_csv("~/projects/output/my_analysis.csv", index=False)
 summary.to_csv("~/projects/output/invoices_new.csv", index=False)
+

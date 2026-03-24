@@ -3,16 +3,26 @@
 Pivotal is a pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal` files — Pivotal compiles them to pandas, DuckDB, or SQL.
 
 ```pivotal
-load sales "data/sales.csv"
+load invoices "invoices.csv"
+load customers "customers.csv"
 
-df summary from sales
-    filter status == "active"
-    group by region
-        agg sum revenue as total, count id as deals
-    sort total desc
+df invoices
+    filter invoice_date >= "1970-01-16"
+    transaction_fees = 0.8
+    income = total - transaction_fees
+    filter income > 1
+
+df summary from invoices
+    group by customer_id
+        agg mean total, sum income as sum_income, count total as ct
+    sort sum_income desc
+    left merge customers on customer_id
+    name = last_name + ", " + first_name
+    select customer_id, name, sum_income
+
+save "my_analysis"
+    path "~/projects/output"
 ```
-
-That is the complete code. No boilerplate, no method chaining, no imports.
 
 ## Key features
 
@@ -22,7 +32,8 @@ That is the complete code. No boilerplate, no method chaining, no imports.
 - **VS Code integration** — syntax highlighting, autocomplete, and one-key execution
 - **Export to code** — compile any notebook or `.pivotal` file to `.py` or `.sql`
 - **Plotting & tables** — built-in chart and publication-ready table support
-
+- **Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
+  
 ## Install
 
 ```bash

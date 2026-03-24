@@ -1,8 +1,6 @@
 # Language Comparison
 
-The same analysis written in Pivotal and four alternatives. The example loads invoice and customer data, calculates income after fees, summarises by customer, and saves the result.
-
-All examples assume a Jupyter notebook context.
+The same analysis example (based on the [PRQL website](https://prql-lang.org/)) written in Pivotal and four alternatives. All examples assume a Jupyter notebook context.
 
 ---
 
