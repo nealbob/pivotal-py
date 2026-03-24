@@ -31,7 +31,7 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
         path "~/projects/output"
     ```
 
-=== "pandas"
+=== "Pandas"
 
     ```python
     import pandas as pd
@@ -106,9 +106,8 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 
     Fast and expressive, but every column reference requires `pl.col()` and every literal `pl.lit()`. The ceremony adds up across a longer pipeline.
 
-=== "DuckDB / %%sql"
+=== "DuckDB / SQL"
 
-    [JupySQL](https://jupysql.ploomber.io/) provides `%%sql` cell magic backed by DuckDB, which means you can write clean SQL directly in a notebook cell.
 
     ```python
     # Setup cell (once per notebook)
@@ -152,11 +151,11 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
     %sql copy summary to '~/projects/output/my_analysis.csv' (header)
     ```
 
+    [JupySQL](https://jupysql.ploomber.io/) provides `%%sql` cell magic backed by DuckDB, which means you can write clean SQL directly in a notebook cell.
+
     CTEs make this readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
 
 === "PRQL"
-
-    [PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal. The [pyprql](https://github.com/prql/PyPrql) package provides a `%%prql` Jupyter magic backed by DuckDB, equivalent to `%%sql`.
 
     ```python
     # Setup cell (once per notebook)
@@ -195,6 +194,8 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
     summary.to_csv("~/projects/output/my_analysis.csv", index=False)
     ```
 
+    [PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal. The [pyprql](https://github.com/prql/PyPrql) package provides a `%%prql` Jupyter magic backed by DuckDB, equivalent to `%%sql`.
+    
     PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The `%%prql` magic removes the need for Python glue around the query. File export still requires a separate Python cell.
 
 ---
