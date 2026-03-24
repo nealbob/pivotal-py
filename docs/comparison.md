@@ -175,21 +175,23 @@ import duckdb
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
-    transaction_fees = 0.8,
-    income = total - 0.8,
+  transaction_fees = 0.8,
+  income = total - transaction_fees
 }
 filter income > 1
-group {customer_id} (
-    aggregate {
-        mean_total = average total,
-        sum_income = sum income,
-        ct = count total,
-    }
+group customer_id (
+  aggregate {
+    average total,
+    sum_income = sum income,
+    ct = count total,
+  }
 )
 sort {-sum_income}
-join side:left customers (==customer_id)
-derive name = last_name + ", " + first_name
-select {customer_id, name, sum_income}
+join c=customers (==customer_id)
+derive name = f"{c.last_name}, {c.first_name}"
+select {
+  c.customer_id, name, sum_income
+}
 ```
 
 ```python
@@ -207,9 +209,9 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 
 | | Pivotal | pandas | Polars | %%sql | PRQL |
 |---|---|---|---|---|---|
-| Lines | 18 | 23 | 29 | 30 | 23 |
-| Characters | 539 | 866 | 911 | 668 | 583 |
-| Key presses | 570 | 976 | 1061 | 827 | 632 |
-| Tokens | 101 | 256 | 299 | 151 | 136 |
+| Lines | 18 | 23 | 29 | 30 | 25 |
+| Characters | 539 | 866 | 911 | 668 | 561 |
+| Key presses | 570 | 976 | 1,061 | 827 | 609 |
+| Tokens | 101 | 256 | 299 | 151 | 137 |
 
 Key press count assumes shift+key = 2 presses for uppercase letters and special characters (`(`, `"`, `_`, `{` etc.). Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).

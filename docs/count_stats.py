@@ -134,21 +134,23 @@ import duckdb
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
-    transaction_fees = 0.8,
-    income = total - 0.8,
+  transaction_fees = 0.8,
+  income = total - transaction_fees
 }
 filter income > 1
-group {customer_id} (
-    aggregate {
-        mean_total = average total,
-        sum_income = sum income,
-        ct = count total,
-    }
+group customer_id (
+  aggregate {
+    average total,
+    sum_income = sum income,
+    ct = count total,
+  }
 )
 sort {-sum_income}
-join side:left customers (==customer_id)
-derive name = last_name + ", " + first_name
-select {customer_id, name, sum_income}
+join c=customers (==customer_id)
+derive name = f"{c.last_name}, {c.first_name}"
+select {
+  c.customer_id, name, sum_income
+}
 sql = prql.compile(prql_query)
 summary = duckdb.sql(sql).df()
 summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
