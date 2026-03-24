@@ -1808,13 +1808,22 @@ class CodeGenerator:
     def _parse_string_expr(self, expr, table):
         """Return a pandas code string if expr is a string function call or
         string concatenation, otherwise return None (fall through to eval)."""
+        import re
         expr = expr.strip()
         result = self._try_string_func(expr, table)
         if result is not None:
             return result
-        # Only attempt concat detection when + and a quoted literal are present
-        if '+' in expr and ('"' in expr or "'" in expr):
-            return self._try_string_concat(expr, table)
+        if '+' in expr:
+            # Always try string concat when a quoted literal is present
+            if '"' in expr or "'" in expr:
+                return self._try_string_concat(expr, table)
+            # Also try when all tokens are bare identifiers and no other
+            # arithmetic operators are present — df['a'] + df['b'] works for
+            # both string and numeric columns so this is safe in all cases
+            if not re.search(r'[-*/]', expr):
+                tokens = [t.strip() for t in expr.split('+')]
+                if all(re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', t) for t in tokens if t):
+                    return self._try_string_concat(expr, table)
         return None
 
     def _try_string_func(self, expr, table):
