@@ -129,8 +129,11 @@ order by g.sum_income desc\
 """,
 
     "PRQL": """\
-import prql_python as prql
-import duckdb
+%load_ext pyprql.magic
+%prql duckdb://
+%prql create view invoices as select * from read_csv_auto('invoices.csv')
+%prql create view customers as select * from read_csv_auto('customers.csv')
+%%prql
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
@@ -150,10 +153,7 @@ join c=customers (==customer_id)
 derive name = f"{c.last_name}, {c.first_name}"
 select {
   c.customer_id, name, sum_income
-}
-sql = prql.compile(prql_query)
-summary = duckdb.sql(sql).df()
-summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
+}\
 """,
 }
 

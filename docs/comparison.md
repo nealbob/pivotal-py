@@ -161,15 +161,18 @@ CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook ex
 
 ## PRQL
 
-[PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal.
+[PRQL](https://prql-lang.org/) (Pipelined Relational Query Language) compiles to SQL. Its pipeline style is the closest conceptually to Pivotal. The [pyprql](https://github.com/prql/PyPrql) package provides a `%%prql` Jupyter magic backed by DuckDB, equivalent to `%%sql`.
 
 ```python
 # Setup cell (once per notebook)
-import prql_python as prql
-import duckdb
+%load_ext pyprql.magic
+%prql duckdb://
+%prql create view invoices as select * from read_csv_auto('invoices.csv')
+%prql create view customers as select * from read_csv_auto('customers.csv')
 ```
 
 ```
+%%prql
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
@@ -192,14 +195,7 @@ select {
 }
 ```
 
-```python
-# Execute and save
-sql = prql.compile(prql_query)
-summary = duckdb.sql(sql).df()
-summary.to_csv("~/projects/output/my_analysis.csv", index=False)
-```
-
-PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The cost is that it compiles to SQL rather than executing directly, so Python glue is still needed for file I/O and execution, and loading/saving data requires stepping outside the language.
+PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The `%%prql` magic removes the need for Python glue around the query. File export still requires a separate Python cell.
 
 ---
 
@@ -208,8 +204,8 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 | | Pivotal | pandas | Polars | %%sql | PRQL |
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 30 | 25 |
-| Characters | 539 | 866 | 911 | 668 | 561 |
-| Key presses | 534 | 937 | 983 | 647 | 598 |
-| Tokens | 101 | 256 | 299 | 151 | 137 |
+| Characters | 539 | 866 | 911 | 668 | 589 |
+| Key presses | 534 | 937 | 983 | 647 | 628 |
+| Tokens | 101 | 256 | 299 | 151 | 139 |
 
 Key press count assumes shift+key = 2 presses for special characters (`(`, `"`, `_`, `{` etc.) and uppercase letters. SQL keywords are written lowercase since SQL is case-insensitive. Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).
