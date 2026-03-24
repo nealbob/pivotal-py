@@ -3032,7 +3032,7 @@ class CodeGenerator:
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet('{{_src}}')\")\n"
                 f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
                 f"    _pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
-                f"    _pvt.execute(f\"ATTACH '{{_src}}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                f"    _pvt.execute(f\"ATTACH '{{_src}}' AS _sqlite_db (TYPE SQLITE, READ_ONLY)\")\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")\n"
                 f"else:\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv('{{_src}}')\")"
@@ -3053,7 +3053,7 @@ class CodeGenerator:
                 sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
                 load_code = (
                     f"_pvt.execute('INSTALL sqlite; LOAD sqlite;')\n"
-                    f"_pvt.execute(\"ATTACH '{source_str}' AS _sqlite_db (TYPE SQLITE) (READ_ONLY)\")\n"
+                    f"_pvt.execute(\"ATTACH '{source_str}' AS _sqlite_db (TYPE SQLITE, READ_ONLY)\")\n"
                     f"_pvt.execute(\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM _sqlite_db.{t}\")"
                 )
             else:
