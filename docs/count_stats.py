@@ -163,7 +163,7 @@ def count_keypresses(text):
         if char == '\n':
             count += 1  # Enter
         elif char == '\t':
-            count += 4  # Tab (or spaces — count as typed)
+            count += 1  # Tab is a single key press
         elif char in SHIFT_CHARS:
             count += 2  # Shift + key
         elif char.isupper():
