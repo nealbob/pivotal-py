@@ -201,7 +201,7 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 
 ## Summary
 
-| | Pivotal | pandas | Polars | DuckDB/%%sql | PRQL |
+| | Pivotal | Pandas | Polars | DuckDB/SQL | PRQL |
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 32 | 27 |
 | Characters | 539 | 866 | 911 | 769 | 685 |
