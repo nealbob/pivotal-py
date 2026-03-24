@@ -1481,10 +1481,15 @@ def update():
                 continue
             if isinstance(obj, pd.DataFrame) and name in ddb_tables:
                 try:
-                    ddb_conn.register('_update_tmp', obj)
+                    # DuckDB cannot register Categorical columns — convert to string first
+                    df_reg = obj.copy()
+                    for col in df_reg.columns:
+                        if hasattr(df_reg[col], 'cat'):
+                            df_reg[col] = df_reg[col].astype(str)
+                    ddb_conn.register('_update_tmp', df_reg)
                     ddb_conn.execute(f'CREATE OR REPLACE TABLE {name} AS SELECT * FROM _update_tmp')
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[Pivotal] Warning: could not sync '{name}' to DuckDB: {e}")
 
     sent = []
     for name, obj in ns.items():
