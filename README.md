@@ -74,7 +74,7 @@ df summary from sales
 
 Full documentation including the complete syntax reference, backend guide, and API reference:
 
-**[pivotal.readthedocs.io](https://pivotal.readthedocs.io)**
+**[nealbob.github.io/pivotal-py](https://nealbob.github.io/pivotal-py)**
 
 ---
 
