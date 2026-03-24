@@ -3494,6 +3494,7 @@ class CodeGenerator:
 
     def _try_sql_string_concat(self, expr):
         """Translate col + "lit" + col concatenation to SQL col || 'lit' || col.
+        Tokens may be string literals, bare column names, or string function calls.
         Returns the SQL string, or None if not recognised as string concat."""
         if '+' not in expr or ('"' not in expr and "'" not in expr):
             return None
@@ -3509,7 +3510,11 @@ class CodeGenerator:
             elif re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', tok):
                 parts.append(tok)   # bare column name in SQL
             else:
-                return None         # unrecognised token — fall through
+                sql = self._try_sql_string_func(tok)
+                if sql is not None:
+                    parts.append(sql)  # e.g. left(season,4) → LEFT(season, 4)
+                else:
+                    return None        # unrecognised token — fall through
         return ' || '.join(parts)
 
     def _try_sql_string_func(self, expr):
