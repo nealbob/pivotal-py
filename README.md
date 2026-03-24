@@ -2,7 +2,7 @@
 
 <img src="pivotal_logo.svg" width="120">
 
-**Pivotal** is a pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal files` — Pivotal compiles them to Python code using Pandas or DuckDB.
+**Pivotal** is a simple pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal files` — Pivotal compiles them to Python code using Pandas or DuckDB/SQL.
 
 <img src="ataglance.png" width="600">
 

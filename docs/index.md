@@ -1,6 +1,6 @@
 # Pivotal
 
-Pivotal is a pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal` files — Pivotal compiles them to pandas, DuckDB, or SQL.
+Pivotal is a simple pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal` files — Pivotal compiles them to Python via Pandas or DuckDB/SQL.
 
 ```pivotal
 load invoices "invoices.csv"
@@ -26,7 +26,7 @@ save "my_analysis"
 
 ## Key features
 
-- **Readable syntax** — operations read top-to-bottom, one per line
+- **Readable, Writable syntax** — write data transformations in a simple declarative syntax
 - **Multiple backends** — run the same code as pandas, DuckDB, or SQL CTEs
 - **Jupyter integration** — `%%pivotal` cell magic with a live viewer panel
 - **VS Code integration** — syntax highlighting, autocomplete, and one-key execution

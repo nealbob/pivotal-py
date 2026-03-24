@@ -201,7 +201,7 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 
 ## Summary
 
-| | Pivotal | pandas | Polars | %%sql | PRQL |
+| | Pivotal | pandas | Polars | DuckDB/%%sql | PRQL |
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 30 | 25 |
 | Characters | 539 | 866 | 911 | 668 | 589 |
