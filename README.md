@@ -4,7 +4,16 @@
 
 **Pivotal** is an ultra-simple data transformation language for Python. Do all your data processing and analysis within Python without getting bogged down in Pandas syntax or SQL.
 
-<img src="ataglance.png" width="600">
+<table>
+<tr>
+<td><b>Pivotal</b></td>
+<td><b>pandas</b></td>
+</tr>
+<tr>
+<td><img src="ataglance.png"></td>
+<td><img src="ataglance_py.png"></td>
+</tr>
+</table>
 
 Check out the live demo in JupyterLab:
 
