@@ -3190,7 +3190,9 @@ class CodeGenerator:
         }
         join_type = join_map.get(how, 'INNER JOIN')
 
-        kwargs = ast_node.get('kwargs', {})
+        kwargs = ast_node.get('kwargs') or {}
+        if isinstance(kwargs, str):
+            kwargs = {}
         left_on = kwargs.get('left_on')
         right_on = kwargs.get('right_on')
 
