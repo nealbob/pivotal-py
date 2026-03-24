@@ -114,7 +114,7 @@ Fast and expressive, but every column reference requires `pl.col()` and every li
 
 ---
 
-## SQL (%%sql magic via DuckDB)
+## DuckDB / SQL (%%sql magic via DuckDB)
 
 [JupySQL](https://jupysql.ploomber.io/) provides `%%sql` cell magic backed by DuckDB, which means you can write clean SQL directly in a notebook cell.
 
@@ -126,6 +126,7 @@ Fast and expressive, but every column reference requires `pl.col()` and every li
 
 ```sql
 %%sql
+create or replace table summary as
 with enriched as (
     select *,
         0.8 as transaction_fees,
@@ -155,7 +156,11 @@ left join read_csv_auto('customers.csv') c on g.customer_id = c.customer_id
 order by g.sum_income desc
 ```
 
-CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
+```sql
+%sql copy summary to '~/projects/output/my_analysis.csv' (header)
+```
+
+CTEs make this  readable and the `%%sql` magic keeps the notebook experience clean. The gaps are multi-step mutations (each requires a new CTE), no built-in file export, and results need a Python cell to do anything further with them.
 
 ---
 
@@ -166,13 +171,14 @@ CTEs make this surprisingly readable and the `%%sql` magic keeps the notebook ex
 ```python
 # Setup cell (once per notebook)
 %load_ext pyprql.magic
-%prql duckdb://
-%prql create view invoices as select * from read_csv_auto('invoices.csv')
-%prql create view customers as select * from read_csv_auto('customers.csv')
+%load_ext sql
+%sql duckdb:///:memory:
+%sql create view invoices as select * from read_csv_auto('invoices.csv')
+%sql create view customers as select * from read_csv_auto('customers.csv')
 ```
 
 ```
-%%prql
+%%prql summary <<
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
@@ -195,6 +201,10 @@ select {
 }
 ```
 
+```python
+summary.to_csv("~/projects/output/my_analysis.csv", index=False)
+```
+
 PRQL reads very naturally as a pipeline — arguably the most readable of the SQL-family options. The `%%prql` magic removes the need for Python glue around the query. File export still requires a separate Python cell.
 
 ---
@@ -203,9 +213,9 @@ PRQL reads very naturally as a pipeline — arguably the most readable of the SQ
 
 | | Pivotal | pandas | Polars | DuckDB/%%sql | PRQL |
 |---|---|---|---|---|---|
-| Lines | 18 | 23 | 29 | 30 | 25 |
-| Characters | 539 | 866 | 911 | 668 | 589 |
-| Key presses | 534 | 937 | 983 | 647 | 628 |
-| Tokens | 101 | 256 | 299 | 151 | 139 |
+| Lines | 18 | 23 | 29 | 32 | 27 |
+| Characters | 539 | 866 | 911 | 769 | 685 |
+| Key presses | 534 | 937 | 983 | 753 | 738 |
+| Tokens | 101 | 256 | 299 | 176 | 169 |
 
 Key press count assumes shift+key = 2 presses for special characters (`(`, `"`, `_`, `{` etc.) and uppercase letters. SQL keywords are written lowercase since SQL is case-insensitive. Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).

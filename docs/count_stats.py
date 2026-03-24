@@ -99,6 +99,7 @@ summary.write_csv("~/projects/output/my_analysis.csv")\
 %load_ext sql
 %sql duckdb://
 %%sql
+create or replace table summary as
 with enriched as (
     select *,
         0.8 as transaction_fees,
@@ -125,15 +126,17 @@ select
     g.sum_income
 from grouped g
 left join read_csv_auto('customers.csv') c on g.customer_id = c.customer_id
-order by g.sum_income desc\
+order by g.sum_income desc
+%sql copy summary to '~/projects/output/my_analysis.csv' (header)\
 """,
 
     "PRQL": """\
 %load_ext pyprql.magic
-%prql duckdb://
-%prql create view invoices as select * from read_csv_auto('invoices.csv')
-%prql create view customers as select * from read_csv_auto('customers.csv')
-%%prql
+%load_ext sql
+%sql duckdb:///:memory:
+%sql create view invoices as select * from read_csv_auto('invoices.csv')
+%sql create view customers as select * from read_csv_auto('customers.csv')
+%%prql summary <<
 from invoices
 filter invoice_date >= @1970-01-16
 derive {
@@ -153,7 +156,8 @@ join c=customers (==customer_id)
 derive name = f"{c.last_name}, {c.first_name}"
 select {
   c.customer_id, name, sum_income
-}\
+}
+summary.to_csv("~/projects/output/my_analysis.csv", index=False)\
 """,
 }
 
