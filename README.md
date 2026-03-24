@@ -1,14 +1,14 @@
 # Pivotal
 
-<img src="pivotal_logo.svg" width="120">
+<img src="images/pivotal_logo.svg" width="120">
 
 **Pivotal** is a simple pipeline-oriented data transformation language for Python. Write concise, readable data operations in Jupyter notebooks or `.pivotal files` — Pivotal compiles them to Python code using Pandas or DuckDB/SQL.
 
-<img src="ataglance.png" width="600">
+<img src="images/ataglance.png" width="600">
 
-Check out the live demo in JupyterLab:
+A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb) is available via Binder:
 
-[Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
+[![JupyterLab demo](images/piv2.png)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
 ## Features
 
@@ -18,7 +18,7 @@ Check out the live demo in JupyterLab:
 
 **JupyterLab integration** — `%%pivotal` cell magic, live object viewer, syntax highlighting, autocomplete, export to Python code
 
-**VS Code integration** — syntax highlighting, autocomplete, interactive execution, and execution
+**VS Code integration** — syntax highlighting, autocomplete, interactive execution and code export
 
 **Plotting and tables** — simple syntax for charts and publication-ready tables via matplotlib and Great Tables
 

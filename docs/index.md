@@ -24,6 +24,8 @@ save "my_analysis"
     path "~/projects/output"
 ```
 
+[![JupyterLab demo](assets/piv2.png)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
+
 ## Key features
 
 - **Readable, Writable syntax** — write data transformations in a simple declarative syntax
