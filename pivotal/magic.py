@@ -1471,6 +1471,21 @@ def update():
     ns = m.shell.user_ns
     s = m.settings
 
+    # If DuckDB backend is active, push any modified DataFrames back into DuckDB
+    # so subsequent %%pivotal cells see the changes made in Python cells.
+    ddb_conn = ns.get('_pivotal_ddb')
+    if ddb_conn is not None:
+        ddb_tables = {r[0] for r in ddb_conn.execute('SHOW TABLES').fetchall()}
+        for name, obj in ns.items():
+            if name.startswith('_'):
+                continue
+            if isinstance(obj, pd.DataFrame) and name in ddb_tables:
+                try:
+                    ddb_conn.register('_update_tmp', obj)
+                    ddb_conn.execute(f'CREATE OR REPLACE TABLE {name} AS SELECT * FROM _update_tmp')
+                except Exception:
+                    pass
+
     sent = []
     for name, obj in ns.items():
         if name.startswith('_'):
