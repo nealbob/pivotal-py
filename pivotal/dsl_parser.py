@@ -3268,7 +3268,7 @@ class CodeGenerator:
                 for item in agg_list:
                     col = item['column']
                     func = item['func']
-                    alias = item.get('alias', f"{col}_{func}")
+                    alias = item.get('alias') or col
                     sel_parts.append(self._ddb_agg_expr(col, func, alias,
                                                          item.get('weight')))
                 sel = ', '.join(sel_parts)
@@ -3297,8 +3297,7 @@ class CodeGenerator:
             for item in agg_list:
                 col = item['column']
                 func = item['func']
-                alias = item.get('alias',
-                                  f"agg_{func}" if isinstance(col, dict) else f"{col}_{func}")
+                alias = item.get('alias') or (f"agg_{func}" if isinstance(col, dict) else col)
                 if isinstance(col, dict) and col.get('type') == 'var':
                     v = col['name']
                     if func == 'wavg':

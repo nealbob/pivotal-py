@@ -587,6 +587,16 @@ def test_groupby_sum_duckdb(parser, region_df):
     assert s_total == 600
 
 
+def test_groupby_sum_no_alias_duckdb(parser, region_df):
+    """agg sum col without 'as alias' must keep the original column name."""
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount\n', ns)
+    df = fetch(ns, 'data')
+    assert 'amount' in df.columns, "column should stay named 'amount', not 'amount_sum'"
+    assert 'amount_sum' not in df.columns
+
+
 def test_groupby_avg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
