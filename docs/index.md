@@ -48,6 +48,7 @@ pip install pivotal
 With optional extras:
 
 ```bash
+pip install pivotal[polars]    # Polars backend
 pip install pivotal[duckdb]    # DuckDB backend
 pip install pivotal[jupyter]   # Jupyter GUI widgets
 pip install pivotal[tables]    # Great Tables support
@@ -110,6 +111,6 @@ pip install pivotal[all]       # Everything
 
 - [Getting Started](getting-started.md) — installation and first steps
 - [Syntax Reference](syntax/index.md) — complete DSL documentation
-- [Backends](backends.md) — pandas, DuckDB, and SQL
+- [Backends](backends.md) — pandas, Polars, DuckDB, and SQL
 - [JupyterLab](jupyter.md) — cell magic, viewer, and export
 - [VS Code](vscode.md) — editor integration

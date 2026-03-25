@@ -2,7 +2,7 @@
 
 <img src="images/pivotal_logo.svg" width="120">
 
-**Pivotal** is a data processing language with a concise, readable syntax that compiles to Python code via either Pandas, Polars or DuckDB. Analyze and process your data interactively in Python without getting bogged down in Pandas syntax or SQL.
+**Pivotal** is a data processing language with a concise, readable syntax that compiles to Python code via Pandas, Polars or DuckDB. Analyze and process your data interactively in Python without getting bogged down in Pandas syntax or SQL.
 
 <img src="images/ataglance.png" width="600">
 

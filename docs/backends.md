@@ -1,18 +1,18 @@
 # Backends
 
-Pivotal supports three execution backends. The same DSL source runs unchanged on any of them.
+Pivotal supports four execution backends. The same DSL source runs unchanged on any of them.
 
 ## Comparison
 
-| | **pandas** | **DuckDB** | **SQL CTE** |
-|---|---|---|---|
-| Execution | Python in-process | In-process SQL engine | Generates SQL only |
-| Speed | Fast for small–medium data | Fast for large data | N/A — no execution |
-| Memory | Loads everything | Columnar, lazy | N/A |
-| Python ops | Full support | Supported (via pandas fallback) | Skipped |
-| Plots/tables | Full support | Full support | Skipped |
-| Output | Python objects | Python objects | `.sql` file |
-| Best for | Interactive exploration | Large datasets, production | Sharing with SQL users |
+| | **pandas** | **Polars** | **DuckDB** | **SQL CTE** |
+|---|---|---|---|---|
+| Execution | Python in-process | Python in-process | In-process SQL engine | Generates SQL only |
+| Speed | Fast for small–medium data | Fast — zero-copy columnar | Fast for large data | N/A — no execution |
+| Memory | Loads everything | Columnar, efficient | Columnar, lazy | N/A |
+| Python ops | Full support | Full support | Supported (via pandas fallback) | Skipped |
+| Plots/tables | Full support | Full support | Full support | Skipped |
+| Output | Python objects | Python objects | Python objects | `.sql` file |
+| Best for | Interactive exploration | Performance-sensitive work | Large datasets, production | Sharing with SQL users |
 
 ## Pandas (default)
 
@@ -31,6 +31,30 @@ parser.generate_code(results, backend='pandas')
 # Per-cell override
 %%pivotal backend=pandas
 ```
+
+## Polars
+
+Uses Polars DataFrames throughout. Polars is a fast, columnar DataFrame library with a Rust core. It is a good choice when you want pandas-style in-process execution but with better performance on larger datasets.
+
+Requires `pip install pivotal[polars]`.
+
+```python
+parser.execute(dsl, backend='polars')
+parser.generate_code(results, backend='polars')
+```
+
+```pivotal
+%pivotal_set backend=polars
+
+%%pivotal backend=polars
+```
+
+Plots and Great Tables output work identically to the pandas backend — Polars DataFrames are converted to pandas automatically at the plot/table boundary so the Pivotal viewer works without changes.
+
+**Notes:**
+
+- Requires `polars >= 0.20`. On older CPUs without AVX2, install `polars-lts-cpu` instead of `polars`.
+- The Polars backend uses strict typing — `fill_null` only fills nulls whose column type matches the fill value.
 
 ## DuckDB
 
