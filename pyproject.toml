@@ -38,14 +38,23 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
-# Core dependencies — always installed
+# Full dependencies — installed by default with pip install pivotal
+# For a minimal pandas-only install use: pip install --no-deps pivotal
 dependencies = [
     "lark>=1.1",
     "pandas>=1.5",
     "matplotlib>=3.5",
+    "polars>=0.20",
+    "duckdb>=0.9",
+    "great-tables>=0.5",
+    "css_inline>=0.13",
+    "ipywidgets>=8.0",
+    "ipyfilechooser>=0.6",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
+# Granular extras for environments where only a specific backend is needed
 # pip install pivotal[polars]
 polars = [
     "polars>=0.20",
@@ -59,23 +68,13 @@ tables = [
     "great-tables>=0.5",
     "css_inline>=0.13",
 ]
-# pip install pivotal[jupyter]  — GUI widgets (plot_gui, load_gui, etc.)
+# pip install pivotal[jupyter]
 jupyter = [
     "ipywidgets>=8.0",
     "ipyfilechooser>=0.6",
 ]
-# pip install pivotal[sql]  — database connectivity for save/load
+# pip install pivotal[sql]
 sql = [
-    "sqlalchemy>=2.0",
-]
-# pip install pivotal[all]
-all = [
-    "polars>=0.20",
-    "duckdb>=0.9",
-    "great-tables>=0.5",
-    "css_inline>=0.13",
-    "ipywidgets>=8.0",
-    "ipyfilechooser>=0.6",
     "sqlalchemy>=2.0",
 ]
 
