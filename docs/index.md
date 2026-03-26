@@ -1,7 +1,6 @@
 # Pivotal
 
-
-**Pivotal** is a data analysis language with a concise, readable syntax that compiles to Python code via either Pandas, Polars or DuckDB. Analyze and process your data interactively in Python notebooks without getting bogged down in Pandas syntax or SQL.
+**Pivotal** is a data analysis language with a concise, readable syntax that compiles to Python code via either Pandas, Polars or DuckDB. Analyze and process your data interactively in Python without getting bogged down by Pandas syntax or SQL.
 
 ```pivotal
 load invoices "invoices.csv"
@@ -45,8 +44,13 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 pip install pivotal
 ```
 
-This installs the full feature set — Pandas, Polars, DuckDB, Great Tables, and Jupyter widgets.
-For a minimal pandas-only install see [Getting Started](getting-started.md).
+This installs the full feature set — Pandas, Polars, DuckDB, Great Tables, and Jupyter Lab extension.
+
+For a minimal pandas-only install:
+
+```bash
+pip install --no-deps pivotal
+pip install lark pandas matplotlib
 
 ## Quick example
 
