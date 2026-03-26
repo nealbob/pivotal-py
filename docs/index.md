@@ -45,15 +45,8 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 pip install pivotal
 ```
 
-With optional extras:
-
-```bash
-pip install pivotal[polars]    # Polars backend
-pip install pivotal[duckdb]    # DuckDB backend
-pip install pivotal[jupyter]   # Jupyter GUI widgets
-pip install pivotal[tables]    # Great Tables support
-pip install pivotal[all]       # Everything
-```
+This installs the full feature set — Pandas, Polars, DuckDB, Great Tables, and Jupyter widgets.
+For a minimal pandas-only install see [Getting Started](getting-started.md).
 
 ## Quick example
 

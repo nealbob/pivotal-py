@@ -6,15 +6,24 @@
 pip install pivotal
 ```
 
-**Optional extras:**
+This installs the complete feature set: Pandas, Polars, DuckDB, Great Tables, Jupyter widgets, and SQLAlchemy.
 
-| Extra | Installs | Use when |
-|-------|----------|----------|
-| `pivotal[duckdb]` | duckdb | Running the DuckDB backend |
-| `pivotal[jupyter]` | ipywidgets, ipyfilechooser | GUI widgets in Jupyter |
-| `pivotal[tables]` | great-tables, css_inline | Publication-ready tables |
-| `pivotal[sql]` | sqlalchemy | Database connectivity |
-| `pivotal[all]` | Everything above | Full installation |
+**Minimal install (pandas only):**
+
+```bash
+pip install --no-deps pivotal
+pip install lark pandas matplotlib
+```
+
+**Single-backend extras** — if you only need one backend in a constrained environment:
+
+| Extra | Installs |
+|-------|----------|
+| `pivotal[polars]` | polars |
+| `pivotal[duckdb]` | duckdb |
+| `pivotal[jupyter]` | ipywidgets, ipyfilechooser |
+| `pivotal[tables]` | great-tables, css_inline |
+| `pivotal[sql]` | sqlalchemy |
 
 ## JupyterLab extension
 
