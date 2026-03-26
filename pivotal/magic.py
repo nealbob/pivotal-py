@@ -17,6 +17,34 @@ from .dsl_parser import DSLParser
 # Object Viewer comm helper
 # ---------------------------------------------------------------------------
 
+def _is_dataframe(obj) -> bool:
+    """Return True if obj is a pandas or Polars DataFrame."""
+    try:
+        import pandas as _pd
+        if isinstance(obj, _pd.DataFrame):
+            return True
+    except ImportError:
+        pass
+    try:
+        import polars as _pl
+        if isinstance(obj, _pl.DataFrame):
+            return True
+    except ImportError:
+        pass
+    return False
+
+
+def _ensure_pandas(df):
+    """Return df as a pandas DataFrame, converting from Polars if needed."""
+    try:
+        import polars as _pl
+        if isinstance(df, _pl.DataFrame):
+            return df.to_pandas()
+    except ImportError:
+        pass
+    return df
+
+
 def _infer_col_types(payload, use_visions: bool = False) -> dict:
     """Infer semantic column types for the filter UI.
 
@@ -140,7 +168,7 @@ class _PivotalViewer:
                 'use_visions': use_visions,
             }
         truncated = len(df) > limit
-        payload = df.head(limit)
+        payload = _ensure_pandas(df.head(limit))
         try:
             import json as _json
             # to_json() uses pandas' C-level serializer: fast and handles NaN→null natively.
@@ -346,13 +374,13 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     ddb_conn = ns.get('_pivotal_ddb')
     for name in seen_tables:
         obj = ns.get(name)
-        if not isinstance(obj, pd.DataFrame) and ddb_conn is not None:
+        if not _is_dataframe(obj) and ddb_conn is not None:
             try:
                 obj = ddb_conn.execute(f"SELECT * FROM {name}").df()
                 ns[name] = obj
             except Exception:
                 pass
-        if isinstance(obj, pd.DataFrame):
+        if _is_dataframe(obj):
             viewer.send_dataframe(
                 name, obj,
                 viewer_font=(settings or {}).get('viewer_font'),
@@ -368,7 +396,7 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
         if node.get('type') == 'agg_plot':
             df_name = f"{chart_name}_df"
             df = ns.get(df_name)
-            if isinstance(df, pd.DataFrame):
+            if _is_dataframe(df):
                 viewer.send_dataframe(df_name, df,
                                       viewer_font=(settings or {}).get('viewer_font'),
                                       viewer_num_format=(settings or {}).get('viewer_num_format'),
@@ -414,7 +442,7 @@ def plot_gui(df_name: str = None):
 
     try:
         import pandas as pd
-        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+        df_names = [k for k, v in ns.items() if _is_dataframe(v) and not k.startswith('_')]
     except ImportError:
         df_names = []
 
@@ -581,7 +609,7 @@ def pivot_gui(df_name: str = None):
 
     try:
         import pandas as pd
-        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+        df_names = [k for k, v in ns.items() if _is_dataframe(v) and not k.startswith('_')]
     except ImportError:
         df_names = []
 
@@ -793,7 +821,7 @@ def save_gui():
     # Collect all exportable session objects: DataFrames, charts, GT tables
     try:
         import pandas as pd
-        df_names = [k for k, v in ns.items() if isinstance(v, pd.DataFrame) and not k.startswith('_')]
+        df_names = [k for k, v in ns.items() if _is_dataframe(v) and not k.startswith('_')]
     except ImportError:
         df_names = []
     chart_names = list(ns.get('_pivotal_charts', {}).keys())
@@ -1252,7 +1280,7 @@ class PivotalMagics(Magics):
         'viewer_font': 1.0,         # em units for DataFrame viewer font size
         'viewer_num_format': 5,     # significant digits for float columns (0 = no formatting)
         'use_visions': False,       # True = use visions for type inference if installed
-        'backend': 'pandas',        # pandas | duckdb | sql
+        'backend': 'pandas',        # pandas | polars | duckdb | sql
     }
 
     def _parse_line_args(self, line: str) -> dict:
@@ -1286,7 +1314,7 @@ class PivotalMagics(Magics):
                     pass
             elif k == 'use_visions':
                 overrides['use_visions'] = v in ('true', '1', 'yes')
-            elif k == 'backend' and v in ('pandas', 'duckdb', 'sql'):
+            elif k == 'backend' and v in ('pandas', 'duckdb', 'sql', 'polars'):
                 overrides['backend'] = v
         return overrides
 
@@ -1364,7 +1392,7 @@ class PivotalMagics(Magics):
             close_stmts = []
             for node in results:
                 if isinstance(node, dict) and node.get('type') in ('plot', 'agg_plot'):
-                    if not node.get('show'):
+                    if not node.get('show') and not node.get('on'):
                         chart_name = node.get('name') or node.get('table_name') or 'chart'
                         close_stmts.append(
                             f'import matplotlib.pyplot as _mpl; _mpl.close({chart_name})'
@@ -1415,7 +1443,7 @@ def _display_inline(results: list, ns: dict):
         if name and name not in seen:
             seen.add(name)
             obj = ns.get(name)
-            if isinstance(obj, pd.DataFrame):
+            if _is_dataframe(obj):
                 print(f"'{name}'  {obj.shape[0]:,} rows × {obj.shape[1]} cols")
                 ipy_display(obj.head())
 
@@ -1495,7 +1523,7 @@ def update():
     for name, obj in ns.items():
         if name.startswith('_'):
             continue
-        if isinstance(obj, pd.DataFrame):
+        if _is_dataframe(obj):
             m._viewer.send_dataframe(
                 name, obj,
                 viewer_font=s.get('viewer_font'),

@@ -171,6 +171,38 @@ def test_codegen_assign_case_duckdb(parser):
     assert 'ELSE' in code
 
 
+def test_assign_python_var_arithmetic_duckdb(parser, sample_df):
+    """Python variable (:varname) in arithmetic expression is injected into SQL."""
+    conn = make_conn('sales', sample_df)
+    ns = ddb_ns(conn, {'tax_rate': 0.1})
+    run_ddb(parser, 'df sales\ntax = price * :tax_rate', ns)
+    df = fetch(ns, 'sales').sort_values('id').reset_index(drop=True)
+    orig = sample_df.sort_values('id').reset_index(drop=True)
+    for i in range(len(df)):
+        assert df.loc[i, 'tax'] == pytest.approx(orig.loc[i, 'price'] * 0.1)
+
+
+def test_assign_python_var_conditional_duckdb(parser, sample_df):
+    """Python variable (:varname) in conditional assign is injected correctly."""
+    conn = make_conn('sales', sample_df)
+    ns = ddb_ns(conn, {'discount': 0.2})
+    run_ddb(parser, 'df sales\ndiscounted = price * :discount\n    where category == "Electronics"', ns)
+    df = fetch(ns, 'sales').sort_values('id').reset_index(drop=True)
+    orig = sample_df.sort_values('id').reset_index(drop=True)
+    for i, row in df.iterrows():
+        if orig.loc[i, 'category'] == 'Electronics':
+            assert row['discounted'] == pytest.approx(orig.loc[i, 'price'] * 0.2)
+        else:
+            assert row['discounted'] is None or (row['discounted'] != row['discounted'])  # None/NaN
+
+
+def test_codegen_assign_python_var_duckdb(parser):
+    """Generated DuckDB code injects :varname as {varname} f-string placeholder."""
+    dsl = 'df sales\ntax = price * :tax_rate'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
+    assert '{tax_rate}' in code
+
+
 def test_assign_by_agg_duckdb(parser, window_df):
     conn = make_conn('data', window_df)
     ns = ddb_ns(conn)

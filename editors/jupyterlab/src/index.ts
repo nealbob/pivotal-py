@@ -751,7 +751,7 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
         if (!kernel) { Notification.emit('No active kernel — run a cell first.', 'warning'); return; }
 
         // Ask which format to export
-        const ITEMS = ['Pandas (.py)', 'DuckDB (.py)', 'SQL (.sql)', 'Pivotal (.pivotal)'];
+        const ITEMS = ['Pandas (.py)', 'Polars (.py)', 'DuckDB (.py)', 'SQL (.sql)', 'Pivotal (.pivotal)'];
         const formatResult = await InputDialog.getItem({
           title: 'Export to Code File',
           items: ITEMS,
@@ -775,9 +775,10 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
           ].join('\n');
         } else {
           const backendMap: Record<string, string> = {
-            'Pandas (.py)': 'pandas',
-            'DuckDB (.py)': 'duckdb',
-            'SQL (.sql)':   'sql',
+            'Pandas (.py)':  'pandas',
+            'Polars (.py)':  'polars',
+            'DuckDB (.py)':  'duckdb',
+            'SQL (.sql)':    'sql',
           };
           const backend = backendMap[label] ?? 'pandas';
           ext  = backend === 'sql' ? '.sql' : '.py';

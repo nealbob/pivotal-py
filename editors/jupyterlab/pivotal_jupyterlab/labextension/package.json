@@ -8,7 +8,7 @@
     "jupyterlab-extension",
     "pivotal"
   ],
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "icon": "style/icons/pivotal_logo.svg",
@@ -65,7 +65,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static\\remoteEntry.ccaf0ade9a0f00767cfc.js",
+      "load": "static\\remoteEntry.b44b1d7a4bf03617f53b.js",
       "extension": "./extension",
       "style": "./style"
     }

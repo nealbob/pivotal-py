@@ -88,7 +88,8 @@ grammar_indented = r"""
                   | "canvas" IDENTIFIER _NL?              -> agg_plot_canvas
                   | "show" _NL?                           -> agg_plot_show
 
-    plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
+    plot_statement: "plot" IDENTIFIER IDENTIFIER? plot_on? (_NL | _NL _INDENT plot_params _DEDENT)?
+    plot_on: "on" IDENTIFIER
 
     plot_params: plot_param+
     plot_param: "by" IDENTIFIER _NL?           -> plot_by_param
@@ -273,8 +274,10 @@ grammar_indented = r"""
 
     file_path: PATH
 
-    value: BOOLEAN | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
-    list_value: "[" [value ("," value)*] "]" |  [value "," value ("," value)*] 
+    value: BOOLEAN | SIGNED_NUMBER | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
+    list_value: "[" [value ("," value)*] "]"
+              | "(" value "," value ("," value)* ")"
+              | [value "," value ("," value)*]
 
     BOOLEAN.2: "True" | "False" | "true" | "false"
     NONE.2: "None" | "none"
@@ -285,6 +288,7 @@ grammar_indented = r"""
     STRING: /"[^"]*"/ | /'[^']*'/
     UNQUOTED_STRING: /[^\n]+/
     PATH: /[a-zA-Z0-9_]+[:\\\/][a-zA-Z0-9_:\/\\\.\-]+|[\\\/][a-zA-Z0-9_:\/\\\.\-]+|[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+/
+    SIGNED_NUMBER.1: /-\d+(\.\d+)?/
     NUMBER: /\d+(\.\d+)?/
     COMMENT: /#[^\n]*/ | /--[^\n]*/
     MULTILINE_COMMENT:  /\/\*[\s\S]*?\*\//
@@ -839,6 +843,9 @@ class DSLTransformer(Transformer):
     def plot_show(self):
         return {'key': 'show'}
 
+    def plot_on(self, target):
+        return {'type': 'plot_on', 'target': str(target)}
+
     def agg_plot_show(self):
         return {'key': 'show'}
 
@@ -1188,13 +1195,16 @@ class DSLTransformer(Transformer):
     def plot_statement(self, *args):
         name = None
         kind = None
+        on = None
         kwargs = {}
         kwargs_str = ""
 
         identifiers = []
         show = False
         for arg in args:
-            if isinstance(arg, Token) and arg.type != '_NL':
+            if isinstance(arg, dict) and arg.get('type') == 'plot_on':
+                on = arg['target']
+            elif isinstance(arg, Token) and arg.type != '_NL':
                 identifiers.append(str(arg))
             elif isinstance(arg, str):
                 identifiers.append(arg)
@@ -1208,7 +1218,11 @@ class DSLTransformer(Transformer):
                         filtered.append(p)
                 kwargs, kwargs_str = self._plot_kwargs(filtered)
 
-        if len(identifiers) == 1:
+        if on:
+            # 'plot line on myplot' — the single identifier is the kind, not a chart name
+            if len(identifiers) >= 1:
+                kind = identifiers[0]
+        elif len(identifiers) == 1:
             name = identifiers[0]
         elif len(identifiers) >= 2:
             kind = identifiers[0]
@@ -1237,6 +1251,7 @@ class DSLTransformer(Transformer):
             'table_name': self.current_table,
             'name': name,
             'kind': kind,
+            'on': on,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str,
             'by': by_col,
@@ -1620,13 +1635,13 @@ class DSLTransformer(Transformer):
     
     def _convert_value(self, val):
         """Convert parsed value to appropriate Python type"""
-        if isinstance(val, (int, float, list, dict)) or val is None:
+        if isinstance(val, (int, float, list, tuple, dict)) or val is None:
             return val
         # Preserve _LiteralStr (quoted string) — don't try numeric conversion
         if isinstance(val, _LiteralStr):
             return val
         val_str = str(val)
-        # Try to convert to number
+        # Try to convert to number (handles both NUMBER and SIGNED_NUMBER tokens)
         try:
             if '.' in val_str:
                 return float(val_str)
@@ -1750,17 +1765,41 @@ class CodeGenerator:
         table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
 
         if isinstance(source, dict) and source.get('type') == 'var':
-            source_code = source['name']
-            load_table = f"{ast_node['table_name']} = pl.read_csv({source_code}{ast_node['kwargs_str']})"
+            var = source['name']
+            kw = ast_node['kwargs_str']
+            tname = ast_node['table_name']
+            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
+            load_table = (
+                f"_src = {var}\n"
+                f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
+                f"if _ext in ('xlsx', 'xls'):\n"
+                f"    {tname} = pl.read_excel(_src{kw})\n"
+                f"elif _ext == 'parquet':\n"
+                f"    {tname} = pl.read_parquet(_src{kw})\n"
+                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
+                f"    import sqlite3 as _sqlite3; import pandas as _pd\n"
+                f"    with _sqlite3.connect(_src) as _conn:\n"
+                f"        {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))\n"
+                f"else:\n"
+                f"    {tname} = pl.read_csv(_src{kw})"
+            )
         else:
-            ext = str(source).rsplit('.', 1)[-1].lower() if '.' in str(source) else ''
-            if ext in ('xlsx', 'xls'):
-                reader = 'pl.read_excel'
+            source_str = str(source)
+            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+            tname = ast_node['table_name']
+            if ext in ('sqlite', 'db', 'sqlite3'):
+                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
+                load_table = (
+                    f"import sqlite3 as _sqlite3; import pandas as _pd\n"
+                    f"with _sqlite3.connect({repr(source_str)}) as _conn:\n"
+                    f"    {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))"
+                )
+            elif ext in ('xlsx', 'xls'):
+                load_table = f"{tname} = pl.read_excel({repr(source_str)}{ast_node['kwargs_str']})"
             elif ext == 'parquet':
-                reader = 'pl.read_parquet'
+                load_table = f"{tname} = pl.read_parquet({repr(source_str)}{ast_node['kwargs_str']})"
             else:
-                reader = 'pl.read_csv'
-            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+                load_table = f"{tname} = pl.read_csv({repr(source_str)}{ast_node['kwargs_str']})"
 
         return f"{load_table}\n{table_name_marker}"
 
@@ -2035,6 +2074,10 @@ class CodeGenerator:
         conditions = ast_node.get('conditions')
         query_str = ast_node.get('query_str')
 
+        # Convert :varname Python variable refs to @varname for df.eval()
+        import re as _re_pa
+        expr = _re_pa.sub(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'@\1', expr)
+
         # Detect aggregate function calls — substitute before other processing
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
         if preamble:
@@ -2085,7 +2128,819 @@ class CodeGenerator:
         table = ast_node['table_name']
         func = ast_node['func']
         return f"{table} = {func}({table})"
-    
+
+    # ------------------------------------------------------------------
+    # Polars Phase 1 generators — core pipeline
+    # ------------------------------------------------------------------
+
+    def generate_copy_table_polars(self, ast_node):
+        src = ast_node['copy_from']
+        tgt = ast_node['table_name']
+        validation = (
+            f"if '{src}' not in locals() and '{src}' not in globals(): "
+            f"raise NameError(\"name '{src}' is not defined\")\n"
+            f"if not isinstance({src}, pl.DataFrame): "
+            f"raise TypeError('{src} is not a Polars DataFrame')"
+        )
+        copy_code = f"{tgt} = {src}.clone()"
+        marker = f"#__pivotal__\n__table_name__ = '{tgt}'\n#__pivotal__"
+        return f"{validation}\n{copy_code}\n{marker}"
+
+    def generate_validate_table_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        validation = (
+            f"if '{tbl}' not in locals() and '{tbl}' not in globals(): "
+            f"raise NameError(\"name '{tbl}' is not defined\")\n"
+            f"if not isinstance({tbl}, pl.DataFrame): "
+            f"raise TypeError('{tbl} is not a Polars DataFrame')"
+        )
+        marker = f"#__pivotal__\n__table_name__ = '{tbl}'\n#__pivotal__"
+        return f"{validation}\n{marker}"
+
+    def generate_filter_polars(self, ast_node):
+        expr = self._build_polars_filter(ast_node['conditions'], ast_node['operators'])
+        tbl = ast_node['table_name']
+        return f"{tbl} = {tbl}.filter({expr})"
+
+    def generate_select_polars(self, ast_node):
+        columns = ast_node['columns']
+        renames = ast_node.get('renames', {})
+        tbl = ast_node['table_name']
+
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            col_list_code = "[]"
+            for col in columns:
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    col_list_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                else:
+                    col_list_code += f" + ['{col}']"
+            code = f"{tbl} = {tbl}.select({col_list_code})"
+            if renames:
+                code += f"\n{tbl} = {tbl}.rename({renames})"
+        else:
+            if renames:
+                select_exprs = []
+                for col in columns:
+                    col_str = str(col)
+                    if col_str in renames:
+                        select_exprs.append(f"pl.col('{col_str}').alias('{renames[col_str]}')")
+                    else:
+                        select_exprs.append(f"'{col_str}'")
+                code = f"{tbl} = {tbl}.select([{', '.join(select_exprs)}])"
+            else:
+                col_list = [str(c) for c in columns]
+                code = f"{tbl} = {tbl}.select({col_list})"
+
+        return code
+
+    def generate_rename_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        return f"{tbl} = {tbl}.rename({ast_node['renames']})"
+
+    def generate_drop_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        return f"{tbl} = {tbl}.drop({ast_node['columns']})"
+
+    def generate_sort_polars(self, ast_node):
+        columns = ast_node['columns']
+        ascending = ast_node['ascending']
+        tbl = ast_node['table_name']
+
+        has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
+
+        if has_vars:
+            col_list_code = "[]"
+            desc_list_code = "[]"
+            for col, asc in zip(columns, ascending):
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    desc_val = str(not asc)
+                    col_list_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                    desc_list_code += (
+                        f" + ([{desc_val}] * (len({var_name}) if isinstance({var_name}, list) else 1))"
+                    )
+                else:
+                    col_list_code += f" + ['{col}']"
+                    desc_list_code += f" + [{not asc}]"
+            return f"{tbl} = {tbl}.sort({col_list_code}, descending={desc_list_code})"
+        else:
+            descending = [not a for a in ascending]
+            return f"{tbl} = {tbl}.sort({columns}, descending={descending})"
+
+    def generate_distinct_polars(self, ast_node):
+        cols = ast_node['columns']
+        tbl = ast_node['table_name']
+        if cols:
+            return f"{tbl} = {tbl}.unique(subset={cols})"
+        return f"{tbl} = {tbl}.unique()"
+
+    def generate_concat_polars(self, ast_node):
+        others = ', '.join(ast_node['tables'])
+        tbl = ast_node['table_name']
+        return f"{tbl} = pl.concat([{tbl}, {others}])"
+
+    def generate_fillna_polars(self, ast_node):
+        val = ast_node['value']
+        val_code = f"'{val}'" if isinstance(val, str) else str(val)
+        tbl = ast_node['table_name']
+        return f"{tbl} = {tbl}.fill_null({val_code})"
+
+    def generate_dropna_polars(self, ast_node):
+        cols = ast_node['columns']
+        tbl = ast_node['table_name']
+        if cols:
+            return f"{tbl} = {tbl}.drop_nulls(subset={cols})"
+        return f"{tbl} = {tbl}.drop_nulls()"
+
+    # ------------------------------------------------------------------
+    # Polars Phase 2 generators — assign + merge
+    # ------------------------------------------------------------------
+
+    def _expr_to_polars(self, expr, by_cols=None):
+        """Convert a simple arithmetic/agg expression string to a Polars Expr string.
+
+        Handles column references, numeric/string literals, arithmetic operators,
+        and aggregate function calls (sum, mean, etc.) with optional .over().
+        """
+        import re
+        AGG_FUNCS = frozenset({
+            'sum', 'mean', 'avg', 'min', 'max', 'count',
+            'std', 'median', 'var', 'nunique', 'first', 'last',
+        })
+        AGG_RENAME = {'avg': 'mean'}
+
+        result = []
+        i = 0
+        expr = expr.strip()
+        n = len(expr)
+
+        while i < n:
+            ch = expr[i]
+
+            if ch.isspace():
+                result.append(ch)
+                i += 1
+                continue
+
+            # Quoted string literal
+            if ch in ('"', "'"):
+                j = i + 1
+                while j < n:
+                    if expr[j] == '\\':
+                        j += 2
+                        continue
+                    if expr[j] == ch:
+                        break
+                    j += 1
+                s_content = expr[i + 1:j]
+                result.append(f"pl.lit('{s_content}')")
+                i = j + 1
+                continue
+
+            # Number (integer or float, including negative handled by operator)
+            m = re.match(r'\d+(?:\.\d+)?', expr[i:])
+            if m:
+                result.append(m.group())
+                i += len(m.group())
+                continue
+
+            # Identifier — column ref or agg/wavg function call
+            m = re.match(r'[a-zA-Z_][a-zA-Z0-9_]*', expr[i:])
+            if m:
+                name = m.group()
+                end = i + len(name)
+                # Peek past whitespace for opening paren
+                rest = expr[end:].lstrip()
+
+                if rest.startswith('(') and name == 'wavg':
+                    paren_pos = expr.index('(', end)
+                    depth, j = 1, paren_pos + 1
+                    while j < n and depth > 0:
+                        depth += (expr[j] == '(') - (expr[j] == ')')
+                        j += 1
+                    inner = expr[paren_pos + 1:j - 1].strip()
+                    parts = [p.strip() for p in inner.split(',', 1)]
+                    col, wt = parts[0], parts[1]
+                    if by_cols:
+                        by_repr = repr(by_cols[0]) if len(by_cols) == 1 else repr(by_cols)
+                        agg_expr = (
+                            f"(pl.col('{col}') * pl.col('{wt}')).sum().over({by_repr})"
+                            f" / pl.col('{wt}').sum().over({by_repr})"
+                        )
+                    else:
+                        agg_expr = (
+                            f"(pl.col('{col}') * pl.col('{wt}')).sum()"
+                            f" / pl.col('{wt}').sum()"
+                        )
+                    result.append(agg_expr)
+                    i = j
+                    continue
+
+                if rest.startswith('(') and name in AGG_FUNCS:
+                    paren_pos = expr.index('(', end)
+                    depth, j = 1, paren_pos + 1
+                    while j < n and depth > 0:
+                        depth += (expr[j] == '(') - (expr[j] == ')')
+                        j += 1
+                    arg = expr[paren_pos + 1:j - 1].strip()
+                    polars_func = AGG_RENAME.get(name, name)
+                    agg_expr = f"pl.col('{arg}').{polars_func}()"
+                    if by_cols:
+                        by_repr = repr(by_cols[0]) if len(by_cols) == 1 else repr(by_cols)
+                        agg_expr += f".over({by_repr})"
+                    result.append(agg_expr)
+                    i = j
+                    continue
+
+                # Regular identifier → column reference
+                result.append(f"pl.col('{name}')")
+                i = end
+                continue
+
+            # Python variable reference (:varname) → bare variable name
+            if ch == ':':
+                m = re.match(r'[a-zA-Z_][a-zA-Z0-9_]*', expr[i + 1:])
+                if m:
+                    result.append(m.group())
+                    i += 1 + len(m.group())
+                    continue
+
+            # Operator or punctuation — pass through
+            result.append(ch)
+            i += 1
+
+        return ''.join(result)
+
+    def _try_string_func_polars(self, expr):
+        """Parse STRING_FUNC(col, ...) and return a Polars Expr string, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._BUILTIN_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        first = args[0].strip()
+        # First arg may itself be a nested string function
+        nested = self._try_string_func_polars(first)
+        base = nested if nested is not None else f"pl.col('{first}')"
+        rest = [a.strip() for a in args[1:]]
+
+        if func == 'upper':
+            return f"{base}.str.to_uppercase()"
+        if func == 'lower':
+            return f"{base}.str.to_lowercase()"
+        if func == 'trim':
+            return f"{base}.str.strip_chars()"
+        if func == 'ltrim':
+            return f"{base}.str.strip_chars_start()"
+        if func == 'rtrim':
+            return f"{base}.str.strip_chars_end()"
+        if func == 'len':
+            return f"{base}.str.len_chars()"
+        if func == 'left' and len(rest) == 1:
+            return f"{base}.str.slice(0, {rest[0]})"
+        if func == 'right' and len(rest) == 1:
+            return f"{base}.str.slice(-{rest[0]})"
+        if func == 'substr' and len(rest) == 2:
+            s, length = rest
+            return f"{base}.str.slice({s}, {length})"
+        if func == 'replace' and len(rest) == 2:
+            a = rest[0].strip("'\"")
+            b = rest[1].strip("'\"")
+            return f"{base}.str.replace_all({repr(a)}, {repr(b)}, literal=True)"
+        return None
+
+    def _try_string_concat_polars(self, expr):
+        """Parse col + 'lit' + col concatenation. Returns pl.concat_str(...) code or None."""
+        import re
+        tokens = self._split_on_plus(expr)
+        if len(tokens) < 2:
+            return None
+        parts = []
+        for tok in tokens:
+            tok = tok.strip()
+            if not tok:
+                return None
+            if (tok.startswith('"') and tok.endswith('"')) or \
+               (tok.startswith("'") and tok.endswith("'")):
+                parts.append(f"pl.lit({tok})")
+            elif re.match(r'[a-zA-Z][a-zA-Z0-9_]*\s*\(', tok):
+                nested = self._try_string_func_polars(tok)
+                if nested is None:
+                    return None
+                parts.append(nested)
+            elif re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', tok):
+                parts.append(f"pl.col('{tok}')")
+            else:
+                return None
+        return f"pl.concat_str([{', '.join(parts)}])"
+
+    def _parse_string_expr_polars(self, expr):
+        """Return a Polars Expr string if expr is a string func or concat, else None.
+
+        Unlike pandas, pl.concat_str() always casts to string, so we only trigger
+        string concat when a quoted literal is present in the expression. A bare
+        col + col expression may be numeric addition and is left to _expr_to_polars.
+        """
+        import re
+        expr = expr.strip()
+        result = self._try_string_func_polars(expr)
+        if result is not None:
+            return result
+        if '+' in expr and ('"' in expr or "'" in expr):
+            return self._try_string_concat_polars(expr)
+        return None
+
+    def _generate_case_assign_polars(self, ast_node):
+        """Generate pl.when().then().when().then().otherwise() for multi-case assign."""
+        import re
+        table = ast_node['table_name']
+        target = ast_node['target']
+        cases = ast_node['cases']
+
+        branches = [c for c in cases if c['type'] == 'case_branch']
+        defaults = [c for c in cases if c['type'] == 'case_default']
+
+        def _polars_val(expr):
+            expr = expr.strip()
+            if self._is_scalar_expr(expr):
+                # Numbers stay as numbers; quoted strings need pl.lit
+                if re.match(r'^\d+(?:\.\d+)?$', expr):
+                    return f"pl.lit({expr})"
+                return f"pl.lit({expr})"
+            s = self._try_string_func_polars(expr)
+            if s:
+                return s
+            return self._expr_to_polars(expr)
+
+        chain_parts = []
+        for i, branch in enumerate(branches):
+            filter_expr = self._build_polars_filter(branch['conditions'], branch['operators'])
+            val = _polars_val(branch['expression'])
+            if i == 0:
+                chain_parts.append(f"pl.when({filter_expr}).then({val})")
+            else:
+                chain_parts.append(f"    .when({filter_expr}).then({val})")
+
+        if defaults:
+            chain_parts.append(f"    .otherwise({_polars_val(defaults[0]['expression'])})")
+        else:
+            chain_parts.append("    .otherwise(None)")
+
+        chain = '\n'.join(chain_parts)
+        return f"{table} = {table}.with_columns(\n    ({chain})\n    .alias('{target}')\n)"
+
+    def generate_assign_polars(self, ast_node):
+        table = ast_node['table_name']
+        target = ast_node['target']
+
+        if ast_node.get('cases'):
+            return self._generate_case_assign_polars(ast_node)
+
+        expr = ast_node['expression']
+        by_cols = ast_node.get('by_cols', [])
+        conditions = ast_node.get('conditions')
+        operators = ast_node.get('operators') or []
+
+        def _conditional_wrap(polars_expr):
+            filter_expr = self._build_polars_filter(conditions, operators)
+            otherwise = (
+                f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
+            )
+            return (
+                f"{table} = {table}.with_columns(\n"
+                f"    pl.when({filter_expr})\n"
+                f"    .then({polars_expr})\n"
+                f"    .otherwise({otherwise})\n"
+                f"    .alias('{target}')\n"
+                f")"
+            )
+
+        # Agg function calls — handle inline in Polars (no preamble needed)
+        if _WAVG_CALL_RE.search(expr) or _AGG_CALL_RE.search(expr):
+            polars_expr = self._expr_to_polars(expr, by_cols)
+            if conditions:
+                return _conditional_wrap(polars_expr)
+            return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
+
+        # String function / concatenation
+        string_code = self._parse_string_expr_polars(expr)
+        if string_code is not None:
+            if conditions:
+                return _conditional_wrap(string_code)
+            return f"{table} = {table}.with_columns({string_code}.alias('{target}'))"
+
+        # User-defined function call: func(col)
+        user_call = self._parse_user_func_call(expr)
+        if user_call:
+            func, col = user_call
+            if conditions:
+                filter_expr = self._build_polars_filter(conditions, operators)
+                otherwise = (
+                    f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
+                )
+                return (
+                    f"{table} = {table}.with_columns(\n"
+                    f"    pl.when({filter_expr})\n"
+                    f"    .then(pl.col('{col}').map_batches({func}))\n"
+                    f"    .otherwise({otherwise})\n"
+                    f"    .alias('{target}')\n"
+                    f")"
+                )
+            return f"{table} = {table}.with_columns(pl.col('{col}').map_batches({func}).alias('{target}'))"
+
+        # General arithmetic / scalar expression
+        polars_expr = self._expr_to_polars(expr, by_cols)
+        # If the entire expression reduced to a bare scalar (no pl.col / pl.lit
+        # already present), wrap it so that .alias() can be called on it.
+        # e.g. `wins = 1`  →  _expr_to_polars returns '1'
+        #      but (1).alias('wins') fails; pl.lit(1).alias('wins') works.
+        import re as _re
+        if 'pl.' not in polars_expr and (
+            _re.fullmatch(r'\s*-?\s*\d+(?:\.\d+)?\s*', polars_expr) or
+            _re.fullmatch(r'\s*[a-zA-Z_][a-zA-Z0-9_]*\s*', polars_expr)
+        ):
+            polars_expr = f"pl.lit({polars_expr.strip()})"
+        if conditions:
+            return _conditional_wrap(polars_expr)
+        return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
+
+    def generate_merge_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        right = ast_node['right_table']
+        how = ast_node['how']
+        keys = ast_node['keys']
+        kwargs = ast_node.get('kwargs') or {}
+        if isinstance(kwargs, str):
+            kwargs = {}
+
+        # Polars uses 'full' where Pivotal says 'outer'
+        how_map = {'inner': 'inner', 'left': 'left', 'right': 'right', 'outer': 'full'}
+        polars_how = how_map.get(how, how)
+
+        left_on = kwargs.get('left_on')
+        right_on = kwargs.get('right_on')
+
+        if left_on and right_on:
+            return (
+                f"{tbl} = {tbl}.join({right}, "
+                f"left_on='{left_on}', right_on='{right_on}', "
+                f"how='{polars_how}', coalesce=True)"
+            )
+
+        if keys and keys != '':
+            key_repr = repr(keys[0]) if len(keys) == 1 else repr(keys)
+            return f"{tbl} = {tbl}.join({right}, on={key_repr}, how='{polars_how}', coalesce=True)"
+
+        # No explicit keys — join on all common columns (natural join)
+        return (
+            f"_common = [c for c in {tbl}.columns if c in {right}.columns]\n"
+            f"{tbl} = {tbl}.join({right}, on=_common, how='{polars_how}', coalesce=True)"
+        )
+
+    # ------------------------------------------------------------------
+    # Polars Phase 3 generators — aggregation and reshape
+    # ------------------------------------------------------------------
+
+    # Mapping from Pivotal agg function names to Polars Series method names
+    _POLARS_AGG_MAP = {
+        'sum': 'sum', 'mean': 'mean', 'avg': 'mean',
+        'min': 'min', 'max': 'max', 'count': 'count',
+        'std': 'std', 'median': 'median', 'var': 'var',
+        'nunique': 'n_unique', 'first': 'first', 'last': 'last',
+    }
+    # Polars pivot uses slightly different names for aggregate_function
+    _POLARS_PIVOT_AGG_MAP = {
+        'sum': 'sum', 'mean': 'mean', 'avg': 'mean',
+        'min': 'min', 'max': 'max', 'count': 'len',
+        'std': 'std', 'median': 'median', 'first': 'first', 'last': 'last',
+    }
+
+    def _polars_by_code(self, by):
+        """Convert a 'by' field to a Polars group_by argument string."""
+        if isinstance(by, dict) and by.get('type') == 'var':
+            return by['name']
+        if isinstance(by, list):
+            has_vars = any(isinstance(i, dict) and i.get('type') == 'var' for i in by)
+            if has_vars:
+                code = "[]"
+                for item in by:
+                    if isinstance(item, dict) and item.get('type') == 'var':
+                        v = item['name']
+                        code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                    else:
+                        code += f" + ['{item}']"
+                return code
+            return str(by)
+        return f"'{by}'"
+
+    def generate_groupby_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        by = ast_node['by']
+        agg_list = ast_node.get('agg_list', [])
+
+        by_code = self._polars_by_code(by)
+
+        if not agg_list:
+            return f"{tbl} = {tbl}.group_by({by_code}).sum()"
+
+        # Check whether any agg column is a runtime variable
+        has_var_cols = any(
+            isinstance(item['column'], dict) and item['column'].get('type') == 'var'
+            for item in agg_list
+        )
+
+        if has_var_cols:
+            # Build the agg list dynamically at runtime
+            lines = ["_agg_exprs = []"]
+            for item in agg_list:
+                func = item['func']
+                col = item['column']
+                alias = item.get('alias')
+                polars_func = self._POLARS_AGG_MAP.get(func, func)
+
+                if isinstance(col, dict) and col.get('type') == 'var':
+                    var_name = col['name']
+                    alias_expr = f"f'{{c}}_{func}'" if not alias else repr(alias)
+                    lines.append(
+                        f"for c in ({var_name} if isinstance({var_name}, list) else [{var_name}]):\n"
+                        f"    _agg_exprs.append(pl.col(c).{polars_func}().alias({alias_expr}))"
+                    )
+                elif func == 'wavg':
+                    wt = item['weight']
+                    col_str = str(col)
+                    alias_val = alias or f'wavg_{col_str}'
+                    lines.append(
+                        f"_agg_exprs.append("
+                        f"((pl.col('{col_str}') * pl.col('{wt}')).sum()"
+                        f" / pl.col('{wt}').sum()).alias('{alias_val}'))"
+                    )
+                else:
+                    col_str = str(col)
+                    expr = f"pl.col('{col_str}').{polars_func}()"
+                    if alias:
+                        expr += f".alias('{alias}')"
+                    lines.append(f"_agg_exprs.append({expr})")
+            lines.append(f"{tbl} = {tbl}.group_by({by_code}).agg(_agg_exprs)")
+            return '\n'.join(lines)
+
+        # Static columns — build agg expressions directly
+        agg_exprs = []
+        for item in agg_list:
+            func = item['func']
+            col = str(item['column'])
+            alias = item.get('alias')
+
+            if func == 'wavg':
+                wt = item['weight']
+                alias_val = alias or f'wavg_{col}'
+                expr = (
+                    f"((pl.col('{col}') * pl.col('{wt}')).sum()"
+                    f" / pl.col('{wt}').sum()).alias('{alias_val}')"
+                )
+            else:
+                polars_func = self._POLARS_AGG_MAP.get(func, func)
+                expr = f"pl.col('{col}').{polars_func}()"
+                if alias:
+                    expr += f".alias('{alias}')"
+
+            agg_exprs.append(expr)
+
+        return f"{tbl} = {tbl}.group_by({by_code}).agg([{', '.join(agg_exprs)}])"
+
+    def generate_pivot_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        index = ast_node['index']
+        columns = ast_node['columns']
+        agg_list = ast_node.get('agg_list', [])
+
+        def _process_arg(arg):
+            if not arg:
+                return None
+            if isinstance(arg, dict) and arg.get('type') == 'var':
+                return arg['name']
+            if isinstance(arg, list):
+                has_vars = any(isinstance(i, dict) and i.get('type') == 'var' for i in arg)
+                if has_vars:
+                    code = "[]"
+                    for item in arg:
+                        if isinstance(item, dict) and item.get('type') == 'var':
+                            v = item['name']
+                            code += f" + ({v} if isinstance({v}, list) else [{v}])"
+                        else:
+                            code += f" + ['{item}']"
+                    return code
+                if len(arg) == 1:
+                    return repr(str(arg[0]))
+                return repr([str(a) for a in arg])
+            return repr(str(arg))
+
+        index_str = _process_arg(index)
+        columns_str = _process_arg(columns)
+
+        if not agg_list:
+            return (
+                f"{tbl} = {tbl}.pivot(values=None, index={index_str}, "
+                f"on={columns_str}, aggregate_function='first')"
+            )
+
+        # Extract value columns and functions (skip variable columns for now)
+        static_items = [i for i in agg_list if not (isinstance(i['column'], dict) and i['column'].get('type') == 'var')]
+        values = [str(i['column']) for i in static_items]
+        funcs = [i['func'] for i in static_items]
+
+        # Use first function for all values (Polars pivot takes single aggregate_function)
+        polars_func = self._POLARS_PIVOT_AGG_MAP.get(funcs[0], funcs[0]) if funcs else 'sum'
+        values_str = repr(values[0]) if len(values) == 1 else repr(values)
+
+        return (
+            f"{tbl} = {tbl}.pivot(values={values_str}, index={index_str}, "
+            f"on={columns_str}, aggregate_function='{polars_func}')"
+        )
+
+    def generate_unpivot_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        id_vars = ast_node['id_vars']
+        value_vars = ast_node['value_vars']
+        var_name = ast_node['var_name']
+        value_name = ast_node['value_name']
+
+        # Polars 1.0+: .unpivot(index=, on=, variable_name=, value_name=)
+        args = [f"index={id_vars!r}"]
+        if value_vars:
+            args.append(f"on={value_vars!r}")
+        args.append(f"variable_name={var_name!r}")
+        args.append(f"value_name={value_name!r}")
+        return f"{tbl} = {tbl}.unpivot({', '.join(args)})"
+
+    # -------------------------------------------------------------------------
+    # Polars Phase 4 generators — window functions
+    # -------------------------------------------------------------------------
+
+    def generate_rank_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        col = ast_node['column']
+        ascending = ast_node['ascending']
+        pct = ast_node.get('pct', False)
+        partition = ast_node['partition']
+        result_col = ast_node['result_col']
+
+        # Polars rank method: 'ordinal' by default; for pct we divide by n
+        if pct:
+            rank_expr = f"pl.col({col!r}).rank(method='ordinal') / pl.col({col!r}).count()"
+        else:
+            rank_expr = f"pl.col({col!r}).rank(method='ordinal')"
+
+        if not ascending:
+            # Negate rank for descending: rank of highest value becomes 1
+            rank_expr = f"(pl.col({col!r}).count() + 1 - pl.col({col!r}).rank(method='ordinal'))"
+            if pct:
+                rank_expr = f"(pl.col({col!r}).count() + 1 - pl.col({col!r}).rank(method='ordinal')) / pl.col({col!r}).count()"
+
+        if partition:
+            if isinstance(partition, list):
+                part_str = repr(partition)
+            else:
+                part_str = repr([partition])
+            rank_expr = f"({rank_expr}).over({part_str})"
+
+        return f"{tbl} = {tbl}.with_columns(({rank_expr}).alias({result_col!r}))"
+
+    def generate_shift_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        col = ast_node['column']
+        periods = ast_node['periods']
+        func = ast_node['func']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+        n = periods if func == 'lag' else -periods
+
+        lines = []
+        if order_col:
+            lines.append(f"{tbl} = {tbl}.sort({order_col!r})")
+
+        shift_expr = f"pl.col({col!r}).shift({n})"
+        if partition:
+            if isinstance(partition, list):
+                part_str = repr(partition)
+            else:
+                part_str = repr([partition])
+            shift_expr = f"pl.col({col!r}).shift({n}).over({part_str})"
+
+        lines.append(f"{tbl} = {tbl}.with_columns({shift_expr}.alias({result_col!r}))")
+        return '\n'.join(lines)
+
+    def generate_cumulative_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        func = ast_node['func']   # cumsum | cummean | cummin | cummax
+        col = ast_node['column']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _CUM_MAP = {
+            'cumsum': 'cum_sum',
+            'cummin': 'cum_min',
+            'cummax': 'cum_max',
+        }
+
+        lines = []
+        if order_col:
+            lines.append(f"{tbl} = {tbl}.sort({order_col!r})")
+
+        if func == 'cummean':
+            cum_expr = f"pl.col({col!r}).cum_sum() / pl.col({col!r}).cum_count()"
+        else:
+            polars_method = _CUM_MAP.get(func, func)
+            cum_expr = f"pl.col({col!r}).{polars_method}()"
+
+        if partition:
+            if isinstance(partition, list):
+                part_str = repr(partition)
+            else:
+                part_str = repr([partition])
+            cum_expr = f"({cum_expr}).over({part_str})"
+
+        lines.append(f"{tbl} = {tbl}.with_columns({cum_expr}.alias({result_col!r}))")
+        return '\n'.join(lines)
+
+    def generate_rolling_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        func = ast_node['func']
+        col = ast_node['column']
+        window = ast_node['window']
+        partition = ast_node['partition']
+        order_col = ast_node['order_col']
+        result_col = ast_node['result_col']
+
+        _ROLLING_MAP = {
+            'mean': 'rolling_mean',
+            'sum': 'rolling_sum',
+            'min': 'rolling_min',
+            'max': 'rolling_max',
+            'std': 'rolling_std',
+        }
+        polars_method = _ROLLING_MAP.get(func, f'rolling_{func}')
+
+        lines = []
+        if order_col:
+            lines.append(f"{tbl} = {tbl}.sort({order_col!r})")
+
+        roll_expr = f"pl.col({col!r}).{polars_method}({window})"
+        if partition:
+            if isinstance(partition, list):
+                part_str = repr(partition)
+            else:
+                part_str = repr([partition])
+            roll_expr = f"pl.col({col!r}).{polars_method}({window}).over({part_str})"
+
+        lines.append(f"{tbl} = {tbl}.with_columns({roll_expr}.alias({result_col!r}))")
+        return '\n'.join(lines)
+
+    # -------------------------------------------------------------------------
+    # Polars Phase 5 generators — output
+    # -------------------------------------------------------------------------
+
+    def generate_python_polars(self, ast_node):
+        return ast_node['code']
+
+    def generate_show_polars(self, ast_node):
+        table = ast_node['table_name']
+        mode = ast_node.get('mode', 'df')
+        lines = ["from IPython.display import display as _ipyd"]
+        if mode == 'head':
+            lines.append(f"_ipyd({table}.head(5))")
+        elif mode == 'summary':
+            lines.append(f"_ipyd({table}.to_pandas().describe())")
+        else:
+            lines.append(f"_ipyd({table})")
+        return "\n".join(lines)
+
+    def generate_plot_polars(self, ast_node):
+        # Convert to pandas first, then delegate to the pandas plot generator
+        table = ast_node['table_name']
+        pd_var = f"_{table}_pd"
+        lines = [f"{pd_var} = {table}.to_pandas()"]
+        # Patch table_name in a copy of the node so pandas generator uses the temp var
+        pandas_node = dict(ast_node, table_name=pd_var)
+        lines.append(self.generate_plot_pandas(pandas_node))
+        return "\n".join(lines)
+
+    def generate_agg_plot_polars(self, ast_node):
+        # Convert to pandas first, then delegate to the pandas agg_plot generator
+        table = ast_node['table_name']
+        pd_var = f"_{table}_pd"
+        lines = [f"{pd_var} = {table}.to_pandas()"]
+        pandas_node = dict(ast_node, table_name=pd_var)
+        lines.append(self.generate_agg_plot_pandas(pandas_node))
+        return "\n".join(lines)
+
     def generate_filter_pandas(self, ast_node):
         query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
         engine = ", engine='python'" if needs_python_engine else ""
@@ -2450,6 +3305,7 @@ class CodeGenerator:
         kwargs_str = ast_node['kwargs_str']
         table = ast_node['table_name']
         chart_key = ast_node['name']
+        on = ast_node.get('on')
         by_col = ast_node.get('by')
         n_cols = int(ast_node.get('cols') or 2)
         style = ast_node.get('style')
@@ -2483,7 +3339,26 @@ class CodeGenerator:
                 f"_warnings.filterwarnings('default', message='Bad key')",
             ]
 
-        if not by_col:
+        if on:
+            # Layer onto an existing single-axis figure
+            kwargs = ast_node.get('kwargs', {})
+            preserve_xlabel = 'xlabel' not in kwargs
+            preserve_ylabel = 'ylabel' not in kwargs
+            lines += [
+                f"if '_pivotal_charts' not in globals() or {on!r} not in globals()['_pivotal_charts']:",
+                f"    raise KeyError(\"plot 'on' target {on!r} not found - make sure it is created first\")",
+                f"_ax = globals()['_pivotal_charts'][{on!r}]['fig'].axes[0]",
+            ]
+            if preserve_xlabel:
+                lines.append(f"_prev_xlabel = _ax.get_xlabel()")
+            if preserve_ylabel:
+                lines.append(f"_prev_ylabel = _ax.get_ylabel()")
+            lines.append(f"{table}.plot({args_str}, ax=_ax)")
+            if preserve_xlabel:
+                lines.append(f"_ax.set_xlabel(_prev_xlabel)")
+            if preserve_ylabel:
+                lines.append(f"_ax.set_ylabel(_prev_ylabel)")
+        elif not by_col:
             # Simple plot — existing behaviour
             lines += [
                 f"_ax = {table}.plot({args_str})",
@@ -2841,7 +3716,16 @@ class CodeGenerator:
         return "\n".join(lines)
 
     def generate_gt_table_polars(self, ast_node):
-        return self.generate_gt_table_pandas(ast_node)
+        # great_tables dispatches grand_summary_rows fns based on the underlying
+        # DataFrame type.  When the data is a Polars DataFrame it expects Polars
+        # expressions, not the pandas-style lambdas we generate.  Converting to
+        # pandas first keeps all GT logic on the pandas path (same strategy as
+        # generate_plot_polars / generate_agg_plot_polars).
+        tbl = ast_node['table_name']
+        pd_var = f"_{tbl}_gt_pd"
+        pandas_node = dict(ast_node, table_name=pd_var)
+        pandas_code = self.generate_gt_table_pandas(pandas_node)
+        return f"{pd_var} = {tbl}.to_pandas()\n{pandas_code}"
 
     def _summary_fmt_code(self, fmt_dict: dict) -> str:
         """Return a lambda string for the fmt= arg of grand_summary_rows."""
@@ -2928,6 +3812,83 @@ class CodeGenerator:
             "if '_pivotal_ddb' not in globals(): globals()['_pivotal_ddb'] = _ddb.connect()\n"
             "_pvt = globals()['_pivotal_ddb']"
         )
+
+    def polars_preamble(self):
+        """Return Python code that imports Polars (and matplotlib for plots)."""
+        return (
+            "try:\n"
+            "    import polars as pl\n"
+            "except RuntimeError as _e:\n"
+            "    if any(_k in str(_e).lower() for _k in ('feature flag', 'sse', 'avx')):\n"
+            "        raise RuntimeError(\n"
+            "            'Polars failed to load due to a CPU compatibility issue. '\n"
+            "            'Try: pip install polars-lts-cpu'\n"
+            "        ) from _e\n"
+            "    raise\n"
+            "import matplotlib.pyplot as plt"
+        )
+
+    # ------------------------------------------------------------------
+    # Polars filter expression builder
+    # ------------------------------------------------------------------
+
+    def _build_polars_filter(self, conditions, operators):
+        """Build a Polars filter expression string from conditions and operators.
+
+        Returns a Python expression string that evaluates to a ``pl.Expr``.
+        """
+        parts = []
+        for condition in conditions:
+            column = condition['column']
+            comparator = condition['comparator']
+            value = condition['value']
+
+            if comparator == 'between':
+                lo, hi = value
+                parts.append(f"pl.col('{column}').is_between({lo}, {hi})")
+            elif comparator == 'contains':
+                parts.append(f"pl.col('{column}').str.contains('{value}')")
+            elif comparator == 'not contains':
+                parts.append(f"~pl.col('{column}').str.contains('{value}')")
+            elif comparator == 'startswith':
+                parts.append(f"pl.col('{column}').str.starts_with('{value}')")
+            elif comparator == 'endswith':
+                parts.append(f"pl.col('{column}').str.ends_with('{value}')")
+            elif isinstance(value, dict) and value.get('type') == 'var':
+                var_name = value['name']
+                if comparator in ('in', 'not in'):
+                    expr = f"pl.col('{column}').is_in({var_name})"
+                    if comparator == 'not in':
+                        expr = f"~{expr}"
+                    parts.append(expr)
+                else:
+                    parts.append(f"(pl.col('{column}') {comparator} {var_name})")
+            elif comparator in ('in', 'not in'):
+                if isinstance(value, list):
+                    items = ', '.join(f"'{v}'" if isinstance(v, str) else str(v) for v in value)
+                    value_str = f"[{items}]"
+                else:
+                    value_str = f"['{value}']" if isinstance(value, str) else f"[{value}]"
+                expr = f"pl.col('{column}').is_in({value_str})"
+                if comparator == 'not in':
+                    expr = f"~{expr}"
+                parts.append(expr)
+            elif isinstance(value, _LiteralStr):
+                parts.append(f"(pl.col('{column}') {comparator} '{value}')")
+            elif isinstance(value, str):
+                # Unquoted identifier — treat as column reference
+                parts.append(f"(pl.col('{column}') {comparator} pl.col('{value}'))")
+            else:
+                parts.append(f"(pl.col('{column}') {comparator} {value})")
+
+        if len(parts) == 1:
+            return parts[0]
+
+        result = parts[0]
+        for i, op in enumerate(operators):
+            polars_op = '&' if op == 'and' else '|'
+            result = f"({result}) {polars_op} ({parts[i + 1]})"
+        return result
 
     def _build_sql_where(self, conditions, operators):
         """Build a SQL WHERE clause from filter conditions.
@@ -3494,11 +4455,14 @@ class CodeGenerator:
     def _translate_assign_expr_to_sql(expr):
         """Minimal translation of a pandas-eval expression to SQL.
         - Converts double-quoted string literals to single-quoted.
-        - Uppercases common SQL function names.
+        - Converts :varname Python variable references to {varname} f-string placeholders.
+
+        Returns (sql_str, uses_pyvar) where uses_pyvar is True if any :varname was found.
         """
         import re
         result = re.sub(r'"([^"]*)"', lambda m: "'" + m.group(1) + "'", expr)
-        return result
+        result, n = re.subn(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'{\1}', result)
+        return result, n > 0
 
     def _try_sql_string_concat(self, expr):
         """Translate col + "lit" + col concatenation to SQL col || 'lit' || col.
@@ -3617,11 +4581,13 @@ class CodeGenerator:
                 where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
                 all_preamble.extend(preamble)
                 uses_fstr = uses_fstr or uf
-                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
+                uses_fstr = uses_fstr or upv
                 when_parts.append(f"WHEN {where} THEN {sql_expr}")
 
             if defaults:
-                else_expr = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                else_expr, upv = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                uses_fstr = uses_fstr or upv
                 case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
             else:
                 case_sql = f"CASE {' '.join(when_parts)} ELSE NULL END"
@@ -3638,35 +4604,38 @@ class CodeGenerator:
         # ── By-clause agg calls → window functions ─────────────────
         sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
         if sql_expr_with_agg != expr:
-            sql_expr_translated = self._translate_assign_expr_to_sql(sql_expr_with_agg)
+            sql_expr_translated, _ = self._translate_assign_expr_to_sql(sql_expr_with_agg)
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
         sql_str = self._try_sql_string_func(expr)
+        uses_pyvar_expr = False
         if sql_str is None:
             sql_str = self._try_sql_string_concat(expr)
         if sql_str is None:
-            sql_str = self._translate_assign_expr_to_sql(expr)
+            sql_str, uses_pyvar_expr = self._translate_assign_expr_to_sql(expr)
 
         # ── Conditional (where clause) → CASE WHEN ─────────────────
         if conditions:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
-            # ELSE clause: keep existing value if column exists, else NULL
-            # Use runtime check via DESCRIBE (already emitted by _ddb_upsert_col_lines)
-            case_sql_tmpl = (
-                f"CASE WHEN {where} THEN {sql_str} "
-                f"ELSE (CASE WHEN '{{target_exists}}' = 'yes' THEN {target} ELSE NULL END) END"
-            )
             # Simpler: build two versions and choose at runtime
             case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
             case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
             desc_line = f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]"
             sel_line  = f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {target!r})"
-            choose_sql = (
-                f"_ddb_case = ("
-                f'"{case_sql_existing}" if {target!r} in _ddb_desc '
-                f'else "{case_sql_new}")'
-            )
+            # Use f-strings at runtime if the SQL contains Python variable placeholders
+            if use_fstring or uses_pyvar_expr:
+                choose_sql = (
+                    f"_ddb_case = ("
+                    f'f"{case_sql_existing}" if {target!r} in _ddb_desc '
+                    f'else f"{case_sql_new}")'
+                )
+            else:
+                choose_sql = (
+                    f"_ddb_case = ("
+                    f'"{case_sql_existing}" if {target!r} in _ddb_desc '
+                    f'else "{case_sql_new}")'
+                )
             exec_line = f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {{_ddb_case}} AS {target} FROM {t}")'
             lines = list(preamble) + [desc_line, sel_line, choose_sql, exec_line]
             return '\n'.join(lines)
@@ -4050,10 +5019,16 @@ class CodeGenerator:
                 where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
                 if uf or preamble:
                     return f"-- [skipped: assign with Python variable in condition]"
-                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
+                if upv:
+                    return f"-- [skipped: assign with Python variable in expression]"
                 when_parts.append(f"WHEN {where} THEN {sql_expr}")
-            else_expr = (self._translate_assign_expr_to_sql(defaults[0]['expression'])
-                         if defaults else 'NULL')
+            if defaults:
+                else_expr, upv = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                if upv:
+                    return f"-- [skipped: assign with Python variable in expression]"
+            else:
+                else_expr = 'NULL'
             case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
             return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
         expr     = ast_node['expression']
@@ -4065,7 +5040,9 @@ class CodeGenerator:
         if sql_str is None:
             sql_str = self._try_sql_string_concat(sql_expr)
         if sql_str is None:
-            sql_str = self._translate_assign_expr_to_sql(sql_expr)
+            sql_str, upv = self._translate_assign_expr_to_sql(sql_expr)
+            if upv:
+                return f"-- [skipped: assign with Python variable in expression]"
         if conditions:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
             if use_fstring or preamble:
@@ -4401,6 +5378,8 @@ class DSLParser:
         python_code = []
         if backend == 'duckdb':
             python_code.append(self.code_generator.duckdb_preamble())
+        elif backend == 'polars':
+            python_code.append(self.code_generator.polars_preamble())
 
         for ast_node in ast_list:
             code = self.code_generator.generate(ast_node)
@@ -4517,15 +5496,15 @@ class DSLParser:
 
         python_code_list = self.generate_code(results, backend=backend)
 
-        # For DuckDB the first element is the connection preamble — exec it
+        # For DuckDB/Polars the first element is the backend preamble — exec it
         # separately so the results[i] index stays aligned with the statements.
-        if backend == 'duckdb' and python_code_list:
+        if backend in ('duckdb', 'polars') and python_code_list:
             preamble = python_code_list[0]
             python_code_list = python_code_list[1:]
             try:
                 exec(preamble, globals_dict)
             except Exception as e:
-                print(f"DuckDB preamble error: {e}")
+                print(f"{backend} preamble error: {e}")
 
         for i, python_code in enumerate(python_code_list):
             print(f"Executing: {python_code}")

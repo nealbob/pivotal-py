@@ -1,7 +1,7 @@
 # Pivotal
 
 
-**Pivotal** is a data processing language with a concise, readable syntax that compiles to Python code via either Pandas, Polars or DuckDB. Analyze and process your data interactively in Python without getting bogged down in Pandas syntax or SQL.
+**Pivotal** is a data analysis language with a concise, readable syntax that compiles to Python code via either Pandas, Polars or DuckDB. Analyze and process your data interactively in Python notebooks without getting bogged down in Pandas syntax or SQL.
 
 ```pivotal
 load invoices "invoices.csv"
@@ -32,7 +32,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 ## Key features
 
 - **Readable, Writable syntax** — write data transformations in a simple declarative syntax
-- **Multiple backends** — run the same code as Pandas, DuckDB, or SQL CTEs
+- **Multiple backends** — run the same code as Pandas, Polars or DuckDB/SQL
 - **Jupyter integration** — `%%pivotal` cell magic with a live viewer panel
 - **VS Code integration** — syntax highlighting, autocomplete, and one-key execution
 - **Export to code** — compile any notebook or `.pivotal` file to `.py` or `.sql`
@@ -48,6 +48,7 @@ pip install pivotal
 With optional extras:
 
 ```bash
+pip install pivotal[polars]    # Polars backend
 pip install pivotal[duckdb]    # DuckDB backend
 pip install pivotal[jupyter]   # Jupyter GUI widgets
 pip install pivotal[tables]    # Great Tables support
@@ -110,6 +111,6 @@ pip install pivotal[all]       # Everything
 
 - [Getting Started](getting-started.md) — installation and first steps
 - [Syntax Reference](syntax/index.md) — complete DSL documentation
-- [Backends](backends.md) — pandas, DuckDB, and SQL
+- [Backends](backends.md) — pandas, Polars, DuckDB, and SQL
 - [JupyterLab](jupyter.md) — cell magic, viewer, and export
 - [VS Code](vscode.md) — editor integration

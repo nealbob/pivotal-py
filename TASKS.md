@@ -5,7 +5,7 @@
 ## Backlog
 
 ## Ideas
-
+  change install to all by default.... basic is an option
 
   - [] grammer extensions, date operations, intersect, exclude/anti concat, range merge...
 
@@ -14,9 +14,6 @@
     - scatter diagrams
 
   - describe / sample Visual summary via tabulator? plus showing df changes in left and right pane
-
-Complex arbitrary expressions are a long tail — for the MVP, handle the common cases and fall back to
-  materialize-python-re-register for unsupported expressions.  
 
   - [] Bugs in plot (y and x) technicaly need to swap for barh...ALSO sharex share y override in plot, rotate x or y text overide, y axis label position?
 
