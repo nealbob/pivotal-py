@@ -22,6 +22,7 @@ Repository = "https://github.com/nealbob/pivotal-py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pivotal_jupyterlab"]
+only-include = ["pivotal_jupyterlab"]
 
 [tool.hatch.build.targets.wheel.shared-data]
 "install.json" = "share/jupyter/labextensions/@pivotal/jupyterlab/install.json"
