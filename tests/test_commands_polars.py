@@ -392,6 +392,56 @@ def test_assign_arithmetic_scalar(parser, sample_df):
     assert ns['sales']['discounted'][0] == pytest.approx(999.99 * 0.9)
 
 
+def test_assign_integer_literal_polars(parser):
+    """Regression: `col = 1` must produce pl.lit(1), not bare (1).alias() which fails."""
+    df = pl.DataFrame({'a': [10, 20, 30]})
+    ns = {'data': df}
+    run(parser, 'df data\nwins = 1', ns)
+    result = ns['data']
+    assert 'wins' in result.columns
+    assert result['wins'].to_list() == [1, 1, 1]
+    assert result['wins'].dtype in (pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+                                    pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64)
+
+
+def test_assign_float_literal_polars(parser):
+    df = pl.DataFrame({'a': [1, 2, 3]})
+    ns = {'data': df}
+    run(parser, 'df data\nrate = 0.5', ns)
+    result = ns['data']
+    assert result['rate'].to_list() == [0.5, 0.5, 0.5]
+
+
+def test_assign_integer_literal_codegen_polars(parser):
+    dsl = 'df data\nwins = 1\n'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='polars'))
+    assert 'pl.lit(1)' in code
+    assert '(1).alias' not in code
+
+
+def test_assign_col_plus_col_stays_numeric(parser):
+    """Regression: col + col where both are integers must produce integer, not string."""
+    df = pl.DataFrame({'home_goals': [2, 1, 3], 'away_goals': [1, 2, 0]})
+    ns = {'match': df}
+    run(parser, 'df match\ntotal_goals = home_goals + away_goals', ns)
+    result = ns['match']
+    assert 'total_goals' in result.columns
+    dtype = result['total_goals'].dtype
+    assert dtype in (pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+                     pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64), \
+        f"Expected integer dtype, got {dtype}"
+    assert result['total_goals'].to_list() == [3, 3, 3]
+
+
+def test_assign_string_concat_with_literal(parser):
+    """String concat still works when a quoted literal is present."""
+    df = pl.DataFrame({'first': ['Alice', 'Bob'], 'last': ['Smith', 'Jones']})
+    ns = {'people': df}
+    run(parser, 'df people\nfull_name = first + " " + last', ns)
+    result = ns['people']
+    assert result['full_name'].to_list() == ['Alice Smith', 'Bob Jones']
+
+
 # ---------------------------------------------------------------------------
 # assign: conditional (where)
 # ---------------------------------------------------------------------------
@@ -414,6 +464,59 @@ def test_assign_where_scalar(parser, sample_df):
     assert all(v == 1 for v in electronics['flag'].to_list())
     furniture = ns['sales'].filter(pl.col('category') == 'Furniture')
     assert all(v is None for v in furniture['flag'].to_list())
+
+
+def test_assign_python_var_arithmetic(parser, sample_df):
+    """Python variable (:varname) should be usable in arithmetic expressions."""
+    ns = {'sales': sample_df, 'tax_rate': 0.1}
+    run(parser, 'df sales\ntax = price * :tax_rate', ns)
+    df = ns['sales']
+    assert 'tax' in df.columns
+    for i in range(len(df)):
+        assert df['tax'][i] == pytest.approx(df['price'][i] * 0.1)
+
+
+def test_assign_python_var_scalar(parser, sample_df):
+    """Python variable (:varname) as the sole expression."""
+    ns = {'sales': sample_df, 'constval': 99.0}
+    run(parser, 'df sales\nfixed = :constval', ns)
+    df = ns['sales']
+    assert 'fixed' in df.columns
+    assert all(v == 99.0 for v in df['fixed'].to_list())
+
+
+def test_assign_python_var_with_where(parser, sample_df):
+    """Python variable (:varname) in a conditional assign."""
+    ns = {'sales': sample_df, 'discount': 0.2}
+    run(parser, 'df sales\ndiscounted = price * :discount\n    where category == "Electronics"', ns)
+    df = ns['sales']
+    electronics = df.filter(pl.col('category') == 'Electronics')
+    assert all(
+        v == pytest.approx(p * 0.2)
+        for v, p in zip(electronics['discounted'].to_list(), electronics['price'].to_list())
+    )
+    furniture = df.filter(pl.col('category') == 'Furniture')
+    assert all(v is None for v in furniture['discounted'].to_list())
+
+
+def test_assign_where_sequential_preserves_existing(parser, sample_df):
+    """Sequential conditional assigns to the same column should preserve prior values."""
+    ns = {'sales': sample_df}
+    dsl = (
+        'df sales\n'
+        'flag = 1\n'
+        '    where category == "Electronics"\n'
+        'flag = 2\n'
+        '    where category == "Furniture"\n'
+    )
+    run(parser, dsl, ns)
+    df = ns['sales']
+    electronics = df.filter(pl.col('category') == 'Electronics')
+    assert all(v == 1 for v in electronics['flag'].to_list()), \
+        "Electronics rows should retain flag=1 after second conditional assign"
+    furniture = df.filter(pl.col('category') == 'Furniture')
+    assert all(v == 2 for v in furniture['flag'].to_list()), \
+        "Furniture rows should have flag=2"
 
 
 # ---------------------------------------------------------------------------
@@ -1075,6 +1178,45 @@ def test_agg_plot_produces_figure_polars(parser, output_df):
     assert 'my_chart' in ns['_pivotal_charts']
 
 
+def test_codegen_plot_on_polars(parser):
+    """'plot X on Y' generates ax= layering code, not a new figure."""
+    dsl = (
+        'df sales\n'
+        'plot scatter my_chart\n'
+        '    x price\n'
+        '    y quantity\n'
+        'plot line on my_chart\n'
+        '    x price\n'
+        '    y quantity\n'
+    )
+    code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='polars'))
+    assert "globals()['_pivotal_charts']['my_chart']['fig'].axes[0]" in code
+    assert 'ax=_ax' in code
+
+
+def test_plot_on_layers_onto_existing_figure_polars(parser, output_df):
+    """Second plot is drawn on the same axis as the first."""
+    import matplotlib.figure
+    dsl = (
+        'df sales\n'
+        'plot scatter my_chart\n'
+        '    x price\n'
+        '    y quantity\n'
+        'plot line on my_chart\n'
+        '    x price\n'
+        '    y quantity\n'
+    )
+    ns = {'sales': output_df}
+    run(parser, dsl, ns)
+    fig = ns['_pivotal_charts']['my_chart']['fig']
+    assert isinstance(fig, matplotlib.figure.Figure)
+    # One axes object, both a scatter collection and a line on it
+    assert len(fig.axes) == 1
+    ax = fig.axes[0]
+    assert len(ax.collections) >= 1   # scatter
+    assert len(ax.lines) >= 1         # line
+
+
 # ---------------------------------------------------------------------------
 # gt_table
 # ---------------------------------------------------------------------------
@@ -1096,4 +1238,32 @@ def test_gt_table_stores_html_polars(parser, output_df):
     assert 'my_table' in ns['_pivotal_gt_tables']
     html = ns['_pivotal_gt_tables']['my_table']['html']
     assert '<table' in html.lower()
+
+
+# ---------------------------------------------------------------------------
+# load: SQLite
+# ---------------------------------------------------------------------------
+
+def test_load_sqlite_polars(parser, tmp_path, sample_df):
+    import sqlite3, pandas as pd
+    db_path = tmp_path / "data.sqlite"
+    pdf = sample_df.to_pandas()
+    with sqlite3.connect(db_path) as conn:
+        pdf.to_sql('products', conn, index=False)
+    ns = {}
+    run(parser, f'load products "{db_path}"', ns)
+    assert 'products' in ns
+    result = ns['products']
+    assert isinstance(result, pl.DataFrame)
+    assert len(result) == len(sample_df)
+    assert set(result.columns) == set(sample_df.columns)
+
+
+def test_load_sqlite_codegen_polars(parser, tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    dsl = f'load items "{db_path}"'
+    code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='polars'))
+    assert 'sqlite3' in code
+    assert 'pl.from_pandas' in code
+    assert 'test.sqlite' in code
 

@@ -88,7 +88,8 @@ grammar_indented = r"""
                   | "canvas" IDENTIFIER _NL?              -> agg_plot_canvas
                   | "show" _NL?                           -> agg_plot_show
 
-    plot_statement: "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT plot_params _DEDENT)?
+    plot_statement: "plot" IDENTIFIER IDENTIFIER? plot_on? (_NL | _NL _INDENT plot_params _DEDENT)?
+    plot_on: "on" IDENTIFIER
 
     plot_params: plot_param+
     plot_param: "by" IDENTIFIER _NL?           -> plot_by_param
@@ -273,8 +274,10 @@ grammar_indented = r"""
 
     file_path: PATH
 
-    value: BOOLEAN | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
-    list_value: "[" [value ("," value)*] "]" |  [value "," value ("," value)*] 
+    value: BOOLEAN | SIGNED_NUMBER | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
+    list_value: "[" [value ("," value)*] "]"
+              | "(" value "," value ("," value)* ")"
+              | [value "," value ("," value)*]
 
     BOOLEAN.2: "True" | "False" | "true" | "false"
     NONE.2: "None" | "none"
@@ -285,6 +288,7 @@ grammar_indented = r"""
     STRING: /"[^"]*"/ | /'[^']*'/
     UNQUOTED_STRING: /[^\n]+/
     PATH: /[a-zA-Z0-9_]+[:\\\/][a-zA-Z0-9_:\/\\\.\-]+|[\\\/][a-zA-Z0-9_:\/\\\.\-]+|[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+/
+    SIGNED_NUMBER.1: /-\d+(\.\d+)?/
     NUMBER: /\d+(\.\d+)?/
     COMMENT: /#[^\n]*/ | /--[^\n]*/
     MULTILINE_COMMENT:  /\/\*[\s\S]*?\*\//
@@ -839,6 +843,9 @@ class DSLTransformer(Transformer):
     def plot_show(self):
         return {'key': 'show'}
 
+    def plot_on(self, target):
+        return {'type': 'plot_on', 'target': str(target)}
+
     def agg_plot_show(self):
         return {'key': 'show'}
 
@@ -1188,13 +1195,16 @@ class DSLTransformer(Transformer):
     def plot_statement(self, *args):
         name = None
         kind = None
+        on = None
         kwargs = {}
         kwargs_str = ""
 
         identifiers = []
         show = False
         for arg in args:
-            if isinstance(arg, Token) and arg.type != '_NL':
+            if isinstance(arg, dict) and arg.get('type') == 'plot_on':
+                on = arg['target']
+            elif isinstance(arg, Token) and arg.type != '_NL':
                 identifiers.append(str(arg))
             elif isinstance(arg, str):
                 identifiers.append(arg)
@@ -1208,7 +1218,11 @@ class DSLTransformer(Transformer):
                         filtered.append(p)
                 kwargs, kwargs_str = self._plot_kwargs(filtered)
 
-        if len(identifiers) == 1:
+        if on:
+            # 'plot line on myplot' — the single identifier is the kind, not a chart name
+            if len(identifiers) >= 1:
+                kind = identifiers[0]
+        elif len(identifiers) == 1:
             name = identifiers[0]
         elif len(identifiers) >= 2:
             kind = identifiers[0]
@@ -1237,6 +1251,7 @@ class DSLTransformer(Transformer):
             'table_name': self.current_table,
             'name': name,
             'kind': kind,
+            'on': on,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str,
             'by': by_col,
@@ -1620,13 +1635,13 @@ class DSLTransformer(Transformer):
     
     def _convert_value(self, val):
         """Convert parsed value to appropriate Python type"""
-        if isinstance(val, (int, float, list, dict)) or val is None:
+        if isinstance(val, (int, float, list, tuple, dict)) or val is None:
             return val
         # Preserve _LiteralStr (quoted string) — don't try numeric conversion
         if isinstance(val, _LiteralStr):
             return val
         val_str = str(val)
-        # Try to convert to number
+        # Try to convert to number (handles both NUMBER and SIGNED_NUMBER tokens)
         try:
             if '.' in val_str:
                 return float(val_str)
@@ -1750,17 +1765,41 @@ class CodeGenerator:
         table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
 
         if isinstance(source, dict) and source.get('type') == 'var':
-            source_code = source['name']
-            load_table = f"{ast_node['table_name']} = pl.read_csv({source_code}{ast_node['kwargs_str']})"
+            var = source['name']
+            kw = ast_node['kwargs_str']
+            tname = ast_node['table_name']
+            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
+            load_table = (
+                f"_src = {var}\n"
+                f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
+                f"if _ext in ('xlsx', 'xls'):\n"
+                f"    {tname} = pl.read_excel(_src{kw})\n"
+                f"elif _ext == 'parquet':\n"
+                f"    {tname} = pl.read_parquet(_src{kw})\n"
+                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
+                f"    import sqlite3 as _sqlite3; import pandas as _pd\n"
+                f"    with _sqlite3.connect(_src) as _conn:\n"
+                f"        {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))\n"
+                f"else:\n"
+                f"    {tname} = pl.read_csv(_src{kw})"
+            )
         else:
-            ext = str(source).rsplit('.', 1)[-1].lower() if '.' in str(source) else ''
-            if ext in ('xlsx', 'xls'):
-                reader = 'pl.read_excel'
+            source_str = str(source)
+            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
+            tname = ast_node['table_name']
+            if ext in ('sqlite', 'db', 'sqlite3'):
+                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
+                load_table = (
+                    f"import sqlite3 as _sqlite3; import pandas as _pd\n"
+                    f"with _sqlite3.connect({repr(source_str)}) as _conn:\n"
+                    f"    {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))"
+                )
+            elif ext in ('xlsx', 'xls'):
+                load_table = f"{tname} = pl.read_excel({repr(source_str)}{ast_node['kwargs_str']})"
             elif ext == 'parquet':
-                reader = 'pl.read_parquet'
+                load_table = f"{tname} = pl.read_parquet({repr(source_str)}{ast_node['kwargs_str']})"
             else:
-                reader = 'pl.read_csv'
-            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+                load_table = f"{tname} = pl.read_csv({repr(source_str)}{ast_node['kwargs_str']})"
 
         return f"{load_table}\n{table_name_marker}"
 
@@ -2034,6 +2073,10 @@ class CodeGenerator:
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         query_str = ast_node.get('query_str')
+
+        # Convert :varname Python variable refs to @varname for df.eval()
+        import re as _re_pa
+        expr = _re_pa.sub(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'@\1', expr)
 
         # Detect aggregate function calls — substitute before other processing
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
@@ -2317,6 +2360,14 @@ class CodeGenerator:
                 i = end
                 continue
 
+            # Python variable reference (:varname) → bare variable name
+            if ch == ':':
+                m = re.match(r'[a-zA-Z_][a-zA-Z0-9_]*', expr[i + 1:])
+                if m:
+                    result.append(m.group())
+                    i += 1 + len(m.group())
+                    continue
+
             # Operator or punctuation — pass through
             result.append(ch)
             i += 1
@@ -2390,19 +2441,19 @@ class CodeGenerator:
         return f"pl.concat_str([{', '.join(parts)}])"
 
     def _parse_string_expr_polars(self, expr):
-        """Return a Polars Expr string if expr is a string func or concat, else None."""
+        """Return a Polars Expr string if expr is a string func or concat, else None.
+
+        Unlike pandas, pl.concat_str() always casts to string, so we only trigger
+        string concat when a quoted literal is present in the expression. A bare
+        col + col expression may be numeric addition and is left to _expr_to_polars.
+        """
         import re
         expr = expr.strip()
         result = self._try_string_func_polars(expr)
         if result is not None:
             return result
-        if '+' in expr:
-            if '"' in expr or "'" in expr:
-                return self._try_string_concat_polars(expr)
-            if not re.search(r'[-*/]', expr):
-                tokens = [t.strip() for t in expr.split('+')]
-                if all(re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', t) for t in tokens if t):
-                    return self._try_string_concat_polars(expr)
+        if '+' in expr and ('"' in expr or "'" in expr):
+            return self._try_string_concat_polars(expr)
         return None
 
     def _generate_case_assign_polars(self, ast_node):
@@ -2458,11 +2509,14 @@ class CodeGenerator:
 
         def _conditional_wrap(polars_expr):
             filter_expr = self._build_polars_filter(conditions, operators)
+            otherwise = (
+                f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
+            )
             return (
                 f"{table} = {table}.with_columns(\n"
                 f"    pl.when({filter_expr})\n"
                 f"    .then({polars_expr})\n"
-                f"    .otherwise(None)\n"
+                f"    .otherwise({otherwise})\n"
                 f"    .alias('{target}')\n"
                 f")"
             )
@@ -2487,11 +2541,14 @@ class CodeGenerator:
             func, col = user_call
             if conditions:
                 filter_expr = self._build_polars_filter(conditions, operators)
+                otherwise = (
+                    f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
+                )
                 return (
                     f"{table} = {table}.with_columns(\n"
                     f"    pl.when({filter_expr})\n"
                     f"    .then(pl.col('{col}').map_batches({func}))\n"
-                    f"    .otherwise(None)\n"
+                    f"    .otherwise({otherwise})\n"
                     f"    .alias('{target}')\n"
                     f")"
                 )
@@ -2499,6 +2556,16 @@ class CodeGenerator:
 
         # General arithmetic / scalar expression
         polars_expr = self._expr_to_polars(expr, by_cols)
+        # If the entire expression reduced to a bare scalar (no pl.col / pl.lit
+        # already present), wrap it so that .alias() can be called on it.
+        # e.g. `wins = 1`  →  _expr_to_polars returns '1'
+        #      but (1).alias('wins') fails; pl.lit(1).alias('wins') works.
+        import re as _re
+        if 'pl.' not in polars_expr and (
+            _re.fullmatch(r'\s*-?\s*\d+(?:\.\d+)?\s*', polars_expr) or
+            _re.fullmatch(r'\s*[a-zA-Z_][a-zA-Z0-9_]*\s*', polars_expr)
+        ):
+            polars_expr = f"pl.lit({polars_expr.strip()})"
         if conditions:
             return _conditional_wrap(polars_expr)
         return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
@@ -3238,6 +3305,7 @@ class CodeGenerator:
         kwargs_str = ast_node['kwargs_str']
         table = ast_node['table_name']
         chart_key = ast_node['name']
+        on = ast_node.get('on')
         by_col = ast_node.get('by')
         n_cols = int(ast_node.get('cols') or 2)
         style = ast_node.get('style')
@@ -3271,7 +3339,26 @@ class CodeGenerator:
                 f"_warnings.filterwarnings('default', message='Bad key')",
             ]
 
-        if not by_col:
+        if on:
+            # Layer onto an existing single-axis figure
+            kwargs = ast_node.get('kwargs', {})
+            preserve_xlabel = 'xlabel' not in kwargs
+            preserve_ylabel = 'ylabel' not in kwargs
+            lines += [
+                f"if '_pivotal_charts' not in globals() or {on!r} not in globals()['_pivotal_charts']:",
+                f"    raise KeyError(\"plot 'on' target {on!r} not found - make sure it is created first\")",
+                f"_ax = globals()['_pivotal_charts'][{on!r}]['fig'].axes[0]",
+            ]
+            if preserve_xlabel:
+                lines.append(f"_prev_xlabel = _ax.get_xlabel()")
+            if preserve_ylabel:
+                lines.append(f"_prev_ylabel = _ax.get_ylabel()")
+            lines.append(f"{table}.plot({args_str}, ax=_ax)")
+            if preserve_xlabel:
+                lines.append(f"_ax.set_xlabel(_prev_xlabel)")
+            if preserve_ylabel:
+                lines.append(f"_ax.set_ylabel(_prev_ylabel)")
+        elif not by_col:
             # Simple plot — existing behaviour
             lines += [
                 f"_ax = {table}.plot({args_str})",
@@ -3629,7 +3716,16 @@ class CodeGenerator:
         return "\n".join(lines)
 
     def generate_gt_table_polars(self, ast_node):
-        return self.generate_gt_table_pandas(ast_node)
+        # great_tables dispatches grand_summary_rows fns based on the underlying
+        # DataFrame type.  When the data is a Polars DataFrame it expects Polars
+        # expressions, not the pandas-style lambdas we generate.  Converting to
+        # pandas first keeps all GT logic on the pandas path (same strategy as
+        # generate_plot_polars / generate_agg_plot_polars).
+        tbl = ast_node['table_name']
+        pd_var = f"_{tbl}_gt_pd"
+        pandas_node = dict(ast_node, table_name=pd_var)
+        pandas_code = self.generate_gt_table_pandas(pandas_node)
+        return f"{pd_var} = {tbl}.to_pandas()\n{pandas_code}"
 
     def _summary_fmt_code(self, fmt_dict: dict) -> str:
         """Return a lambda string for the fmt= arg of grand_summary_rows."""
@@ -4359,11 +4455,14 @@ class CodeGenerator:
     def _translate_assign_expr_to_sql(expr):
         """Minimal translation of a pandas-eval expression to SQL.
         - Converts double-quoted string literals to single-quoted.
-        - Uppercases common SQL function names.
+        - Converts :varname Python variable references to {varname} f-string placeholders.
+
+        Returns (sql_str, uses_pyvar) where uses_pyvar is True if any :varname was found.
         """
         import re
         result = re.sub(r'"([^"]*)"', lambda m: "'" + m.group(1) + "'", expr)
-        return result
+        result, n = re.subn(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'{\1}', result)
+        return result, n > 0
 
     def _try_sql_string_concat(self, expr):
         """Translate col + "lit" + col concatenation to SQL col || 'lit' || col.
@@ -4482,11 +4581,13 @@ class CodeGenerator:
                 where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
                 all_preamble.extend(preamble)
                 uses_fstr = uses_fstr or uf
-                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
+                uses_fstr = uses_fstr or upv
                 when_parts.append(f"WHEN {where} THEN {sql_expr}")
 
             if defaults:
-                else_expr = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                else_expr, upv = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                uses_fstr = uses_fstr or upv
                 case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
             else:
                 case_sql = f"CASE {' '.join(when_parts)} ELSE NULL END"
@@ -4503,35 +4604,38 @@ class CodeGenerator:
         # ── By-clause agg calls → window functions ─────────────────
         sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
         if sql_expr_with_agg != expr:
-            sql_expr_translated = self._translate_assign_expr_to_sql(sql_expr_with_agg)
+            sql_expr_translated, _ = self._translate_assign_expr_to_sql(sql_expr_with_agg)
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
         sql_str = self._try_sql_string_func(expr)
+        uses_pyvar_expr = False
         if sql_str is None:
             sql_str = self._try_sql_string_concat(expr)
         if sql_str is None:
-            sql_str = self._translate_assign_expr_to_sql(expr)
+            sql_str, uses_pyvar_expr = self._translate_assign_expr_to_sql(expr)
 
         # ── Conditional (where clause) → CASE WHEN ─────────────────
         if conditions:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
-            # ELSE clause: keep existing value if column exists, else NULL
-            # Use runtime check via DESCRIBE (already emitted by _ddb_upsert_col_lines)
-            case_sql_tmpl = (
-                f"CASE WHEN {where} THEN {sql_str} "
-                f"ELSE (CASE WHEN '{{target_exists}}' = 'yes' THEN {target} ELSE NULL END) END"
-            )
             # Simpler: build two versions and choose at runtime
             case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
             case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
             desc_line = f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]"
             sel_line  = f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {target!r})"
-            choose_sql = (
-                f"_ddb_case = ("
-                f'"{case_sql_existing}" if {target!r} in _ddb_desc '
-                f'else "{case_sql_new}")'
-            )
+            # Use f-strings at runtime if the SQL contains Python variable placeholders
+            if use_fstring or uses_pyvar_expr:
+                choose_sql = (
+                    f"_ddb_case = ("
+                    f'f"{case_sql_existing}" if {target!r} in _ddb_desc '
+                    f'else f"{case_sql_new}")'
+                )
+            else:
+                choose_sql = (
+                    f"_ddb_case = ("
+                    f'"{case_sql_existing}" if {target!r} in _ddb_desc '
+                    f'else "{case_sql_new}")'
+                )
             exec_line = f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {{_ddb_case}} AS {target} FROM {t}")'
             lines = list(preamble) + [desc_line, sel_line, choose_sql, exec_line]
             return '\n'.join(lines)
@@ -4915,10 +5019,16 @@ class CodeGenerator:
                 where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
                 if uf or preamble:
                     return f"-- [skipped: assign with Python variable in condition]"
-                sql_expr = self._translate_assign_expr_to_sql(b['expression'])
+                sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
+                if upv:
+                    return f"-- [skipped: assign with Python variable in expression]"
                 when_parts.append(f"WHEN {where} THEN {sql_expr}")
-            else_expr = (self._translate_assign_expr_to_sql(defaults[0]['expression'])
-                         if defaults else 'NULL')
+            if defaults:
+                else_expr, upv = self._translate_assign_expr_to_sql(defaults[0]['expression'])
+                if upv:
+                    return f"-- [skipped: assign with Python variable in expression]"
+            else:
+                else_expr = 'NULL'
             case_sql = f"CASE {' '.join(when_parts)} ELSE {else_expr} END"
             return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
         expr     = ast_node['expression']
@@ -4930,7 +5040,9 @@ class CodeGenerator:
         if sql_str is None:
             sql_str = self._try_sql_string_concat(sql_expr)
         if sql_str is None:
-            sql_str = self._translate_assign_expr_to_sql(sql_expr)
+            sql_str, upv = self._translate_assign_expr_to_sql(sql_expr)
+            if upv:
+                return f"-- [skipped: assign with Python variable in expression]"
         if conditions:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
             if use_fstring or preamble:

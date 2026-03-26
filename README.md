@@ -2,7 +2,7 @@
 
 <img src="images/pivotal_logo.svg" width="120">
 
-**Pivotal** is a data processing language with a concise, readable syntax that compiles to Python code via Pandas, Polars or DuckDB. Analyze and process your data interactively in Python without getting bogged down in Pandas syntax or SQL.
+**Pivotal** is a data analysis language with a concise, readable syntax that compiles to Python code via Pandas, Polars or DuckDB. Analyze and process your data interactively in Python notebooks without getting bogged down in Pandas syntax or SQL.
 
 <img src="images/ataglance.png" width="600">
 
@@ -14,7 +14,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 **Readable, Writable syntax** — write data transformations in a simple declarative syntax
 
-**Multiple backends** — compile to Pandas (default) or in-process DuckDB (SQL)
+**Multiple backends** — compile to Pandas (default), Polars or in-process DuckDB (SQL)
 
 **JupyterLab integration** — `%%pivotal` cell magic, live object viewer, syntax highlighting, autocomplete, export to Python code
 

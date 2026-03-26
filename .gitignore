@@ -55,5 +55,9 @@ site/
 # Claude
 .claude/
 
+# Playwright test output
+tests/jupyter_screenshots/
+tests/jupyter_baseline/*.png
+
 # start script
 start_pivotal.sh

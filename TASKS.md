@@ -5,7 +5,7 @@
 ## Backlog
 
 ## Ideas
-  change install to all by default....
+  change install to all by default.... basic is an option
 
   - [] grammer extensions, date operations, intersect, exclude/anti concat, range merge...
 
