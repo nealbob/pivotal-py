@@ -20,6 +20,9 @@ dependencies = [
 Homepage = "https://github.com/nealbob/pivotal-py"
 Repository = "https://github.com/nealbob/pivotal-py"
 
+[tool.hatch.build.targets.wheel]
+packages = ["pivotal_jupyterlab"]
+
 [tool.hatch.build.targets.wheel.shared-data]
 "install.json" = "share/jupyter/labextensions/@pivotal/jupyterlab/install.json"
 "pivotal_jupyterlab/labextension" = "share/jupyter/labextensions/@pivotal/jupyterlab"
