@@ -1,5 +1,0 @@
-{
-  "packageManager": "python",
-  "packageName": "pivotal-jupyterlab",
-  "uninstallInstructions": "pip uninstall pivotal-jupyterlab"
-}
