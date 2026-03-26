@@ -9,7 +9,7 @@
       "type": "string",
       "enum": ["right", "main", "down"],
       "default": "right"
-    },
+    }
   },
   "additionalProperties": false
 }

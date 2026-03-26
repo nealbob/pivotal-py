@@ -7,9 +7,9 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "pivotal-jupyterlab"
+name = "pivotal-lab"
 version = "0.1.0"
-description = "JupyterLab syntax highlighting for the Pivotal data transformation DSL"
+description = "JupyterLab extension for the Pivotal data transformation DSL"
 license = "MIT"
 requires-python = ">=3.8"
 dependencies = [
@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/pivotal/pivotal-py"
-Repository = "https://github.com/pivotal/pivotal-py"
+Homepage = "https://github.com/nealbob/pivotal-py"
+Repository = "https://github.com/nealbob/pivotal-py"
 
 [tool.hatch.build.targets.wheel.shared-data]
 "install.json" = "share/jupyter/labextensions/@pivotal/jupyterlab/install.json"

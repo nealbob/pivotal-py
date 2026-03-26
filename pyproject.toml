@@ -85,9 +85,9 @@ pivotal = "pivotal.__main__:main"
 pivotal = "pivotal.lexer:PivotalLexer"
 
 [project.urls]
-Homepage = "https://github.com/hughevan/pivotal-py"
-Repository = "https://github.com/hughevan/pivotal-py"
-"Bug Tracker" = "https://github.com/hughevan/pivotal-py/issues"
+Homepage = "https://github.com/nealbob/pivotal-py"
+Repository = "https://github.com/nealbob/pivotal-py"
+"Bug Tracker" = "https://github.com/nealbob/pivotal-py/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

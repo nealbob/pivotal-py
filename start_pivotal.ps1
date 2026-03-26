@@ -83,11 +83,14 @@ Write-Host "Starting JupyterLab (pid $($proc.Id))..."
 
 # JupyterLab writes its URL to stderr
 $url = ""
-for ($i = 0; $i -lt 30; $i++) {
+for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 1
     $content = (Get-Content $stdoutLog -ErrorAction SilentlyContinue) +
                (Get-Content $stderrLog -ErrorAction SilentlyContinue)
     $match = $content | Select-String 'http://127\.0\.0\.1:\d+/lab\?token=[a-zA-Z0-9]+' | Select-Object -First 1
+    if (-not $match) {
+        $match = $content | Select-String 'http://localhost:\d+/lab\?token=[a-zA-Z0-9]+' | Select-Object -First 1
+    }
     if ($match) {
         $url = $match.Matches[0].Value
         break
@@ -103,7 +106,7 @@ if ($url) {
     Write-Host "Opening $openUrl"
     Start-Process $openUrl
 } else {
-    Write-Host "Could not detect server URL - check $logFile"
+    Write-Host "Could not detect server URL - check $stderrLog"
 }
 
 $proc.WaitForExit()
