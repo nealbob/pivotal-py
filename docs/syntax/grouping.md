@@ -26,6 +26,15 @@ Aggregation functions are indented under `group by`.
 | `nunique` | Count of unique values |
 | `wavg` | Weighted average |
 
+Both space and bracket syntax are accepted:
+
+```pivotal
+sum revenue as total       # space syntax
+sum(revenue) as total      # bracket syntax — both are equivalent
+wavg price quantity as avg # space syntax
+wavg(price, quantity) as avg  # bracket syntax
+```
+
 ## Basic usage
 
 ```pivotal

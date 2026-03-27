@@ -139,6 +139,8 @@ df detail from sales
 
 Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
 
+Both space and bracket syntax are accepted: `sum revenue as total` or `sum(revenue) as total`, `wavg price weight` or `wavg(price, weight)`.
+
 To aggregate over all rows without grouping, use `summarise`:
 
 ```pivotal
