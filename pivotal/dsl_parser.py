@@ -23,7 +23,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
-    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
@@ -57,6 +57,7 @@ grammar_indented = r"""
                | cumulative_statement
                | rolling_statement
                | groupby_statement
+               | summarise_statement
                | python_statement
                | agg_plot_statement
                | plot_statement
@@ -190,8 +191,10 @@ grammar_indented = r"""
     filter_statement: "filter" condition_list  _NL?
     
     select_statement: "select" select_item ("," select_item)* _NL?
-    
+
     select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+
+    summarise_statement: "summarise" agg_item ("," agg_item)* _NL?
 
     pivot_statement: "pivot" _NL _INDENT pivot_args _DEDENT
 
@@ -729,7 +732,7 @@ class DSLTransformer(Transformer):
         """Handle select statements to select specific columns"""
         columns = []
         renames = {}
-        
+
         for item in items:
             if isinstance(item, dict):
                 if item.get('type') == 'var':
@@ -740,17 +743,27 @@ class DSLTransformer(Transformer):
                     if 'alias' in item:
                         renames[col] = item['alias']
             else:
-                # Fallback if item is just a string (shouldn't happen with new grammar)
                 columns.append(str(item))
-        
-        ast_node = {
+
+        return {
             'type': 'select',
             'table_name': self.current_table,
             'columns': columns,
-            'renames': renames
+            'renames': renames,
         }
-        
-        return ast_node
+
+    def summarise_statement(self, *items):
+        """Whole-table aggregation with no group-by columns."""
+        agg_list = []
+        for item in items:
+            if isinstance(item, dict) and 'func' in item:
+                agg_list.append(item)
+        return {
+            'type': 'groupby',
+            'table_name': self.current_table,
+            'by': [],
+            'agg_list': agg_list,
+        }
 
     def select_item(self, col, alias=None):
         if isinstance(col, dict) and col.get('type') == 'var':
@@ -2644,6 +2657,21 @@ class CodeGenerator:
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
 
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if agg_list:
+                exprs = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or f"{col}_{func}"
+                    polars_func = self._POLARS_AGG_MAP.get(func, func)
+                    col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
+                    exprs.append(f"pl.col({col_code}).{polars_func}().alias('{alias}')")
+                return f"{tbl} = {tbl}.select([{', '.join(exprs)}])"
+            else:
+                return f"{tbl} = {tbl}.select(pl.all().sum())"
+
         by_code = self._polars_by_code(by)
 
         if not agg_list:
@@ -3162,7 +3190,23 @@ class CodeGenerator:
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
-        
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            table = ast_node['table_name']
+            if agg_list:
+                parts = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or f"{col}_{func}"
+                    pandas_func = 'mean' if func == 'avg' else func
+                    col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
+                    parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
+                return f"{table} = __import__('pandas').DataFrame({{{', '.join(parts)}}})"
+            else:
+                return f"{table} = {table}.agg('sum').to_frame().T.reset_index(drop=True)"
+
         # Handle 'by' argument which can be a list, a variable, or a list containing variables
         if isinstance(by, dict) and by.get('type') == 'var':
             by_code = by['name']
@@ -4222,6 +4266,20 @@ class CodeGenerator:
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
 
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if agg_list:
+                sel_parts = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or (col if isinstance(col, str) else f"agg_{func}")
+                    sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+                sel = ', '.join(sel_parts)
+                return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t}")'
+            else:
+                return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} LIMIT 0")'
+
         by_list, has_var_by, by_list_code = self._ddb_by_parts(by)
         agg_has_vars = any(
             isinstance(item.get('column'), dict) and item['column'].get('type') == 'var'
@@ -4932,6 +4990,19 @@ class CodeGenerator:
         from_alias = self._sql_current(t)
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if not agg_list:
+                return f"-- [skipped: summarise without agg list]"
+            sel_parts = []
+            for item in agg_list:
+                col = item['column']
+                func = item['func']
+                alias = item.get('alias', f"{col}_{func}")
+                sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+            return f"SELECT {', '.join(sel_parts)} FROM {from_alias}"
+
         by_list, has_var_by, _ = self._ddb_by_parts(by)
         if has_var_by:
             return f"-- [skipped: groupby with Python variable columns]"
