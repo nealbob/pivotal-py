@@ -5,10 +5,11 @@
 ## Backlog
 
 ## Ideas
-  change install to all by default.... basic is an option
 
-  - [] grammer extensions, date operations, intersect, exclude/anti concat, range merge...
+  - [] grammer extensions, date operations, type casting, intersect / exclude, range merge
 
+  - [] make gui pop ups not inline.
+  
   - [] graphicwalker in the viewer pane AG grid and gwalker code generation...
 
     - scatter diagrams
