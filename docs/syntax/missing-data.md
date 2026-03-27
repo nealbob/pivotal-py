@@ -18,13 +18,17 @@ df clean from raw
 
 ### Fill specific columns
 
+Use an indented block to fill different columns with different values:
+
 ```pivotal
 df clean from raw
-    fillna price=0, name="unknown", region="N/A"
+    fillna
+        price = 0
+        name = "unknown"
+        region = "N/A"
 ```
 
-!!! note
-    When specific columns are named, only those columns are filled. All other columns are unchanged.
+Only the listed columns are filled. All other columns are unchanged.
 
 ---
 

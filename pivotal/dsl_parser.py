@@ -24,6 +24,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
+    'intersect', 'exclude',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
@@ -66,6 +67,8 @@ grammar_indented = r"""
                | dropna_statement
                | distinct_statement
                | concat_statement
+               | intersect_statement
+               | exclude_statement
                | rename_statement
                | apply_statement
                | table_statement
@@ -256,6 +259,10 @@ grammar_indented = r"""
     drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
 
     fillna_statement: "fillna" value _NL?
+                    | "fillna" _NL _INDENT fillna_col_params _DEDENT
+
+    fillna_col_params: fillna_col_param+
+    fillna_col_param: IDENTIFIER "=" value _NL?
 
     dropna_statement: "dropna" dropna_cols? _NL?
     dropna_cols: IDENTIFIER ("," IDENTIFIER)*
@@ -264,6 +271,8 @@ grammar_indented = r"""
     distinct_cols: IDENTIFIER ("," IDENTIFIER)*
 
     concat_statement: "concat" IDENTIFIER ("," IDENTIFIER)* _NL?
+    intersect_statement: "intersect" IDENTIFIER ("," IDENTIFIER)* _NL?
+    exclude_statement: "exclude" IDENTIFIER ("," IDENTIFIER)* _NL?
 
     rename_statement: "rename" rename_item ("," rename_item)* _NL?
     rename_item: IDENTIFIER "as" IDENTIFIER
@@ -787,12 +796,19 @@ class DSLTransformer(Transformer):
             'columns': [str(c) for c in cols]
         }
 
-    def fillna_statement(self, val):
-        return {
-            'type': 'fillna',
-            'table_name': self.current_table,
-            'value': val
-        }
+    def fillna_statement(self, *args):
+        # Two forms: fillna value  OR  fillna \n indent col_params
+        if len(args) == 1 and not isinstance(args[0], list):
+            return {'type': 'fillna', 'table_name': self.current_table, 'value': args[0], 'per_col': {}}
+        # per-column: args[0] is the list from fillna_col_params
+        col_params = args[0] if args else []
+        return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': dict(col_params)}
+
+    def fillna_col_params(self, *params):
+        return list(params)
+
+    def fillna_col_param(self, col, val):
+        return (str(col), val)
 
     def dropna_statement(self, *args):
         cols = args[0] if args and isinstance(args[0], list) else []
@@ -817,11 +833,13 @@ class DSLTransformer(Transformer):
         return [str(c) for c in cols]
 
     def concat_statement(self, *tables):
-        return {
-            'type': 'concat',
-            'table_name': self.current_table,
-            'tables': [str(t) for t in tables]
-        }
+        return {'type': 'concat', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def intersect_statement(self, *tables):
+        return {'type': 'intersect', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def exclude_statement(self, *tables):
+        return {'type': 'exclude', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
 
     def rename_statement(self, *items):
         renames = {}
@@ -2258,10 +2276,34 @@ class CodeGenerator:
         return f"{tbl} = pl.concat([{tbl}, {others}])"
 
     def generate_fillna_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            lines = [f"{tbl} = {tbl}.with_columns(["]
+            for col, val in per_col.items():
+                val_code = f"'{val}'" if isinstance(val, str) else str(val)
+                lines.append(f"    pl.col('{col}').fill_null({val_code}),")
+            lines.append("])")
+            return '\n'.join(lines)
         val = ast_node['value']
         val_code = f"'{val}'" if isinstance(val, str) else str(val)
-        tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.fill_null({val_code})"
+
+    def generate_intersect_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        others = ast_node['tables']
+        result = tbl
+        for other in others:
+            result = f"{result}.join({other}, on={result}.columns, how='inner')"
+        return f"{tbl} = {result}.unique()"
+
+    def generate_exclude_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        others = ast_node['tables']
+        lines = [f"{tbl} = {tbl}.unique()"]
+        for other in others:
+            lines.append(f"{tbl} = {tbl}.join({other}.unique(), on={tbl}.columns, how='anti')")
+        return '\n'.join(lines)
 
     def generate_dropna_polars(self, ast_node):
         cols = ast_node['columns']
@@ -3308,9 +3350,32 @@ class CodeGenerator:
         return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
 
     def generate_fillna_pandas(self, ast_node):
+        t = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            fill_dict = {col: (f"'{v}'" if isinstance(v, str) else str(v)) for col, v in per_col.items()}
+            fill_str = '{' + ', '.join(f"'{c}': {v}" for c, v in fill_dict.items()) + '}'
+            return f"{t} = {t}.fillna({fill_str})"
         val = ast_node['value']
         val_code = f"'{val}'" if isinstance(val, str) else str(val)
-        return f"{ast_node['table_name']} = {ast_node['table_name']}.fillna({val_code})"
+        return f"{t} = {t}.fillna({val_code})"
+
+    def generate_intersect_pandas(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        result = t
+        for other in others:
+            result = f"__import__('pandas').merge({result}, {other}, how='inner')"
+        return f"{t} = {result}.drop_duplicates().reset_index(drop=True)"
+
+    def generate_exclude_pandas(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        lines = [f"{t} = {t}.drop_duplicates()"]
+        for other in others:
+            lines.append(f"{t} = {t}.merge({other}.drop_duplicates(), how='left', indicator=True)")
+            lines.append(f"{t} = {t}[{t}['_merge'] == 'left_only'].drop(columns='_merge').reset_index(drop=True)")
+        return '\n'.join(lines)
 
     def generate_dropna_pandas(self, ast_node):
         cols = ast_node['columns']
@@ -4774,11 +4839,25 @@ class CodeGenerator:
     # ── fillna ────────────────────────────────────────────────────────
 
     def generate_fillna_duckdb(self, ast_node):
-        t   = ast_node['table_name']
-        val = ast_node['value']
+        t = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
 
+        if per_col:
+            parts = []
+            for col, val in per_col.items():
+                val_sql = f"'{val}'" if isinstance(val, str) else str(val)
+                parts.append(f"COALESCE({col}, {val_sql}) AS {col}")
+            # Build SELECT replacing only specified cols; keep others as-is via star + override
+            lines = [
+                f"_ddb_all_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+                f"_ddb_per = {{{', '.join(repr(c) + ': ' + (repr(v) if isinstance(v, str) else str(v)) for c, v in per_col.items())}}}",
+                f"_ddb_sel = ', '.join(f\"COALESCE({{c}}, '{{_ddb_per[c]}}') AS {{c}}\" if c in _ddb_per and isinstance(_ddb_per[c], str) else (f'COALESCE({{c}}, {{_ddb_per[c]}}) AS {{c}}' if c in _ddb_per else c) for c in _ddb_all_cols)",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
+            ]
+            return '\n'.join(lines)
+
+        val = ast_node['value']
         if isinstance(val, str):
-            # String fill value: store in _ddb_fillval; use it in SQL with single quotes
             fill_val_line = f"_ddb_fillval = {repr(str(val))}"
             sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
         elif val is None:
@@ -4797,6 +4876,20 @@ class CodeGenerator:
             f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
         ]
         return '\n'.join(lines)
+
+    def generate_intersect_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        sql = ' INTERSECT '.join(parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {sql}")'
+
+    def generate_exclude_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        sql = ' EXCEPT '.join(parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {sql}")'
 
     # ── dropna ────────────────────────────────────────────────────────
 
@@ -5181,8 +5274,30 @@ class CodeGenerator:
         return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
 
     def generate_fillna_sql(self, ast_node):
-        # fillna in DSL has no column list — always requires runtime schema
-        return f"-- [skipped: fillna requires runtime schema in SQL CTE mode]"
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            parts = ', '.join(
+                f"COALESCE({c}, {repr(v) if isinstance(v, str) else v}) AS {c}"
+                for c, v in per_col.items()
+            )
+            return f"SELECT *, {parts} FROM {from_alias}"
+        return f"-- [skipped: fillna without column list requires runtime schema in SQL CTE mode]"
+
+    def generate_intersect_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' INTERSECT '.join(parts)
+
+    def generate_exclude_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' EXCEPT '.join(parts)
 
     def generate_dropna_sql(self, ast_node):
         t = ast_node['table_name']

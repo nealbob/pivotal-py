@@ -29,7 +29,7 @@ Pivotal source files use the `.pivotal` extension. The extension activates autom
 
 The extension provides syntax highlighting for:
 
-- **Keywords:** `load`, `df`, `filter`, `select`, `assign`, `sort`, `group`, `merge`, `pivot`, `plot`, `drop`, `fillna`, `dropna`, `distinct`, `concat`, `rename`, `apply`, `save`, `delete`, `show`, `python`, `end`
+- **Keywords:** `load`, `df`, `filter`, `select`, `assign`, `sort`, `group`, `merge`, `pivot`, `plot`, `drop`, `fillna`, `dropna`, `distinct`, `concat`, `intersect`, `exclude`, `rename`, `apply`, `save`, `delete`, `show`, `python`, `summarise`, `end`
 - **Clause keywords:** `from`, `where`, `as`, `on`, `by`, `rows`, `cols`, `head`
 - **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not`, `between`, `contains`, `startswith`, `endswith`, `and`, `or`
 - **Sort modifiers:** `asc`, `desc`

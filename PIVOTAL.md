@@ -226,11 +226,26 @@ df clean from raw
     distinct customer, date
 ```
 
-## Concatenate
+## Concatenate / Set operations
 
 ```pivotal
 df all_sales from q1
-    concat q2, q3, q4
+    concat q2, q3, q4      # union all (stack rows)
+
+df common from a
+    intersect b             # rows present in both tables
+
+df new from all_leads
+    exclude converted       # rows in all_leads but not in converted
+```
+
+`fillna` can fill per-column with an indented block:
+
+```pivotal
+df clean from raw
+    fillna
+        price = 0
+        name = "unknown"
 ```
 
 ## Plotting

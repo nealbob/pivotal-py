@@ -104,3 +104,34 @@ df all_sales from q1
 ```
 
 Both tables must have compatible columns. Extra columns in either table will be filled with `null` for the rows where they are absent.
+
+---
+
+## `intersect` — keep only common rows
+
+Keep rows that appear in both the active table and the named table (set intersection):
+
+```pivotal
+df common from all_customers
+    intersect active_customers
+```
+
+Duplicate rows are removed from the result.
+
+---
+
+## `exclude` — remove rows present in another table
+
+Remove rows from the active table that appear in the named table (set difference):
+
+```pivotal
+df new_customers from all_customers
+    exclude existing_customers
+```
+
+```pivotal
+df unmatched from leads
+    exclude converted, disqualified
+```
+
+Duplicate rows are removed before the comparison.

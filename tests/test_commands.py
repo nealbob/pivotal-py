@@ -1549,3 +1549,42 @@ def test_rolling_code_generation(parser):
     assert "rolling(3).mean()" in code
     assert "transform" in code
     assert "groupby(['region'])" in code
+
+
+# intersect / exclude --------------------------------------------------------
+
+def test_intersect_basic(parser):
+    """intersect keeps only rows present in both tables."""
+    a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
+    b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
+    ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
+    run(parser, 'df a\n    intersect b\n', ns)
+    assert set(ns['a']['x']) == {2, 3}
+
+
+def test_exclude_basic(parser):
+    """exclude removes rows present in other table."""
+    a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
+    b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
+    ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
+    run(parser, 'df a\n    exclude b\n', ns)
+    assert set(ns['a']['x']) == {1}
+
+
+# fillna per-column ----------------------------------------------------------
+
+def test_fillna_per_col(parser):
+    """fillna with indented col=value fills each column independently."""
+    df = pd.DataFrame({'price': [1.0, None, 3.0], 'name': ['a', None, 'c']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    fillna\n        price = 0\n        name = "unknown"\n', ns)
+    assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
+    assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
+
+
+def test_fillna_all_unchanged(parser):
+    """fillna with a scalar still fills all columns."""
+    df = pd.DataFrame({'a': [1.0, None], 'b': [None, 2.0]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    fillna 0\n', ns)
+    assert ns['t'].isnull().sum().sum() == 0

@@ -69,8 +69,8 @@ function loadAutocompleteFile(documentUri: vscode.Uri): AutocompleteData | null 
 const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply',
+  'concat', 'intersect', 'exclude', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
+  'distinct', 'python', 'save', 'apply', 'summarise',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -110,7 +110,7 @@ function detectContext(
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
 
   // After merge / concat → table names
-  if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat)\s+\w*$/.test(trimmed)) {
+  if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
 
