@@ -139,6 +139,13 @@ df detail from sales
 
 Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
 
+To aggregate over all rows without grouping, use `summarise`:
+
+```pivotal
+df totals from sales
+    summarise sum amount as total, mean amount as avg
+```
+
 ## Window functions
 
 All share optional `by` (partition) and `order` sub-clauses:

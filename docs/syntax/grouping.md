@@ -101,6 +101,17 @@ df summary from orders
         nunique customer_id as unique_customers
 ```
 
+## `summarise` — aggregate over all rows
+
+To aggregate without grouping, use `summarise`:
+
+```pivotal
+df totals from sales
+    summarise sum revenue as total, mean price as avg_price, count id as n
+```
+
+This produces a single-row result. The same aggregation functions are supported as with `group by`.
+
 ## Example: full summary table
 
 ```pivotal
