@@ -189,14 +189,14 @@ def test_execute_sort_sql(parser, sample_df):
 # ===========================================================================
 
 def test_codegen_groupby_sql(parser):
-    sql = gen_sql(parser, 'df sales\ngroup by category\n    agg sum price as total\n')
+    sql = gen_sql(parser, 'df sales\ngroup by category\n    sum price as total\n')
     assert 'GROUP BY category' in sql
     assert 'SUM(price) AS total' in sql
 
 
 def test_execute_groupby_sql(parser, sample_df):
     conn = make_conn('sales', sample_df)
-    sql = gen_sql(parser, 'df sales\ngroup by category\n    agg sum price as total\n')
+    sql = gen_sql(parser, 'df sales\ngroup by category\n    sum price as total\n')
     result = conn.execute(sql).df()
     assert set(result.columns) >= {'category', 'total'}
     elec = result[result['category'] == 'Electronics']['total'].iloc[0]

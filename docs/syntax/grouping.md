@@ -7,10 +7,10 @@ Group rows by one or more columns and compute aggregate statistics.
 ```pivotal
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
-The `agg` line(s) are indented under `group by`.
+Aggregation functions are indented under `group by`.
 
 ## Aggregation functions
 
@@ -31,38 +31,38 @@ The `agg` line(s) are indented under `group by`.
 ```pivotal
 df by_region from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
 ```pivotal
 df by_category from sales
     group by category
-        agg mean price as avg_price
+        mean price as avg_price
 ```
 
 ```pivotal
 df counts from events
     group by event_type
-        agg count id as n
+        count id as n
 ```
 
 ## Multiple aggregations
 
-List multiple `agg` functions separated by commas on a single line, or use multiple `agg` lines:
+List multiple aggregation functions separated by commas on a single line, or on multiple lines:
 
 ```pivotal
 df summary from sales
     group by region
-        agg sum revenue as total, mean revenue as avg, count id as deals
+        sum revenue as total, mean revenue as avg, count id as deals
 ```
 
 ```pivotal
 df detailed from sales
     group by region
-        agg sum revenue as total
-        agg mean revenue as avg_deal
-        agg max revenue as top_deal
-        agg count id as n_deals
+        sum revenue as total
+        mean revenue as avg_deal
+        max revenue as top_deal
+        count id as n_deals
 ```
 
 ## Multiple group-by columns
@@ -70,7 +70,7 @@ df detailed from sales
 ```pivotal
 df by_region_category from sales
     group by region, category
-        agg sum revenue as total, count id as deals
+        sum revenue as total, count id as deals
 ```
 
 ## Named results
@@ -78,9 +78,9 @@ df by_region_category from sales
 The `as <name>` clause gives the aggregated column a name. Without it, Pivotal generates a name automatically:
 
 ```pivotal
-agg sum revenue as total_revenue
-agg count id as deal_count
-agg mean price as avg_price
+sum revenue as total_revenue
+count id as deal_count
+mean price as avg_price
 ```
 
 ## Weighted average
@@ -90,7 +90,7 @@ agg mean price as avg_price
 ```pivotal
 df products
     group by category
-        agg wavg price quantity as avg_price
+        wavg price quantity as avg_price
 ```
 
 ## `nunique` — count distinct values
@@ -98,7 +98,7 @@ df products
 ```pivotal
 df summary from orders
     group by region
-        agg nunique customer_id as unique_customers
+        nunique customer_id as unique_customers
 ```
 
 ## Example: full summary table
@@ -107,6 +107,6 @@ df summary from orders
 df sales_summary from orders
     filter status == "complete"
     group by region, category
-        agg sum revenue as total, mean revenue as avg, count id as n, nunique customer_id as customers
+        sum revenue as total, mean revenue as avg, count id as n, nunique customer_id as customers
     sort total desc
 ```

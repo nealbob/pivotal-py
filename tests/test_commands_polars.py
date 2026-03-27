@@ -769,7 +769,7 @@ def test_merge_multi_key(parser):
 def test_groupby_sum(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg sum amount\n', ns)
+    run(parser, 'df data\ngroup by region\n    sum amount\n', ns)
     result = ns['data'].sort('region')
     assert result['amount'][0] == 400   # N: 100+300
     assert result['amount'][1] == 600   # S: 200+400
@@ -778,7 +778,7 @@ def test_groupby_sum(parser):
 def test_groupby_mean(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg mean amount as avg_amount\n', ns)
+    run(parser, 'df data\ngroup by region\n    mean amount as avg_amount\n', ns)
     result = ns['data'].sort('region')
     assert result['avg_amount'][0] == pytest.approx(200.0)  # N
     assert result['avg_amount'][1] == pytest.approx(300.0)  # S
@@ -787,7 +787,7 @@ def test_groupby_mean(parser):
 def test_groupby_nunique(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run(parser, 'df data\ngroup by region\n    nunique amount as n\n', ns)
     result = ns['data'].sort('region')
     assert result['n'][0] == 2   # N: 100 and 200
     assert result['n'][1] == 1   # S: only 300
@@ -800,7 +800,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run(parser, 'df data\ngroup by region\n    wavg amount weight as wa\n', ns)
     result = ns['data'].sort('region')
     assert result['wa'][0] == pytest.approx(250.0)   # N: (100*1+300*3)/(1+3)
     assert result['wa'][1] == pytest.approx(300.0)   # S: (200*2+400*2)/(2+2)
@@ -809,7 +809,7 @@ def test_groupby_wavg(parser):
 def test_groupby_multi_agg(parser):
     df = pl.DataFrame({'cat': ['A', 'A', 'B'], 'x': [10, 20, 30], 'y': [1, 2, 3]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by cat\n    agg sum x as sx, max y as my\n', ns)
+    run(parser, 'df data\ngroup by cat\n    sum x as sx, max y as my\n', ns)
     result = ns['data'].sort('cat')
     assert result['sx'][0] == 30    # A: 10+20
     assert result['my'][0] == 2     # A: max(1,2)
@@ -824,7 +824,7 @@ def test_groupby_multi_column(parser):
         'amount': [10, 20, 30, 40],
     })
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region, cat\n    agg sum amount\n', ns)
+    run(parser, 'df data\ngroup by region, cat\n    sum amount\n', ns)
     assert len(ns['data']) == 4   # 2 regions × 2 cats
 
 
@@ -848,7 +848,7 @@ def test_pivot_basic(parser):
         'sales':   [100, 200, 150, 250],
     })
     ns = {'data': df}
-    run(parser, 'df data\npivot\n    rows product\n    cols region\n    agg sum sales\n', ns)
+    run(parser, 'df data\npivot\n    rows product\n    cols region\n    sum sales\n', ns)
     result = ns['data'].sort('product')
     assert 'N' in result.columns
     assert 'S' in result.columns
@@ -863,7 +863,7 @@ def test_pivot_mean(parser):
         'sales':   [100, 200, 150, 250],
     })
     ns = {'data': df}
-    run(parser, 'df data\npivot\n    rows product\n    cols region\n    agg mean sales\n', ns)
+    run(parser, 'df data\npivot\n    rows product\n    cols region\n    mean sales\n', ns)
     result = ns['data'].sort('product')
     assert result.filter(pl.col('product') == 'A')['N'][0] == pytest.approx(150.0)
 

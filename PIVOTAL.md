@@ -130,11 +130,11 @@ df sales
 ```pivotal
 df summary from sales
     group by region
-        agg sum amount as total, mean amount as avg, count amount as n
+        sum amount as total, mean amount as avg, count amount as n
 
 df detail from sales
     group by region, category
-        agg sum amount as total, nunique customer_id as customers
+        sum amount as total, nunique customer_id as customers
 ```
 
 Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
@@ -194,7 +194,7 @@ Merge types: `merge` (inner)  `left merge`  `right merge`  `outer merge`
 ```pivotal
 df pivot_result from sales
     pivot
-        agg sum amount, mean amount
+        sum amount, mean amount
         rows category
         cols region
 
@@ -324,7 +324,7 @@ delete temp_table
 | `SELECT a, b FROM sales` | `select a, b` |
 | `SELECT price * qty AS revenue FROM sales` | `revenue = price * qty` |
 | `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1: ...` |
-| `GROUP BY region` | `group by region` / `agg sum amount as total` |
+| `GROUP BY region` | `group by region` / `sum amount as total` |
 | `JOIN` | `merge other on key` |
 | `OVER (PARTITION BY region ORDER BY date)` | `by region` / `order date` sub-clauses |
 

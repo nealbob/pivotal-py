@@ -112,7 +112,7 @@ df sales
 df sales
     apply normalise
     group by category
-        agg mean amount as avg_z_score
+        mean amount as avg_z_score
 ```
 
 The function receives the active DataFrame and must return a DataFrame.
@@ -157,7 +157,7 @@ parser = DSLParser()
 parser.execute("""
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 """)
 
 # Access the result
@@ -171,7 +171,7 @@ In Jupyter, tables are available directly in the next cell:
 %%pivotal
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
 ```python

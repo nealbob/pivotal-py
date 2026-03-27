@@ -262,7 +262,7 @@ def test_groupby_nunique(parser):
     """nunique agg counts distinct values per group."""
     df = pd.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run(parser, 'df data\ngroup by region\n    nunique amount as n\n', ns)
     n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
     s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
     assert n_row['n'] == 2   # 100 and 200
@@ -277,7 +277,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run(parser, 'df data\ngroup by region\n    wavg amount weight as wa\n', ns)
     n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
     s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
     assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)

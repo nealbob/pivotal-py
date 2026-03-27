@@ -132,7 +132,7 @@ Override for a single cell:
 %%pivotal backend=duckdb
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
 ### Python API

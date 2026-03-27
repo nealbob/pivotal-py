@@ -25,7 +25,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
     # Clause keywords
-    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
+    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
     'in', 'not', 'between', 'contains', 'startswith', 'endswith',
     'and', 'or',
@@ -146,7 +146,7 @@ grammar_indented = r"""
 
     group_cols: (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))*
 
-    agg_clause: "agg" agg_item ("," agg_item)* _NL?
+    agg_clause: agg_item ("," agg_item)* _NL?
 
     agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
             | "wavg" (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)? -> wavg_item

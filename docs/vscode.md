@@ -30,7 +30,7 @@ Pivotal source files use the `.pivotal` extension. The extension activates autom
 The extension provides syntax highlighting for:
 
 - **Keywords:** `load`, `df`, `filter`, `select`, `assign`, `sort`, `group`, `merge`, `pivot`, `plot`, `drop`, `fillna`, `dropna`, `distinct`, `concat`, `rename`, `apply`, `save`, `delete`, `show`, `python`, `end`
-- **Clause keywords:** `from`, `where`, `as`, `on`, `by`, `rows`, `cols`, `agg`, `head`
+- **Clause keywords:** `from`, `where`, `as`, `on`, `by`, `rows`, `cols`, `head`
 - **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not`, `between`, `contains`, `startswith`, `endswith`, `and`, `or`
 - **Sort modifiers:** `asc`, `desc`
 - **Aggregation functions:** `mean`, `min`, `max`, `sum`, `count`, `avg`, `median`, `std`
@@ -50,7 +50,7 @@ The extension provides context-aware completions:
 | Start of line | All DSL commands |
 | After `df ... from` | Available table names |
 | After `group by`, `sort`, `filter`, etc. | Column names for the active table |
-| After `agg` | Aggregation functions |
+| After `group by` | Aggregation functions |
 | After `plot` | Chart types (`bar`, `line`, `scatter`, `hist`, `box`, `area`) |
 
 Table and column completions are powered by a `pivotal_autocomplete.json` file in the workspace root. This file is generated automatically when you run Pivotal code via the Jupyter Interactive Window integration. You can also create it manually:
@@ -108,7 +108,7 @@ load customers "customers.csv"
 df summary from sales
     left merge customers on customer_id
     group by region
-        agg sum amount as total
+        sum amount as total
 ```
 
 ---

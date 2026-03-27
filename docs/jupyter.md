@@ -22,7 +22,7 @@ load sales "data/sales.csv"
 
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
     sort total desc
 ```
 
@@ -36,7 +36,7 @@ Pass options on the magic line to override session settings for that cell only:
 %%pivotal backend=duckdb output_code=true
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
 ---
@@ -153,7 +153,7 @@ Tables computed in `%%pivotal` cells are available as regular Python variables i
 %%pivotal
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 ```
 
 ```python
