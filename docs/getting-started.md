@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-pip install pivotal
+pip install pivotal-lang
 ```
 
 This installs the complete feature set: Pandas, Polars, DuckDB, Great Tables, Jupyter widgets, and SQLAlchemy.
@@ -11,7 +11,7 @@ This installs the complete feature set: Pandas, Polars, DuckDB, Great Tables, Ju
 **Minimal install (pandas only):**
 
 ```bash
-pip install --no-deps pivotal
+pip install --no-deps pivotal-lang
 pip install lark pandas matplotlib
 ```
 
@@ -19,18 +19,18 @@ pip install lark pandas matplotlib
 
 | Extra | Installs |
 |-------|----------|
-| `pivotal[polars]` | polars |
-| `pivotal[duckdb]` | duckdb |
-| `pivotal[jupyter]` | ipywidgets, ipyfilechooser |
-| `pivotal[tables]` | great-tables, css_inline |
-| `pivotal[sql]` | sqlalchemy |
+| `pivotal-lang[polars]` | polars |
+| `pivotal-lang[duckdb]` | duckdb |
+| `pivotal-lang[jupyter]` | ipywidgets, ipyfilechooser |
+| `pivotal-lang[tables]` | great-tables, css_inline |
+| `pivotal-lang[sql]` | sqlalchemy |
 
 ## JupyterLab extension
 
 Install the JupyterLab extension separately for the viewer panel, syntax highlighting, and export tools:
 
 ```bash
-pip install git+https://github.com/nealbob/pivotal-py.git#subdirectory=editors/jupyterlab
+pip install pivotal-lab
 ```
 
 Restart JupyterLab after installing.

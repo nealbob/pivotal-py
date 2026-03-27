@@ -5,7 +5,7 @@ The Pivotal JupyterLab extension provides a cell magic, a live viewer panel, an 
 ## Installation
 
 ```bash
-pip install git+https://github.com/nealbob/pivotal-py.git#subdirectory=editors/jupyterlab
+pip install pivotal-lab
 ```
 
 Restart JupyterLab after installing.

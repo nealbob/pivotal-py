@@ -31,6 +31,18 @@ only-include = ["pivotal_jupyterlab"]
 
 [tool.hatch.build.targets.sdist]
 artifacts = ["pivotal_jupyterlab/labextension"]
+exclude = [
+    ".yarn",
+    "node_modules",
+    "lib",
+    "src",
+    "build.ps1",
+    "tsconfig.json",
+    "package.json",
+    "package-lock.json",
+    "yarn.lock",
+    ".yarnrc.yml",
+]
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.5"]

@@ -2,7 +2,7 @@
 
 <img src="images/pivotal_logo.svg" width="120">
 
-Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations which compiles into equivalent Pandas, Polars or DuckDB code.  Pivotal's  JupyterLab extension adds autocomplete, interactive viewer and GUI controls, making it a user friendly entry point to the Python data ecosystem.
+Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations which compiles to equivalent Pandas, Polars or DuckDB code.  Pivotal's  JupyterLab extension adds autocomplete, interactive viewer and GUI controls, making it a user friendly entry point to the Python data ecosystem.
 
 <img src="images/ataglance.png" width="600">
 
@@ -29,7 +29,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 ## Installation
 
 ```bash
-pip install pivotal
+pip install pivotal-lang
 ```
 
 This installs the full feature set — Pandas, Polars, DuckDB, Great Tables, and Jupyter widgets.
@@ -37,14 +37,14 @@ This installs the full feature set — Pandas, Polars, DuckDB, Great Tables, and
 For a minimal pandas-only install:
 
 ```bash
-pip install --no-deps pivotal
+pip install --no-deps pivotal-lang
 pip install lark pandas matplotlib
 ```
 
 ### JupyterLab extension
 
 ```bash
-pip install git+https://github.com/nealbob/pivotal-py.git#subdirectory=editors/jupyterlab
+pip install pivotal-lab
 ```
 
 ### VS Code extension

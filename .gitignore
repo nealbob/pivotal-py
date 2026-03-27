@@ -61,3 +61,6 @@ tests/jupyter_baseline/*.png
 
 # start script
 start_pivotal.sh
+
+# release script
+release.sh
