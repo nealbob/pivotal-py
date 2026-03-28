@@ -10,6 +10,10 @@
   
   - [] graphicwalker in the viewer pane AG grid and gwalker code generation...
 
+    - switch polars to pandas?>?
+
+    - error handling
+
   - cast via click on column in left menu
 
     - scatter diagrams
