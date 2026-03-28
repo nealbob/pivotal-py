@@ -117,6 +117,19 @@ df sales
 
 String functions: `upper  lower  trim  ltrim  rtrim  left(col,n)  right(col,n)  substr(col,start,n)  len  replace(col,from,to)`
 
+Date functions:
+```pivotal
+df sales
+    yr       = year(order_date)
+    mo       = month(order_date)
+    label    = date_format(order_date, "%b %Y")
+    days_open = date_diff(close_date, open_date)
+    due_date  = date_add(order_date, 30)
+    parsed   = to_date(date_string_col)
+```
+
+Date functions: `year  month  day  quarter  dayofweek  hour  minute  date_format(col,fmt)  to_date(col)  date_diff(end,start)  date_add(col,n)`
+
 ## Sorting
 
 ```pivotal
@@ -130,14 +143,23 @@ df sales
 ```pivotal
 df summary from sales
     group by region
-        agg sum amount as total, mean amount as avg, count amount as n
+        sum amount as total, mean amount as avg, count amount as n
 
 df detail from sales
     group by region, category
-        agg sum amount as total, nunique customer_id as customers
+        sum amount as total, nunique customer_id as customers
 ```
 
 Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
+
+Both space and bracket syntax are accepted: `sum revenue as total` or `sum(revenue) as total`, `wavg price weight` or `wavg(price, weight)`.
+
+To aggregate over all rows without grouping, use `summarise`:
+
+```pivotal
+df totals from sales
+    summarise sum amount as total, mean amount as avg
+```
 
 ## Window functions
 
@@ -194,7 +216,7 @@ Merge types: `merge` (inner)  `left merge`  `right merge`  `outer merge`
 ```pivotal
 df pivot_result from sales
     pivot
-        agg sum amount, mean amount
+        sum amount, mean amount
         rows category
         cols region
 
@@ -204,6 +226,28 @@ df long from wide
         cols jan, feb, mar
         variable "month"
         value "amount"
+```
+
+## Type casting
+
+```pivotal
+df sales
+    cast price as float            # coerce (bad values → NaN/null)
+    cast qty as int
+    cast name as string
+    cast created_at as datetime
+    cast price, cost as float      # multiple columns at once
+    cast price as float strict     # strict mode — error on bad values
+```
+
+Types: `int` / `integer`  `float`  `string` / `str`  `bool` / `boolean`  `datetime`
+
+Inline cast in expressions:
+```pivotal
+df sales
+    price = float(price)
+    label = str(code)
+    ts = datetime(ts_col)
 ```
 
 ## Data cleaning
@@ -217,11 +261,26 @@ df clean from raw
     distinct customer, date
 ```
 
-## Concatenate
+## Concatenate / Set operations
 
 ```pivotal
 df all_sales from q1
-    concat q2, q3, q4
+    concat q2, q3, q4      # union all (stack rows)
+
+df common from a
+    intersect b             # rows present in both tables
+
+df new from all_leads
+    exclude converted       # rows in all_leads but not in converted
+```
+
+`fillna` can fill per-column with an indented block:
+
+```pivotal
+df clean from raw
+    fillna
+        price = 0
+        name = "unknown"
 ```
 
 ## Plotting
@@ -324,7 +383,7 @@ delete temp_table
 | `SELECT a, b FROM sales` | `select a, b` |
 | `SELECT price * qty AS revenue FROM sales` | `revenue = price * qty` |
 | `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1: ...` |
-| `GROUP BY region` | `group by region` / `agg sum amount as total` |
+| `GROUP BY region` | `group by region` / `sum amount as total` |
 | `JOIN` | `merge other on key` |
 | `OVER (PARTITION BY region ORDER BY date)` | `by region` / `order date` sub-clauses |
 

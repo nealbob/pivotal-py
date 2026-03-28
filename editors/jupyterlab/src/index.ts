@@ -181,9 +181,10 @@ type CompletionCtx =
 const COMMAND_KEYWORDS = [
   'df', 'load', 'filter', 'select', 'sort', 'group by',
   'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
+  'concat', 'intersect', 'exclude', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
   'distinct', 'python', 'save', 'apply', 'table', 'delete', 'show', 'show head', 'show summary',
-  'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
+  'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
+  'cast',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -306,7 +307,7 @@ function detectContext(
 
   if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
-  if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat)\s+\w*$/.test(trimmed)) {
+  if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
 

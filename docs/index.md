@@ -1,6 +1,6 @@
 # Pivotal
 
-Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations which compiles to equivalent Pandas, Polars or DuckDB code.  Pivotal's  JupyterLab extension adds autocomplete, interactive viewer, and GUI controls, making it a user-friendly entry point to the Python data ecosystem.
+Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations which compiles to equivalent Pandas, Polars or DuckDB Python code.  Pivotal's JupyterLab extension adds autocomplete, an interactive viewer and GUI controls, making it a user-friendly entry point to the Python data ecosystem.
 
 ```pivotal
 load invoices "invoices.csv"
@@ -14,7 +14,7 @@ df invoices
 
 df summary from invoices
     group by customer_id
-        agg mean total, sum income as sum_income, count total as ct
+        mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     left merge customers on customer_id
     name = last_name + ", " + first_name
@@ -64,7 +64,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            agg sum amount as revenue, count id as n_orders
+            sum amount as revenue, count id as n_orders
         sort month
     ```
 
@@ -81,7 +81,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            agg sum amount as revenue, count id as n_orders
+            sum amount as revenue, count id as n_orders
         sort month
     """)
     ```
@@ -96,7 +96,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            agg sum amount as revenue, count id as n_orders
+            sum amount as revenue, count id as n_orders
         sort month
     ```
 

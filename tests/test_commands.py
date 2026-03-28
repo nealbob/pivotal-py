@@ -262,7 +262,7 @@ def test_groupby_nunique(parser):
     """nunique agg counts distinct values per group."""
     df = pd.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run(parser, 'df data\ngroup by region\n    nunique amount as n\n', ns)
     n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
     s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
     assert n_row['n'] == 2   # 100 and 200
@@ -277,7 +277,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run(parser, 'df data\ngroup by region\n    wavg amount weight as wa\n', ns)
     n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
     s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
     assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
@@ -1549,3 +1549,224 @@ def test_rolling_code_generation(parser):
     assert "rolling(3).mean()" in code
     assert "transform" in code
     assert "groupby(['region'])" in code
+
+
+# intersect / exclude --------------------------------------------------------
+
+def test_intersect_basic(parser):
+    """intersect keeps only rows present in both tables."""
+    a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
+    b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
+    ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
+    run(parser, 'df a\n    intersect b\n', ns)
+    assert set(ns['a']['x']) == {2, 3}
+
+
+def test_exclude_basic(parser):
+    """exclude removes rows present in other table."""
+    a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
+    b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
+    ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
+    run(parser, 'df a\n    exclude b\n', ns)
+    assert set(ns['a']['x']) == {1}
+
+
+# fillna per-column ----------------------------------------------------------
+
+def test_fillna_per_col(parser):
+    """fillna with indented col=value fills each column independently."""
+    df = pd.DataFrame({'price': [1.0, None, 3.0], 'name': ['a', None, 'c']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    fillna\n        price = 0\n        name = "unknown"\n', ns)
+    assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
+    assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
+
+
+def test_fillna_all_unchanged(parser):
+    """fillna with a scalar still fills all columns."""
+    df = pd.DataFrame({'a': [1.0, None], 'b': [None, 2.0]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    fillna 0\n', ns)
+    assert ns['t'].isnull().sum().sum() == 0
+
+
+# ---------------------------------------------------------------------------
+# Date functions
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def df_dates():
+    return pd.DataFrame({
+        'event': ['a', 'b', 'c'],
+        'start': pd.to_datetime(['2024-01-15', '2024-03-22', '2024-07-04']),
+        'end':   pd.to_datetime(['2024-02-20', '2024-04-10', '2024-09-01']),
+    })
+
+
+def test_date_year(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2023-06-15', '2024-01-01'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    yr = year(d)\n', ns)
+    assert ns['t']['yr'].tolist() == [2023, 2024]
+
+
+def test_date_month(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-01', '2024-11-30'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    mo = month(d)\n', ns)
+    assert ns['t']['mo'].tolist() == [3, 11]
+
+
+def test_date_day(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-07', '2024-11-25'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    dy = day(d)\n', ns)
+    assert ns['t']['dy'].tolist() == [7, 25]
+
+
+def test_date_quarter(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    q = quarter(d)\n', ns)
+    assert ns['t']['q'].tolist() == [1, 2, 3, 4]
+
+
+def test_date_dayofweek(parser):
+    # 2024-01-01 is a Monday (0), 2024-01-07 is a Sunday (6)
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-01-07'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    dow = dayofweek(d)\n', ns)
+    assert ns['t']['dow'].tolist() == [0, 6]
+
+
+def test_date_hour(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01 09:30:00', '2024-01-01 15:45:00'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    hr = hour(d)\n', ns)
+    assert ns['t']['hr'].tolist() == [9, 15]
+
+
+def test_date_minute(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01 09:30:00', '2024-01-01 15:45:00'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    mn = minute(d)\n', ns)
+    assert ns['t']['mn'].tolist() == [30, 45]
+
+
+def test_date_format(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-15', '2024-11-01'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    assert ns['t']['lbl'].tolist() == ['Mar 2024', 'Nov 2024']
+
+
+def test_date_diff(parser):
+    df = pd.DataFrame({
+        'start': pd.to_datetime(['2024-01-01', '2024-03-01']),
+        'end':   pd.to_datetime(['2024-01-11', '2024-03-06']),
+    })
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    days = date_diff(end, start)\n', ns)
+    assert ns['t']['days'].tolist() == [10, 5]
+
+
+def test_date_add(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-06-15'])})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    expected = pd.to_datetime(['2024-01-31', '2024-07-15'])
+    assert ns['t']['due'].tolist() == expected.tolist()
+
+
+def test_to_date(parser):
+    df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    d = to_date(ds)\n', ns)
+    assert pd.api.types.is_datetime64_any_dtype(ns['t']['d'])
+    assert ns['t']['d'].dt.year.tolist() == [2024, 2024]
+
+
+# ---------------------------------------------------------------------------
+# Type casting — cast statement
+# ---------------------------------------------------------------------------
+
+def test_cast_float_coerce(parser):
+    """cast as float uses pd.to_numeric(errors='coerce') — bad values become NaN."""
+    df = pd.DataFrame({'amount': ['1.5', 'bad', '3.0']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast amount as float\n', ns)
+    assert ns['t']['amount'].tolist()[0] == 1.5
+    assert pd.isna(ns['t']['amount'].tolist()[1])
+    assert ns['t']['amount'].tolist()[2] == 3.0
+
+
+def test_cast_float_strict(parser):
+    """cast as float strict uses .astype(float) — raises on bad values."""
+    df = pd.DataFrame({'amount': [1.5, 2.0, 3.0]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast amount as float strict\n', ns)
+    assert ns['t']['amount'].dtype == float
+
+
+def test_cast_int_coerce(parser):
+    """cast as int coerce returns nullable Int64."""
+    df = pd.DataFrame({'n': ['1', 'bad', '3']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast n as int\n', ns)
+    assert ns['t']['n'].tolist()[0] == 1
+    assert pd.isna(ns['t']['n'].tolist()[1])
+
+
+def test_cast_multi_columns(parser):
+    """cast multiple columns in one statement."""
+    df = pd.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast price, cost as float\n', ns)
+    assert ns['t']['price'].tolist()[0] == 1.5
+    assert ns['t']['cost'].tolist()[0] == 0.5
+
+
+def test_cast_string(parser):
+    """cast as string converts to str dtype."""
+    df = pd.DataFrame({'n': [1, 2, 3]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast n as string\n', ns)
+    assert ns['t']['n'].tolist() == ['1', '2', '3']
+
+
+def test_cast_datetime_coerce(parser):
+    """cast as datetime uses pd.to_datetime(errors='coerce')."""
+    df = pd.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    cast ds as datetime\n', ns)
+    assert pd.api.types.is_datetime64_any_dtype(ns['t']['ds'])
+    assert pd.isna(ns['t']['ds'].tolist()[1])
+
+
+# ---------------------------------------------------------------------------
+# Type casting — inline cast in expressions
+# ---------------------------------------------------------------------------
+
+def test_inline_cast_float(parser):
+    """amount = float(amount) coerces string column to float."""
+    df = pd.DataFrame({'amount': ['1.5', 'bad', '3.0']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    amount = float(amount)\n', ns)
+    assert ns['t']['amount'].tolist()[0] == 1.5
+    assert pd.isna(ns['t']['amount'].tolist()[1])
+
+
+def test_inline_cast_str(parser):
+    """label = str(code) converts int column to string."""
+    df = pd.DataFrame({'code': [1, 2, 3]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    label = str(code)\n', ns)
+    assert ns['t']['label'].tolist() == ['1', '2', '3']
+
+
+def test_inline_cast_datetime(parser):
+    """ds = datetime(ds) coerces string to datetime."""
+    df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'df t\n    ds = datetime(ds)\n', ns)
+    assert pd.api.types.is_datetime64_any_dtype(ns['t']['ds'])

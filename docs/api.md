@@ -18,7 +18,7 @@ Parse a Pivotal source string into an abstract syntax tree (list of AST nodes).
 results = parser.parse("""
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
 """)
 ```
 
@@ -66,7 +66,7 @@ load sales "data/sales.csv"
 
 df summary from sales
     group by region
-        agg sum revenue as total
+        sum revenue as total
     sort total desc
 """)
 ```

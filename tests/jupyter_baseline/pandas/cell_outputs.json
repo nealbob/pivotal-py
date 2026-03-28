@@ -1,0 +1,20 @@
+[
+  {
+    "cell": 7,
+    "has_image": false,
+    "has_table": true,
+    "text_snippet": "Mean goals scored per game by league and season\nSeason\tEngland Premier League\tGermany 1. Bundesliga\tItaly Serie A\tSpain LIGA BBVA\n2008-09\t2.48\t2.92\t2.60\t2.90\n2009-10\t2.77\t2.83\t2.61\t2.71\n2010-11\t2.80\t2.92\t2.51\t2.74\n2011-12\t2.81\t2.86\t2.58\t2.76\n2012-13\t2.80\t2.93\t2.64\t2.87\n2013-14\t2.77\t3.16\t2.72\t2.75\n20"
+  },
+  {
+    "cell": 12,
+    "has_image": false,
+    "has_table": false,
+    "text_snippet": "[Pivotal] Updated viewer: Match, League, league_names, goal_summary, goal_chart2_df, Team, win_summary, ha_match, fitted"
+  },
+  {
+    "cell": 14,
+    "has_image": false,
+    "has_table": false,
+    "text_snippet": "Package 'football_demo' saved to C:\\Code_win\\pivotal-demo\\football_demo (13 dataframe(s), 4 chart(s), 1 table(s))\n\n[14]:\n<pivotal.package.Package at 0x120f6887cb0>"
+  }
+]

@@ -591,7 +591,7 @@ def wide_df():
 def test_groupby_sum_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount as total\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    sum amount as total\n', ns)
     df = fetch(ns, 'data')
     assert set(df.columns) >= {'region', 'total'}
     n_total = df[df['region'] == 'N']['total'].iloc[0]
@@ -604,7 +604,7 @@ def test_groupby_sum_no_alias_duckdb(parser, region_df):
     """agg sum col without 'as alias' must keep the original column name."""
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    sum amount\n', ns)
     df = fetch(ns, 'data')
     assert 'amount' in df.columns, "column should stay named 'amount', not 'amount_sum'"
     assert 'amount_sum' not in df.columns
@@ -613,7 +613,7 @@ def test_groupby_sum_no_alias_duckdb(parser, region_df):
 def test_groupby_avg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg avg amount as mean_amt\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    avg amount as mean_amt\n', ns)
     df = fetch(ns, 'data')
     n_mean = df[df['region'] == 'N']['mean_amt'].iloc[0]
     s_mean = df[df['region'] == 'S']['mean_amt'].iloc[0]
@@ -624,7 +624,7 @@ def test_groupby_avg_duckdb(parser, region_df):
 def test_groupby_count_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg count amount as n\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    count amount as n\n', ns)
     df = fetch(ns, 'data')
     assert all(df['n'] == 2)
 
@@ -636,7 +636,7 @@ def test_groupby_nunique_duckdb(parser):
     })
     conn = make_conn('data', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    nunique amount as n\n', ns)
     result = fetch(ns, 'data')
     n_val = result[result['region'] == 'N']['n'].iloc[0]
     s_val = result[result['region'] == 'S']['n'].iloc[0]
@@ -647,7 +647,7 @@ def test_groupby_nunique_duckdb(parser):
 def test_groupby_wavg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    wavg amount weight as wa\n', ns)
     df = fetch(ns, 'data')
     n_wa = df[df['region'] == 'N']['wa'].iloc[0]
     s_wa = df[df['region'] == 'S']['wa'].iloc[0]
@@ -661,7 +661,7 @@ def test_groupby_multi_agg_duckdb(parser, region_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df data\ngroup by region\n    agg sum amount as total, avg amount as avg_amt\n',
+        'df data\ngroup by region\n    sum amount as total, avg amount as avg_amt\n',
         ns,
     )
     df = fetch(ns, 'data')
@@ -677,7 +677,7 @@ def test_groupby_multi_column_by_duckdb(parser, region_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df data\ngroup by region, category\n    agg sum amount as total\n',
+        'df data\ngroup by region, category\n    sum amount as total\n',
         ns,
     )
     df = fetch(ns, 'data')
@@ -698,7 +698,7 @@ def test_groupby_no_agg_duckdb(parser, region_df):
 def test_groupby_result_has_correct_rows_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\ngroup by category\n    agg sum price as total_price, count price as n\n', ns)
+    run_ddb(parser, 'df sales\ngroup by category\n    sum price as total_price, count price as n\n', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 2  # Electronics and Furniture
     elec = df[df['category'] == 'Electronics'].iloc[0]
@@ -710,21 +710,21 @@ def test_groupby_result_has_correct_rows_duckdb(parser, sample_df):
 # ---------------------------------------------------------------------------
 
 def test_codegen_groupby_sum_duckdb(parser):
-    nodes = parser.parse('df sales\ngroup by region\n    agg sum amount as total\n')
+    nodes = parser.parse('df sales\ngroup by region\n    sum amount as total\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SUM(amount) AS total' in code
     assert 'GROUP BY region' in code
 
 
 def test_codegen_groupby_wavg_duckdb(parser):
-    nodes = parser.parse('df data\ngroup by region\n    agg wavg amount weight as wa\n')
+    nodes = parser.parse('df data\ngroup by region\n    wavg amount weight as wa\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SUM(amount * weight)' in code
     assert 'GROUP BY region' in code
 
 
 def test_codegen_groupby_nunique_duckdb(parser):
-    nodes = parser.parse('df data\ngroup by region\n    agg nunique amount as n\n')
+    nodes = parser.parse('df data\ngroup by region\n    nunique amount as n\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'COUNT(DISTINCT amount) AS n' in code
 
@@ -748,7 +748,7 @@ def test_pivot_basic_duckdb(parser, pivot_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        'df sales\npivot\n    sum revenue\n    rows product\n    cols region\n',
         ns,
     )
     df = fetch(ns, 'sales')
@@ -761,7 +761,7 @@ def test_pivot_values_correct_duckdb(parser, pivot_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        'df sales\npivot\n    sum revenue\n    rows product\n    cols region\n',
         ns,
     )
     df = fetch(ns, 'sales').set_index('product')
@@ -771,7 +771,7 @@ def test_pivot_values_correct_duckdb(parser, pivot_df):
 
 
 def test_pivot_codegen_duckdb(parser):
-    dsl = 'df sales\npivot\n    agg sum revenue as rev_sum\n    rows product\n    cols region\n'
+    dsl = 'df sales\npivot\n    sum revenue as rev_sum\n    rows product\n    cols region\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'PIVOT' in code
     assert 'SUM(revenue) AS rev_sum' in code
@@ -849,3 +849,127 @@ def test_unpivot_codegen_duckdb(parser, wide_df):
     assert 'jan, feb' in code
     assert "NAME 'month'" in code
     assert "VALUE 'amount'" in code
+
+
+# ---------------------------------------------------------------------------
+# Date functions
+# ---------------------------------------------------------------------------
+
+def test_date_year_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2023-06-15', '2024-01-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    yr = year(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['yr'].tolist() == [2023, 2024]
+
+
+def test_date_month_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-01', '2024-11-30'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    mo = month(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['mo'].tolist() == [3, 11]
+
+
+def test_date_quarter_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    q = quarter(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['q'].tolist() == [1, 2, 3, 4]
+
+
+def test_date_diff_duckdb(parser):
+    df = pd.DataFrame({
+        'open_date':  pd.to_datetime(['2024-01-01', '2024-03-01']),
+        'close_date': pd.to_datetime(['2024-01-11', '2024-03-06']),
+    })
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    days = date_diff(close_date, open_date)\n', ns)
+    result = fetch(ns, 't')
+    assert result['days'].tolist() == [10, 5]
+
+
+def test_date_add_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-06-15'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    result = fetch(ns, 't')
+    expected = pd.to_datetime(['2024-01-31', '2024-07-15']).date.tolist()
+    assert [d.date() if hasattr(d, 'date') else d for d in result['due'].tolist()] == expected
+
+
+def test_date_format_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-15', '2024-11-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    result = fetch(ns, 't')
+    assert result['lbl'].tolist() == ['Mar 2024', 'Nov 2024']
+
+
+def test_to_date_duckdb(parser):
+    df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    d = to_date(ds)\n', ns)
+    result = fetch(ns, 't')
+    assert result['d'].tolist()[0].year == 2024
+
+
+# ---------------------------------------------------------------------------
+# Type casting
+# ---------------------------------------------------------------------------
+
+def test_cast_float_duckdb(parser):
+    df = pd.DataFrame({'n': ['1.5', 'bad', '3.0']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as float\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'][0] == pytest.approx(1.5)
+    assert pd.isna(result['n'][1])
+
+
+def test_cast_int_duckdb(parser):
+    df = pd.DataFrame({'n': ['1', 'bad', '3']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as int\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'][0] == 1
+    assert pd.isna(result['n'][1])
+
+
+def test_cast_string_duckdb(parser):
+    df = pd.DataFrame({'n': [1, 2, 3]})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as string\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'].tolist() == ['1', '2', '3']
+
+
+def test_cast_datetime_duckdb(parser):
+    df = pd.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast ds as datetime\n', ns)
+    result = fetch(ns, 't')
+    assert pd.api.types.is_datetime64_any_dtype(result['ds'])
+    assert pd.isna(result['ds'][1])
+
+
+def test_cast_multi_duckdb(parser):
+    df = pd.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast price, cost as float\n', ns)
+    result = fetch(ns, 't')
+    assert result['price'][0] == pytest.approx(1.5)
+    assert result['cost'][0] == pytest.approx(0.5)

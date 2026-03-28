@@ -23,9 +23,10 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
-    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
+    'intersect', 'exclude', 'cast',
     # Clause keywords
-    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'agg', 'include', 'exclude',
+    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
     'in', 'not', 'between', 'contains', 'startswith', 'endswith',
     'and', 'or',
@@ -57,6 +58,7 @@ grammar_indented = r"""
                | cumulative_statement
                | rolling_statement
                | groupby_statement
+               | summarise_statement
                | python_statement
                | agg_plot_statement
                | plot_statement
@@ -65,6 +67,9 @@ grammar_indented = r"""
                | dropna_statement
                | distinct_statement
                | concat_statement
+               | intersect_statement
+               | exclude_statement
+               | cast_statement
                | rename_statement
                | apply_statement
                | table_statement
@@ -146,9 +151,11 @@ grammar_indented = r"""
 
     group_cols: (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))*
 
-    agg_clause: "agg" agg_item ("," agg_item)* _NL?
+    agg_clause: agg_item ("," agg_item)* _NL?
 
-    agg_item: AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+    agg_item: AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
+            | AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+            | "wavg" "(" (IDENTIFIER | PYTHON_VAR) "," (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)? -> wavg_item
             | "wavg" (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)? -> wavg_item
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
@@ -190,8 +197,10 @@ grammar_indented = r"""
     filter_statement: "filter" condition_list  _NL?
     
     select_statement: "select" select_item ("," select_item)* _NL?
-    
+
     select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+
+    summarise_statement: "summarise" agg_item ("," agg_item)* _NL?
 
     pivot_statement: "pivot" _NL _INDENT pivot_args _DEDENT
 
@@ -251,6 +260,10 @@ grammar_indented = r"""
     drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
 
     fillna_statement: "fillna" value _NL?
+                    | "fillna" _NL _INDENT fillna_col_params _DEDENT
+
+    fillna_col_params: fillna_col_param+
+    fillna_col_param: IDENTIFIER "=" value _NL?
 
     dropna_statement: "dropna" dropna_cols? _NL?
     dropna_cols: IDENTIFIER ("," IDENTIFIER)*
@@ -259,6 +272,12 @@ grammar_indented = r"""
     distinct_cols: IDENTIFIER ("," IDENTIFIER)*
 
     concat_statement: "concat" IDENTIFIER ("," IDENTIFIER)* _NL?
+    intersect_statement: "intersect" IDENTIFIER ("," IDENTIFIER)* _NL?
+    exclude_statement: "exclude" IDENTIFIER ("," IDENTIFIER)* _NL?
+
+    cast_statement: "cast" IDENTIFIER ("," IDENTIFIER)* "as" CAST_TYPE CAST_STRICT? _NL?
+    CAST_TYPE.2: "int" | "integer" | "float" | "string" | "str" | "bool" | "boolean" | "datetime"
+    CAST_STRICT.2: "strict"
 
     rename_statement: "rename" rename_item ("," rename_item)* _NL?
     rename_item: IDENTIFIER "as" IDENTIFIER
@@ -729,7 +748,7 @@ class DSLTransformer(Transformer):
         """Handle select statements to select specific columns"""
         columns = []
         renames = {}
-        
+
         for item in items:
             if isinstance(item, dict):
                 if item.get('type') == 'var':
@@ -740,17 +759,27 @@ class DSLTransformer(Transformer):
                     if 'alias' in item:
                         renames[col] = item['alias']
             else:
-                # Fallback if item is just a string (shouldn't happen with new grammar)
                 columns.append(str(item))
-        
-        ast_node = {
+
+        return {
             'type': 'select',
             'table_name': self.current_table,
             'columns': columns,
-            'renames': renames
+            'renames': renames,
         }
-        
-        return ast_node
+
+    def summarise_statement(self, *items):
+        """Whole-table aggregation with no group-by columns."""
+        agg_list = []
+        for item in items:
+            if isinstance(item, dict) and 'func' in item:
+                agg_list.append(item)
+        return {
+            'type': 'groupby',
+            'table_name': self.current_table,
+            'by': [],
+            'agg_list': agg_list,
+        }
 
     def select_item(self, col, alias=None):
         if isinstance(col, dict) and col.get('type') == 'var':
@@ -772,12 +801,19 @@ class DSLTransformer(Transformer):
             'columns': [str(c) for c in cols]
         }
 
-    def fillna_statement(self, val):
-        return {
-            'type': 'fillna',
-            'table_name': self.current_table,
-            'value': val
-        }
+    def fillna_statement(self, *args):
+        # Two forms: fillna value  OR  fillna \n indent col_params
+        if len(args) == 1 and not isinstance(args[0], list):
+            return {'type': 'fillna', 'table_name': self.current_table, 'value': args[0], 'per_col': {}}
+        # per-column: args[0] is the list from fillna_col_params
+        col_params = args[0] if args else []
+        return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': dict(col_params)}
+
+    def fillna_col_params(self, *params):
+        return list(params)
+
+    def fillna_col_param(self, col, val):
+        return (str(col), val)
 
     def dropna_statement(self, *args):
         cols = args[0] if args and isinstance(args[0], list) else []
@@ -802,10 +838,33 @@ class DSLTransformer(Transformer):
         return [str(c) for c in cols]
 
     def concat_statement(self, *tables):
+        return {'type': 'concat', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def intersect_statement(self, *tables):
+        return {'type': 'intersect', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def exclude_statement(self, *tables):
+        return {'type': 'exclude', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def cast_statement(self, *args):
+        # args: IDENTIFIER... CAST_TYPE [CAST_STRICT]
+        cols = []
+        cast_type = None
+        strict = False
+        for a in args:
+            s = str(a)
+            if s == 'strict':
+                strict = True
+            elif s in ('int', 'integer', 'float', 'string', 'str', 'bool', 'boolean', 'datetime'):
+                cast_type = s
+            else:
+                cols.append(s)
         return {
-            'type': 'concat',
+            'type': 'cast',
             'table_name': self.current_table,
-            'tables': [str(t) for t in tables]
+            'columns': cols,
+            'cast_type': cast_type,
+            'strict': strict,
         }
 
     def rename_statement(self, *items):
@@ -1829,7 +1888,25 @@ class CodeGenerator:
     _BUILTIN_FUNCS = frozenset({
         'upper', 'lower', 'trim', 'ltrim', 'rtrim',
         'left', 'right', 'substr', 'len', 'replace',
+        # date functions
+        'year', 'month', 'day', 'quarter', 'dayofweek',
+        'hour', 'minute', 'date_format', 'to_date',
+        'date_diff', 'date_add',
+        # cast functions (inline)
+        'int', 'integer', 'float', 'string', 'str',
+        'bool', 'boolean', 'datetime',
     })
+
+    _CAST_FUNCS = frozenset({
+        'int', 'integer', 'float', 'string', 'str',
+        'bool', 'boolean', 'datetime',
+    })
+
+    _DATE_FUNCS = frozenset({
+        'year', 'month', 'day', 'quarter', 'dayofweek',
+        'hour', 'minute', 'date_format', 'to_date',
+    })
+    _DATE_TWO_ARG = frozenset({'date_diff', 'date_add'})
 
     def _parse_user_func_call(self, expr):
         """If expr matches 'func(col)' and func is not a built-in, return (func, col).
@@ -1849,6 +1926,12 @@ class CodeGenerator:
         string concatenation, otherwise return None (fall through to eval)."""
         import re
         expr = expr.strip()
+        cast_result = self._try_cast_func(expr, table)
+        if cast_result is not None:
+            return cast_result
+        date_result = self._try_date_func(expr, table)
+        if date_result is not None:
+            return date_result
         result = self._try_string_func(expr, table)
         if result is not None:
             return result
@@ -1897,6 +1980,67 @@ class CodeGenerator:
             a = rest[0].strip("'\"")
             b = rest[1].strip("'\"")
             return f"{base}.str.replace({repr(a)}, {repr(b)}, regex=False)"
+        return None
+
+    def _try_date_func(self, expr, table):
+        """Parse a date function call and return pandas .dt.* code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1)
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"{table}['{col}']"
+        _simple = {
+            'year': 'year', 'month': 'month', 'day': 'day',
+            'quarter': 'quarter', 'dayofweek': 'dayofweek',
+            'hour': 'hour', 'minute': 'minute',
+        }
+        if func in _simple:
+            return f"{base}.dt.{_simple[func]}"
+        if func == 'date_format' and len(args) == 2:
+            fmt = args[1].strip()
+            return f"{base}.dt.strftime({fmt})"
+        if func == 'to_date':
+            return f"pd.to_datetime({base})"
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"({base} - {table}['{start}']).dt.days"
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"{base} + pd.to_timedelta({var}, unit='d')"
+            return f"{base} + pd.Timedelta(days={n})"
+        return None
+
+    def _try_cast_func(self, expr, table):
+        """Parse an inline cast call int(col)/float(col)/etc and return pandas code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"{table}['{col}']"
+        if func in ('int', 'integer'):
+            return f"pd.to_numeric({base}, errors='coerce').astype('Int64')"
+        if func == 'float':
+            return f"pd.to_numeric({base}, errors='coerce')"
+        if func in ('str', 'string'):
+            return f"{base}.astype(str)"
+        if func in ('bool', 'boolean'):
+            return f"{base}.astype(bool)"
+        if func == 'datetime':
+            return f"pd.to_datetime({base}, errors='coerce')"
         return None
 
     def _split_func_args(self, args_str):
@@ -2204,6 +2348,28 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.drop({ast_node['columns']})"
 
+    def generate_cast_polars(self, ast_node):
+        table = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        _POLARS_TYPES = {
+            'int': 'pl.Int64', 'integer': 'pl.Int64',
+            'float': 'pl.Float64',
+            'str': 'pl.Utf8', 'string': 'pl.Utf8',
+            'bool': 'pl.Boolean', 'boolean': 'pl.Boolean',
+            'datetime': 'pl.Datetime',
+        }
+        pl_type = _POLARS_TYPES.get(cast_type, 'pl.Utf8')
+        strict_flag = '' if strict else ', strict=False'
+        lines = []
+        for col in cols:
+            lines.append(
+                f"{table} = {table}.with_columns("
+                f"pl.col('{col}').cast({pl_type}{strict_flag}))"
+            )
+        return '\n'.join(lines)
+
     def generate_sort_polars(self, ast_node):
         columns = ast_node['columns']
         ascending = ast_node['ascending']
@@ -2243,10 +2409,34 @@ class CodeGenerator:
         return f"{tbl} = pl.concat([{tbl}, {others}])"
 
     def generate_fillna_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            lines = [f"{tbl} = {tbl}.with_columns(["]
+            for col, val in per_col.items():
+                val_code = f"'{val}'" if isinstance(val, str) else str(val)
+                lines.append(f"    pl.col('{col}').fill_null({val_code}),")
+            lines.append("])")
+            return '\n'.join(lines)
         val = ast_node['value']
         val_code = f"'{val}'" if isinstance(val, str) else str(val)
-        tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.fill_null({val_code})"
+
+    def generate_intersect_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        others = ast_node['tables']
+        result = tbl
+        for other in others:
+            result = f"{result}.join({other}, on={result}.columns, how='inner')"
+        return f"{tbl} = {result}.unique()"
+
+    def generate_exclude_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        others = ast_node['tables']
+        lines = [f"{tbl} = {tbl}.unique()"]
+        for other in others:
+            lines.append(f"{tbl} = {tbl}.join({other}.unique(), on={tbl}.columns, how='anti')")
+        return '\n'.join(lines)
 
     def generate_dropna_polars(self, ast_node):
         cols = ast_node['columns']
@@ -2415,6 +2605,67 @@ class CodeGenerator:
             return f"{base}.str.replace_all({repr(a)}, {repr(b)}, literal=True)"
         return None
 
+    def _try_date_func_polars(self, expr):
+        """Parse a date function call and return a Polars Expr string, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1)
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"pl.col('{col}')"
+        _simple = {
+            'year': 'year', 'month': 'month', 'day': 'day',
+            'quarter': 'quarter', 'hour': 'hour', 'minute': 'minute',
+        }
+        if func in _simple:
+            return f"{base}.dt.{_simple[func]}()"
+        if func == 'dayofweek':
+            return f"{base}.dt.weekday()"
+        if func == 'date_format' and len(args) == 2:
+            fmt = args[1].strip()
+            return f"{base}.dt.strftime({fmt})"
+        if func == 'to_date':
+            return f"{base}.cast(pl.Date)"
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"({base} - pl.col('{start}')).dt.total_days()"
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"({base} + pl.duration(days={var}))"
+            return f"({base} + pl.duration(days={n}))"
+        return None
+
+    def _try_cast_func_polars(self, expr):
+        """Parse an inline cast call int(col)/float(col)/etc and return Polars Expr code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        _POLARS_TYPES = {
+            'int': 'pl.Int64', 'integer': 'pl.Int64',
+            'float': 'pl.Float64',
+            'str': 'pl.Utf8', 'string': 'pl.Utf8',
+            'bool': 'pl.Boolean', 'boolean': 'pl.Boolean',
+            'datetime': 'pl.Datetime',
+        }
+        pl_type = _POLARS_TYPES.get(func)
+        if pl_type is None:
+            return None
+        return f"pl.col('{col}').cast({pl_type}, strict=False)"
+
     def _try_string_concat_polars(self, expr):
         """Parse col + 'lit' + col concatenation. Returns pl.concat_str(...) code or None."""
         import re
@@ -2449,6 +2700,12 @@ class CodeGenerator:
         """
         import re
         expr = expr.strip()
+        cast_result = self._try_cast_func_polars(expr)
+        if cast_result is not None:
+            return cast_result
+        date_result = self._try_date_func_polars(expr)
+        if date_result is not None:
+            return date_result
         result = self._try_string_func_polars(expr)
         if result is not None:
             return result
@@ -2643,6 +2900,21 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if agg_list:
+                exprs = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or f"{col}_{func}"
+                    polars_func = self._POLARS_AGG_MAP.get(func, func)
+                    col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
+                    exprs.append(f"pl.col({col_code}).{polars_func}().alias('{alias}')")
+                return f"{tbl} = {tbl}.select([{', '.join(exprs)}])"
+            else:
+                return f"{tbl} = {tbl}.select(pl.all().sum())"
 
         by_code = self._polars_by_code(by)
 
@@ -3162,7 +3434,23 @@ class CodeGenerator:
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
-        
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            table = ast_node['table_name']
+            if agg_list:
+                parts = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or f"{col}_{func}"
+                    pandas_func = 'mean' if func == 'avg' else func
+                    col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
+                    parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
+                return f"{table} = __import__('pandas').DataFrame({{{', '.join(parts)}}})"
+            else:
+                return f"{table} = {table}.agg('sum').to_frame().T.reset_index(drop=True)"
+
         # Handle 'by' argument which can be a list, a variable, or a list containing variables
         if isinstance(by, dict) and by.get('type') == 'var':
             by_code = by['name']
@@ -3261,10 +3549,62 @@ class CodeGenerator:
     def generate_drop_pandas(self, ast_node):
         return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
 
+    def generate_cast_pandas(self, ast_node):
+        table = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        lines = []
+        for col in cols:
+            c = f"{table}['{col}']"
+            if cast_type in ('int', 'integer'):
+                if strict:
+                    lines.append(f"{c} = {c}.astype(int)")
+                else:
+                    lines.append(f"{c} = pd.to_numeric({c}, errors='coerce').astype('Int64')")
+            elif cast_type == 'float':
+                if strict:
+                    lines.append(f"{c} = {c}.astype(float)")
+                else:
+                    lines.append(f"{c} = pd.to_numeric({c}, errors='coerce')")
+            elif cast_type in ('str', 'string'):
+                lines.append(f"{c} = {c}.astype(str)")
+            elif cast_type in ('bool', 'boolean'):
+                lines.append(f"{c} = {c}.astype(bool)")
+            elif cast_type == 'datetime':
+                if strict:
+                    lines.append(f"{c} = pd.to_datetime({c})")
+                else:
+                    lines.append(f"{c} = pd.to_datetime({c}, errors='coerce')")
+        return '\n'.join(lines)
+
     def generate_fillna_pandas(self, ast_node):
+        t = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            fill_dict = {col: (f"'{v}'" if isinstance(v, str) else str(v)) for col, v in per_col.items()}
+            fill_str = '{' + ', '.join(f"'{c}': {v}" for c, v in fill_dict.items()) + '}'
+            return f"{t} = {t}.fillna({fill_str})"
         val = ast_node['value']
         val_code = f"'{val}'" if isinstance(val, str) else str(val)
-        return f"{ast_node['table_name']} = {ast_node['table_name']}.fillna({val_code})"
+        return f"{t} = {t}.fillna({val_code})"
+
+    def generate_intersect_pandas(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        result = t
+        for other in others:
+            result = f"__import__('pandas').merge({result}, {other}, how='inner')"
+        return f"{t} = {result}.drop_duplicates().reset_index(drop=True)"
+
+    def generate_exclude_pandas(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        lines = [f"{t} = {t}.drop_duplicates()"]
+        for other in others:
+            lines.append(f"{t} = {t}.merge({other}.drop_duplicates(), how='left', indicator=True)")
+            lines.append(f"{t} = {t}[{t}['_merge'] == 'left_only'].drop(columns='_merge').reset_index(drop=True)")
+        return '\n'.join(lines)
 
     def generate_dropna_pandas(self, ast_node):
         cols = ast_node['columns']
@@ -4122,6 +4462,29 @@ class CodeGenerator:
         excl = ', '.join(ast_node['columns'])
         return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}) FROM {t}")'
 
+    def generate_cast_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(cast_type, 'VARCHAR')
+        cast_fn = 'CAST' if strict else 'TRY_CAST'
+        lines = []
+        for col in cols:
+            expr = f"{cast_fn}({col} AS {sql_type}) AS {col}"
+            lines.append(
+                f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS '
+                f'SELECT * REPLACE ({expr}) FROM {t}")'
+            )
+        return '\n'.join(lines)
+
     def generate_distinct_duckdb(self, ast_node):
         t = ast_node['table_name']
         cols = ast_node['columns']
@@ -4221,6 +4584,20 @@ class CodeGenerator:
         t = ast_node['table_name']
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if agg_list:
+                sel_parts = []
+                for item in agg_list:
+                    col = item['column']
+                    func = item['func']
+                    alias = item.get('alias') or (col if isinstance(col, str) else f"agg_{func}")
+                    sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+                sel = ', '.join(sel_parts)
+                return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t}")'
+            else:
+                return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} LIMIT 0")'
 
         by_list, has_var_by, by_list_code = self._ddb_by_parts(by)
         agg_has_vars = any(
@@ -4489,6 +4866,63 @@ class CodeGenerator:
                     return None        # unrecognised token — fall through
         return ' || '.join(parts)
 
+    def _try_sql_cast_func(self, expr):
+        """Translate an inline cast call int(col)/float(col)/etc to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(func)
+        if sql_type is None:
+            return None
+        return f"TRY_CAST({col} AS {sql_type})"
+
+    def _try_sql_date_func(self, expr):
+        """Translate a date function call to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None, False
+        func = m.group(1).lower()
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None, False
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None, False
+        col = args[0].strip()
+        _simple_sql = {
+            'year': 'YEAR', 'month': 'MONTH', 'day': 'DAY',
+            'quarter': 'QUARTER', 'dayofweek': 'DAYOFWEEK',
+            'hour': 'HOUR', 'minute': 'MINUTE',
+        }
+        if func in _simple_sql:
+            return f"{_simple_sql[func]}({col})", False
+        if func == 'date_format' and len(args) == 2:
+            fmt_inner = args[1].strip().strip('"\'')
+            return f"STRFTIME({col}, '{fmt_inner}')", False
+        if func == 'to_date':
+            return f"CAST({col} AS DATE)", False
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"DATE_DIFF('day', {start}, {col})", False
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"({col} + INTERVAL {{{var}}} DAY)", True  # needs f-string
+            return f"({col} + INTERVAL {n} DAY)", False
+        return None, False
+
     def _try_sql_string_func(self, expr):
         """Translate a string-function call to SQL, or return None."""
         m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
@@ -4608,8 +5042,12 @@ class CodeGenerator:
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
-        sql_str = self._try_sql_string_func(expr)
+        sql_str = self._try_sql_cast_func(expr)
         uses_pyvar_expr = False
+        if sql_str is None:
+            sql_str, uses_pyvar_expr = self._try_sql_date_func(expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_func(expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(expr)
         if sql_str is None:
@@ -4714,11 +5152,25 @@ class CodeGenerator:
     # ── fillna ────────────────────────────────────────────────────────
 
     def generate_fillna_duckdb(self, ast_node):
-        t   = ast_node['table_name']
-        val = ast_node['value']
+        t = ast_node['table_name']
+        per_col = ast_node.get('per_col', {})
 
+        if per_col:
+            parts = []
+            for col, val in per_col.items():
+                val_sql = f"'{val}'" if isinstance(val, str) else str(val)
+                parts.append(f"COALESCE({col}, {val_sql}) AS {col}")
+            # Build SELECT replacing only specified cols; keep others as-is via star + override
+            lines = [
+                f"_ddb_all_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
+                f"_ddb_per = {{{', '.join(repr(c) + ': ' + (repr(v) if isinstance(v, str) else str(v)) for c, v in per_col.items())}}}",
+                f"_ddb_sel = ', '.join(f\"COALESCE({{c}}, '{{_ddb_per[c]}}') AS {{c}}\" if c in _ddb_per and isinstance(_ddb_per[c], str) else (f'COALESCE({{c}}, {{_ddb_per[c]}}) AS {{c}}' if c in _ddb_per else c) for c in _ddb_all_cols)",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
+            ]
+            return '\n'.join(lines)
+
+        val = ast_node['value']
         if isinstance(val, str):
-            # String fill value: store in _ddb_fillval; use it in SQL with single quotes
             fill_val_line = f"_ddb_fillval = {repr(str(val))}"
             sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
         elif val is None:
@@ -4737,6 +5189,20 @@ class CodeGenerator:
             f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
         ]
         return '\n'.join(lines)
+
+    def generate_intersect_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        sql = ' INTERSECT '.join(parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {sql}")'
+
+    def generate_exclude_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {t}"] + [f"SELECT * FROM {o}" for o in others]
+        sql = ' EXCEPT '.join(parts)
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS {sql}")'
 
     # ── dropna ────────────────────────────────────────────────────────
 
@@ -4896,6 +5362,23 @@ class CodeGenerator:
         excl = ', '.join(ast_node['columns'])
         return f"SELECT * EXCLUDE ({excl}) FROM {from_alias}"
 
+    def generate_cast_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(cast_type, 'VARCHAR')
+        # Standard SQL has no TRY_CAST — always use CAST regardless of strict flag
+        replaces = ', '.join(f"CAST({col} AS {sql_type}) AS {col}" for col in cols)
+        return f"SELECT * REPLACE ({replaces}) FROM {from_alias}"
+
     def generate_distinct_sql(self, ast_node):
         t = ast_node['table_name']
         from_alias = self._sql_current(t)
@@ -4932,6 +5415,19 @@ class CodeGenerator:
         from_alias = self._sql_current(t)
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+
+        # Whole-table aggregation (no group-by columns)
+        if by == []:
+            if not agg_list:
+                return f"-- [skipped: summarise without agg list]"
+            sel_parts = []
+            for item in agg_list:
+                col = item['column']
+                func = item['func']
+                alias = item.get('alias', f"{col}_{func}")
+                sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+            return f"SELECT {', '.join(sel_parts)} FROM {from_alias}"
+
         by_list, has_var_by, _ = self._ddb_by_parts(by)
         if has_var_by:
             return f"-- [skipped: groupby with Python variable columns]"
@@ -5036,7 +5532,13 @@ class CodeGenerator:
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
         sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
-        sql_str = self._try_sql_string_func(sql_expr)
+        sql_str = self._try_sql_cast_func(sql_expr)
+        if sql_str is None:
+            sql_str, upv = self._try_sql_date_func(sql_expr)
+            if upv:
+                return f"-- [skipped: assign with Python variable in expression]"
+        if sql_str is None:
+            sql_str = self._try_sql_string_func(sql_expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(sql_expr)
         if sql_str is None:
@@ -5108,8 +5610,30 @@ class CodeGenerator:
         return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
 
     def generate_fillna_sql(self, ast_node):
-        # fillna in DSL has no column list — always requires runtime schema
-        return f"-- [skipped: fillna requires runtime schema in SQL CTE mode]"
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        per_col = ast_node.get('per_col', {})
+        if per_col:
+            parts = ', '.join(
+                f"COALESCE({c}, {repr(v) if isinstance(v, str) else v}) AS {c}"
+                for c, v in per_col.items()
+            )
+            return f"SELECT *, {parts} FROM {from_alias}"
+        return f"-- [skipped: fillna without column list requires runtime schema in SQL CTE mode]"
+
+    def generate_intersect_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' INTERSECT '.join(parts)
+
+    def generate_exclude_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        others = ast_node['tables']
+        parts = [f"SELECT * FROM {from_alias}"] + [f"SELECT * FROM {o}" for o in others]
+        return ' EXCEPT '.join(parts)
 
     def generate_dropna_sql(self, ast_node):
         t = ast_node['table_name']

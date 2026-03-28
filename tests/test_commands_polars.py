@@ -769,7 +769,7 @@ def test_merge_multi_key(parser):
 def test_groupby_sum(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg sum amount\n', ns)
+    run(parser, 'df data\ngroup by region\n    sum amount\n', ns)
     result = ns['data'].sort('region')
     assert result['amount'][0] == 400   # N: 100+300
     assert result['amount'][1] == 600   # S: 200+400
@@ -778,7 +778,7 @@ def test_groupby_sum(parser):
 def test_groupby_mean(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg mean amount as avg_amount\n', ns)
+    run(parser, 'df data\ngroup by region\n    mean amount as avg_amount\n', ns)
     result = ns['data'].sort('region')
     assert result['avg_amount'][0] == pytest.approx(200.0)  # N
     assert result['avg_amount'][1] == pytest.approx(300.0)  # S
@@ -787,7 +787,7 @@ def test_groupby_mean(parser):
 def test_groupby_nunique(parser):
     df = pl.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run(parser, 'df data\ngroup by region\n    nunique amount as n\n', ns)
     result = ns['data'].sort('region')
     assert result['n'][0] == 2   # N: 100 and 200
     assert result['n'][1] == 1   # S: only 300
@@ -800,7 +800,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run(parser, 'df data\ngroup by region\n    wavg amount weight as wa\n', ns)
     result = ns['data'].sort('region')
     assert result['wa'][0] == pytest.approx(250.0)   # N: (100*1+300*3)/(1+3)
     assert result['wa'][1] == pytest.approx(300.0)   # S: (200*2+400*2)/(2+2)
@@ -809,7 +809,7 @@ def test_groupby_wavg(parser):
 def test_groupby_multi_agg(parser):
     df = pl.DataFrame({'cat': ['A', 'A', 'B'], 'x': [10, 20, 30], 'y': [1, 2, 3]})
     ns = {'data': df}
-    run(parser, 'df data\ngroup by cat\n    agg sum x as sx, max y as my\n', ns)
+    run(parser, 'df data\ngroup by cat\n    sum x as sx, max y as my\n', ns)
     result = ns['data'].sort('cat')
     assert result['sx'][0] == 30    # A: 10+20
     assert result['my'][0] == 2     # A: max(1,2)
@@ -824,7 +824,7 @@ def test_groupby_multi_column(parser):
         'amount': [10, 20, 30, 40],
     })
     ns = {'data': df}
-    run(parser, 'df data\ngroup by region, cat\n    agg sum amount\n', ns)
+    run(parser, 'df data\ngroup by region, cat\n    sum amount\n', ns)
     assert len(ns['data']) == 4   # 2 regions × 2 cats
 
 
@@ -848,7 +848,7 @@ def test_pivot_basic(parser):
         'sales':   [100, 200, 150, 250],
     })
     ns = {'data': df}
-    run(parser, 'df data\npivot\n    rows product\n    cols region\n    agg sum sales\n', ns)
+    run(parser, 'df data\npivot\n    rows product\n    cols region\n    sum sales\n', ns)
     result = ns['data'].sort('product')
     assert 'N' in result.columns
     assert 'S' in result.columns
@@ -863,7 +863,7 @@ def test_pivot_mean(parser):
         'sales':   [100, 200, 150, 250],
     })
     ns = {'data': df}
-    run(parser, 'df data\npivot\n    rows product\n    cols region\n    agg mean sales\n', ns)
+    run(parser, 'df data\npivot\n    rows product\n    cols region\n    mean sales\n', ns)
     result = ns['data'].sort('product')
     assert result.filter(pl.col('product') == 'A')['N'][0] == pytest.approx(150.0)
 
@@ -1267,3 +1267,127 @@ def test_load_sqlite_codegen_polars(parser, tmp_path):
     assert 'pl.from_pandas' in code
     assert 'test.sqlite' in code
 
+
+
+# ---------------------------------------------------------------------------
+# Date functions
+# ---------------------------------------------------------------------------
+
+def test_date_year_polars(parser):
+    df = pl.DataFrame({'d': ['2023-06-15', '2024-01-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    yr = year(d)\n', ns)
+    assert ns['t']['yr'].to_list() == [2023, 2024]
+
+
+def test_date_month_polars(parser):
+    df = pl.DataFrame({'d': ['2024-03-01', '2024-11-30']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    mo = month(d)\n', ns)
+    assert ns['t']['mo'].to_list() == [3, 11]
+
+
+def test_date_quarter_polars(parser):
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    q = quarter(d)\n', ns)
+    assert ns['t']['q'].to_list() == [1, 2, 3, 4]
+
+
+def test_date_dayofweek_polars(parser):
+    # 2024-01-01 is Monday (1 in Polars), 2024-01-07 is Sunday (7 in Polars)
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-01-07']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    dow = dayofweek(d)\n', ns)
+    assert ns['t']['dow'].to_list() == [1, 7]
+
+
+def test_date_diff_polars(parser):
+    df = pl.DataFrame({
+        'open_date':  ['2024-01-01', '2024-03-01'],
+        'close_date': ['2024-01-11', '2024-03-06'],
+    }).with_columns([
+        pl.col('open_date').str.to_date(),
+        pl.col('close_date').str.to_date(),
+    ])
+    ns = {'t': df}
+    run(parser, 'df t\n    days = date_diff(close_date, open_date)\n', ns)
+    assert ns['t']['days'].to_list() == [10, 5]
+
+
+def test_date_add_polars(parser):
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-06-15']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    from datetime import date
+    assert ns['t']['due'].to_list() == [date(2024, 1, 31), date(2024, 7, 15)]
+
+
+def test_date_format_polars(parser):
+    df = pl.DataFrame({'d': ['2024-03-15', '2024-11-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    assert ns['t']['lbl'].to_list() == ['Mar 2024', 'Nov 2024']
+
+
+def test_to_date_polars(parser):
+    df = pl.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    ns = {'t': df}
+    run(parser, 'df t\n    d = to_date(ds)\n', ns)
+    assert ns['t']['d'].dtype == pl.Date
+    assert ns['t']['d'][0].year == 2024
+
+
+# ---------------------------------------------------------------------------
+# Type casting
+# ---------------------------------------------------------------------------
+
+def test_cast_float_polars(parser):
+    df = pl.DataFrame({'n': ['1.5', 'bad', '3.0']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as float\n', ns)
+    assert ns['t']['n'][0] == pytest.approx(1.5)
+    assert ns['t']['n'][1] is None
+
+
+def test_cast_int_polars(parser):
+    df = pl.DataFrame({'n': ['1', 'bad', '3']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as int\n', ns)
+    assert ns['t']['n'][0] == 1
+    assert ns['t']['n'][1] is None
+
+
+def test_cast_string_polars(parser):
+    df = pl.DataFrame({'n': [1, 2, 3]})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as string\n', ns)
+    assert ns['t']['n'].to_list() == ['1', '2', '3']
+
+
+def test_cast_datetime_polars(parser):
+    df = pl.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast ds as datetime\n', ns)
+    assert ns['t']['ds'].dtype == pl.Datetime
+    assert ns['t']['ds'][1] is None
+
+
+def test_cast_multi_polars(parser):
+    df = pl.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast price, cost as float\n', ns)
+    assert ns['t']['price'][0] == pytest.approx(1.5)
+    assert ns['t']['cost'][0] == pytest.approx(0.5)
