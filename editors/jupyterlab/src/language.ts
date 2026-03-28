@@ -33,6 +33,7 @@ const keywords: Record<string, true> = {
   rank: true, lag: true, lead: true,
   cumsum: true, cummean: true, cummin: true, cummax: true, rolling: true,
   id: true, variable: true, value: true,
+  cast: true, strict: true,
 };
 
 const builtins: Record<string, true> = {
@@ -45,6 +46,15 @@ const builtins: Record<string, true> = {
   contains: true, startswith: true, endswith: true,
   and: true, or: true,
   integer: true, currency: true, percent: true, date: true, number: true,
+  // date functions
+  year: true, month: true, day: true, quarter: true, dayofweek: true,
+  hour: true, minute: true, date_format: true, to_date: true,
+  date_diff: true, date_add: true,
+  // string functions
+  upper: true, lower: true, trim: true, ltrim: true, rtrim: true,
+  substr: true, len: true, replace: true,
+  // cast type names (also used as inline cast functions)
+  int: true, float: true, string: true, str: true, bool: true, boolean: true, datetime: true,
 };
 
 const atoms: Record<string, true> = {

@@ -24,7 +24,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
-    'intersect', 'exclude',
+    'intersect', 'exclude', 'cast',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
@@ -69,6 +69,7 @@ grammar_indented = r"""
                | concat_statement
                | intersect_statement
                | exclude_statement
+               | cast_statement
                | rename_statement
                | apply_statement
                | table_statement
@@ -273,6 +274,10 @@ grammar_indented = r"""
     concat_statement: "concat" IDENTIFIER ("," IDENTIFIER)* _NL?
     intersect_statement: "intersect" IDENTIFIER ("," IDENTIFIER)* _NL?
     exclude_statement: "exclude" IDENTIFIER ("," IDENTIFIER)* _NL?
+
+    cast_statement: "cast" IDENTIFIER ("," IDENTIFIER)* "as" CAST_TYPE CAST_STRICT? _NL?
+    CAST_TYPE.2: "int" | "integer" | "float" | "string" | "str" | "bool" | "boolean" | "datetime"
+    CAST_STRICT.2: "strict"
 
     rename_statement: "rename" rename_item ("," rename_item)* _NL?
     rename_item: IDENTIFIER "as" IDENTIFIER
@@ -840,6 +845,27 @@ class DSLTransformer(Transformer):
 
     def exclude_statement(self, *tables):
         return {'type': 'exclude', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
+
+    def cast_statement(self, *args):
+        # args: IDENTIFIER... CAST_TYPE [CAST_STRICT]
+        cols = []
+        cast_type = None
+        strict = False
+        for a in args:
+            s = str(a)
+            if s == 'strict':
+                strict = True
+            elif s in ('int', 'integer', 'float', 'string', 'str', 'bool', 'boolean', 'datetime'):
+                cast_type = s
+            else:
+                cols.append(s)
+        return {
+            'type': 'cast',
+            'table_name': self.current_table,
+            'columns': cols,
+            'cast_type': cast_type,
+            'strict': strict,
+        }
 
     def rename_statement(self, *items):
         renames = {}
@@ -1862,7 +1888,25 @@ class CodeGenerator:
     _BUILTIN_FUNCS = frozenset({
         'upper', 'lower', 'trim', 'ltrim', 'rtrim',
         'left', 'right', 'substr', 'len', 'replace',
+        # date functions
+        'year', 'month', 'day', 'quarter', 'dayofweek',
+        'hour', 'minute', 'date_format', 'to_date',
+        'date_diff', 'date_add',
+        # cast functions (inline)
+        'int', 'integer', 'float', 'string', 'str',
+        'bool', 'boolean', 'datetime',
     })
+
+    _CAST_FUNCS = frozenset({
+        'int', 'integer', 'float', 'string', 'str',
+        'bool', 'boolean', 'datetime',
+    })
+
+    _DATE_FUNCS = frozenset({
+        'year', 'month', 'day', 'quarter', 'dayofweek',
+        'hour', 'minute', 'date_format', 'to_date',
+    })
+    _DATE_TWO_ARG = frozenset({'date_diff', 'date_add'})
 
     def _parse_user_func_call(self, expr):
         """If expr matches 'func(col)' and func is not a built-in, return (func, col).
@@ -1882,6 +1926,12 @@ class CodeGenerator:
         string concatenation, otherwise return None (fall through to eval)."""
         import re
         expr = expr.strip()
+        cast_result = self._try_cast_func(expr, table)
+        if cast_result is not None:
+            return cast_result
+        date_result = self._try_date_func(expr, table)
+        if date_result is not None:
+            return date_result
         result = self._try_string_func(expr, table)
         if result is not None:
             return result
@@ -1930,6 +1980,67 @@ class CodeGenerator:
             a = rest[0].strip("'\"")
             b = rest[1].strip("'\"")
             return f"{base}.str.replace({repr(a)}, {repr(b)}, regex=False)"
+        return None
+
+    def _try_date_func(self, expr, table):
+        """Parse a date function call and return pandas .dt.* code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1)
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"{table}['{col}']"
+        _simple = {
+            'year': 'year', 'month': 'month', 'day': 'day',
+            'quarter': 'quarter', 'dayofweek': 'dayofweek',
+            'hour': 'hour', 'minute': 'minute',
+        }
+        if func in _simple:
+            return f"{base}.dt.{_simple[func]}"
+        if func == 'date_format' and len(args) == 2:
+            fmt = args[1].strip()
+            return f"{base}.dt.strftime({fmt})"
+        if func == 'to_date':
+            return f"pd.to_datetime({base})"
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"({base} - {table}['{start}']).dt.days"
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"{base} + pd.to_timedelta({var}, unit='d')"
+            return f"{base} + pd.Timedelta(days={n})"
+        return None
+
+    def _try_cast_func(self, expr, table):
+        """Parse an inline cast call int(col)/float(col)/etc and return pandas code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"{table}['{col}']"
+        if func in ('int', 'integer'):
+            return f"pd.to_numeric({base}, errors='coerce').astype('Int64')"
+        if func == 'float':
+            return f"pd.to_numeric({base}, errors='coerce')"
+        if func in ('str', 'string'):
+            return f"{base}.astype(str)"
+        if func in ('bool', 'boolean'):
+            return f"{base}.astype(bool)"
+        if func == 'datetime':
+            return f"pd.to_datetime({base}, errors='coerce')"
         return None
 
     def _split_func_args(self, args_str):
@@ -2237,6 +2348,28 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.drop({ast_node['columns']})"
 
+    def generate_cast_polars(self, ast_node):
+        table = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        _POLARS_TYPES = {
+            'int': 'pl.Int64', 'integer': 'pl.Int64',
+            'float': 'pl.Float64',
+            'str': 'pl.Utf8', 'string': 'pl.Utf8',
+            'bool': 'pl.Boolean', 'boolean': 'pl.Boolean',
+            'datetime': 'pl.Datetime',
+        }
+        pl_type = _POLARS_TYPES.get(cast_type, 'pl.Utf8')
+        strict_flag = '' if strict else ', strict=False'
+        lines = []
+        for col in cols:
+            lines.append(
+                f"{table} = {table}.with_columns("
+                f"pl.col('{col}').cast({pl_type}{strict_flag}))"
+            )
+        return '\n'.join(lines)
+
     def generate_sort_polars(self, ast_node):
         columns = ast_node['columns']
         ascending = ast_node['ascending']
@@ -2472,6 +2605,67 @@ class CodeGenerator:
             return f"{base}.str.replace_all({repr(a)}, {repr(b)}, literal=True)"
         return None
 
+    def _try_date_func_polars(self, expr):
+        """Parse a date function call and return a Polars Expr string, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1)
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        base = f"pl.col('{col}')"
+        _simple = {
+            'year': 'year', 'month': 'month', 'day': 'day',
+            'quarter': 'quarter', 'hour': 'hour', 'minute': 'minute',
+        }
+        if func in _simple:
+            return f"{base}.dt.{_simple[func]}()"
+        if func == 'dayofweek':
+            return f"{base}.dt.weekday()"
+        if func == 'date_format' and len(args) == 2:
+            fmt = args[1].strip()
+            return f"{base}.dt.strftime({fmt})"
+        if func == 'to_date':
+            return f"{base}.cast(pl.Date)"
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"({base} - pl.col('{start}')).dt.total_days()"
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"({base} + pl.duration(days={var}))"
+            return f"({base} + pl.duration(days={n}))"
+        return None
+
+    def _try_cast_func_polars(self, expr):
+        """Parse an inline cast call int(col)/float(col)/etc and return Polars Expr code, or None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        _POLARS_TYPES = {
+            'int': 'pl.Int64', 'integer': 'pl.Int64',
+            'float': 'pl.Float64',
+            'str': 'pl.Utf8', 'string': 'pl.Utf8',
+            'bool': 'pl.Boolean', 'boolean': 'pl.Boolean',
+            'datetime': 'pl.Datetime',
+        }
+        pl_type = _POLARS_TYPES.get(func)
+        if pl_type is None:
+            return None
+        return f"pl.col('{col}').cast({pl_type}, strict=False)"
+
     def _try_string_concat_polars(self, expr):
         """Parse col + 'lit' + col concatenation. Returns pl.concat_str(...) code or None."""
         import re
@@ -2506,6 +2700,12 @@ class CodeGenerator:
         """
         import re
         expr = expr.strip()
+        cast_result = self._try_cast_func_polars(expr)
+        if cast_result is not None:
+            return cast_result
+        date_result = self._try_date_func_polars(expr)
+        if date_result is not None:
+            return date_result
         result = self._try_string_func_polars(expr)
         if result is not None:
             return result
@@ -3348,6 +3548,35 @@ class CodeGenerator:
     
     def generate_drop_pandas(self, ast_node):
         return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
+
+    def generate_cast_pandas(self, ast_node):
+        table = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        lines = []
+        for col in cols:
+            c = f"{table}['{col}']"
+            if cast_type in ('int', 'integer'):
+                if strict:
+                    lines.append(f"{c} = {c}.astype(int)")
+                else:
+                    lines.append(f"{c} = pd.to_numeric({c}, errors='coerce').astype('Int64')")
+            elif cast_type == 'float':
+                if strict:
+                    lines.append(f"{c} = {c}.astype(float)")
+                else:
+                    lines.append(f"{c} = pd.to_numeric({c}, errors='coerce')")
+            elif cast_type in ('str', 'string'):
+                lines.append(f"{c} = {c}.astype(str)")
+            elif cast_type in ('bool', 'boolean'):
+                lines.append(f"{c} = {c}.astype(bool)")
+            elif cast_type == 'datetime':
+                if strict:
+                    lines.append(f"{c} = pd.to_datetime({c})")
+                else:
+                    lines.append(f"{c} = pd.to_datetime({c}, errors='coerce')")
+        return '\n'.join(lines)
 
     def generate_fillna_pandas(self, ast_node):
         t = ast_node['table_name']
@@ -4233,6 +4462,29 @@ class CodeGenerator:
         excl = ', '.join(ast_node['columns'])
         return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}) FROM {t}")'
 
+    def generate_cast_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        strict = ast_node.get('strict', False)
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(cast_type, 'VARCHAR')
+        cast_fn = 'CAST' if strict else 'TRY_CAST'
+        lines = []
+        for col in cols:
+            expr = f"{cast_fn}({col} AS {sql_type}) AS {col}"
+            lines.append(
+                f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS '
+                f'SELECT * REPLACE ({expr}) FROM {t}")'
+            )
+        return '\n'.join(lines)
+
     def generate_distinct_duckdb(self, ast_node):
         t = ast_node['table_name']
         cols = ast_node['columns']
@@ -4614,6 +4866,63 @@ class CodeGenerator:
                     return None        # unrecognised token — fall through
         return ' || '.join(parts)
 
+    def _try_sql_cast_func(self, expr):
+        """Translate an inline cast call int(col)/float(col)/etc to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m or m.group(1) not in self._CAST_FUNCS:
+            return None
+        func = m.group(1)
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None
+        col = args[0].strip()
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(func)
+        if sql_type is None:
+            return None
+        return f"TRY_CAST({col} AS {sql_type})"
+
+    def _try_sql_date_func(self, expr):
+        """Translate a date function call to SQL, or return None."""
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None, False
+        func = m.group(1).lower()
+        if func not in self._DATE_FUNCS and func not in self._DATE_TWO_ARG:
+            return None, False
+        args = self._split_func_args(m.group(2))
+        if not args:
+            return None, False
+        col = args[0].strip()
+        _simple_sql = {
+            'year': 'YEAR', 'month': 'MONTH', 'day': 'DAY',
+            'quarter': 'QUARTER', 'dayofweek': 'DAYOFWEEK',
+            'hour': 'HOUR', 'minute': 'MINUTE',
+        }
+        if func in _simple_sql:
+            return f"{_simple_sql[func]}({col})", False
+        if func == 'date_format' and len(args) == 2:
+            fmt_inner = args[1].strip().strip('"\'')
+            return f"STRFTIME({col}, '{fmt_inner}')", False
+        if func == 'to_date':
+            return f"CAST({col} AS DATE)", False
+        if func == 'date_diff' and len(args) == 2:
+            start = args[1].strip()
+            return f"DATE_DIFF('day', {start}, {col})", False
+        if func == 'date_add' and len(args) == 2:
+            n = args[1].strip()
+            if n.startswith(':'):
+                var = n[1:]
+                return f"({col} + INTERVAL {{{var}}} DAY)", True  # needs f-string
+            return f"({col} + INTERVAL {n} DAY)", False
+        return None, False
+
     def _try_sql_string_func(self, expr):
         """Translate a string-function call to SQL, or return None."""
         m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
@@ -4733,8 +5042,12 @@ class CodeGenerator:
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
-        sql_str = self._try_sql_string_func(expr)
+        sql_str = self._try_sql_cast_func(expr)
         uses_pyvar_expr = False
+        if sql_str is None:
+            sql_str, uses_pyvar_expr = self._try_sql_date_func(expr)
+        if sql_str is None:
+            sql_str = self._try_sql_string_func(expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(expr)
         if sql_str is None:
@@ -5049,6 +5362,23 @@ class CodeGenerator:
         excl = ', '.join(ast_node['columns'])
         return f"SELECT * EXCLUDE ({excl}) FROM {from_alias}"
 
+    def generate_cast_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        cols = ast_node['columns']
+        cast_type = ast_node['cast_type']
+        _SQL_TYPES = {
+            'int': 'INTEGER', 'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'str': 'VARCHAR', 'string': 'VARCHAR',
+            'bool': 'BOOLEAN', 'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = _SQL_TYPES.get(cast_type, 'VARCHAR')
+        # Standard SQL has no TRY_CAST — always use CAST regardless of strict flag
+        replaces = ', '.join(f"CAST({col} AS {sql_type}) AS {col}" for col in cols)
+        return f"SELECT * REPLACE ({replaces}) FROM {from_alias}"
+
     def generate_distinct_sql(self, ast_node):
         t = ast_node['table_name']
         from_alias = self._sql_current(t)
@@ -5202,7 +5532,13 @@ class CodeGenerator:
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
         sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
-        sql_str = self._try_sql_string_func(sql_expr)
+        sql_str = self._try_sql_cast_func(sql_expr)
+        if sql_str is None:
+            sql_str, upv = self._try_sql_date_func(sql_expr)
+            if upv:
+                return f"-- [skipped: assign with Python variable in expression]"
+        if sql_str is None:
+            sql_str = self._try_sql_string_func(sql_expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(sql_expr)
         if sql_str is None:

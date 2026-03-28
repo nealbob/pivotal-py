@@ -1267,3 +1267,127 @@ def test_load_sqlite_codegen_polars(parser, tmp_path):
     assert 'pl.from_pandas' in code
     assert 'test.sqlite' in code
 
+
+
+# ---------------------------------------------------------------------------
+# Date functions
+# ---------------------------------------------------------------------------
+
+def test_date_year_polars(parser):
+    df = pl.DataFrame({'d': ['2023-06-15', '2024-01-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    yr = year(d)\n', ns)
+    assert ns['t']['yr'].to_list() == [2023, 2024]
+
+
+def test_date_month_polars(parser):
+    df = pl.DataFrame({'d': ['2024-03-01', '2024-11-30']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    mo = month(d)\n', ns)
+    assert ns['t']['mo'].to_list() == [3, 11]
+
+
+def test_date_quarter_polars(parser):
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    q = quarter(d)\n', ns)
+    assert ns['t']['q'].to_list() == [1, 2, 3, 4]
+
+
+def test_date_dayofweek_polars(parser):
+    # 2024-01-01 is Monday (1 in Polars), 2024-01-07 is Sunday (7 in Polars)
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-01-07']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    dow = dayofweek(d)\n', ns)
+    assert ns['t']['dow'].to_list() == [1, 7]
+
+
+def test_date_diff_polars(parser):
+    df = pl.DataFrame({
+        'open_date':  ['2024-01-01', '2024-03-01'],
+        'close_date': ['2024-01-11', '2024-03-06'],
+    }).with_columns([
+        pl.col('open_date').str.to_date(),
+        pl.col('close_date').str.to_date(),
+    ])
+    ns = {'t': df}
+    run(parser, 'df t\n    days = date_diff(close_date, open_date)\n', ns)
+    assert ns['t']['days'].to_list() == [10, 5]
+
+
+def test_date_add_polars(parser):
+    df = pl.DataFrame({'d': ['2024-01-01', '2024-06-15']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    from datetime import date
+    assert ns['t']['due'].to_list() == [date(2024, 1, 31), date(2024, 7, 15)]
+
+
+def test_date_format_polars(parser):
+    df = pl.DataFrame({'d': ['2024-03-15', '2024-11-01']}).with_columns(
+        pl.col('d').str.to_date()
+    )
+    ns = {'t': df}
+    run(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    assert ns['t']['lbl'].to_list() == ['Mar 2024', 'Nov 2024']
+
+
+def test_to_date_polars(parser):
+    df = pl.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    ns = {'t': df}
+    run(parser, 'df t\n    d = to_date(ds)\n', ns)
+    assert ns['t']['d'].dtype == pl.Date
+    assert ns['t']['d'][0].year == 2024
+
+
+# ---------------------------------------------------------------------------
+# Type casting
+# ---------------------------------------------------------------------------
+
+def test_cast_float_polars(parser):
+    df = pl.DataFrame({'n': ['1.5', 'bad', '3.0']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as float\n', ns)
+    assert ns['t']['n'][0] == pytest.approx(1.5)
+    assert ns['t']['n'][1] is None
+
+
+def test_cast_int_polars(parser):
+    df = pl.DataFrame({'n': ['1', 'bad', '3']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as int\n', ns)
+    assert ns['t']['n'][0] == 1
+    assert ns['t']['n'][1] is None
+
+
+def test_cast_string_polars(parser):
+    df = pl.DataFrame({'n': [1, 2, 3]})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast n as string\n', ns)
+    assert ns['t']['n'].to_list() == ['1', '2', '3']
+
+
+def test_cast_datetime_polars(parser):
+    df = pl.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast ds as datetime\n', ns)
+    assert ns['t']['ds'].dtype == pl.Datetime
+    assert ns['t']['ds'][1] is None
+
+
+def test_cast_multi_polars(parser):
+    df = pl.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
+    ns = {'pl': pl, 't': df}
+    run(parser, 'df t\n    cast price, cost as float\n', ns)
+    assert ns['t']['price'][0] == pytest.approx(1.5)
+    assert ns['t']['cost'][0] == pytest.approx(0.5)

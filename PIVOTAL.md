@@ -117,6 +117,19 @@ df sales
 
 String functions: `upper  lower  trim  ltrim  rtrim  left(col,n)  right(col,n)  substr(col,start,n)  len  replace(col,from,to)`
 
+Date functions:
+```pivotal
+df sales
+    yr       = year(order_date)
+    mo       = month(order_date)
+    label    = date_format(order_date, "%b %Y")
+    days_open = date_diff(close_date, open_date)
+    due_date  = date_add(order_date, 30)
+    parsed   = to_date(date_string_col)
+```
+
+Date functions: `year  month  day  quarter  dayofweek  hour  minute  date_format(col,fmt)  to_date(col)  date_diff(end,start)  date_add(col,n)`
+
 ## Sorting
 
 ```pivotal
@@ -213,6 +226,28 @@ df long from wide
         cols jan, feb, mar
         variable "month"
         value "amount"
+```
+
+## Type casting
+
+```pivotal
+df sales
+    cast price as float            # coerce (bad values → NaN/null)
+    cast qty as int
+    cast name as string
+    cast created_at as datetime
+    cast price, cost as float      # multiple columns at once
+    cast price as float strict     # strict mode — error on bad values
+```
+
+Types: `int` / `integer`  `float`  `string` / `str`  `bool` / `boolean`  `datetime`
+
+Inline cast in expressions:
+```pivotal
+df sales
+    price = float(price)
+    label = str(code)
+    ts = datetime(ts_col)
 ```
 
 ## Data cleaning

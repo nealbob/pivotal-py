@@ -53,6 +53,69 @@ df products
     abbr = upper(left(name, 3))
 ```
 
+## Date functions
+
+Extract components from date/datetime columns or perform date arithmetic:
+
+| Function | Description |
+|----------|-------------|
+| `year(col)` | Year as integer |
+| `month(col)` | Month (1–12) |
+| `day(col)` | Day of month |
+| `quarter(col)` | Quarter (1–4) |
+| `dayofweek(col)` | Day of week (0=Monday in pandas, 1=Monday in Polars) |
+| `hour(col)` | Hour (0–23) |
+| `minute(col)` | Minute (0–59) |
+| `date_format(col, fmt)` | Format as string, e.g. `"%b %Y"` → `"Mar 2024"` |
+| `to_date(col)` | Parse a string column to date/datetime |
+| `date_diff(end_col, start_col)` | Difference in days (integer) |
+| `date_add(col, n)` | Add `n` days to a date column |
+
+```pivotal
+df sales
+    yr       = year(order_date)
+    mo       = month(order_date)
+    quarter  = quarter(order_date)
+    label    = date_format(order_date, "%b %Y")
+    days_open = date_diff(close_date, open_date)
+    due_date  = date_add(order_date, 30)
+```
+
+**Tip:** to filter or group by a date part, create the column first, then use it:
+
+```pivotal
+df monthly from sales
+    yr = year(order_date)
+    mo = month(order_date)
+    filter yr == 2024
+    group by yr, mo
+        sum amount as total
+```
+
+## Type casting
+
+Convert column data types using `cast ... as <type>`:
+
+```pivotal
+df sales
+    cast price as float            # coerce — bad values become NaN/null
+    cast qty as int
+    cast created_at as datetime
+    cast price, cost as float      # multiple columns in one statement
+    cast price as float strict     # strict — raises error on bad values
+```
+
+Types: `int` / `integer`  `float`  `string` / `str`  `bool` / `boolean`  `datetime`
+
+Inline cast inside an expression:
+
+```pivotal
+df sales
+    price = float(price)
+    label = str(code)
+    ts    = datetime(ts_col)
+```
+
 ## Aggregate functions in expressions
 
 Use aggregate functions to compute values relative to the whole table:

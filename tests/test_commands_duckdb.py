@@ -849,3 +849,127 @@ def test_unpivot_codegen_duckdb(parser, wide_df):
     assert 'jan, feb' in code
     assert "NAME 'month'" in code
     assert "VALUE 'amount'" in code
+
+
+# ---------------------------------------------------------------------------
+# Date functions
+# ---------------------------------------------------------------------------
+
+def test_date_year_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2023-06-15', '2024-01-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    yr = year(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['yr'].tolist() == [2023, 2024]
+
+
+def test_date_month_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-01', '2024-11-30'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    mo = month(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['mo'].tolist() == [3, 11]
+
+
+def test_date_quarter_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    q = quarter(d)\n', ns)
+    result = fetch(ns, 't')
+    assert result['q'].tolist() == [1, 2, 3, 4]
+
+
+def test_date_diff_duckdb(parser):
+    df = pd.DataFrame({
+        'open_date':  pd.to_datetime(['2024-01-01', '2024-03-01']),
+        'close_date': pd.to_datetime(['2024-01-11', '2024-03-06']),
+    })
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    days = date_diff(close_date, open_date)\n', ns)
+    result = fetch(ns, 't')
+    assert result['days'].tolist() == [10, 5]
+
+
+def test_date_add_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-06-15'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    result = fetch(ns, 't')
+    expected = pd.to_datetime(['2024-01-31', '2024-07-15']).date.tolist()
+    assert [d.date() if hasattr(d, 'date') else d for d in result['due'].tolist()] == expected
+
+
+def test_date_format_duckdb(parser):
+    df = pd.DataFrame({'d': pd.to_datetime(['2024-03-15', '2024-11-01'])})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    result = fetch(ns, 't')
+    assert result['lbl'].tolist() == ['Mar 2024', 'Nov 2024']
+
+
+def test_to_date_duckdb(parser):
+    df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    d = to_date(ds)\n', ns)
+    result = fetch(ns, 't')
+    assert result['d'].tolist()[0].year == 2024
+
+
+# ---------------------------------------------------------------------------
+# Type casting
+# ---------------------------------------------------------------------------
+
+def test_cast_float_duckdb(parser):
+    df = pd.DataFrame({'n': ['1.5', 'bad', '3.0']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as float\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'][0] == pytest.approx(1.5)
+    assert pd.isna(result['n'][1])
+
+
+def test_cast_int_duckdb(parser):
+    df = pd.DataFrame({'n': ['1', 'bad', '3']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as int\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'][0] == 1
+    assert pd.isna(result['n'][1])
+
+
+def test_cast_string_duckdb(parser):
+    df = pd.DataFrame({'n': [1, 2, 3]})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast n as string\n', ns)
+    result = fetch(ns, 't')
+    assert result['n'].tolist() == ['1', '2', '3']
+
+
+def test_cast_datetime_duckdb(parser):
+    df = pd.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast ds as datetime\n', ns)
+    result = fetch(ns, 't')
+    assert pd.api.types.is_datetime64_any_dtype(result['ds'])
+    assert pd.isna(result['ds'][1])
+
+
+def test_cast_multi_duckdb(parser):
+    df = pd.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
+    conn = make_conn('t', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'df t\n    cast price, cost as float\n', ns)
+    result = fetch(ns, 't')
+    assert result['price'][0] == pytest.approx(1.5)
+    assert result['cost'][0] == pytest.approx(0.5)

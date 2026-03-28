@@ -184,6 +184,7 @@ const COMMAND_KEYWORDS = [
   'concat', 'intersect', 'exclude', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
   'distinct', 'python', 'save', 'apply', 'table', 'delete', 'show', 'show head', 'show summary',
   'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
+  'cast',
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
