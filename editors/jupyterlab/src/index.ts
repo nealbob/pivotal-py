@@ -184,7 +184,7 @@ type CompletionCtx =
 const COMMAND_COMPLETIONS: Completion[] = [
   // Table declarations
   { label: 'df', type: 'keyword', detail: 'df <table> [from <source>]' },
-  { label: 'load', type: 'keyword', detail: 'load <path> as <table>' },
+  { label: 'load', type: 'keyword', apply: snippet('load ${table} ${path}'), detail: 'load <table> <path>' },
 
   // Row operations
   { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
@@ -204,22 +204,30 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'exclude',   type: 'keyword', detail: 'exclude <table>' },
 
   // Grouping / aggregation
-  { label: 'group by',   type: 'keyword', apply: snippet('group by ${col}\n    ${agg} ${value_col} as ${name}'), detail: 'group by <col>\n    <agg> <col> as <name>' },
-  { label: 'summarise',  type: 'keyword', apply: snippet('summarise\n    ${agg} ${col} as ${name}'), detail: 'summarise\n    <agg> <col> as <name>' },
+  // group by: indented agg clause on next line(s)
+  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    ${agg} ${value_col} as ${name}'), detail: 'group by <col>\n    <agg> <col> as <name>' },
+  // summarise: all on one line
+  { label: 'summarise', type: 'keyword', apply: snippet('summarise ${agg} ${col} as ${name}'), detail: 'summarise <agg> <col> as <name>' },
 
-  // Window functions
-  { label: 'rolling',  type: 'keyword', apply: snippet('rolling ${mean} ${col} ${window} / order ${date_col}'), detail: 'rolling <func> <col> <window> / order <col>' },
-  { label: 'rank',     type: 'keyword', apply: snippet('${name} = rank ${col} / order ${sort_col}'), detail: '<name> = rank <col> / order <col>' },
-  { label: 'lag',      type: 'keyword', apply: snippet('${name} = lag ${col} ${n}'), detail: '<name> = lag <col> <n>' },
-  { label: 'lead',     type: 'keyword', apply: snippet('${name} = lead ${col} ${n}'), detail: '<name> = lead <col> <n>' },
-  { label: 'cumsum',   type: 'keyword', apply: snippet('${name} = cumsum ${col}'), detail: '<name> = cumsum <col>' },
-  { label: 'cummean',  type: 'keyword', apply: snippet('${name} = cummean ${col}'), detail: '<name> = cummean <col>' },
-  { label: 'cummin',   type: 'keyword', apply: snippet('${name} = cummin ${col}'), detail: '<name> = cummin <col>' },
-  { label: 'cummax',   type: 'keyword', apply: snippet('${name} = cummax ${col}'), detail: '<name> = cummax <col>' },
+  // Window functions — all use  <func> <col> [n] as <name>  form
+  // rolling: rolling <func> <col> <window> as <name>  (order is an optional indented sub-clause)
+  { label: 'rolling',  type: 'keyword', apply: snippet('rolling ${mean} ${col} ${window} as ${name}'), detail: 'rolling <func> <col> <window> as <name>' },
+  // rank: rank <col> as <name>
+  { label: 'rank',     type: 'keyword', apply: snippet('rank ${col} as ${name}'), detail: 'rank <col> as <name>' },
+  // lag / lead: <func> <col> <n> as <name>
+  { label: 'lag',      type: 'keyword', apply: snippet('lag ${col} ${n} as ${name}'), detail: 'lag <col> <n> as <name>' },
+  { label: 'lead',     type: 'keyword', apply: snippet('lead ${col} ${n} as ${name}'), detail: 'lead <col> <n> as <name>' },
+  // cumulative: <func> <col> as <name>
+  { label: 'cumsum',   type: 'keyword', apply: snippet('cumsum ${col} as ${name}'), detail: 'cumsum <col> as <name>' },
+  { label: 'cummean',  type: 'keyword', apply: snippet('cummean ${col} as ${name}'), detail: 'cummean <col> as <name>' },
+  { label: 'cummin',   type: 'keyword', apply: snippet('cummin ${col} as ${name}'), detail: 'cummin <col> as <name>' },
+  { label: 'cummax',   type: 'keyword', apply: snippet('cummax ${col} as ${name}'), detail: 'cummax <col> as <name>' },
 
   // Reshaping
-  { label: 'pivot',   type: 'keyword', apply: snippet('pivot rows ${row_col}\n    cols ${col_col}\n    values ${val_col}\n    agg ${sum}'), detail: 'pivot rows <col> cols <col> values <col> agg <func>' },
-  { label: 'unpivot', type: 'keyword', apply: snippet('unpivot ${col1}, ${col2} / id ${id_col}'), detail: 'unpivot <col>, ... / id <id_col>' },
+  // pivot: indented block with rows / cols / agg clause (no "values" keyword)
+  { label: 'pivot',   type: 'keyword', apply: snippet('pivot\n    rows ${row_col}\n    cols ${col_col}\n    ${sum} ${val_col} as ${name}'), detail: 'pivot\n    rows <col>  cols <col>  <agg> <col> as <name>' },
+  // unpivot: indented block with cols / id / optional variable+value labels
+  { label: 'unpivot', type: 'keyword', apply: snippet('unpivot\n    cols ${col1}, ${col2}\n    id ${id_col}'), detail: 'unpivot\n    cols <col>, ...  id <id_col>' },
 
   // Type casting
   { label: 'cast', type: 'keyword', apply: snippet('cast ${col} as ${type}'), detail: 'cast <col> as <type> [strict]' },
@@ -230,14 +238,14 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'rename',  type: 'keyword', apply: snippet('rename ${old_col} as ${new_col}'), detail: 'rename <col> as <new_name>' },
 
   // Plotting
-  { label: 'plot',     type: 'keyword', apply: snippet('plot ${line}\n    x ${x_col}\n    y ${y_col}'), detail: 'plot <type> x <col> y <col>' },
-  { label: 'agg plot', type: 'keyword', apply: snippet('agg plot ${bar}\n    x ${x_col}\n    y ${y_col}'), detail: 'agg plot <type> x <col> y <col>' },
+  { label: 'plot',     type: 'keyword', apply: snippet('plot ${line}\n    x ${x_col}\n    y ${y_col}'), detail: 'plot <type>  x <col>  y <col>' },
+  { label: 'agg plot', type: 'keyword', apply: snippet('agg plot ${bar}\n    x ${x_col}\n    y ${y_col}'), detail: 'agg plot <type>  x <col>  y <col>' },
 
   // Output / misc
   { label: 'show',         type: 'keyword', detail: 'show' },
   { label: 'show head',    type: 'keyword', detail: 'show head [<n>]' },
   { label: 'show summary', type: 'keyword', detail: 'show summary' },
-  { label: 'save',         type: 'keyword', apply: snippet('save ${path}'), detail: 'save <path>' },
+  { label: 'save',         type: 'keyword', apply: snippet('save "${path}"'), detail: 'save "<path>"' },
   { label: 'apply',        type: 'keyword', detail: 'apply <func>' },
   { label: 'table',        type: 'keyword', detail: 'table' },
   { label: 'delete',       type: 'keyword', detail: 'delete <table>' },
