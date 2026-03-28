@@ -385,6 +385,14 @@ function detectContext(
     return table ? { type: 'column', table } : { type: 'none' };
   }
 
+  // Rolling: 'rolling <partial_func>' → agg function completions
+  if (/^rolling\s+\w*$/.test(trimmed)) return { type: 'agg' };
+  // Rolling: 'rolling <func> <partial_col>' → column completions
+  if (/^rolling\s+\w+\s+\w*$/.test(trimmed)) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
+
   const table = findActiveTable(lines, cursorLine, ac);
   if (table) {
     if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
