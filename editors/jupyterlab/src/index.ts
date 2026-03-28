@@ -19,6 +19,7 @@ import {
   CompletionContext,
   CompletionResult,
   Completion,
+  snippet,
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton, Notification, InputDialog } from '@jupyterlab/apputils';
@@ -178,13 +179,69 @@ type CompletionCtx =
   | { type: 'charttype' }
   | { type: 'none' };
 
-const COMMAND_KEYWORDS = [
-  'df', 'load', 'filter', 'select', 'sort', 'group by',
-  'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'intersect', 'exclude', 'pivot', 'unpivot', 'plot', 'agg plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply', 'table', 'delete', 'show', 'show head', 'show summary',
-  'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
-  'cast',
+// Completions with snippet templates for complex statements.
+// Placeholders use ${name} syntax — Tab advances through each slot.
+const COMMAND_COMPLETIONS: Completion[] = [
+  // Table declarations
+  { label: 'df', type: 'keyword', detail: 'df <table> [from <source>]' },
+  { label: 'load', type: 'keyword', detail: 'load <path> as <table>' },
+
+  // Row operations
+  { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
+  { label: 'select', type: 'keyword', detail: 'select <col>, ...' },
+  { label: 'drop', type: 'keyword', detail: 'drop <col>, ...' },
+  { label: 'distinct', type: 'keyword', detail: 'distinct [<col>, ...]' },
+  { label: 'sort', type: 'keyword', detail: 'sort <col> [asc|desc]' },
+
+  // Merging / set ops
+  { label: 'merge',       type: 'keyword', apply: snippet('merge ${table} on ${key}'), detail: 'merge <table> on <key>' },
+  { label: 'left merge',  type: 'keyword', apply: snippet('left merge ${table} on ${key}'), detail: 'left merge <table> on <key>' },
+  { label: 'right merge', type: 'keyword', apply: snippet('right merge ${table} on ${key}'), detail: 'right merge <table> on <key>' },
+  { label: 'inner merge', type: 'keyword', apply: snippet('inner merge ${table} on ${key}'), detail: 'inner merge <table> on <key>' },
+  { label: 'outer merge', type: 'keyword', apply: snippet('outer merge ${table} on ${key}'), detail: 'outer merge <table> on <key>' },
+  { label: 'concat',    type: 'keyword', detail: 'concat <table>, ...' },
+  { label: 'intersect', type: 'keyword', detail: 'intersect <table>' },
+  { label: 'exclude',   type: 'keyword', detail: 'exclude <table>' },
+
+  // Grouping / aggregation
+  { label: 'group by',   type: 'keyword', apply: snippet('group by ${col}\n    ${agg} ${value_col} as ${name}'), detail: 'group by <col>\n    <agg> <col> as <name>' },
+  { label: 'summarise',  type: 'keyword', apply: snippet('summarise\n    ${agg} ${col} as ${name}'), detail: 'summarise\n    <agg> <col> as <name>' },
+
+  // Window functions
+  { label: 'rolling',  type: 'keyword', apply: snippet('rolling ${mean} ${col} ${window} / order ${date_col}'), detail: 'rolling <func> <col> <window> / order <col>' },
+  { label: 'rank',     type: 'keyword', apply: snippet('${name} = rank ${col} / order ${sort_col}'), detail: '<name> = rank <col> / order <col>' },
+  { label: 'lag',      type: 'keyword', apply: snippet('${name} = lag ${col} ${n}'), detail: '<name> = lag <col> <n>' },
+  { label: 'lead',     type: 'keyword', apply: snippet('${name} = lead ${col} ${n}'), detail: '<name> = lead <col> <n>' },
+  { label: 'cumsum',   type: 'keyword', apply: snippet('${name} = cumsum ${col}'), detail: '<name> = cumsum <col>' },
+  { label: 'cummean',  type: 'keyword', apply: snippet('${name} = cummean ${col}'), detail: '<name> = cummean <col>' },
+  { label: 'cummin',   type: 'keyword', apply: snippet('${name} = cummin ${col}'), detail: '<name> = cummin <col>' },
+  { label: 'cummax',   type: 'keyword', apply: snippet('${name} = cummax ${col}'), detail: '<name> = cummax <col>' },
+
+  // Reshaping
+  { label: 'pivot',   type: 'keyword', apply: snippet('pivot rows ${row_col}\n    cols ${col_col}\n    values ${val_col}\n    agg ${sum}'), detail: 'pivot rows <col> cols <col> values <col> agg <func>' },
+  { label: 'unpivot', type: 'keyword', apply: snippet('unpivot ${col1}, ${col2} / id ${id_col}'), detail: 'unpivot <col>, ... / id <id_col>' },
+
+  // Type casting
+  { label: 'cast', type: 'keyword', apply: snippet('cast ${col} as ${type}'), detail: 'cast <col> as <type> [strict]' },
+
+  // Filling / cleaning
+  { label: 'fillna',  type: 'keyword', detail: 'fillna <value>' },
+  { label: 'dropna',  type: 'keyword', detail: 'dropna [<col>, ...]' },
+  { label: 'rename',  type: 'keyword', apply: snippet('rename ${old_col} as ${new_col}'), detail: 'rename <col> as <new_name>' },
+
+  // Plotting
+  { label: 'plot',     type: 'keyword', apply: snippet('plot ${line}\n    x ${x_col}\n    y ${y_col}'), detail: 'plot <type> x <col> y <col>' },
+  { label: 'agg plot', type: 'keyword', apply: snippet('agg plot ${bar}\n    x ${x_col}\n    y ${y_col}'), detail: 'agg plot <type> x <col> y <col>' },
+
+  // Output / misc
+  { label: 'show',         type: 'keyword', detail: 'show' },
+  { label: 'show head',    type: 'keyword', detail: 'show head [<n>]' },
+  { label: 'show summary', type: 'keyword', detail: 'show summary' },
+  { label: 'save',         type: 'keyword', apply: snippet('save ${path}'), detail: 'save <path>' },
+  { label: 'apply',        type: 'keyword', detail: 'apply <func>' },
+  { label: 'table',        type: 'keyword', detail: 'table' },
+  { label: 'delete',       type: 'keyword', detail: 'delete <table>' },
+  { label: 'python',       type: 'keyword', detail: 'python' },
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -351,7 +408,7 @@ function detectContext(
 function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Completion[] {
   switch (ctx.type) {
     case 'command':
-      return COMMAND_KEYWORDS.map(kw => ({ label: kw, type: 'keyword' }));
+      return COMMAND_COMPLETIONS;
     case 'table':
       if (!ac) return [];
       return Object.keys(ac.tables).map(t => ({ label: t, type: 'variable' }));
