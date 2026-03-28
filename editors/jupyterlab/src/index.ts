@@ -404,6 +404,17 @@ function detectContext(
     if (/^(x|y|by|c)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
+    // Sub-clause keywords inside multi-line statements where a column name follows:
+    // pivot/unpivot: rows <col>, cols <col>, id <col>
+    // window opts:   order <col>
+    if (/^(rows|cols|id|order)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    // Agg function as the first word on an indented line — next word is the column.
+    // Covers agg sub-clauses inside group by and summarise.
+    if (/^(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
   }
 
   // On an indented line with multi-word content that matched no known pattern,
