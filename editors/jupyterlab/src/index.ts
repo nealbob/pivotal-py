@@ -406,6 +406,15 @@ function detectContext(
     }
   }
 
+  // On an indented line with multi-word content that matched no known pattern,
+  // return none rather than command. This prevents command keyword suggestions
+  // appearing inside sub-clauses (agg lines, window opts, pivot args) and inside
+  // snippet template fields. Command completions are only useful on blank lines
+  // or when typing the first word of a new statement.
+  if (indent > 0 && /\s/.test(trimmed)) {
+    return { type: 'none' };
+  }
+
   return { type: 'command' };
 }
 
