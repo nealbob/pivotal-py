@@ -205,9 +205,10 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Grouping / aggregation
   // group by: indented agg clause on next line(s)
-  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    ${agg} ${value_col} as ${name}'), detail: 'group by <col>\n    <agg> <col> as <name>' },
+  // group by: indented agg clause on next line(s)
+  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    ${sum} ${value_col} as ${name}'), detail: 'group by <col>\n    <sum|mean|...> <col> as <name>' },
   // summarise: all on one line
-  { label: 'summarise', type: 'keyword', apply: snippet('summarise ${agg} ${col} as ${name}'), detail: 'summarise <agg> <col> as <name>' },
+  { label: 'summarise', type: 'keyword', apply: snippet('summarise ${sum} ${col} as ${name}'), detail: 'summarise <sum|mean|...> <col> as <name>' },
 
   // Window functions — all use  <func> <col> [n] as <name>  form
   // rolling: rolling <func> <col> <window> as <name>  (order is an optional indented sub-clause)
