@@ -16,11 +16,13 @@ import { Compartment, Prec, RangeSetBuilder } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import {
   autocompletion,
+  startCompletion,
   CompletionContext,
   CompletionResult,
   Completion,
   snippet,
 } from '@codemirror/autocomplete';
+import { keymap } from '@codemirror/view';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ToolbarButton, Notification, InputDialog } from '@jupyterlab/apputils';
 import { IStatusBar } from '@jupyterlab/statusbar';
@@ -478,6 +480,45 @@ function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Comp
 }
 
 // ---------------------------------------------------------------------------
+// Cross-table column picker  (Ctrl+Shift+Space)
+// ---------------------------------------------------------------------------
+
+// Flag set by the Ctrl+Shift+Space keymap so the picker source can distinguish
+// an explicit picker trigger from a normal Ctrl+Space autocomplete trigger.
+let _columnPickerRequested = false;
+
+function makeColumnPickerSource(app: JupyterFrontEnd) {
+  return async function columnPickerSource(
+    context: CompletionContext
+  ): Promise<CompletionResult | null> {
+    if (!_columnPickerRequested) return null;
+    _columnPickerRequested = false;
+
+    const dir = getNotebookDir(app);
+    const ac = await fetchAutocompleteData(dir);
+    if (!ac) return null;
+
+    const options: Completion[] = [];
+    for (const [tableName, info] of Object.entries(ac.tables)) {
+      for (const col of info.columns) {
+        const label = Array.isArray(col) ? col.join('.') : String(col);
+        const dtype = info.dtypes?.[label];
+        options.push({
+          label,
+          type: 'property',
+          detail: dtype ? `${tableName}  ${dtype}` : tableName,
+          section: tableName,
+        });
+      }
+    }
+
+    const word = context.matchBefore(/\w*/);
+    const from = word ? word.from : context.pos;
+    return { from, options, validFor: /^\w*$/ };
+  };
+}
+
+// ---------------------------------------------------------------------------
 // CompletionSource
 // ---------------------------------------------------------------------------
 
@@ -532,7 +573,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
     extensions: IEditorExtensionRegistry,
   ) => {
     const completionSource = makePivotalCompletionSource(app);
-    const completionExt = autocompletion({ override: [completionSource] });
+    const columnPickerSource = makeColumnPickerSource(app);
+    // Single autocompletion instance with both sources — picker source only
+    // activates when _columnPickerRequested flag is set by the keymap.
+    const completionExt = autocompletion({ override: [completionSource, columnPickerSource] });
 
     app.docRegistry.addFileType({
       name: 'pivotal',
@@ -544,11 +588,16 @@ const plugin: JupyterFrontEndPlugin<void> = {
       fileFormat: 'text',
     });
 
+    const pickerKeymap = Prec.highest(keymap.of([{
+      key: 'Ctrl-Shift-Space',
+      run: (view) => { _columnPickerRequested = true; startCompletion(view); return true; },
+    }]));
+
     languages.addLanguage({
       name: 'pivotal',
       mime: 'text/x-pivotal',
       extensions: ['.pivotal'],
-      load: async () => new LanguageSupport(pivotalLanguage, completionExt),
+      load: async () => new LanguageSupport(pivotalLanguage, [completionExt, pickerKeymap]),
     });
 
     extensions.addExtension({
@@ -571,6 +620,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 isPivotal
                   ? [
                       Prec.highest(new LanguageSupport(pivotalLanguage, completionExt)),
+                      pickerKeymap,
                       colHighlightPlugin,
                       EditorView.editorAttributes.of({ class: 'pv-pivotal-cell' }),
                     ]
