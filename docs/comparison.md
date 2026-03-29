@@ -21,7 +21,7 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 
     df summary from invoices
         group by customer_id
-            mean total, sum income as sum_income, count total as ct
+            agg mean total, sum income as sum_income, count total as ct
         sort sum_income desc
         left merge customers on customer_id
         name = last_name + ", " + first_name

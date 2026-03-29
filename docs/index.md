@@ -14,7 +14,7 @@ df invoices
 
 df summary from invoices
     group by customer_id
-        mean total, sum income as sum_income, count total as ct
+        agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     left merge customers on customer_id
     name = last_name + ", " + first_name
@@ -64,7 +64,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            sum amount as revenue, count id as n_orders
+            agg sum amount as revenue, count id as n_orders
         sort month
     ```
 
@@ -81,7 +81,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            sum amount as revenue, count id as n_orders
+            agg sum amount as revenue, count id as n_orders
         sort month
     """)
     ```
@@ -96,7 +96,7 @@ pip install lark pandas matplotlib
         filter status == "complete"
         assign month = left(date, 7)
         group by month
-            sum amount as revenue, count id as n_orders
+            agg sum amount as revenue, count id as n_orders
         sort month
     ```
 
