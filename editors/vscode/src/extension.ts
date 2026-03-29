@@ -66,11 +66,73 @@ function loadAutocompleteFile(documentUri: vscode.Uri): AutocompleteData | null 
 // Context detection
 // ---------------------------------------------------------------------------
 
-const COMMAND_KEYWORDS = [
-  'df', 'load', 'filter', 'select', 'sort', 'assign', 'group by',
-  'merge', 'left merge', 'right merge', 'inner merge', 'outer merge',
-  'concat', 'intersect', 'exclude', 'pivot', 'plot', 'drop', 'rename', 'fillna', 'dropna',
-  'distinct', 'python', 'save', 'apply', 'agg', 'cast',
+interface CommandCompletion {
+  label: string;
+  snippet?: string; // VS Code snippet string (${1:placeholder} syntax)
+  detail?: string;
+}
+
+const COMMAND_COMPLETIONS: CommandCompletion[] = [
+  // Table declarations
+  { label: 'df',     detail: 'df <table> [from <source>]' },
+  { label: 'load',   snippet: 'load ${1:tbl} ${2:path}',   detail: 'load <table> <path>' },
+
+  // Row operations
+  { label: 'filter',   detail: 'filter <condition>' },
+  { label: 'select',   detail: 'select <col>, ...' },
+  { label: 'drop',     detail: 'drop <col>, ...' },
+  { label: 'distinct', detail: 'distinct [<col>, ...]' },
+  { label: 'sort',     detail: 'sort <col> [asc|desc]' },
+
+  // Merging / set ops
+  { label: 'merge',       snippet: 'merge ${1:tbl} on ${2:key}',       detail: 'merge <table> on <key>' },
+  { label: 'left merge',  snippet: 'left merge ${1:tbl} on ${2:key}',  detail: 'left merge <table> on <key>' },
+  { label: 'right merge', snippet: 'right merge ${1:tbl} on ${2:key}', detail: 'right merge <table> on <key>' },
+  { label: 'inner merge', snippet: 'inner merge ${1:tbl} on ${2:key}', detail: 'inner merge <table> on <key>' },
+  { label: 'outer merge', snippet: 'outer merge ${1:tbl} on ${2:key}', detail: 'outer merge <table> on <key>' },
+  { label: 'concat',    detail: 'concat <table>, ...' },
+  { label: 'intersect', detail: 'intersect <table>' },
+  { label: 'exclude',   detail: 'exclude <table>' },
+
+  // Grouping / aggregation
+  { label: 'group by', snippet: 'group by ${1:grp_col}\n    agg ${2:func} ${3:val_col} as ${4:name}', detail: 'group by <col>\n    agg <func> <col> as <name>' },
+  { label: 'agg',      snippet: 'agg ${1:func} ${2:agg_col} as ${3:name}', detail: 'agg <func> <col> as <name>' },
+
+  // Window functions
+  { label: 'rolling', snippet: 'rolling ${1:func} ${2:val_col} ${3:window} as ${4:name}', detail: 'rolling <func> <col> <window> as <name>' },
+  { label: 'rank',    snippet: 'rank ${1:rank_col} as ${2:name}',               detail: 'rank <col> as <name>' },
+  { label: 'lag',     snippet: 'lag ${1:val_col} ${2:n} as ${3:name}',          detail: 'lag <col> <n> as <name>' },
+  { label: 'lead',    snippet: 'lead ${1:val_col} ${2:n} as ${3:name}',         detail: 'lead <col> <n> as <name>' },
+  { label: 'cumsum',  snippet: 'cumsum ${1:val_col} as ${2:name}',              detail: 'cumsum <col> as <name>' },
+  { label: 'cummean', snippet: 'cummean ${1:val_col} as ${2:name}',             detail: 'cummean <col> as <name>' },
+  { label: 'cummin',  snippet: 'cummin ${1:val_col} as ${2:name}',              detail: 'cummin <col> as <name>' },
+  { label: 'cummax',  snippet: 'cummax ${1:val_col} as ${2:name}',              detail: 'cummax <col> as <name>' },
+
+  // Reshaping
+  { label: 'pivot',   snippet: 'pivot\n    rows ${1:row_col}\n    cols ${2:hdr_col}\n    agg ${3:func} ${4:val_col} as ${5:name}', detail: 'pivot\n    rows <col>  cols <col>  agg <func> <col> as <name>' },
+  { label: 'unpivot', snippet: 'unpivot\n    cols ${1:col1}, ${2:col2}\n    id ${3:id_col}', detail: 'unpivot\n    cols <col>, ...  id <id_col>' },
+
+  // Type casting
+  { label: 'cast', snippet: 'cast ${1:cast_col} as ${2:type}', detail: 'cast <col> as <type> [strict]' },
+
+  // Filling / cleaning
+  { label: 'fillna',  detail: 'fillna <value>' },
+  { label: 'dropna',  detail: 'dropna [<col>, ...]' },
+  { label: 'rename',  snippet: 'rename ${1:old_col} as ${2:new_col}', detail: 'rename <col> as <new_name>' },
+
+  // Plotting
+  { label: 'plot',     snippet: 'plot ${1:line}\n    x ${2:x_col}\n    y ${3:y_col}',         detail: 'plot <type>  x <col>  y <col>' },
+  { label: 'agg plot', snippet: 'agg plot ${1:bar}\n    x ${2:x_col}\n    y ${3:y_col}',      detail: 'agg plot <type>  x <col>  y <col>' },
+
+  // Output / misc
+  { label: 'show' },
+  { label: 'show head',    detail: 'show head [<n>]' },
+  { label: 'show summary', detail: 'show summary' },
+  { label: 'save',   snippet: 'save "${1:path}"', detail: 'save "<path>"' },
+  { label: 'apply',  detail: 'apply <func>' },
+  { label: 'table',  detail: 'table' },
+  { label: 'delete', detail: 'delete <table>' },
+  { label: 'python', detail: 'python' },
 ];
 
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
@@ -102,50 +164,67 @@ function detectContext(
   const trimmed = upToCursor.trimStart();
   const indent = upToCursor.length - trimmed.length;
 
-  // Empty root-level line → command keywords
   if (trimmed === '' && indent === 0) return { type: 'command' };
 
-  // `df <word>` or `df <word> from <word>` → table names
   if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
-
-  // After merge / concat → table names
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
+  if (/^(left\s+|right\s+|inner\s+|outer\s+)?merge\s+\w+\s+on\s+\w*$/.test(trimmed)) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
 
-  // After `plot` (first arg is chart kind or name) → chart types
-  if (/^plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
+  if (/^(agg\s+)?plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
 
-  // After `agg` → aggregation functions; after `agg <func>` → columns
   if (/^agg\s+\w*$/.test(trimmed)) return { type: 'agg' };
   if (/^agg\s+\w+\s+\w*$/.test(trimmed)) {
     const table = findActiveTable(lines, cursorLine, ac);
     return table ? { type: 'column', table } : { type: 'none' };
   }
 
-  // Column contexts — need an active table
+  if (/^rolling\s+\w*$/.test(trimmed)) return { type: 'agg' };
+  if (/^rolling\s+\w+\s+\w*$/.test(trimmed)) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
+
   const table = findActiveTable(lines, cursorLine, ac);
   if (table) {
-    // filter / select / drop / sort / distinct / rename (first arg onwards)
     if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
       return { type: 'column', table };
     }
-    // assign — after `=`
-    if (/^assign\s+\w+\s*=/.test(trimmed)) {
+    if (/^\w+\s*=/.test(trimmed)) {
       return { type: 'column', table };
     }
-    // group by / by (inside pivot)
+    if (/^col\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^where\b/.test(trimmed)) {
+      return { type: 'column', table };
+    }
     if (/^(group\s+by|by)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
-    // plot sub-params: x, y, by, c (column axis selectors)
     if (/^(x|y|by|c)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^(rows|cols|id|order|stub|left_on|right_on)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    if (/^(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
   }
 
-  // Partial keyword at root level → command keywords
+  if (indent > 0 && /\s/.test(trimmed)) {
+    return { type: 'none' };
+  }
+
   return { type: 'command' };
 }
 
@@ -156,9 +235,14 @@ function detectContext(
 function buildItems(ctx: CompletionCtx, ac: AutocompleteData | null): vscode.CompletionItem[] {
   switch (ctx.type) {
     case 'command':
-      return COMMAND_KEYWORDS.map(kw =>
-        new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword)
-      );
+      return COMMAND_COMPLETIONS.map(({ label, snippet: snip, detail }) => {
+        const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
+        if (snip) {
+          item.insertText = new vscode.SnippetString(snip);
+        }
+        if (detail) item.detail = detail;
+        return item;
+      });
 
     case 'table':
       if (!ac) return [];
