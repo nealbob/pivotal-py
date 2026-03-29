@@ -184,7 +184,7 @@ type CompletionCtx =
 const COMMAND_COMPLETIONS: Completion[] = [
   // Table declarations
   { label: 'df', type: 'keyword', detail: 'df <table> [from <source>]' },
-  { label: 'load', type: 'keyword', apply: snippet('load ${table} ${path}'), detail: 'load <table> <path>' },
+  { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
 
   // Row operations
   { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
@@ -194,7 +194,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'sort', type: 'keyword', detail: 'sort <col> [asc|desc]' },
 
   // Merging / set ops
-  { label: 'merge',       type: 'keyword', apply: snippet('merge ${table} on ${key}'), detail: 'merge <table> on <key>' },
+  { label: 'merge',       type: 'keyword', apply: snippet('merge ${tbl} on ${key}'), detail: 'merge <table> on <key>' },
   { label: 'left merge',  type: 'keyword', apply: snippet('left merge ${table} on ${key}'), detail: 'left merge <table> on <key>' },
   { label: 'right merge', type: 'keyword', apply: snippet('right merge ${table} on ${key}'), detail: 'right merge <table> on <key>' },
   { label: 'inner merge', type: 'keyword', apply: snippet('inner merge ${table} on ${key}'), detail: 'inner merge <table> on <key>' },
@@ -205,32 +205,32 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Grouping / aggregation
   // group by: indented agg clause on next line(s)
-  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    agg ${sum} ${value_col} as ${name}'), detail: 'group by <col>\n    agg <sum|mean|...> <col> as <name>' },
+  { label: 'group by',  type: 'keyword', apply: snippet('group by ${grp_col}\n    agg ${func} ${val_col} as ${name}'), detail: 'group by <col>\n    agg <sum|mean|...> <col> as <name>' },
   // standalone agg: whole-table aggregation, no group by
-  { label: 'agg',       type: 'keyword', apply: snippet('agg ${sum} ${col} as ${name}'), detail: 'agg <sum|mean|...> <col> as <name>' },
+  { label: 'agg',       type: 'keyword', apply: snippet('agg ${func} ${agg_col} as ${name}'), detail: 'agg <sum|mean|...> <col> as <name>' },
 
   // Window functions — all use  <func> <col> [n] as <name>  form
   // rolling: rolling <func> <col> <window> as <name>  (order is an optional indented sub-clause)
-  { label: 'rolling',  type: 'keyword', apply: snippet('rolling ${mean} ${col} ${window} as ${name}'), detail: 'rolling <func> <col> <window> as <name>' },
+  { label: 'rolling',  type: 'keyword', apply: snippet('rolling ${func} ${val_col} ${window} as ${name}'), detail: 'rolling <func> <col> <window> as <name>' },
   // rank: rank <col> as <name>
-  { label: 'rank',     type: 'keyword', apply: snippet('rank ${col} as ${name}'), detail: 'rank <col> as <name>' },
+  { label: 'rank',     type: 'keyword', apply: snippet('rank ${rank_col} as ${name}'), detail: 'rank <col> as <name>' },
   // lag / lead: <func> <col> <n> as <name>
-  { label: 'lag',      type: 'keyword', apply: snippet('lag ${col} ${n} as ${name}'), detail: 'lag <col> <n> as <name>' },
-  { label: 'lead',     type: 'keyword', apply: snippet('lead ${col} ${n} as ${name}'), detail: 'lead <col> <n> as <name>' },
+  { label: 'lag',      type: 'keyword', apply: snippet('lag ${val_col} ${n} as ${name}'), detail: 'lag <col> <n> as <name>' },
+  { label: 'lead',     type: 'keyword', apply: snippet('lead ${val_col} ${n} as ${name}'), detail: 'lead <col> <n> as <name>' },
   // cumulative: <func> <col> as <name>
-  { label: 'cumsum',   type: 'keyword', apply: snippet('cumsum ${col} as ${name}'), detail: 'cumsum <col> as <name>' },
-  { label: 'cummean',  type: 'keyword', apply: snippet('cummean ${col} as ${name}'), detail: 'cummean <col> as <name>' },
-  { label: 'cummin',   type: 'keyword', apply: snippet('cummin ${col} as ${name}'), detail: 'cummin <col> as <name>' },
-  { label: 'cummax',   type: 'keyword', apply: snippet('cummax ${col} as ${name}'), detail: 'cummax <col> as <name>' },
+  { label: 'cumsum',   type: 'keyword', apply: snippet('cumsum ${val_col} as ${name}'), detail: 'cumsum <col> as <name>' },
+  { label: 'cummean',  type: 'keyword', apply: snippet('cummean ${val_col} as ${name}'), detail: 'cummean <col> as <name>' },
+  { label: 'cummin',   type: 'keyword', apply: snippet('cummin ${val_col} as ${name}'), detail: 'cummin <col> as <name>' },
+  { label: 'cummax',   type: 'keyword', apply: snippet('cummax ${val_col} as ${name}'), detail: 'cummax <col> as <name>' },
 
   // Reshaping
   // pivot: indented block with rows / cols / agg clause (no "values" keyword)
-  { label: 'pivot',   type: 'keyword', apply: snippet('pivot\n    rows ${row_col}\n    cols ${col_col}\n    agg ${sum} ${val_col} as ${name}'), detail: 'pivot\n    rows <col>  cols <col>  agg <sum|mean|...> <col> as <name>' },
+  { label: 'pivot',   type: 'keyword', apply: snippet('pivot\n    rows ${row_col}\n    cols ${hdr_col}\n    agg ${func} ${val_col} as ${name}'), detail: 'pivot\n    rows <col>  cols <col>  agg <sum|mean|...> <col> as <name>' },
   // unpivot: indented block with cols / id / optional variable+value labels
   { label: 'unpivot', type: 'keyword', apply: snippet('unpivot\n    cols ${col1}, ${col2}\n    id ${id_col}'), detail: 'unpivot\n    cols <col>, ...  id <id_col>' },
 
   // Type casting
-  { label: 'cast', type: 'keyword', apply: snippet('cast ${col} as ${type}'), detail: 'cast <col> as <type> [strict]' },
+  { label: 'cast', type: 'keyword', apply: snippet('cast ${cast_col} as ${type}'), detail: 'cast <col> as <type> [strict]' },
 
   // Filling / cleaning
   { label: 'fillna',  type: 'keyword', detail: 'fillna <value>' },
