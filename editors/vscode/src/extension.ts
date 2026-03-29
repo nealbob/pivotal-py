@@ -235,11 +235,8 @@ function detectContext(
 function buildItems(ctx: CompletionCtx, ac: AutocompleteData | null): vscode.CompletionItem[] {
   switch (ctx.type) {
     case 'command':
-      return COMMAND_COMPLETIONS.map(({ label, snippet: snip, detail }) => {
+      return COMMAND_COMPLETIONS.map(({ label, detail }) => {
         const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
-        if (snip) {
-          item.insertText = new vscode.SnippetString(snip);
-        }
         if (detail) item.detail = detail;
         return item;
       });
