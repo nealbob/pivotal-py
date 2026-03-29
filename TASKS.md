@@ -6,8 +6,7 @@
 
 ## Ideas
 
-  - [] make gui pop ups not inline.
-  
+
   - [] graphicwalker in the viewer pane AG grid and gwalker code generation...
 
     - switch polars to pandas?>?
