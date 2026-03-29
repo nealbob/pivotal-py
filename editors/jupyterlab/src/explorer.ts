@@ -74,18 +74,20 @@ export class PivotalExplorerWidget extends Widget {
     let _lastKey = '';
     let _lastKeyTime = 0;
     this.node.addEventListener('keydown', e => {
-      const names = this._items.map(it => it.name);
-      const idx   = this._focusedName ? names.indexOf(this._focusedName) : -1;
+      const nav = this._buildNavList();
+      const idx = this._focusedName ? nav.indexOf(this._focusedName) : -1;
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         e.preventDefault();
-        const next = idx < names.length - 1 ? names[idx + 1] : names[0];
-        this._setFocus(next);
+        if (!nav.length) return;
+        this._setFocus(idx < nav.length - 1 ? nav[idx + 1] : nav[0]);
       } else if (e.key === 'k' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const prev = idx > 0 ? names[idx - 1] : names[names.length - 1];
-        this._setFocus(prev);
+        if (!nav.length) return;
+        this._setFocus(idx > 0 ? nav[idx - 1] : nav[nav.length - 1]);
       } else if ((e.key === 'l' || e.key === 'ArrowRight') && this._focusedName) {
+        // On a column row — do nothing; on a table row — expand or view
+        if (this._focusedName.includes('::')) return;
         const item = this._items.find(it => it.name === this._focusedName);
         const hasColumns = item?.type === 'dataframe' && !!(item.columns?.length);
         if (hasColumns && !this._expanded.has(this._focusedName)) {
@@ -95,17 +97,33 @@ export class PivotalExplorerWidget extends Widget {
           this._clickCb?.(this._focusedName);
         }
       } else if ((e.key === 'h' || e.key === 'ArrowLeft') && this._focusedName) {
-        if (this._expanded.has(this._focusedName)) {
+        if (this._focusedName.includes('::')) {
+          // On a column — move focus up to the parent table and collapse
+          const tableName = this._focusedName.split('::')[0];
+          this._expanded.delete(tableName);
+          this._focusedName = tableName;
+          this._render();
+        } else if (this._expanded.has(this._focusedName)) {
           this._expanded.delete(this._focusedName);
           this._render();
         }
       } else if ((e.key === 'Enter' || e.key === ' ') && this._focusedName) {
-        this._clickCb?.(this._focusedName);
+        if (!this._focusedName.includes('::')) {
+          this._clickCb?.(this._focusedName);
+        }
       } else if (e.key === 'Delete' && this._focusedName) {
-        this._deleteCb?.(this._focusedName);
+        const name = this._focusedName.includes('::')
+          ? this._focusedName.split('::')[0]
+          : this._focusedName;
+        this._deleteCb?.(name);
       } else if (e.key === 'd' && this._focusedName) {
         const now = Date.now();
-        if (_lastKey === 'd' && now - _lastKeyTime < 500) { this._deleteCb?.(this._focusedName); }
+        if (_lastKey === 'd' && now - _lastKeyTime < 500) {
+          const name = this._focusedName.includes('::')
+            ? this._focusedName.split('::')[0]
+            : this._focusedName;
+          this._deleteCb?.(name);
+        }
         _lastKey = 'd';
         _lastKeyTime = now;
         return;
@@ -167,10 +185,33 @@ export class PivotalExplorerWidget extends Widget {
   // Rendering
   // -------------------------------------------------------------------------
 
-  private _setFocus(name: string): void {
-    this._focusedName = name;
+  // Returns a flat ordered list of nav keys: table names and "table::col" for
+  // expanded column rows, skipping collapsed folder groups.
+  private _buildNavList(): string[] {
+    const list: string[] = [];
+    const groups: Array<[ExplorerItem[], string]> = [
+      [this._items.filter(it => it.type === 'dataframe'), 'data'],
+      [this._items.filter(it => it.type === 'chart'),     'charts'],
+      [this._items.filter(it => it.type === 'gt_table'),  'tables'],
+    ];
+    for (const [items, folderId] of groups) {
+      if (!items.length || this._collapsedFolders.has(folderId)) continue;
+      for (const item of items) {
+        list.push(item.name);
+        if (item.type === 'dataframe' && this._expanded.has(item.name) && item.columns?.length) {
+          for (const col of item.columns) {
+            list.push(`${item.name}::${col.name}`);
+          }
+        }
+      }
+    }
+    return list;
+  }
+
+  private _setFocus(key: string): void {
+    this._focusedName = key;
     this._render();
-    this._listEl.querySelector('.pv-explorer-row.pv-focused')
+    this._listEl.querySelector('.pv-focused')
       ?.scrollIntoView({ block: 'nearest' });
   }
 
@@ -339,8 +380,10 @@ export class PivotalExplorerWidget extends Widget {
       const colList = document.createElement('div');
       colList.className = 'pv-explorer-cols';
       for (const col of item.columns!) {
+        const navKey = `${item.name}::${col.name}`;
         const colRow = document.createElement('div');
         colRow.className = 'pv-explorer-col';
+        if (this._focusedName === navKey) colRow.classList.add('pv-focused');
 
         const colName = document.createElement('span');
         colName.className = 'pv-explorer-col-name';
