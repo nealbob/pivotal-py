@@ -375,6 +375,11 @@ function detectContext(
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
+  // merge <tbl> on <key> — column completions after 'on'
+  if (/^(left\s+|right\s+|inner\s+|outer\s+)?merge\s+\w+\s+on\s+\w*$/.test(trimmed)) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
 
   if (/^(agg\s+)?plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
 
@@ -415,7 +420,7 @@ function detectContext(
     // Sub-clause keywords inside multi-line statements where a column name follows:
     // pivot/unpivot: rows <col>, cols <col>, id <col>
     // window opts:   order <col>
-    if (/^(rows|cols|id|order|stub)\s+\w*$/.test(trimmed)) {
+    if (/^(rows|cols|id|order|stub|left_on|right_on)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     // Agg sub-clause: 'agg <func> <partial_col>' — next word after func is the column.
