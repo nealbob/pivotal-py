@@ -62,7 +62,7 @@ df top_sales from sales
 ```pivotal
 df summary from orders
     group by region
-        sum amount as total
+        agg sum amount as total
 ```
 
 The `from <table>` clause is optional. Without it, operations apply to the named table in-place:
@@ -92,7 +92,7 @@ df cleaned from raw
 
 df summary from cleaned
     group by category
-        sum price as total
+        agg sum price as total
     sort total desc
 ```
 

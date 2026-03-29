@@ -108,7 +108,7 @@ load customers "customers.csv"
 df summary from sales
     left merge customers on customer_id
     group by region
-        sum amount as total
+        agg sum amount as total
 ```
 
 ---

@@ -12,7 +12,7 @@ load sales "data/sales.csv"      # top-level: load a file
 df summary from sales             # top-level: define a table
     filter status == "active"     # indented: sub-operation
     group by region               #           sub-operation
-        sum revenue as total  #               sub-option of group by
+        agg sum revenue as total  #           sub-option of group by
     sort total desc               # back to df level
 
 save "report"                     # top-level: save output

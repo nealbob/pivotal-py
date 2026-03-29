@@ -204,8 +204,8 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 | | Pivotal | Pandas | Polars | DuckDB/SQL | PRQL |
 |---|---|---|---|---|---|
 | Lines | 18 | 23 | 29 | 32 | 27 |
-| Characters | 535 | 866 | 911 | 769 | 685 |
-| Key presses | 530 | 937 | 983 | 753 | 738 |
-| Tokens | 100 | 256 | 299 | 176 | 169 |
+| Characters | 539 | 866 | 911 | 769 | 685 |
+| Key presses | 534 | 937 | 983 | 753 | 738 |
+| Tokens | 101 | 256 | 299 | 176 | 169 |
 
 Key press count assumes shift+key = 2 presses for special characters (`(`, `"`, `_`, `{` etc.) and uppercase letters. SQL keywords are written lowercase since SQL is case-insensitive. Token count is an approximation of LLM tokenisation (words and punctuation as separate tokens).

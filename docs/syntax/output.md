@@ -25,7 +25,7 @@ df sales
     filter status == "active"
     show head              # peek at filtered data
     group by region
-        sum revenue as total
+        agg sum revenue as total
     show                   # display final summary
 ```
 

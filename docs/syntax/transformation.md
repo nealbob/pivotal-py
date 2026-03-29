@@ -89,7 +89,7 @@ df monthly from sales
     mo = month(order_date)
     filter yr == 2024
     group by yr, mo
-        sum amount as total
+        agg sum amount as total
 ```
 
 ## Type casting

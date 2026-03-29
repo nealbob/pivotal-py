@@ -9,9 +9,9 @@ Pivot a long table into wide format by spreading a column's values across multip
 ```pivotal
 df pivot_table from sales
     pivot
-        sum amount
         rows product
         cols region
+        agg sum amount
 ```
 
 This creates a table where each unique value of `region` becomes a column, and each row is a `product`, with `sum(amount)` as the values.
@@ -21,9 +21,10 @@ This creates a table where each unique value of `region` becomes a column, and e
 ```pivotal
 df summary from sales
     pivot
-        sum revenue, mean quantity
         rows category
         cols quarter
+        agg sum revenue
+        agg mean quantity
 ```
 
 ### Multiple row and column dimensions
@@ -31,16 +32,17 @@ df summary from sales
 ```pivotal
 df detailed from sales
     pivot
-        sum sales, mean profit
         rows product, category
         cols region, quarter
+        agg sum sales
+        agg mean profit
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `<fn> <col>` | Aggregation function and value column |
+| `agg <fn> <col>` | Aggregation function and value column |
 | `rows <cols>` | Columns to use as row index |
 | `cols <cols>` | Column whose values become column headers |
 

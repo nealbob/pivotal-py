@@ -51,7 +51,7 @@ load sales "my_data.csv"
 
 df summary from sales
     group by category
-        sum revenue as total
+        agg sum revenue as total
     sort total desc
 ```
 
@@ -117,7 +117,7 @@ load sales "data/sales.csv"
 df summary from sales
     filter status == "active"
     group by region
-        sum revenue as total
+        agg sum revenue as total
     sort total desc
 ```
 
@@ -165,7 +165,7 @@ Sub-options and clauses are indented under their parent statement. The exact num
 ```pivotal
 df summary from sales
     group by region         # indented under df
-        sum revenue     # indented under group by
+        agg sum revenue # indented under group by
     sort revenue desc       # back to df level
 ```
 
