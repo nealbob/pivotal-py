@@ -27,7 +27,6 @@ const keywords: Record<string, true> = {
   as: true, on: true, rows: true, cols: true,
   agg: true, drop: true, fillna: true, dropna: true, delete: true,
   distinct: true, concat: true, intersect: true, exclude: true, rename: true, save: true,
-  summarise: true,
   show: true, head: true, summary: true,
   table: true, stub: true, col: true, stripe: true,
   rank: true, lag: true, lead: true,

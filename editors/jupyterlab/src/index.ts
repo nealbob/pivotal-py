@@ -205,10 +205,9 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Grouping / aggregation
   // group by: indented agg clause on next line(s)
-  // group by: indented agg clause on next line(s)
-  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    ${sum} ${value_col} as ${name}'), detail: 'group by <col>\n    <sum|mean|...> <col> as <name>' },
-  // summarise: all on one line
-  { label: 'summarise', type: 'keyword', apply: snippet('summarise ${sum} ${col} as ${name}'), detail: 'summarise <sum|mean|...> <col> as <name>' },
+  { label: 'group by',  type: 'keyword', apply: snippet('group by ${col}\n    agg ${sum} ${value_col} as ${name}'), detail: 'group by <col>\n    agg <sum|mean|...> <col> as <name>' },
+  // standalone agg: whole-table aggregation, no group by
+  { label: 'agg',       type: 'keyword', apply: snippet('agg ${sum} ${col} as ${name}'), detail: 'agg <sum|mean|...> <col> as <name>' },
 
   // Window functions — all use  <func> <col> [n] as <name>  form
   // rolling: rolling <func> <col> <window> as <name>  (order is an optional indented sub-clause)
@@ -226,7 +225,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Reshaping
   // pivot: indented block with rows / cols / agg clause (no "values" keyword)
-  { label: 'pivot',   type: 'keyword', apply: snippet('pivot\n    rows ${row_col}\n    cols ${col_col}\n    ${sum} ${val_col} as ${name}'), detail: 'pivot\n    rows <col>  cols <col>  <agg> <col> as <name>' },
+  { label: 'pivot',   type: 'keyword', apply: snippet('pivot\n    rows ${row_col}\n    cols ${col_col}\n    agg ${sum} ${val_col} as ${name}'), detail: 'pivot\n    rows <col>  cols <col>  agg <sum|mean|...> <col> as <name>' },
   // unpivot: indented block with cols / id / optional variable+value labels
   { label: 'unpivot', type: 'keyword', apply: snippet('unpivot\n    cols ${col1}, ${col2}\n    id ${id_col}'), detail: 'unpivot\n    cols <col>, ...  id <id_col>' },
 
@@ -419,8 +418,13 @@ function detectContext(
     if (/^(rows|cols|id|order)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
-    // Agg function as the first word on an indented line — next word is the column.
-    // Covers agg sub-clauses inside group by and summarise.
+    // Agg sub-clause: 'agg <func> <partial_col>' — next word after func is the column.
+    // Covers agg lines inside group by blocks and pivot agg lines.
+    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+      return { type: 'column', table };
+    }
+    // Agg function as the first word on an indented line (no leading 'agg') — kept for
+    // backward-compat with any context where the agg keyword is omitted.
     if (/^(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }

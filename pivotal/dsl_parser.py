@@ -23,7 +23,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'load', 'filter', 'select', 'sort', 'order', 'save', 'all',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
-    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'summarise',
+    'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
     'intersect', 'exclude', 'cast',
     # Clause keywords
     'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
@@ -58,7 +58,7 @@ grammar_indented = r"""
                | cumulative_statement
                | rolling_statement
                | groupby_statement
-               | summarise_statement
+               | agg_statement
                | python_statement
                | agg_plot_statement
                | plot_statement
@@ -151,7 +151,9 @@ grammar_indented = r"""
 
     group_cols: (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))*
 
-    agg_clause: agg_item ("," agg_item)* _NL?
+    agg_clause: agg_line+
+
+    agg_line: "agg" agg_item ("," agg_item)* _NL?
 
     agg_item: AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
             | AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
@@ -200,7 +202,7 @@ grammar_indented = r"""
 
     select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
 
-    summarise_statement: "summarise" agg_item ("," agg_item)* _NL?
+    agg_statement: "agg" agg_item ("," agg_item)* _NL?
 
     pivot_statement: "pivot" _NL _INDENT pivot_args _DEDENT
 
@@ -768,8 +770,8 @@ class DSLTransformer(Transformer):
             'renames': renames,
         }
 
-    def summarise_statement(self, *items):
-        """Whole-table aggregation with no group-by columns."""
+    def agg_statement(self, *items):
+        """Whole-table aggregation with no group-by columns (standalone agg)."""
         agg_list = []
         for item in items:
             if isinstance(item, dict) and 'func' in item:
@@ -1213,9 +1215,19 @@ class DSLTransformer(Transformer):
                 cols.append(str(col))
         return cols
 
-    def agg_clause(self, *items):
-        # Filter out tokens like _NL
+    def agg_line(self, *items):
+        """Single agg line: 'agg func col [as name], ...' — returns list of agg_item dicts."""
         return [item for item in items if isinstance(item, dict)]
+
+    def agg_clause(self, *lines):
+        """Flatten agg_line results into a single list of agg_item dicts."""
+        result = []
+        for line in lines:
+            if isinstance(line, list):
+                result.extend(line)
+            elif isinstance(line, dict):
+                result.append(line)
+        return result
 
     def wavg_item(self, col, weight, alias=None):
         res = {'func': 'wavg', 'column': str(col), 'weight': str(weight)}

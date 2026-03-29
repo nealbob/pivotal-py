@@ -3,14 +3,13 @@
 ## `group by` — aggregate by groups
 
 Group rows by one or more columns and compute aggregate statistics.
+Each aggregation sub-clause is prefixed with `agg`:
 
 ```pivotal
 df summary from sales
     group by region
-        sum revenue as total
+        agg sum revenue as total
 ```
-
-Aggregation functions are indented under `group by`.
 
 ## Aggregation functions
 
@@ -29,10 +28,10 @@ Aggregation functions are indented under `group by`.
 Both space and bracket syntax are accepted:
 
 ```pivotal
-sum revenue as total       # space syntax
-sum(revenue) as total      # bracket syntax — both are equivalent
-wavg price quantity as avg # space syntax
-wavg(price, quantity) as avg  # bracket syntax
+agg sum revenue as total       # space syntax
+agg sum(revenue) as total      # bracket syntax — both are equivalent
+agg wavg price quantity as avg # space syntax
+agg wavg(price, quantity) as avg  # bracket syntax
 ```
 
 ## Basic usage
@@ -40,38 +39,38 @@ wavg(price, quantity) as avg  # bracket syntax
 ```pivotal
 df by_region from sales
     group by region
-        sum revenue as total
+        agg sum revenue as total
 ```
 
 ```pivotal
 df by_category from sales
     group by category
-        mean price as avg_price
+        agg mean price as avg_price
 ```
 
 ```pivotal
 df counts from events
     group by event_type
-        count id as n
+        agg count id as n
 ```
 
 ## Multiple aggregations
 
-List multiple aggregation functions separated by commas on a single line, or on multiple lines:
+List multiple aggregation functions separated by commas on a single `agg` line, or on multiple `agg` lines:
 
 ```pivotal
 df summary from sales
     group by region
-        sum revenue as total, mean revenue as avg, count id as deals
+        agg sum revenue as total, mean revenue as avg, count id as deals
 ```
 
 ```pivotal
 df detailed from sales
     group by region
-        sum revenue as total
-        mean revenue as avg_deal
-        max revenue as top_deal
-        count id as n_deals
+        agg sum revenue as total
+        agg mean revenue as avg_deal
+        agg max revenue as top_deal
+        agg count id as n_deals
 ```
 
 ## Multiple group-by columns
@@ -79,7 +78,7 @@ df detailed from sales
 ```pivotal
 df by_region_category from sales
     group by region, category
-        sum revenue as total, count id as deals
+        agg sum revenue as total, count id as deals
 ```
 
 ## Named results
@@ -87,9 +86,9 @@ df by_region_category from sales
 The `as <name>` clause gives the aggregated column a name. Without it, Pivotal generates a name automatically:
 
 ```pivotal
-sum revenue as total_revenue
-count id as deal_count
-mean price as avg_price
+agg sum revenue as total_revenue
+agg count id as deal_count
+agg mean price as avg_price
 ```
 
 ## Weighted average
@@ -99,7 +98,7 @@ mean price as avg_price
 ```pivotal
 df products
     group by category
-        wavg price quantity as avg_price
+        agg wavg price quantity as avg_price
 ```
 
 ## `nunique` — count distinct values
@@ -107,16 +106,16 @@ df products
 ```pivotal
 df summary from orders
     group by region
-        nunique customer_id as unique_customers
+        agg nunique customer_id as unique_customers
 ```
 
-## `summarise` — aggregate over all rows
+## `agg` — aggregate over all rows
 
-To aggregate without grouping, use `summarise`:
+To aggregate without grouping, use `agg` on its own:
 
 ```pivotal
 df totals from sales
-    summarise sum revenue as total, mean price as avg_price, count id as n
+    agg sum revenue as total, mean price as avg_price, count id as n
 ```
 
 This produces a single-row result. The same aggregation functions are supported as with `group by`.
@@ -127,6 +126,6 @@ This produces a single-row result. The same aggregation functions are supported 
 df sales_summary from orders
     filter status == "complete"
     group by region, category
-        sum revenue as total, mean revenue as avg, count id as n, nunique customer_id as customers
+        agg sum revenue as total, mean revenue as avg, count id as n, nunique customer_id as customers
     sort total desc
 ```

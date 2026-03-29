@@ -143,22 +143,23 @@ df sales
 ```pivotal
 df summary from sales
     group by region
-        sum amount as total, mean amount as avg, count amount as n
+        agg sum amount as total, mean amount as avg, count amount as n
 
 df detail from sales
     group by region, category
-        sum amount as total, nunique customer_id as customers
+        agg sum amount as total
+        agg nunique customer_id as customers
 ```
 
 Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
 
-Both space and bracket syntax are accepted: `sum revenue as total` or `sum(revenue) as total`, `wavg price weight` or `wavg(price, weight)`.
+Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg sum(revenue) as total`.
 
-To aggregate over all rows without grouping, use `summarise`:
+To aggregate over all rows without grouping, use `agg` without `group by`:
 
 ```pivotal
 df totals from sales
-    summarise sum amount as total, mean amount as avg
+    agg sum amount as total, mean amount as avg
 ```
 
 ## Window functions
@@ -216,9 +217,9 @@ Merge types: `merge` (inner)  `left merge`  `right merge`  `outer merge`
 ```pivotal
 df pivot_result from sales
     pivot
-        sum amount, mean amount
         rows category
         cols region
+        agg sum amount
 
 df long from wide
     unpivot
@@ -383,7 +384,7 @@ delete temp_table
 | `SELECT a, b FROM sales` | `select a, b` |
 | `SELECT price * qty AS revenue FROM sales` | `revenue = price * qty` |
 | `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1: ...` |
-| `GROUP BY region` | `group by region` / `sum amount as total` |
+| `GROUP BY region` | `group by region` / `agg sum amount as total` |
 | `JOIN` | `merge other on key` |
 | `OVER (PARTITION BY region ORDER BY date)` | `by region` / `order date` sub-clauses |
 
