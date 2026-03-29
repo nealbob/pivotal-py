@@ -780,6 +780,15 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       if (active) {
         active.model.sharedModel.setSource('%%pivotal\n');
         notebook.mode = 'edit';
+        // Move cursor to the line below %%pivotal after the editor renders
+        requestAnimationFrame(() => {
+          const editorWidget = active.editor as any;
+          const view = editorWidget?.editor;
+          if (view?.dispatch) {
+            const end = view.state.doc.length;
+            view.dispatch({ selection: { anchor: end, head: end } });
+          }
+        });
       }
     };
 
