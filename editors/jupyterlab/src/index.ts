@@ -376,7 +376,7 @@ function detectContext(
     return { type: 'table' };
   }
 
-  if (/^plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
+  if (/^(agg\s+)?plot\s+\w*$/.test(trimmed)) return { type: 'charttype' };
 
   if (/^agg\s+\w*$/.test(trimmed)) return { type: 'agg' };
   if (/^agg\s+\w+\s+\w*$/.test(trimmed)) {
