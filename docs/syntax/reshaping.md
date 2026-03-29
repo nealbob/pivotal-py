@@ -23,8 +23,7 @@ df summary from sales
     pivot
         rows category
         cols quarter
-        agg sum revenue
-        agg mean quantity
+        agg sum revenue, mean quantity
 ```
 
 ### Multiple row and column dimensions
@@ -34,8 +33,7 @@ df detailed from sales
     pivot
         rows product, category
         cols region, quarter
-        agg sum sales
-        agg mean profit
+        agg sum sales, mean profit
 ```
 
 ### Options
