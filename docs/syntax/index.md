@@ -71,9 +71,11 @@ load data "path/to/file.csv"
 | [`drop`](selection.md) | Remove specific columns |
 | [`distinct`](selection.md) | Remove duplicate rows |
 | [`assign`](transformation.md) | Create or modify columns |
+| [`cast`](transformation.md) | Cast a column to a different type |
 | [`rename`](selection.md) | Rename columns |
 | [`sort`](sorting.md) | Sort rows |
 | [`group by`](grouping.md) | Aggregate by groups |
+| [`agg`](grouping.md) | Aggregate over all rows (no grouping) |
 | [`merge`](joining.md) | Join two tables |
 | [`pivot`](reshaping.md) | Pivot to wide format |
 | [`unpivot`](reshaping.md) | Pivot to long format |
@@ -88,6 +90,7 @@ load data "path/to/file.csv"
 | [`apply`](python-interop.md) | Apply a Python function to a table |
 | [`show`](output.md) | Display inline |
 | [`plot`](output.md) | Create a chart |
+| [`agg plot`](output.md) | Create a chart with aggregation |
 | [`table`](output.md) | Create a publication-ready table |
 | [`save`](saving.md) | Export tables and charts |
 | [`delete`](saving.md) | Remove a table from memory |
