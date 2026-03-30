@@ -4,6 +4,8 @@
 
 Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  Pivotal's  JupyterLab extension adds autocomplete, interactive viewer and GUI controls, making it a user friendly entry point to the Python data ecosystem.
 
+<br>
+
 <img src="images/ataglance.png" width="600">
 
 A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb) is available via Binder:
