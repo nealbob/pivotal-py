@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pivotal-lab"
-version = "0.1.0"
+version = "0.1.1"
 description = "JupyterLab extension for the Pivotal data transformation DSL"
 license = "MIT"
 requires-python = ">=3.8"
