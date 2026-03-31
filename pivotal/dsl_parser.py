@@ -1877,25 +1877,13 @@ class CodeGenerator:
         return f"{load_table}\n{table_name_marker}"
 
     def generate_copy_table_pandas(self, ast_node):
-        # Validation + copy
-        # We check if the source table exists and is a dataframe
-        validation = f"if '{ast_node['copy_from']}' not in locals() and '{ast_node['copy_from']}' not in globals(): raise NameError(\"name '{ast_node['copy_from']}' is not defined\")"
-        validation += f"\nif not isinstance({ast_node['copy_from']}, pd.DataFrame): raise TypeError('{ast_node['copy_from']} is not a pandas DataFrame')"
-        
         copy_code = f"{ast_node['table_name']} = {ast_node['copy_from']}.copy()"
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        return f"{validation}\n{copy_code}\n{table_name}"
-    
+        return f"{copy_code}\n{table_name}"
+
     def generate_validate_table_pandas(self, ast_node):
-        # Just set the table name for tracking, don't validate existence yet as it might be created in this block
-        # Actually, validate_table is used when we say "df existing_table"
-        # So we should check if it exists in globals/locals
-        
-        validation = f"if '{ast_node['table_name']}' not in locals() and '{ast_node['table_name']}' not in globals(): raise NameError(\"name '{ast_node['table_name']}' is not defined\")"
-        validation += f"\nif not isinstance({ast_node['table_name']}, pd.DataFrame): raise TypeError('{ast_node['table_name']} is not a pandas DataFrame')"
-        
         table_name = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
-        return f"{validation}\n{table_name}"
+        return table_name
     
     # Built-in function names reserved for future string function support.
     # User-defined functions must not use these names.
@@ -2294,26 +2282,14 @@ class CodeGenerator:
     def generate_copy_table_polars(self, ast_node):
         src = ast_node['copy_from']
         tgt = ast_node['table_name']
-        validation = (
-            f"if '{src}' not in locals() and '{src}' not in globals(): "
-            f"raise NameError(\"name '{src}' is not defined\")\n"
-            f"if not isinstance({src}, pl.DataFrame): "
-            f"raise TypeError('{src} is not a Polars DataFrame')"
-        )
         copy_code = f"{tgt} = {src}.clone()"
         marker = f"#__pivotal__\n__table_name__ = '{tgt}'\n#__pivotal__"
-        return f"{validation}\n{copy_code}\n{marker}"
+        return f"{copy_code}\n{marker}"
 
     def generate_validate_table_polars(self, ast_node):
         tbl = ast_node['table_name']
-        validation = (
-            f"if '{tbl}' not in locals() and '{tbl}' not in globals(): "
-            f"raise NameError(\"name '{tbl}' is not defined\")\n"
-            f"if not isinstance({tbl}, pl.DataFrame): "
-            f"raise TypeError('{tbl} is not a Polars DataFrame')"
-        )
         marker = f"#__pivotal__\n__table_name__ = '{tbl}'\n#__pivotal__"
-        return f"{validation}\n{marker}"
+        return marker
 
     def generate_filter_polars(self, ast_node):
         expr = self._build_polars_filter(ast_node['conditions'], ast_node['operators'])

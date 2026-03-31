@@ -1204,12 +1204,6 @@ class PivotalMagics(Magics):
 
             # === Line-level filter rules ===
 
-            # Known guard patterns
-            if 'not in locals() and' in stripped and 'raise NameError' in stripped:
-                continue
-            if stripped.startswith('if not isinstance(') and 'raise TypeError' in stripped:
-                continue
-
             # Anything referencing _pivotal_charts
             if '_pivotal_charts' in stripped:
                 continue
