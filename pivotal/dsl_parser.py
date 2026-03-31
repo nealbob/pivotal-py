@@ -5824,9 +5824,42 @@ def _friendly_parse_error(exc: Exception, source: str) -> PivotalError:
         expected = set(exc.expected)
         src_ln = _source_line(source, ln) if ln else None
 
-        # Token is a newline → statement cut short before it was complete.
+        # Token is a newline → statement cut short, or extra token at end of line.
         if tok_type == '_NL':
             keyword = _active_keyword(source, ln) if ln else ''
+
+            # If expected only contains EQUAL, the parser tried to treat the
+            # first word on the line as an assign target.  Two cases:
+            #   1. "selects revenue" — first word is a misspelled keyword
+            #   2. "group by country_id poo" — first word is valid, last word is extra
+            if expected == {'EQUAL'} or expected == {'EQUAL', '_NL'}:
+                words = (src_ln or '').split()
+                first_word = words[0].lower() if words else ''
+                # Case 1: first word looks like a misspelled statement keyword
+                # (but is not already a valid keyword — those go to case 2)
+                if first_word and first_word not in _STATEMENT_KEYWORDS:
+                    kw_suggestion = _make_suggestion(first_word, _STATEMENT_KEYWORDS)
+                    if kw_suggestion:
+                        msg = f"Unknown statement '{words[0]}'"
+                        return PivotalError(
+                            message=msg,
+                            error_type="Syntax Error",
+                            line=ln,
+                            column=1,
+                            source_line=src_ln,
+                            suggestion=kw_suggestion,
+                        )
+                # Case 2: valid keyword on line but extra unrecognised word at end
+                if keyword in _STATEMENT_KEYWORDS and len(words) > 1:
+                    msg = f"Unexpected extra text '{words[-1]}' at end of '{keyword}' line"
+                    return PivotalError(
+                        message=msg,
+                        error_type="Syntax Error",
+                        line=ln,
+                        column=col,
+                        source_line=src_ln,
+                    )
+
             desc = _describe_expected(expected)
             if keyword:
                 msg = f"Incomplete '{keyword}' statement - expected {desc}"
@@ -5853,9 +5886,24 @@ def _friendly_parse_error(exc: Exception, source: str) -> PivotalError:
 
         # Token looks like an unknown keyword/identifier.
         if tok_str:
-            suggestion = _make_suggestion(tok_str.lower(), _STATEMENT_KEYWORDS)
             desc = _describe_expected(expected)
             msg = f"Unexpected '{tok_str}' - expected {desc}"
+
+            # Check token_history for a preceding ASSIGN_TARGET that looks like
+            # a misspelled keyword (e.g. "sekect country_id" → token_history has
+            # Token('ASSIGN_TARGET', 'sekect')).
+            suggestion = None
+            history = getattr(exc, 'token_history', None)
+            if history:
+                for hist_tok in history:
+                    if getattr(hist_tok, 'type', '') == 'ASSIGN_TARGET':
+                        suggestion = _make_suggestion(str(hist_tok).lower(), _STATEMENT_KEYWORDS)
+                        if suggestion:
+                            break
+            # Fall back to suggesting a correction for the token itself.
+            if not suggestion:
+                suggestion = _make_suggestion(tok_str.lower(), _STATEMENT_KEYWORDS)
+
             return PivotalError(
                 message=msg,
                 error_type="Syntax Error",

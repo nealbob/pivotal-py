@@ -179,25 +179,68 @@ def _translate_runtime_error(exc: BaseException) -> Optional[PivotalError]:
     return None
 
 
+def _is_eval_error(tb_text: str) -> bool:
+    """Return True if the traceback suggests the error came from a Pandas eval expression."""
+    eval_markers = ('DataFrame.eval', 'df.eval', 'numexpr', '.eval(', 'eval_expr')
+    return any(m in tb_text for m in eval_markers)
+
+
+def _format_traceback_html(tb_text: str) -> str:
+    """Wrap a traceback string in a collapsible <details> block."""
+    import html as _html
+    return (
+        '<details style="margin-top:6px">'
+        '<summary style="cursor:pointer;color:#888;font-size:0.9em">'
+        'Show full traceback</summary>'
+        '<pre style="background:#f8f8f8;padding:8px;margin-top:4px;'
+        'font-size:0.82em;overflow-x:auto;color:#555;border-radius:3px">'
+        f'{_html.escape(tb_text)}'
+        '</pre></details>'
+    )
+
+
+def display_error_with_traceback(err: PivotalError, source_code: str,
+                                 tb_text: str) -> None:
+    """Display a PivotalError with an expandable traceback section."""
+    try:
+        from IPython.display import display, HTML
+        import IPython
+        ip = IPython.get_ipython()
+        if ip is not None:
+            html_body = format_error_html(err, source_code)
+            # Inject the collapsible traceback before the closing </div>
+            html_body = html_body[:-6] + _format_traceback_html(tb_text) + '</div>'
+            display(HTML(html_body))
+            return
+    except Exception:
+        pass
+    # Plain text fallback
+    print(format_error_text(err, source_code))
+    print('\nFull traceback:')
+    print(tb_text)
+
+
 def run_cell_with_error_filter(shell, combined: str, source_code: str) -> object:
     """
     Run *combined* Python code via IPython's run_cell, intercepting tracebacks.
 
-    If the execution raises a known exception pattern, the Python traceback is
-    suppressed and a friendly PivotalError is displayed instead.  For any other
-    exception the original traceback is replayed unchanged.
+    - Known error patterns (KeyError, NameError, etc.) → friendly message only.
+    - Unrecognised errors → friendly generic message with expandable traceback.
 
     Returns the IPython ExecutionResult.
     """
     import sys
+    import traceback as _tb
 
     _captured_exc_info = [None]
+    _captured_tb_text = [None]
     original_showtb = shell.showtraceback
 
     def _capturing_showtb(*args, **kwargs):
-        # Called from within the except block in run_cell — sys.exc_info() is live.
-        _captured_exc_info[0] = sys.exc_info()
-        # Do not display yet; we decide below.
+        exc_info = sys.exc_info()
+        if exc_info[0] is not None:
+            _captured_exc_info[0] = exc_info
+            _captured_tb_text[0] = ''.join(_tb.format_exception(*exc_info))
 
     shell.showtraceback = _capturing_showtb
     try:
@@ -207,15 +250,25 @@ def run_cell_with_error_filter(shell, combined: str, source_code: str) -> object
 
     if result.error_in_exec is not None:
         friendly = _translate_runtime_error(result.error_in_exec)
+        tb_text = _captured_tb_text[0] or ''
+
         if friendly:
+            # Recognised pattern — clean message, no traceback needed.
             display_error(friendly, source_code)
         else:
-            # Not a recognised pattern — replay the original traceback.
-            exc_info = _captured_exc_info[0]
-            if exc_info and exc_info[0] is not None:
-                shell.showtraceback(exc_info)
+            # Unrecognised — show a friendly wrapper with expandable traceback.
+            if tb_text and _is_eval_error(tb_text):
+                msg = "Error in assign expression - check column names and expression syntax"
+                suggestion = str(result.error_in_exec)
             else:
-                # Fallback: let IPython re-display via the stored exception.
-                shell.showtraceback()
+                msg = "An error occurred while executing your Pivotal script"
+                suggestion = str(result.error_in_exec)
+
+            err = PivotalError(
+                message=msg,
+                error_type="Runtime Error",
+                suggestion=suggestion if suggestion else None,
+            )
+            display_error_with_traceback(err, source_code, tb_text)
 
     return result

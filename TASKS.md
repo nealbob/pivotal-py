@@ -4,8 +4,12 @@
 
 ## Backlog
 
+- [ ] **Bug: string literals and Python variable references in `assign` expressions** — `newcol = "mystring"` and `newcol = :var + "string"` pass through to `pandas.eval()` incorrectly. String literals should be handled as plain Python assignment (not eval); Python variable references (`:var`) should inject the variable value into the expression before eval. Currently these silently produce wrong results or errors.
+
 ## Ideas
 
+
+  - [] bug in load GUi parsing of file paths (fix wiht some pyhton processing)
 
   - [] graphicwalker in the viewer pane AG grid and gwalker code generation...
 
