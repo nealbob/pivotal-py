@@ -11,6 +11,7 @@ except ImportError:
     display = print
 
 from .dsl_parser import DSLParser
+from .errors import PivotalError, display_error
 
 
 # ---------------------------------------------------------------------------
@@ -1380,7 +1381,10 @@ class PivotalMagics(Magics):
         results = self.parser.parse(cell)
 
         if isinstance(results, dict) and 'error' in results:
-            print(f"Pivotal Parse Error: {results['error']}")
+            err = results['error']
+            if not isinstance(err, PivotalError):
+                err = PivotalError(message=str(err), error_type="Error")
+            display_error(err, cell)
             return
 
         python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
