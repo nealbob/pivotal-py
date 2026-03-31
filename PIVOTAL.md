@@ -39,14 +39,16 @@ load sales :my_path_variable
 ## Setting the active table
 
 ```pivotal
-# Work with an existing table
+# Work with an existing table — all following statements modify 'sales' in place
 df sales
     filter amount > 0
 
-# Create a derived copy
+# Create a derived copy — 'sales' is left unchanged; all following statements modify 'clean'
 df clean from sales
     filter amount > 0
 ```
+
+`df <name> from <source>` creates a new table that is an independent copy of `<source>`. The original table continues to exist unchanged. Use this whenever you want to preserve the original.
 
 ## Filtering
 
@@ -59,6 +61,7 @@ df sales
     filter name contains "Ltd"
     filter code startswith "UK"
     filter note not contains "test"
+    filter amount > :min_amount        # runtime variable as filter value
 ```
 
 Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not contains  startswith  endswith`
@@ -87,6 +90,8 @@ df sales
         where category == "clearance"
 ```
 
+> **Note:** `where` here is a sub-clause of the assignment — it is indented under the assignment line. This is different from `filter`, which is its own statement. Do not write `filter category == "clearance"` when you mean a conditional assignment.
+
 Group-level aggregate in expression:
 ```pivotal
 df sales
@@ -98,12 +103,12 @@ df sales
 
 Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  wavg(col, weight)`
 
-Multi-case (CASE WHEN equivalent):
+Multi-case (CASE WHEN equivalent) — the final unguarded value is the `else` branch:
 ```pivotal
 df sales
     tier =
         where amount > 1000: "high"
-        where amount > 500: "medium"
+        where amount > 500:  "medium"
         "low"
 ```
 
@@ -296,6 +301,15 @@ df summary
         cols 2
 ```
 
+`agg plot` produces a plot directly from a grouped aggregation without creating a separate summary table:
+```pivotal
+df sales
+    agg plot bar
+        x region
+        y sum amount
+        title "Total by Region"
+```
+
 Chart types: `line  bar  scatter  hist  box  area`
 
 ## Tables (Great Tables)
@@ -329,7 +343,7 @@ load sales :data_path
 
 Python code can be embedded directly. This is the primary way to define helper functions or perform operations that Pivotal doesn't cover. The `python`/`end` block is available in both `%%pivotal` cells and `.pivotal` files.
 
-Multi-line block:
+Multi-line block — **must be closed with `end` on its own line**:
 ```pivotal
 python
     def clean(s):
@@ -344,11 +358,33 @@ df sales
     python sales["outlier"] = flag_outlier(sales)
 ```
 
-Single-line (inline Python, the active DataFrame is available by its table name):
+Single-line (inline Python, prefixed with `python` on the same line — no `end` needed):
 ```pivotal
 df sales
     python sales["flag"] = sales["amount"] > 1000
 ```
+
+## Show
+
+Display the active table (or a preview of it) without saving:
+
+```pivotal
+df sales
+    show                # display the full table
+    show head 10        # display first 10 rows
+    show summary        # display descriptive statistics
+```
+
+## Apply
+
+Call a Python function on the active DataFrame and replace it with the result:
+
+```pivotal
+df sales
+    apply my_cleaning_function
+```
+
+The function must accept a DataFrame and return a DataFrame. Define it in a `python` block first.
 
 ## Save
 
@@ -373,6 +409,22 @@ delete temp_table
 /* multi-line
    comment */
 ```
+
+---
+
+## Common mistakes to avoid
+
+These are patterns that look plausible but are wrong:
+
+| Wrong | Right | Why |
+|---|---|---|
+| `sales.filter(amount > 0)` | `df sales` / `filter amount > 0` | No method chaining — Pivotal is line-by-line |
+| `df sales = load("data.csv")` | `load sales "data.csv"` | `load` is a standalone statement, not an assignment |
+| `select *` | omit `select` entirely, or `show` | There is no wildcard select |
+| `filter amount > 0` (at top level) | `df sales` / `    filter amount > 0` | All row/column ops must be indented under a `df` block |
+| `df clean = df sales` | `df clean from sales` | Copy syntax uses `from`, not `=` |
+| `where amount > 0` (as a statement) | `filter amount > 0` | `where` is only valid as a sub-clause inside an assignment |
+| `python` block without `end` | close every multi-line `python` block with `end` | Missing `end` is a syntax error |
 
 ---
 
