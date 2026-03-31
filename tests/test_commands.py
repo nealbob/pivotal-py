@@ -579,10 +579,14 @@ def test_assign_arithmetic_unchanged(parser, sample_df):
 # ---------------------------------------------------------------------------
 
 def test_keyword_table_name_raises(parser):
-    """df <keyword> should raise a ValueError at parse time."""
+    """df <keyword> should return a PivotalError mentioning 'reserved keyword'."""
+    from pivotal.errors import PivotalError
     ns = {'pd': pd}
-    with pytest.raises(Exception, match="reserved keyword"):
-        run(parser, 'df filter', ns)
+    result = parser.parse('df filter')
+    assert isinstance(result, dict) and 'error' in result
+    err = result['error']
+    assert isinstance(err, PivotalError)
+    assert 'reserved keyword' in err.message
 
 
 def test_keyword_assign_target_fails(parser, sample_df):

@@ -2,12 +2,14 @@ from lark import Lark, Transformer, v_args
 from lark.indenter import Indenter
 from lark import Tree
 from lark.lexer import Token
+from lark.exceptions import UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError
 import pandas as pd
 import json
 import os
 import re
 import warnings
 from pathlib import Path
+from .errors import PivotalError, _make_suggestion
 
 _AGG_CALL_RE = re.compile(
     r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
@@ -5740,6 +5742,160 @@ class CodeGenerator:
         return self.generate_load_package_table_pandas(ast_node)
 
 
+# ---------------------------------------------------------------------------
+# Friendly parse-error helpers
+# ---------------------------------------------------------------------------
+
+# Human-readable names for Lark terminal symbols that appear in error messages.
+_TERMINAL_NAMES = {
+    'IDENTIFIER':    'a name (column or table)',
+    'PYTHON_VAR':    'a Python variable reference (:name)',
+    'STRING':        'a quoted string ("...")',
+    'NUMBER':        'a number',
+    'AGG_FUNCTION':  'an aggregation function (sum, mean, count, ...)',
+    'MERGE_TYPE':    'a join type (left, right, inner, outer)',
+    'SHOW_MODE':     'head or summary',
+    '_NL':           'end of line',
+    'EQUAL':         "'='",
+    'RIGHT_TABLE':   'a table name',
+    'PATH':          'a file path',
+    'LPAR':          "'('",
+    'RPAR':          "')'",
+    'COMMA':         "','",
+}
+
+# Statement keywords used for "did you mean?" suggestions on unknown words.
+_STATEMENT_KEYWORDS = [
+    'load', 'df', 'filter', 'select', 'drop', 'distinct', 'assign',
+    'cast', 'rename', 'sort', 'group', 'agg', 'merge', 'pivot',
+    'unpivot', 'rank', 'lag', 'lead', 'cumsum', 'rolling', 'fillna',
+    'dropna', 'concat', 'python', 'apply', 'show', 'plot', 'table', 'save',
+]
+
+
+def _describe_expected(expected: set) -> str:
+    """Convert a set of Lark terminal names into a readable phrase."""
+    meaningful = {t for t in expected if not t.startswith('__') and t != '_NL'}
+    if not meaningful:
+        return "end of line"
+    readable = sorted(_TERMINAL_NAMES.get(t, t.lower()) for t in meaningful)
+    if len(readable) == 1:
+        return readable[0]
+    if len(readable) == 2:
+        return f"{readable[0]} or {readable[1]}"
+    return ", ".join(readable[:-1]) + f", or {readable[-1]}"
+
+
+def _source_line(source: str, line: int) -> str:
+    """Return the (1-based) line from source, or empty string."""
+    lines = source.splitlines()
+    if 1 <= line <= len(lines):
+        return lines[line - 1]
+    return ""
+
+
+def _active_keyword(source: str, line: int) -> str:
+    """Return the first word on the given source line (the active statement keyword)."""
+    ln = _source_line(source, line).strip()
+    return ln.split()[0] if ln.split() else ""
+
+
+def _friendly_parse_error(exc: Exception, source: str) -> PivotalError:
+    """Convert a Lark parse exception into a PivotalError with a user-friendly message."""
+
+    # VisitError wraps a transformer exception — unwrap and re-classify.
+    if isinstance(exc, VisitError):
+        inner = exc.orig_exc
+        if isinstance(inner, ValueError):
+            # e.g. keyword-collision raised during transformation
+            return PivotalError(
+                message=str(inner),
+                error_type="Error",
+            )
+        return PivotalError(
+            message=f"Internal error while processing statement: {inner}",
+            error_type="Error",
+        )
+
+    # UnexpectedEOF — input ended mid-grammar.
+    if isinstance(exc, UnexpectedEOF):
+        return PivotalError(
+            message="Unexpected end of input — is a statement incomplete?",
+            error_type="Syntax Error",
+            suggestion=f"Expected {_describe_expected(set(exc.expected))}",
+        )
+
+    # UnexpectedCharacters — lexer hit an unrecognised character.
+    if isinstance(exc, UnexpectedCharacters):
+        ln = getattr(exc, 'line', None)
+        col = getattr(exc, 'column', None)
+        char = _source_line(source, ln)[col - 1] if ln and col else '?'
+        return PivotalError(
+            message=f"Unrecognised character '{char}'",
+            error_type="Syntax Error",
+            line=ln,
+            column=col,
+            source_line=_source_line(source, ln) if ln else None,
+        )
+
+    # UnexpectedToken — the most common case; discriminate on token type.
+    if isinstance(exc, UnexpectedToken):
+        ln = getattr(exc, 'line', None)
+        col = getattr(exc, 'column', None)
+        tok = exc.token
+        tok_type = getattr(tok, 'type', '')
+        tok_str = str(tok).strip()
+        expected = set(exc.expected)
+        src_ln = _source_line(source, ln) if ln else None
+
+        # Token is a newline → statement cut short before it was complete.
+        if tok_type == '_NL':
+            keyword = _active_keyword(source, ln) if ln else ''
+            desc = _describe_expected(expected)
+            if keyword:
+                msg = f"Incomplete '{keyword}' statement - expected {desc}"
+            else:
+                msg = f"Incomplete statement - expected {desc}"
+            return PivotalError(
+                message=msg,
+                error_type="Syntax Error",
+                line=ln,
+                column=col,
+                source_line=src_ln,
+            )
+
+        # Token is CASE_DEFAULT_EXPR → unrecognised text (garbage / bad chars).
+        if tok_type == 'CASE_DEFAULT_EXPR':
+            display = tok_str[:30] + ('...' if len(tok_str) > 30 else '')
+            return PivotalError(
+                message=f"Unexpected text '{display}' - check for typos or unsupported syntax",
+                error_type="Syntax Error",
+                line=ln,
+                column=col,
+                source_line=src_ln,
+            )
+
+        # Token looks like an unknown keyword/identifier.
+        if tok_str:
+            suggestion = _make_suggestion(tok_str.lower(), _STATEMENT_KEYWORDS)
+            desc = _describe_expected(expected)
+            msg = f"Unexpected '{tok_str}' - expected {desc}"
+            return PivotalError(
+                message=msg,
+                error_type="Syntax Error",
+                line=ln,
+                column=col,
+                source_line=src_ln,
+                suggestion=suggestion,
+            )
+
+    # Fallback for any other exception type.
+    return PivotalError(
+        message=str(exc),
+        error_type="Error",
+    )
+
+
 class DSLParser:
     def __init__(self, backend="pandas"):
         self._transformer = DSLTransformer()
@@ -5880,16 +6036,18 @@ class DSLParser:
         return code
     
     def parse(self, code):
-        """Parse DSL code and return AST + Python code"""
+        """Parse DSL code and return AST or {'error': PivotalError}."""
         try:
-            # Preprocess the code to handle whitespace issues
             processed_code = self.preprocess_code(code)
             result = self.parser.parse(processed_code)
             return result
-        except ValueError:
-            raise  # Keyword-collision and other validation errors propagate
+        except ValueError as e:
+            # Keyword-collision errors raised by the transformer — wrap cleanly.
+            return {'error': PivotalError(message=str(e), error_type="Error")}
+        except (UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError) as e:
+            return {'error': _friendly_parse_error(e, code)}
         except Exception as e:
-            return {'error': str(e)}
+            return {'error': PivotalError(message=str(e), error_type="Error")}
     
     def parse_file(self, filepath):
         """Parse a DSL file and return AST + Python code"""
