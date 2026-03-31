@@ -12,6 +12,7 @@ except ImportError:
 
 from .dsl_parser import DSLParser
 from .errors import PivotalError, display_error
+from .validator import validate as _validate_ast
 
 
 # ---------------------------------------------------------------------------
@@ -1385,6 +1386,13 @@ class PivotalMagics(Magics):
             if not isinstance(err, PivotalError):
                 err = PivotalError(message=str(err), error_type="Error")
             display_error(err, cell)
+            return
+
+        # Semantic validation — check table/column references before code runs.
+        val_errors = _validate_ast(results, self.shell.user_ns, cell)
+        if val_errors:
+            for err in val_errors:
+                display_error(err, cell)
             return
 
         python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
