@@ -11,7 +11,7 @@ except ImportError:
     display = print
 
 from .dsl_parser import DSLParser
-from .errors import PivotalError, display_error
+from .errors import PivotalError, display_error, run_cell_with_error_filter
 from .validator import validate as _validate_ast
 
 
@@ -1412,7 +1412,7 @@ class PivotalMagics(Magics):
             if close_stmts:
                 combined += '\n\n' + '\n'.join(close_stmts)
 
-        result = self.shell.run_cell(combined)
+        result = run_cell_with_error_filter(self.shell, combined, cell)
 
         if not result.error_in_exec:
             if output_code:

@@ -1,4 +1,4 @@
-"""Tests for Pivotal error handling — Phase 2 (syntax) and Phase 3 (semantic)."""
+"""Tests for Pivotal error handling — Phase 2 (syntax), Phase 3 (semantic), Phase 4 (runtime)."""
 import pytest
 import pandas as pd
 import sys, os
@@ -275,3 +275,72 @@ class TestSemanticValidation:
             ns
         )
         assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Runtime error translation
+# ---------------------------------------------------------------------------
+
+class TestRuntimeErrorTranslation:
+    """Tests for _translate_runtime_error — no IPython needed."""
+
+    def _t(self, exc):
+        from pivotal.errors import _translate_runtime_error
+        return _translate_runtime_error(exc)
+
+    def test_keyerror_column_not_found(self):
+        err = self._t(KeyError('revenue'))
+        assert err is not None
+        assert 'revenue' in err.message
+        assert err.error_type == 'Runtime Error'
+
+    def test_keyerror_with_extra_quotes(self):
+        err = self._t(KeyError("'revenue'"))
+        assert err is not None
+        assert 'revenue' in err.message
+
+    def test_nameerror_table_not_found(self):
+        err = self._t(NameError("name 'sales' is not defined"))
+        assert err is not None
+        assert 'sales' in err.message
+        assert err.error_type == 'Runtime Error'
+
+    def test_nameerror_no_match_returns_none(self):
+        # A NameError that doesn't match the "name 'x' is not defined" pattern
+        err = self._t(NameError("something else entirely"))
+        assert err is None
+
+    def test_filenotfounderror(self):
+        exc = FileNotFoundError(2, 'No such file or directory')
+        exc.filename = 'data/missing.csv'
+        err = self._t(exc)
+        assert err is not None
+        assert 'missing.csv' in err.message
+        assert err.error_type == 'Runtime Error'
+
+    def test_typeerror_not_supported_between(self):
+        err = self._t(TypeError("'<' not supported between instances of 'str' and 'int'"))
+        assert err is not None
+        assert 'Type mismatch' in err.message
+
+    def test_typeerror_unsupported_operand(self):
+        err = self._t(TypeError("unsupported operand type(s) for +: 'str' and 'int'"))
+        assert err is not None
+        assert 'Type mismatch' in err.message
+
+    def test_typeerror_other_returns_none(self):
+        err = self._t(TypeError("some other type error"))
+        assert err is None
+
+    def test_valueerror_merge_returns_error(self):
+        err = self._t(ValueError("You are trying to merge on object and int64 columns"))
+        assert err is not None
+        assert 'Merge' in err.message or 'merge' in err.message
+
+    def test_generic_exception_returns_none(self):
+        err = self._t(RuntimeError("some unexpected error"))
+        assert err is None
+
+    def test_zero_division_returns_none(self):
+        err = self._t(ZeroDivisionError("division by zero"))
+        assert err is None

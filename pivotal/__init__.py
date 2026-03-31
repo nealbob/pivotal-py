@@ -1,7 +1,7 @@
 from .dsl_parser import DSLParser
 from .package import Package
 from .magic import update, delete, plot_gui, pivot_gui, load_gui, save_gui, settings_gui
-from .errors import PivotalError, display_error, format_error_text, format_error_html
+from .errors import PivotalError, display_error, format_error_text, format_error_html, _translate_runtime_error
 
 def load_ipython_extension(ipython):
     from .magic import load_ipython_extension as magic_load

@@ -115,3 +115,107 @@ def display_error(err: PivotalError, source_code: str = "") -> None:
     except Exception:
         pass
     print(format_error_text(err, source_code))
+
+
+# ---------------------------------------------------------------------------
+# Runtime error translation (Phase 4)
+# ---------------------------------------------------------------------------
+
+def _translate_runtime_error(exc: BaseException) -> Optional[PivotalError]:
+    """
+    Translate a known Python backend exception into a PivotalError.
+    Returns None if the exception is not a recognised pattern — the caller
+    should then display the original traceback unchanged.
+    """
+    import re
+    etype = type(exc)
+    msg = str(exc)
+
+    # KeyError — usually a missing column in Pandas/Polars
+    if etype is KeyError:
+        col = msg.strip("'\"[] ")
+        return PivotalError(
+            message=f"Column '{col}' not found - check your column names",
+            error_type="Runtime Error",
+        )
+
+    # NameError — usually a table that wasn't loaded
+    if etype is NameError:
+        m = re.search(r"name '(\w+)' is not defined", msg)
+        if m:
+            name = m.group(1)
+            return PivotalError(
+                message=f"'{name}' is not defined - was the table loaded in a previous cell?",
+                error_type="Runtime Error",
+            )
+
+    # FileNotFoundError — bad path in a load statement
+    if etype is FileNotFoundError:
+        path = getattr(exc, 'filename', None) or msg
+        return PivotalError(
+            message=f"File not found: {path}",
+            error_type="Runtime Error",
+            suggestion="Check the file path and make sure the file exists",
+        )
+
+    # TypeError — type mismatch in filter/assign expressions
+    if etype is TypeError:
+        if 'not supported between' in msg or 'unsupported operand' in msg:
+            return PivotalError(
+                message="Type mismatch in expression - check the column types",
+                error_type="Runtime Error",
+                suggestion=msg,
+            )
+
+    # ValueError from Pandas — often a bad cast or merge issue
+    if etype is ValueError:
+        if 'You are trying to merge' in msg or 'merge' in msg.lower():
+            return PivotalError(
+                message="Merge failed - check that the join key columns have compatible types",
+                error_type="Runtime Error",
+                suggestion=msg,
+            )
+
+    return None
+
+
+def run_cell_with_error_filter(shell, combined: str, source_code: str) -> object:
+    """
+    Run *combined* Python code via IPython's run_cell, intercepting tracebacks.
+
+    If the execution raises a known exception pattern, the Python traceback is
+    suppressed and a friendly PivotalError is displayed instead.  For any other
+    exception the original traceback is replayed unchanged.
+
+    Returns the IPython ExecutionResult.
+    """
+    import sys
+
+    _captured_exc_info = [None]
+    original_showtb = shell.showtraceback
+
+    def _capturing_showtb(*args, **kwargs):
+        # Called from within the except block in run_cell — sys.exc_info() is live.
+        _captured_exc_info[0] = sys.exc_info()
+        # Do not display yet; we decide below.
+
+    shell.showtraceback = _capturing_showtb
+    try:
+        result = shell.run_cell(combined)
+    finally:
+        shell.showtraceback = original_showtb
+
+    if result.error_in_exec is not None:
+        friendly = _translate_runtime_error(result.error_in_exec)
+        if friendly:
+            display_error(friendly, source_code)
+        else:
+            # Not a recognised pattern — replay the original traceback.
+            exc_info = _captured_exc_info[0]
+            if exc_info and exc_info[0] is not None:
+                shell.showtraceback(exc_info)
+            else:
+                # Fallback: let IPython re-display via the stored exception.
+                shell.showtraceback()
+
+    return result
