@@ -339,6 +339,15 @@ df sales
 load sales :data_path
 ```
 
+`:var` supports plain variable names only — subscript indexing (`:mylist[0]`, `:mydict['key']`) is not supported. Extract the value first:
+
+```pivotal
+python val = mylist[0]
+
+df sales
+    newvar = "prefix" + :val
+```
+
 ## Python blocks
 
 Python code can be embedded directly. This is the primary way to define helper functions or perform operations that Pivotal doesn't cover. The `python`/`end` block is available in both `%%pivotal` cells and `.pivotal` files.
@@ -425,6 +434,7 @@ These are patterns that look plausible but are wrong:
 | `df clean = df sales` | `df clean from sales` | Copy syntax uses `from`, not `=` |
 | `where amount > 0` (as a statement) | `filter amount > 0` | `where` is only valid as a sub-clause inside an assignment |
 | `python` block without `end` | close every multi-line `python` block with `end` | Missing `end` is a syntax error |
+| `:mylist[0]` or `:mydict['key']` | `python val = mylist[0]` then `:val` | Subscript indexing on `:var` is not supported |
 
 ---
 
