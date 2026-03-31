@@ -726,6 +726,10 @@ class DSLTransformer(Transformer):
         return str(identifier)
     
     def expression(self, expr):
+        # Re-add quotes for string literals so code generators can distinguish
+        # them from column/variable references and avoid routing to df.eval().
+        if isinstance(expr, _LiteralStr):
+            return repr(str(expr))
         return str(expr)
     
     def filter_statement(self, condition_list):
@@ -2086,6 +2090,9 @@ class CodeGenerator:
             if (tok.startswith('"') and tok.endswith('"')) or \
                (tok.startswith("'") and tok.endswith("'")):
                 parts.append(repr(tok[1:-1]))
+            # @varname — Python variable reference (from :varname → @varname substitution)
+            elif re.fullmatch(r'@[a-zA-Z_][a-zA-Z0-9_]*', tok):
+                parts.append(tok[1:])  # strip @ → bare Python variable name
             # Nested string function
             elif re.match(r'[a-zA-Z][a-zA-Z0-9_]*\s*\(', tok):
                 nested = self._try_string_func(tok, table)
@@ -2263,6 +2270,8 @@ class CodeGenerator:
             if user_call:
                 func, col = user_call
                 return f"{table}['{target}'] = {func}({table}['{col}'])"
+            if self._is_scalar_expr(expr):
+                return f"{table}['{target}'] = {expr}"
             return f"{table}['{target}'] = {table}.eval('{expr}')"
 
     def generate_apply_pandas(self, ast_node):
@@ -2670,6 +2679,9 @@ class CodeGenerator:
             if (tok.startswith('"') and tok.endswith('"')) or \
                (tok.startswith("'") and tok.endswith("'")):
                 parts.append(f"pl.lit({tok})")
+            # :varname — Python variable reference
+            elif re.fullmatch(r':[a-zA-Z_][a-zA-Z0-9_]*', tok):
+                parts.append(f"pl.lit({tok[1:]})")  # pl.lit(var)
             elif re.match(r'[a-zA-Z][a-zA-Z0-9_]*\s*\(', tok):
                 nested = self._try_string_func_polars(tok)
                 if nested is None:

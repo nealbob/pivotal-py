@@ -575,6 +575,38 @@ def test_assign_arithmetic_unchanged(parser, sample_df):
 
 
 # ---------------------------------------------------------------------------
+# assign: string literals and Python variable references
+# ---------------------------------------------------------------------------
+
+def test_assign_string_literal(parser, sample_df):
+    """newcol = "constant" should broadcast a string scalar, not pass to eval."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nlabel = "active"', ns)
+    assert 'label' in ns['sales'].columns
+    assert (ns['sales']['label'] == 'active').all()
+
+
+def test_assign_string_literal_with_where(parser, sample_df):
+    """newcol = "constant" with a where clause should only set matching rows."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'df sales\nflag = "yes"\n    where category == "Electronics"', ns)
+    assert 'flag' in ns['sales'].columns
+    electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
+    assert (electronics['flag'] == 'yes').all()
+    non_electronics = ns['sales'][ns['sales']['category'] != 'Electronics']
+    assert non_electronics['flag'].isna().all()
+
+
+def test_assign_pyvar_plus_string_literal(parser, sample_df):
+    """newcol = :var + "suffix" should concat a Python variable with a string literal."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'prefix': 'ID-'}
+    run(parser, 'df sales\nlabel = :prefix + "end"', ns)
+    assert 'label' in ns['sales'].columns
+    assert (ns['sales']['label'] == 'ID-end').all()
+
+
+
+# ---------------------------------------------------------------------------
 # keyword collision validation
 # ---------------------------------------------------------------------------
 
