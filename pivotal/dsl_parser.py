@@ -249,7 +249,7 @@ grammar_indented = r"""
     table_name: IDENTIFIER
     copy_table: IDENTIFIER
 
-    expression: UNQUOTED_STRING | STRING
+    expression: UNQUOTED_STRING
 
     condition: IDENTIFIER COMPARATOR (value | list_value)
              | IDENTIFIER "in" list_value       -> condition_in_list
@@ -726,10 +726,6 @@ class DSLTransformer(Transformer):
         return str(identifier)
     
     def expression(self, expr):
-        # Re-add quotes for string literals so code generators can distinguish
-        # them from column/variable references and avoid routing to df.eval().
-        if isinstance(expr, _LiteralStr):
-            return repr(str(expr))
         return str(expr)
     
     def filter_statement(self, condition_list):

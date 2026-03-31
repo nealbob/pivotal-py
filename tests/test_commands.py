@@ -605,6 +605,13 @@ def test_assign_pyvar_plus_string_literal(parser, sample_df):
     assert (ns['sales']['label'] == 'ID-end').all()
 
 
+def test_assign_string_literal_plus_pyvar(parser, sample_df):
+    """newcol = "prefix" + :var should work (string literal first, then var)."""
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'suffix': '-X'}
+    run(parser, 'df sales\nlabel = "item" + :suffix', ns)
+    assert 'label' in ns['sales'].columns
+    assert (ns['sales']['label'] == 'item-X').all()
+
 
 # ---------------------------------------------------------------------------
 # keyword collision validation
