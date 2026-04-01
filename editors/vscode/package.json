@@ -2,7 +2,7 @@
   "name": "pivotal-language",
   "displayName": "Pivotal",
   "description": "Syntax highlighting and execution support for the Pivotal data transformation DSL",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "pivotal",
   "engines": {
     "vscode": "^1.75.0"
@@ -23,8 +23,13 @@
     "languages": [
       {
         "id": "pivotal",
-        "aliases": ["Pivotal", "pivotal"],
-        "extensions": [".pivotal"],
+        "aliases": [
+          "Pivotal",
+          "pivotal"
+        ],
+        "extensions": [
+          ".pivotal"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -37,7 +42,9 @@
       {
         "scopeName": "source.pivotal.injection",
         "path": "./syntaxes/pivotal-injection.tmLanguage.json",
-        "injectTo": ["source.python"]
+        "injectTo": [
+          "source.python"
+        ]
       }
     ],
     "commands": [
