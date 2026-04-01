@@ -430,6 +430,760 @@ function _startBridgeWatcher(context: vscode.ExtensionContext): void {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 3 — Viewer WebviewPanel
+// ---------------------------------------------------------------------------
+
+let _viewerPanel: vscode.WebviewPanel | null = null;
+
+function _generateNonce(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let nonce = '';
+  for (let i = 0; i < 32; i++) { nonce += chars[Math.floor(Math.random() * chars.length)]; }
+  return nonce;
+}
+
+function _getOrCreateViewerPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
+  if (_viewerPanel) {
+    _viewerPanel.reveal(vscode.ViewColumn.Two, true);
+    return _viewerPanel;
+  }
+  const panel = vscode.window.createWebviewPanel(
+    'pivotalViewer',
+    'Pivotal Viewer',
+    { viewColumn: vscode.ViewColumn.Two, preserveFocus: true },
+    { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
+  );
+  panel.webview.html = _buildViewerHtml(panel.webview);
+  panel.webview.onDidReceiveMessage((msg: Record<string, unknown>) => {
+    sendToBridge(msg);
+  }, undefined, context.subscriptions);
+  panel.onDidDispose(() => { _viewerPanel = null; }, undefined, context.subscriptions);
+  _viewerPanel = panel;
+  return panel;
+}
+
+function _buildViewerHtml(webview: vscode.Webview): string {
+  const nonce = _generateNonce();
+  // CSP: scripts only from nonce + CDN; frames allowed for GT table iframes (srcdoc)
+  const csp = [
+    `default-src 'none'`,
+    `script-src 'nonce-${nonce}' https://cdn.jsdelivr.net`,
+    `style-src 'unsafe-inline' https://cdn.jsdelivr.net`,
+    `img-src data: blob:`,
+    `frame-src *`,
+  ].join('; ');
+
+  const AG = 'https://cdn.jsdelivr.net/npm/ag-grid-community@33';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<link rel="stylesheet" href="${AG}/styles/ag-grid.css">
+<link rel="stylesheet" href="${AG}/styles/ag-theme-alpine.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  .pv-header {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--vscode-panel-border, #444);
+    flex-shrink: 0;
+  }
+  .pv-nav { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+  .pv-title {
+    font-weight: 600; font-size: 12px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+  }
+  .pv-counter { font-size: 11px; opacity: 0.6; white-space: nowrap; }
+  .pv-btn {
+    background: var(--vscode-button-secondaryBackground, transparent);
+    color: var(--vscode-button-secondaryForeground, inherit);
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 3px; cursor: pointer; padding: 2px 6px; font-size: 12px;
+    line-height: 1.4;
+  }
+  .pv-btn:hover:not(:disabled) { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.1)); }
+  .pv-btn:disabled { opacity: 0.35; cursor: default; }
+  .pv-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .pv-footer { flex-shrink: 0; padding: 3px 8px; font-size: 11px; opacity: 0.75;
+    border-top: 1px solid var(--vscode-panel-border, #444); }
+  .pv-footer-bar { display: flex; align-items: center; gap: 8px; }
+  .pv-limit { width: 80px; padding: 1px 4px;
+    background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, #555); border-radius: 2px; font-size: 11px; }
+  /* AG Grid zoom/fit toolbar */
+  .pv-chart-toolbar {
+    display: flex; align-items: center; gap: 4px; padding: 2px 8px;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    border-bottom: 1px solid var(--vscode-panel-border, #444); flex-shrink: 0;
+  }
+  .pv-canvas-label { font-size: 11px; opacity: 0.7; margin-left: 8px; }
+  /* AG Grid container */
+  .pv-ag-container { height: 100%; width: 100%; }
+  .pv-ag-idx { color: var(--vscode-editorLineNumber-foreground, #858585) !important;
+    font-size: 10px !important; }
+  .pv-ag-idx-header { background: transparent !important; }
+  /* SelectPopupFilter */
+  .pv-filter-list { max-height: 200px; overflow-y: auto; min-width: 120px; }
+  .pv-filter-option {
+    padding: 4px 8px; cursor: pointer; font-size: 12px;
+    color: var(--vscode-dropdown-foreground, inherit);
+  }
+  .pv-filter-option:hover { background: var(--vscode-list-hoverBackground); }
+  .pv-filter-option.pv-filter-selected { background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground); }
+  /* Chart scroll/pan area */
+  .pv-chart-scroll {
+    flex: 1; overflow: auto; cursor: grab; min-height: 0;
+    display: flex; align-items: flex-start; justify-content: flex-start;
+  }
+  .pv-chart-img { display: block; transform-origin: top left; }
+  /* Page (canvas) view */
+  .pv-page-view {
+    flex: 1; overflow: auto; min-height: 0;
+    display: flex; justify-content: center; padding: 16px;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  }
+  .pv-page {
+    position: relative; flex-shrink: 0;
+    background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .pv-page-chart-img { position: absolute; }
+  /* AG Grid theme overrides to follow VS Code colours */
+  .ag-theme-alpine {
+    --ag-background-color: var(--vscode-editor-background);
+    --ag-foreground-color: var(--vscode-editor-foreground);
+    --ag-header-background-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    --ag-odd-row-background-color: var(--vscode-editor-background);
+    --ag-row-hover-color: var(--vscode-list-hoverBackground, rgba(255,255,255,0.05));
+    --ag-border-color: var(--vscode-panel-border, #444);
+    --ag-header-column-separator-color: var(--vscode-panel-border, #444);
+    --ag-font-size: 12px;
+  }
+  .pv-empty { display: flex; align-items: center; justify-content: center;
+    height: 100%; opacity: 0.4; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="pv-header">
+  <div class="pv-nav">
+    <button class="pv-btn" id="btn-back"  title="Back">&#9664;</button>
+    <span class="pv-title" id="pv-title">—</span>
+    <button class="pv-btn" id="btn-fwd"   title="Forward">&#9654;</button>
+    <span class="pv-counter" id="pv-counter"></span>
+  </div>
+  <button class="pv-btn" id="btn-copy"    title="Copy to clipboard">&#128203;</button>
+  <button class="pv-btn" id="btn-refresh" title="Refresh">&#8635;</button>
+  <button class="pv-btn" id="btn-del"     title="Delete object">&#10005;</button>
+  <button class="pv-btn" id="btn-clear"   title="Delete all">&#128465;</button>
+</div>
+<div class="pv-body" id="pv-body"><div class="pv-empty">No data yet — run a Pivotal cell</div></div>
+<div class="pv-footer" id="pv-footer"></div>
+
+<script nonce="${nonce}" src="${AG}/dist/ag-grid-community.min.js"></script>
+<script nonce="${nonce}">
+(function () {
+  'use strict';
+
+  const vscodeApi = acquireVsCodeApi();
+  const { createGrid, AllCommunityModule, ModuleRegistry } = agGrid;
+  ModuleRegistry.registerModules([AllCommunityModule]);
+
+  const DEFAULT_LIMIT = 20000;
+  const BASE_ROW_H = 26;
+  const BASE_HDR_H = 30;
+
+  // ── state ──────────────────────────────────────────────────────────────────
+  const _latest = new Map();   // name → payload
+  const _names  = [];          // ordered list of names
+  let   _index  = -1;
+  const _dfCache = new Map();  // name → { body, footer, api, applyZoom }
+  let   _zoomCb  = null;
+  let   _panelResizeCb = null;
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const titleEl   = document.getElementById('pv-title');
+  const counterEl = document.getElementById('pv-counter');
+  const backBtn   = document.getElementById('btn-back');
+  const fwdBtn    = document.getElementById('btn-fwd');
+  const copyBtn   = document.getElementById('btn-copy');
+  const refreshBtn= document.getElementById('btn-refresh');
+  const delBtn    = document.getElementById('btn-del');
+  const clearBtn  = document.getElementById('btn-clear');
+  const bodyEl    = document.getElementById('pv-body');
+  const footerEl  = document.getElementById('pv-footer');
+
+  backBtn.disabled = fwdBtn.disabled = copyBtn.disabled =
+    refreshBtn.disabled = delBtn.disabled = clearBtn.disabled = true;
+
+  // ── SelectPopupFilter (AG Grid custom filter for categorical/boolean) ──────
+  class SelectPopupFilter {
+    init(params) {
+      this._params = params;
+      this._value  = '';
+      const values = params.values ?? [];
+      this._list = document.createElement('div');
+      this._list.className = 'pv-filter-list';
+      for (const v of values) {
+        const item = document.createElement('div');
+        item.className = 'pv-filter-option';
+        item.dataset.value = v;
+        item.textContent = v === '' ? 'All' : String(v);
+        if (v === '') item.classList.add('pv-filter-selected');
+        item.addEventListener('click', () => {
+          this._value = v;
+          this._list.querySelectorAll('.pv-filter-option').forEach(el =>
+            el.classList.toggle('pv-filter-selected', el.dataset.value === v)
+          );
+          params.filterChangedCallback();
+        });
+        this._list.appendChild(item);
+      }
+      this._gui = document.createElement('div');
+      this._gui.appendChild(this._list);
+    }
+    getGui()  { return this._gui; }
+    doesFilterPass(params) {
+      if (!this.isFilterActive()) return true;
+      const colId = this._params.column.getColId();
+      return String((params.data)[colId] ?? '') === this._value;
+    }
+    isFilterActive() { return this._value !== ''; }
+    getModel() {
+      return this.isFilterActive() ? { filterType: 'text', filter: this._value } : null;
+    }
+    setModel(model) {
+      this._value = model?.filter ?? '';
+      this._list?.querySelectorAll('.pv-filter-option').forEach(el =>
+        el.classList.toggle('pv-filter-selected', el.dataset.value === this._value)
+      );
+    }
+    destroy() {}
+  }
+
+  // ── navigation ─────────────────────────────────────────────────────────────
+  function push(msg) {
+    const isNew = !_latest.has(msg.name);
+    _latest.set(msg.name, msg);
+    if (!isNew) {
+      _dfCache.get(msg.name)?.api?.destroy();
+      _dfCache.delete(msg.name);
+    }
+    if (isNew) _names.push(msg.name);
+    _index = _names.indexOf(msg.name);
+    render();
+  }
+
+  function back()    { if (_index > 0) { _index--; render(); } }
+  function forward() { if (_index < _names.length - 1) { _index++; render(); } }
+
+  function focusItem(name) {
+    const idx = _names.indexOf(name);
+    if (idx >= 0 && idx !== _index) { _index = idx; render(); }
+  }
+
+  function deleteItemLocal(name) {
+    const idx = _names.indexOf(name);
+    if (idx < 0) return;
+    _latest.delete(name);
+    _dfCache.get(name)?.api?.destroy();
+    _dfCache.delete(name);
+    _names.splice(idx, 1);
+    if (_names.length === 0) {
+      clearLocal();
+    } else {
+      _index = Math.min(Math.max(_index, 0), _names.length - 1);
+      render();
+    }
+  }
+
+  function deleteCurrent() {
+    if (_index < 0 || !_names.length) return;
+    const name = _names[_index];
+    vscodeApi.postMessage({ type: 'delete', name });
+    deleteItemLocal(name);
+  }
+
+  function clearLocal() {
+    _latest.clear();
+    _dfCache.forEach(e => e.api?.destroy());
+    _dfCache.clear();
+    _names.length = 0;
+    _index = -1;
+    titleEl.textContent = '—';
+    counterEl.textContent = '';
+    backBtn.disabled = fwdBtn.disabled = copyBtn.disabled =
+      refreshBtn.disabled = delBtn.disabled = clearBtn.disabled = true;
+    bodyEl.innerHTML = '<div class="pv-empty">No data yet — run a Pivotal cell</div>';
+    footerEl.innerHTML = '';
+    _zoomCb = null; _panelResizeCb = null;
+  }
+
+  function clearAll() {
+    vscodeApi.postMessage({ type: 'clear' });
+    clearLocal();
+  }
+
+  function refreshCurrent() {
+    if (_index < 0 || !_names.length) return;
+    const name = _names[_index];
+    const inp = footerEl.querySelector('.pv-limit');
+    const limit = inp ? Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT) : DEFAULT_LIMIT;
+    vscodeApi.postMessage({ type: 'request', name, limit });
+  }
+
+  // ── top-level render ───────────────────────────────────────────────────────
+  function render() {
+    if (_index < 0 || !_names.length) return;
+    const p = _latest.get(_names[_index]);
+    if (!p) return;
+    _panelResizeCb = null;
+    _zoomCb = null;
+
+    const typeLabel = p.type === 'dataframe' ? 'DataFrame' : p.type === 'chart' ? 'Chart' : 'Table';
+    titleEl.textContent = p.name + ' · ' + typeLabel;
+    counterEl.textContent = (_index + 1) + ' / ' + _names.length;
+    backBtn.disabled    = _index === 0;
+    fwdBtn.disabled     = _index === _names.length - 1;
+    copyBtn.disabled    = false;
+    delBtn.disabled     = false;
+    clearBtn.disabled   = false;
+    refreshBtn.disabled = p.type !== 'dataframe';
+
+    while (bodyEl.firstChild) bodyEl.removeChild(bodyEl.firstChild);
+    while (footerEl.firstChild) footerEl.removeChild(footerEl.firstChild);
+
+    if (p.type === 'dataframe')     renderDataFrame(p);
+    else if (p.type === 'chart')    renderChart(p);
+    else                            renderGtTable(p);
+  }
+
+  // ── DataFrame (AG Grid) ────────────────────────────────────────────────────
+  function renderDataFrame(p) {
+    const cached = _dfCache.get(p.name);
+    if (cached) {
+      bodyEl.appendChild(cached.body);
+      footerEl.appendChild(cached.footer);
+      _zoomCb = cached.applyZoom;
+      return;
+    }
+
+    const { columns, data, dtypes } = p;
+    const sigFigs = p.viewer_num_format ?? 5;
+    const floatFmt = sigFigs > 0
+      ? params => {
+          const v = params.value;
+          if (v === null || v === undefined || v === '') return '';
+          const n = Number(v);
+          if (isNaN(n)) return String(v);
+          const s = n.toPrecision(sigFigs);
+          return s.includes('e') ? s : String(parseFloat(s));
+        }
+      : undefined;
+
+    const rowData = data.map((row, i) => {
+      const obj = { _idx: i };
+      columns.forEach((col, ci) => { obj[col] = row[ci]; });
+      return obj;
+    });
+
+    const colDefs = [
+      {
+        field: '_idx', headerName: '', pinned: 'left',
+        width: 52, minWidth: 52, maxWidth: 52,
+        sortable: false, filter: false, floatingFilter: false,
+        resizable: false, suppressMovable: true,
+        cellClass: 'pv-ag-idx', headerClass: 'pv-ag-idx-header',
+      },
+      ...columns.map(col => {
+        const dt = dtypes[col] ?? '';
+        const isFloat = dt.startsWith('float');
+        const isNum   = isFloat || dt.startsWith('int');
+        const semType = (p.col_types ?? {})[col] ?? (isNum ? 'numeric' : 'string');
+        const def = {
+          field: col, headerName: col,
+          type: isNum ? 'numericColumn' : undefined,
+          headerTooltip: dt || undefined,
+          resizable: true, sortable: true,
+        };
+        if (semType === 'categorical' || semType === 'boolean') {
+          const vals = [...new Set(rowData.map(r => String(r[col] ?? '')))]
+            .filter(v => v !== '').sort((a, b) => a.localeCompare(b));
+          def.filter = SelectPopupFilter;
+          def.filterParams = { values: ['', ...vals] };
+        } else if (semType === 'numeric') {
+          def.filter = 'agNumberColumnFilter';
+        } else {
+          def.filter = 'agTextColumnFilter';
+          def.filterParams = { filterOptions: ['contains'], defaultOption: 'contains' };
+        }
+        if (isFloat && floatFmt) def.valueFormatter = floatFmt;
+        return def;
+      }),
+    ];
+
+    let zoomFactor = p.viewer_font ?? 1.0;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;height:100%;';
+
+    const zoomToolbar = document.createElement('div');
+    zoomToolbar.className = 'pv-chart-toolbar';
+    zoomToolbar.innerHTML =
+      '<button class="pv-btn pv-zoom-in"    title="Zoom in (+)">+</button>' +
+      '<button class="pv-btn pv-zoom-out"   title="Zoom out (-)">&#8722;</button>' +
+      '<button class="pv-btn pv-zoom-reset" title="Reset zoom">1:1</button>' +
+      '<button class="pv-btn pv-fit-cols"   title="Fit columns">&#8596;</button>';
+
+    const viewport = document.createElement('div');
+    viewport.style.cssText = 'position:relative;overflow:hidden;flex:1;min-height:0;';
+
+    const container = document.createElement('div');
+    container.className = 'pv-ag-container ag-theme-alpine';
+    container.style.cssText = 'position:absolute;top:0;left:0;transform-origin:top left;';
+    container.style.width  = (100 / zoomFactor) + '%';
+    container.style.height = (100 / zoomFactor) + '%';
+    container.style.transform = 'scale(' + zoomFactor + ')';
+
+    viewport.appendChild(container);
+    wrapper.appendChild(zoomToolbar);
+    wrapper.appendChild(viewport);
+    bodyEl.appendChild(wrapper);  // append before createGrid
+
+    const api = createGrid(container, {
+      rowData, columnDefs: colDefs,
+      rowHeight: BASE_ROW_H, headerHeight: BASE_HDR_H,
+      defaultColDef: { sortable: true, filter: true, resizable: true, minWidth: 60, maxWidth: 300, width: 120 },
+      suppressFieldDotNotation: true,
+      animateRows: false,
+      localeText: { filterOoo: '' },
+      onFirstDataRendered: e => {
+        setTimeout(() => { if (container.clientWidth > 0) e.api.autoSizeAllColumns(false); }, 600);
+      },
+    });
+
+    const applyZoom = mult => {
+      zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
+      container.style.width  = (100 / zoomFactor) + '%';
+      container.style.height = (100 / zoomFactor) + '%';
+      container.style.transform = 'scale(' + zoomFactor + ')';
+    };
+    zoomToolbar.querySelector('.pv-zoom-in')   .addEventListener('click', () => applyZoom(1.25));
+    zoomToolbar.querySelector('.pv-zoom-out')  .addEventListener('click', () => applyZoom(1 / 1.25));
+    zoomToolbar.querySelector('.pv-zoom-reset').addEventListener('click', () => {
+      zoomFactor = 1.0;
+      container.style.width = container.style.height = '100%';
+      container.style.transform = 'scale(1)';
+    });
+    zoomToolbar.querySelector('.pv-fit-cols')  .addEventListener('click', () => api.autoSizeAllColumns(false));
+    _zoomCb = applyZoom;
+
+    // Footer
+    const [totalRows, totalCols] = p.shape;
+    const truncMsg = p.truncated
+      ? 'Showing ' + data.length.toLocaleString() + ' of ' + totalRows.toLocaleString() + ' rows'
+      : totalRows.toLocaleString() + ' rows \\xD7 ' + totalCols + ' cols';
+    const footer = document.createElement('div');
+    footer.className = 'pv-footer-bar';
+    footer.innerHTML = '<span class="pv-shape">' + truncMsg + '</span>' +
+      (p.truncated
+        ? '<label class="pv-limit-label">Show: <input class="pv-limit" type="number" value="' +
+          data.length + '" min="100" step="1000"> rows</label>' +
+          '<button class="pv-btn pv-show-all" title="Load all rows">Show all</button>'
+        : '');
+    if (p.truncated) {
+      const inp = footer.querySelector('.pv-limit');
+      inp.addEventListener('change', () => {
+        const limit = Math.max(100, parseInt(inp.value, 10) || DEFAULT_LIMIT);
+        vscodeApi.postMessage({ type: 'request', name: p.name, limit });
+      });
+      footer.querySelector('.pv-show-all').addEventListener('click', () => {
+        vscodeApi.postMessage({ type: 'request', name: p.name, limit: p.shape[0] });
+      });
+    }
+    _dfCache.set(p.name, { body: wrapper, footer, api, applyZoom });
+    footerEl.appendChild(footer);
+  }
+
+  // ── Chart ──────────────────────────────────────────────────────────────────
+  function renderChart(p) {
+    if (p.canvas) renderChartOnPage(p); else renderChartFree(p);
+  }
+
+  function renderChartFree(p) {
+    let scale = 1.0;
+    let dragging = false, dragStartX = 0, dragStartY = 0, scrollStartX = 0, scrollStartY = 0;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML =
+      '<button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>' +
+      '<button class="pv-btn pv-zoom-out"   title="Zoom out">&#8722;</button>' +
+      '<button class="pv-btn pv-zoom-reset" title="Reset zoom">1:1</button>';
+
+    const scroll = document.createElement('div');
+    scroll.className = 'pv-chart-scroll';
+
+    const img = document.createElement('img');
+    img.className = 'pv-chart-img';
+    img.src = 'data:image/png;base64,' + p.data;
+    img.draggable = false;
+    scroll.appendChild(img);
+
+    bodyEl.appendChild(toolbar);
+    bodyEl.appendChild(scroll);
+
+    const setScale = s => {
+      scale = Math.max(0.2, Math.min(5, s));
+      img.style.transform = 'scale(' + scale + ')';
+      img.style.transformOrigin = 'top left';
+    };
+    _zoomCb = f => setScale(scale * f);
+
+    toolbar.querySelector('.pv-zoom-in')   .addEventListener('click', () => setScale(scale * 1.25));
+    toolbar.querySelector('.pv-zoom-out')  .addEventListener('click', () => setScale(scale / 1.25));
+    toolbar.querySelector('.pv-zoom-reset').addEventListener('click', () => setScale(1));
+
+    scroll.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      dragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+      scrollStartX = scroll.scrollLeft; scrollStartY = scroll.scrollTop;
+      scroll.setPointerCapture(e.pointerId); scroll.style.cursor = 'grabbing';
+    });
+    scroll.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      scroll.scrollLeft = scrollStartX - (e.clientX - dragStartX);
+      scroll.scrollTop  = scrollStartY - (e.clientY - dragStartY);
+    });
+    scroll.addEventListener('pointerup', () => { dragging = false; scroll.style.cursor = 'grab'; });
+  }
+
+  function renderChartOnPage(p) {
+    const cm = p.canvas;
+    let userScale = 1.0;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML =
+      '<button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>' +
+      '<button class="pv-btn pv-zoom-out"   title="Zoom out">&#8722;</button>' +
+      '<button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>' +
+      '<span class="pv-canvas-label">' + cm.label + ' \\xB7 ' + cm.margin_mm + 'mm margins</span>';
+
+    const outer = document.createElement('div');
+    outer.className = 'pv-page-view';
+
+    const page = document.createElement('div');
+    page.className = 'pv-page';
+
+    const img = document.createElement('img');
+    img.src = 'data:image/png;base64,' + p.data;
+    img.className = 'pv-page-chart-img';
+    img.draggable = false;
+
+    page.appendChild(img);
+    outer.appendChild(page);
+    bodyEl.appendChild(toolbar);
+    bodyEl.appendChild(outer);
+
+    let lastAvailW = -1, rafId = 0;
+    const apply = () => {
+      const availW = Math.max(outer.clientWidth - 64, 80);
+      if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
+      lastAvailW = availW; rafId = 0;
+      const pxPerMm = (availW / cm.page_width_mm) * userScale;
+      page.style.width  = (cm.page_width_mm  * pxPerMm) + 'px';
+      page.style.height = (cm.page_height_mm * pxPerMm) + 'px';
+      img.style.width   = ((cm.chart_width_mm  ?? cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm) + 'px';
+      img.style.height  = ((cm.chart_height_mm ?? cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm) + 'px';
+      img.style.left    = (cm.margin_mm * pxPerMm) + 'px';
+      img.style.top     = (cm.margin_mm * pxPerMm) + 'px';
+    };
+    const applyForced = () => { lastAvailW = -1; apply(); };
+    _panelResizeCb = applyForced;
+    _zoomCb = f => { userScale *= f; applyForced(); };
+
+    toolbar.querySelector('.pv-zoom-in')   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-out')  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-reset').addEventListener('click', () => { userScale = 1.0;   applyForced(); });
+
+    new ResizeObserver(() => { cancelAnimationFrame(rafId); rafId = requestAnimationFrame(apply); }).observe(outer);
+    requestAnimationFrame(apply);
+  }
+
+  // ── GT Table ───────────────────────────────────────────────────────────────
+  function renderGtTable(p) {
+    if (p.canvas) renderGtTableOnPage(p); else renderGtTableFree(p);
+  }
+
+  function renderGtTableFree(p) {
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = p.html;
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    iframe.style.cssText = 'flex:1;width:100%;height:100%;border:none;';
+    bodyEl.appendChild(iframe);
+  }
+
+  function renderGtTableOnPage(p) {
+    const cm = p.canvas;
+    let userScale = 1.0;
+    const usableW_mm = cm.page_width_mm - 2 * cm.margin_mm;
+    const CSS_PX_PER_MM = 96 / 25.4;
+    const loadW = Math.round(usableW_mm * CSS_PX_PER_MM);
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'pv-chart-toolbar';
+    toolbar.innerHTML =
+      '<button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>' +
+      '<button class="pv-btn pv-zoom-out"   title="Zoom out">&#8722;</button>' +
+      '<button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>' +
+      '<span class="pv-canvas-label">' + cm.label + ' \\xB7 ' + cm.margin_mm + 'mm margins</span>';
+
+    const outer = document.createElement('div');
+    outer.className = 'pv-page-view';
+
+    const page = document.createElement('div');
+    page.className = 'pv-page';
+
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = p.html;
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    iframe.style.cssText = 'position:absolute;border:none;visibility:hidden;width:' + loadW + 'px;';
+
+    page.appendChild(iframe);
+    outer.appendChild(page);
+    bodyEl.appendChild(toolbar);
+    bodyEl.appendChild(outer);
+
+    let naturalW = 0, naturalH = 0, lastAvailW = -1, rafId = 0;
+    const apply = () => {
+      if (naturalW === 0) return;
+      const availW = Math.max(outer.clientWidth - 64, 80);
+      if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
+      lastAvailW = availW; rafId = 0;
+      const pxPerMm  = (availW / cm.page_width_mm) * userScale;
+      const marginPx = cm.margin_mm * pxPerMm;
+      const naturalW_mm = naturalW / CSS_PX_PER_MM;
+      const targetW_mm  = Math.min(naturalW_mm, usableW_mm);
+      const scale = (targetW_mm * pxPerMm) / naturalW;
+      page.style.width  = (cm.page_width_mm  * pxPerMm) + 'px';
+      page.style.height = (cm.page_height_mm * pxPerMm) + 'px';
+      iframe.style.left            = marginPx + 'px';
+      iframe.style.top             = marginPx + 'px';
+      iframe.style.transform       = 'scale(' + scale + ')';
+      iframe.style.transformOrigin = '0 0';
+    };
+    const applyForced = () => { lastAvailW = -1; apply(); };
+    _panelResizeCb = applyForced;
+    _zoomCb = f => { userScale *= f; applyForced(); };
+
+    iframe.addEventListener('load', () => {
+      try {
+        const doc = iframe.contentDocument;
+        naturalW = Math.max(doc.documentElement.scrollWidth, doc.body?.scrollWidth ?? 0, 1);
+        naturalH = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0, 1);
+      } catch (_) { naturalW = 800; naturalH = 600; }
+      iframe.style.width      = naturalW + 'px';
+      iframe.style.height     = naturalH + 'px';
+      iframe.style.visibility = '';
+      applyForced();
+    });
+
+    toolbar.querySelector('.pv-zoom-in')   .addEventListener('click', () => { userScale *= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-out')  .addEventListener('click', () => { userScale /= 1.25; applyForced(); });
+    toolbar.querySelector('.pv-zoom-reset').addEventListener('click', () => { userScale = 1.0;   applyForced(); });
+
+    new ResizeObserver(() => { cancelAnimationFrame(rafId); rafId = requestAnimationFrame(apply); }).observe(outer);
+  }
+
+  // ── Clipboard ──────────────────────────────────────────────────────────────
+  async function copyToClipboard() {
+    if (_index < 0 || !_names.length) return;
+    const p = _latest.get(_names[_index]);
+    if (!p) return;
+    try {
+      if (p.type === 'dataframe') {
+        const tsv = [p.columns.join('\\t'),
+          ...p.data.map(row => row.map(v => (v == null ? '' : String(v))).join('\\t'))].join('\\n');
+        const html = '<table><thead><tr>' + p.columns.map(c => '<th>' + c + '</th>').join('') +
+          '</tr></thead><tbody>' +
+          p.data.map(row => '<tr>' + row.map(v => '<td>' + (v == null ? '' : String(v)) + '</td>').join('') + '</tr>').join('') +
+          '</tbody></table>';
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/plain': new Blob([tsv],  { type: 'text/plain' }),
+          'text/html':  new Blob([html], { type: 'text/html'  }),
+        })]);
+      } else if (p.type === 'chart') {
+        const blob = await fetch('data:image/png;base64,' + p.data).then(r => r.blob());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      } else {
+        const html = p.html;
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html':  new Blob([html], { type: 'text/html'  }),
+          'text/plain': new Blob([html], { type: 'text/plain' }),
+        })]);
+      }
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = '\\u2713';
+      setTimeout(() => { copyBtn.textContent = orig; }, 1200);
+    } catch (err) {
+      console.error('[Pivotal] clipboard copy failed:', err);
+    }
+  }
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.altKey && e.key === '[') { back(); e.preventDefault(); }
+    if (e.altKey && e.key === ']') { forward(); e.preventDefault(); }
+  });
+
+  // ── Button wiring ──────────────────────────────────────────────────────────
+  backBtn.addEventListener('click', back);
+  fwdBtn.addEventListener('click', forward);
+  copyBtn.addEventListener('click', copyToClipboard);
+  refreshBtn.addEventListener('click', refreshCurrent);
+  delBtn.addEventListener('click', deleteCurrent);
+  clearBtn.addEventListener('click', clearAll);
+
+  // ── ResizeObserver for panel resize callbacks ──────────────────────────────
+  new ResizeObserver(() => { _panelResizeCb?.(); }).observe(bodyEl);
+
+  // ── Message handler (from extension host → webview) ────────────────────────
+  window.addEventListener('message', event => {
+    const msg = event.data;
+    if (!msg || !msg.type) return;
+    switch (msg.type) {
+      case 'dataframe':
+      case 'chart':
+      case 'gt_table':
+        push(msg);
+        break;
+      case 'delete':
+        deleteItemLocal(msg.name);
+        break;
+      case 'clear':
+        clearLocal();
+        break;
+      case 'focus':
+        focusItem(msg.name);
+        break;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
 
@@ -569,6 +1323,21 @@ export function activate(context: vscode.ExtensionContext): void {
     ' ', '\t',
   );
 
+  // --- Command: Show Pivotal Viewer panel ---
+  const showViewer = vscode.commands.registerCommand('pivotal.showViewer', () => {
+    _getOrCreateViewerPanel(context);
+  });
+
+  // --- Bridge handler: forward Python viewer messages to the WebviewPanel ---
+  onBridgeMessage((msg: Record<string, unknown>) => {
+    const t = msg.type as string;
+    if (t === 'dataframe' || t === 'chart' || t === 'gt_table') {
+      _getOrCreateViewerPanel(context).webview.postMessage(msg);
+    } else if (t === 'delete' || t === 'clear' || t === 'focus') {
+      _viewerPanel?.webview.postMessage(msg);
+    }
+  });
+
   _startBridgeWatcher(context);
 
   context.subscriptions.push(
@@ -578,6 +1347,7 @@ export function activate(context: vscode.ExtensionContext): void {
     compileToFile,
     hoverProvider,
     completionProvider,
+    showViewer,
   );
 }
 

@@ -60,6 +60,11 @@
         "command": "pivotal.compileToFile",
         "title": "Pivotal: Compile to Python File",
         "icon": "$(export)"
+      },
+      {
+        "command": "pivotal.showViewer",
+        "title": "Pivotal: Show Viewer",
+        "icon": "$(preview)"
       }
     ],
     "keybindings": [
