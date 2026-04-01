@@ -235,9 +235,10 @@ function detectContext(
 function buildItems(ctx: CompletionCtx, ac: AutocompleteData | null): vscode.CompletionItem[] {
   switch (ctx.type) {
     case 'command':
-      return COMMAND_COMPLETIONS.map(({ label, detail }) => {
+      return COMMAND_COMPLETIONS.map(({ label, snippet, detail }) => {
         const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Keyword);
         if (detail) item.detail = detail;
+        if (snippet) item.insertText = new vscode.SnippetString(snippet);
         return item;
       });
 
@@ -273,6 +274,31 @@ function buildItems(ctx: CompletionCtx, ac: AutocompleteData | null): vscode.Com
     case 'none':
       return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Hover — show syntax signature for the command on the current line
+// ---------------------------------------------------------------------------
+
+function hoverForLine(line: string): vscode.Hover | undefined {
+  const trimmed = line.trimStart();
+
+  // Find the longest COMMAND_COMPLETIONS label that is a prefix of the trimmed
+  // line and is followed by whitespace or end-of-line (full-word boundary).
+  let best: CommandCompletion | undefined;
+  for (const cmd of COMMAND_COMPLETIONS) {
+    if (!cmd.detail) continue;
+    if (!trimmed.startsWith(cmd.label)) continue;
+    const after = trimmed[cmd.label.length];
+    if (after !== undefined && after !== ' ' && after !== '\t') continue;
+    if (!best || cmd.label.length > best.label.length) best = cmd;
+  }
+
+  if (!best?.detail) return undefined;
+
+  const md = new vscode.MarkdownString();
+  md.appendCodeblock(best.detail, 'pivotal');
+  return new vscode.Hover(md);
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +413,17 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   });
 
+  // --- Hover provider for .pivotal files ---
+  const hoverProvider = vscode.languages.registerHoverProvider(
+    { language: 'pivotal' },
+    {
+      provideHover(document: vscode.TextDocument, position: vscode.Position) {
+        const line = document.lineAt(position.line).text;
+        return hoverForLine(line);
+      },
+    },
+  );
+
   // --- Completion provider for .pivotal files ---
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: 'pivotal' },
@@ -409,6 +446,7 @@ export function activate(context: vscode.ExtensionContext): void {
     executeInNotebook,
     executeSelectionInNotebook,
     compileToFile,
+    hoverProvider,
     completionProvider,
   );
 }
