@@ -128,6 +128,16 @@ class _PivotalViewer:
     def _ensure_comm(self):
         if self._comm is not None:
             return
+        # VS Code: use local TCP bridge instead of IPython comm
+        try:
+            from .vscode_bridge import _is_vscode, _VSCodeBridge
+            if _is_vscode():
+                self._comm = _VSCodeBridge()
+                self._comm.on_msg(self._on_msg)
+                return
+        except Exception:
+            pass
+        # JupyterLab / classic Jupyter: use IPython comm
         try:
             from ipykernel.comm import Comm
             self._comm = Comm(target_name='pivotal_viewer')

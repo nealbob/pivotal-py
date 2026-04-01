@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as net from 'net';
+import * as os from 'os';
 import * as path from 'path';
 import { exec } from 'child_process';
 
@@ -302,6 +304,132 @@ function hoverForLine(line: string): vscode.Hover | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// VS Code Bridge — TCP connection to the Python magic layer
+// ---------------------------------------------------------------------------
+
+const BRIDGE_FILE = path.join(os.tmpdir(), 'pivotal_bridge.json');
+
+// Registered handlers receive every inbound message from Python.
+// Phase 3/4 (viewer, explorer) will push handlers here.
+type BridgeMessageHandler = (msg: Record<string, unknown>) => void;
+const _bridgeHandlers: BridgeMessageHandler[] = [];
+
+let _bridgeSocket: net.Socket | null = null;
+let _bridgeStatusBar: vscode.StatusBarItem | null = null;
+
+/** Register a handler for messages arriving from the Python bridge. */
+export function onBridgeMessage(handler: BridgeMessageHandler): void {
+  _bridgeHandlers.push(handler);
+}
+
+/** Send a message to the Python bridge (fire-and-forget). */
+export function sendToBridge(data: Record<string, unknown>): void {
+  if (!_bridgeSocket) { return; }
+  try {
+    _bridgeSocket.write(JSON.stringify(data) + '\n');
+  } catch {
+    _bridgeSocket = null;
+  }
+}
+
+function _setBridgeStatus(state: 'connected' | 'waiting' | 'disconnected'): void {
+  if (!_bridgeStatusBar) { return; }
+  switch (state) {
+    case 'connected':
+      _bridgeStatusBar.text = '$(circle-filled) Pivotal';
+      _bridgeStatusBar.tooltip = 'Pivotal bridge connected';
+      _bridgeStatusBar.backgroundColor = undefined;
+      break;
+    case 'waiting':
+      _bridgeStatusBar.text = '$(circle-outline) Pivotal';
+      _bridgeStatusBar.tooltip = 'Pivotal: waiting for Python kernel';
+      _bridgeStatusBar.backgroundColor = undefined;
+      break;
+    case 'disconnected':
+      _bridgeStatusBar.text = '$(warning) Pivotal';
+      _bridgeStatusBar.tooltip = 'Pivotal bridge disconnected — restart kernel to reconnect';
+      _bridgeStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+      break;
+  }
+  _bridgeStatusBar.show();
+}
+
+function _connectBridge(port: number): void {
+  // Tear down any existing socket before reconnecting.
+  if (_bridgeSocket) {
+    _bridgeSocket.destroy();
+    _bridgeSocket = null;
+  }
+
+  const socket = net.createConnection(port, '127.0.0.1');
+  let recvBuf = '';
+
+  socket.on('connect', () => {
+    _bridgeSocket = socket;
+    _setBridgeStatus('connected');
+  });
+
+  socket.on('data', (chunk: Buffer) => {
+    recvBuf += chunk.toString();
+    const lines = recvBuf.split('\n');
+    recvBuf = lines.pop() ?? '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) { continue; }
+      try {
+        const msg = JSON.parse(trimmed) as Record<string, unknown>;
+        for (const handler of _bridgeHandlers) {
+          try { handler(msg); } catch { /* isolate handler errors */ }
+        }
+      } catch { /* malformed JSON — ignore */ }
+    }
+  });
+
+  socket.on('close', () => {
+    if (_bridgeSocket === socket) { _bridgeSocket = null; }
+    _setBridgeStatus('waiting');
+  });
+
+  socket.on('error', () => {
+    socket.destroy();
+    if (_bridgeSocket === socket) { _bridgeSocket = null; }
+    _setBridgeStatus('disconnected');
+  });
+}
+
+function _tryReadBridgeFile(): void {
+  try {
+    const raw = fs.readFileSync(BRIDGE_FILE, 'utf-8');
+    const info = JSON.parse(raw) as { port?: number; pid?: number };
+    if (typeof info.port === 'number') {
+      _connectBridge(info.port);
+    }
+  } catch { /* file not present yet */ }
+}
+
+function _startBridgeWatcher(context: vscode.ExtensionContext): void {
+  _bridgeStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+  _setBridgeStatus('waiting');
+  context.subscriptions.push(_bridgeStatusBar);
+
+  // Attempt immediate connection if the bridge file already exists
+  // (kernel was running before VS Code opened this workspace).
+  _tryReadBridgeFile();
+
+  // Watch the temp directory for bridge file creation / updates.
+  // fs.watch fires on both create and change events.
+  try {
+    const watcher = fs.watch(os.tmpdir(), (_event, filename) => {
+      if (filename === 'pivotal_bridge.json') {
+        // Small delay to let Python finish the atomic rename.
+        setTimeout(_tryReadBridgeFile, 100);
+      }
+    });
+    context.subscriptions.push({ dispose: () => watcher.close() });
+  } catch { /* fs.watch not available on this platform */ }
+}
+
+// ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
 
@@ -440,6 +568,8 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     ' ', '\t',
   );
+
+  _startBridgeWatcher(context);
 
   context.subscriptions.push(
     executeFile,
