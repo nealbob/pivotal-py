@@ -4,7 +4,6 @@
 
 ## Backlog
 
-- [ ] **Bug: string literals and Python variable references in `assign` expressions** — `newcol = "mystring"` and `newcol = :var + "string"` pass through to `pandas.eval()` incorrectly. String literals should be handled as plain Python assignment (not eval); Python variable references (`:var`) should inject the variable value into the expression before eval. Currently these silently produce wrong results or errors.
 
 ## Ideas
 
@@ -35,10 +34,6 @@
 
   - schema support (read and write) in frictionless / sql
 
-        │          Feature           │                                    Rationale                                     │   
-  ├─────┼────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤    
-  │ 1   │ Error handling             │ Affects every user on every run. A tool marketed as friendlier than Pandas that  │     
-  │     │                            │ surfaces Pandas tracebacks is contradicting itself. Foundational trust.          │   
   ├─────┼────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤     
   │     │ Database / cloud           │ DuckDB already does the heavy lifting. Exposing it in load syntax turns Pivotal  │
   │ 2   │ connectors (DuckDB)        │ from a local-file tool into something usable on real production data. High ROI,  │   
@@ -77,172 +72,186 @@
 
 ---
 
-### Error Handling
+### VS Code Extension — Full Feature Parity with JupyterLab
 
-**Goal:** Catch errors before they reach Pandas/Polars backends. Show friendly, actionable messages instead of Python tracebacks or raw Lark errors.
+#### Architecture
 
-**Architecture overview:**
+Two JupyterLab-specific systems need replacing:
+
+**Transport layer** (IPython comm → WebSocket)
 ```
-User input
-    │
-    ▼
-Phase 2: Lark parse errors    ──►  friendly syntax message with line/column
-    │
-    ▼
-Phase 3: Semantic validator   ──►  table/column checks before code runs
-    │
-    ▼
-Phase 4: Runtime error filter ──►  catch backend tracebacks, translate to Pivotal terms
-    │
-    ▼
-Phase 5: Cleanup              ──►  remove embedded guard clauses from generated code
+Python magic ──WebSocket──▶ VS Code Extension ──postMessage──▶ WebviewPanel
+             ◀──WebSocket──                   ◀──postMessage──
 ```
 
-Each phase is independently deliverable and testable.
+**UI layer** (Lumino widgets → VS Code APIs)
+```
+JupyterLab Explorer (Lumino Widget)  →  VS Code TreeView (Activity Bar sidebar)
+JupyterLab Viewer  (Lumino Widget)   →  VS Code WebviewPanel (editor column right)
+JupyterLab Toolbar (Lumino Widget)   →  VS Code commands + keybindings + menus
+```
 
 ---
 
-#### Phase 1 — Error infrastructure (`pivotal/errors.py`, new file)
+#### Phase 1 — Language Support Polish
+**Effort: Small (~0.5 day)**
 
-**What:** Create the shared error type and display function used by all subsequent phases.
+Syntax highlighting for `.pivotal` files is already complete (`syntaxes/pivotal.tmLanguage.json`). Two small additions remain:
 
-**Files changed:** `pivotal/errors.py` (new), `magic.py` (wire up display)
-
-**Deliverables:**
-- `PivotalError` dataclass with fields: `message`, `line`, `column`, `source_line`, `suggestion`, `error_type`
-- `format_error(err, source_code)` producing output like:
-  ```
-  Pivotal Error (line 4): Unknown column 'reveue' in table 'sales'
-    → Did you mean 'revenue'?
-
-    4 | agg sum reveue as total
-                ^^^^^^
-  ```
-- Plain text output by default; HTML with red highlight when running in JupyterLab
-- Fuzzy "did you mean?" matching via `difflib.get_close_matches` (stdlib, no new dependency)
-- Update `magic.py` to call `format_error()` instead of `print(f"Pivotal Parse Error: {results['error']}")` for existing parse errors
-
-**Tests:** None specific to this phase — it's display infrastructure. Verified visually.
+- **Hover provider** — show keyword documentation on hover. The `detail` strings are already defined in `COMMAND_COMPLETIONS` in `extension.ts`; wire them up via `vscode.languages.registerHoverProvider`.
+- **Snippet Tab-stops** — the snippets in `COMMAND_COMPLETIONS` are already proper VS Code snippet strings (e.g. `group by ${1:grp_col}\n    agg ${2:func}...`) but aren't registered with `InsertTextFormat.Snippet`. Doing so enables Tab-stop navigation through placeholders.
 
 ---
 
-#### Phase 2 — Friendly Lark syntax errors
+#### Phase 2 — Python Communication Layer (WebSocket Bridge)
+**Effort: Medium (3–5 days)**
 
-**What:** Replace raw Lark exception strings with readable messages pointing to the problem line.
+Replaces IPython comm with a local WebSocket server. This is the foundation all subsequent phases depend on.
 
-**Files changed:** `dsl_parser.py` (`DSLParser.parse()`)
+**Python side (`pivotal/magic.py` or new `pivotal/vscode_bridge.py`):**
+- On first send, start an `asyncio` WebSocket server on a random available port (`websockets` library)
+- Write `{"port": N, "pid": P}` to a temp file: `os.path.join(tempfile.gettempdir(), 'pivotal_bridge.json')`
+- Detect VS Code context via `os.environ.get('VSCODE_PID')` and use the bridge instead of comm
+- Message format: **identical JSON to existing comm messages** — `{type, name, data, ...}` — so the viewer JS protocol needs no changes
+- Graceful fallback if `websockets` is not installed: disable viewer, show install prompt
 
-**Deliverables:**
-- Catch specific Lark exception types instead of bare `except Exception`:
+**VS Code extension side:**
+- Watch temp file for creation/changes using `fs.watch` on activation
+- When bridge file appears, read port and open WebSocket connection
+- Route incoming messages to viewer and explorer
+- Route outgoing messages (row limit requests, deletes) back via WebSocket
 
-| Lark exception | User message |
-|---------------|--------------|
-| `UnexpectedCharacters` | "Unrecognised character 'x' at line N, column M" |
-| `UnexpectedToken` (normal) | "Unexpected token '{token}' — expected one of: filter, select, ..." |
-| `UnexpectedToken` where token is `$END` | "Unexpected end of input — is a statement incomplete?" |
-| `UnexpectedToken` where token is `INDENT`/`DEDENT` | "Indentation error — check sub-statements are correctly indented" |
-| `UnexpectedEOF` | "Unexpected end of input — is a statement incomplete?" |
-| `VisitError` | Unwrap to inner exception, then re-classify |
-
-- All cases return a `PivotalError` (not a raw string) with `.line` and `.column` populated
-- Phase 1's `format_error()` handles display automatically
-
-**Tests:** `tests/test_errors.py` (new file)
-- Malformed syntax inputs → assert correct `PivotalError.message` and `.line`
-- Bad indentation, unknown token, truncated statement
-- Full existing test suite passes (no regressions)
+**Bridge file approach** means this works transparently whether Python is started via CLI, Jupyter Interactive Window, or any other mechanism.
 
 ---
 
-#### Phase 3 — Semantic validator: table and column checking
+#### Phase 3 — WebView Viewer Panel
+**Effort: Large (5–8 days)**
 
-**What:** Walk the parsed AST before code generation and validate table names and column names against the current session namespace. The most user-visible improvement.
+The right-hand data viewer, opened as a split editor panel (`vscode.ViewColumn.Two`).
 
-**Files changed:** `dsl_parser.py` (new `validate()` method), `magic.py` (call validate between parse and generate)
-
-**Deliverables:**
-
-*3a. Table existence* — for `from`, `merge`, `concat`, `apply`: check table name exists in `user_ns` or was defined by an earlier statement in the same cell (the within-cell forward pass — see edge case note below).
-```
-Error: Table 'slaes' not found.
-  → Available tables: sales, customers, orders
-  → Did you mean 'sales'?
-```
-
-*3b. Column name validation* — for `filter`, `select`, `drop`, `sort`, `group by`, `agg`, `assign`, `rename`, `cast`, `merge on`: check all column references exist by tracking the current column set through the pipeline:
-
-| Statement | Effect on column set |
-|-----------|---------------------|
-| `load` / `df from` | Seed from `user_ns` DataFrame columns |
-| `filter`, `sort`, `fillna`, `dropna`, `distinct` | Unchanged |
-| `select col1, col2` | Becomes `{col1, col2}` |
-| `drop col1` | Remove col1 |
-| `rename old as new` | Replace old → new |
-| `group by x` + `agg sum y as z` | Becomes `{x, z}` |
-| `assign new_col = ...` | Add new_col |
-| `cast col as type` | Unchanged |
-| `pivot` / `unpivot` | Reset to unknown (skip subsequent column checks) |
-| `merge` | Union of both tables' columns |
-
-```
-Error (line 4): Unknown column 'reveue' in table 'sales'
-  → Did you mean 'revenue'?
-
-  4 | agg sum reveue as total
-              ^^^^^^
+**VS Code mechanism:**
+```typescript
+vscode.window.createWebviewPanel(
+  'pivotalViewer', 'Pivotal Viewer',
+  vscode.ViewColumn.Two,
+  { enableScripts: true, retainContextWhenHidden: true }
+)
 ```
 
-*3c. Merge key validation* — check `on` / `left_on` / `right_on` columns exist in both left and right tables.
+**Portability of `viewer.ts` components:**
 
-**Edge case — within-cell forward pass:** The validator runs before any code executes, so a table created by `load sales "data.csv"` in line 1 is not yet in `user_ns` when validating `df summary from sales` in line 3 of the same cell. The validator makes a first pass to collect all table names defined by `load` and `df` statements in the cell, then uses this set to suppress false "table not found" errors. Column checking for within-cell-defined tables is skipped (columns not yet known).
+| Component | Reuse % | Notes |
+|---|---|---|
+| AG Grid setup, column defs, filters | ~85% | Remove Lumino imports; replace widget attach with HTML |
+| `SelectPopupFilter` (categorical) | 100% | Pure AG Grid — no changes |
+| Chart rendering (zoom, pan, canvas modes) | ~90% | Replace Lumino signals with `window.addEventListener` |
+| GT table iframe rendering | ~90% | Identical — iframe works in webview |
+| Navigation history (back/forward) | 100% | No changes |
+| Footer (row limit, row count, show all) | ~95% | Replace comm.send with `vscode.postMessage` |
+| Clipboard (TSV+HTML, PNG, HTML) | 100% | Clipboard API identical |
+| Float formatter, zoom toolbar | 100% | No changes |
 
-**Validation is skipped silently** when the source table cannot be resolved — no false positives.
+**What must be rewritten:**
+- `Widget` class hierarchy → flat HTML page with JS
+- Panel lifecycle → VS Code `onDidDispose` / `onDidChangeViewState` events
+- Communication → `vscode.acquireVsCodeApi().postMessage()` and `window.addEventListener('message', ...)`
+- Colours → VS Code CSS variables (`--vscode-editor-background`, `--vscode-foreground`, etc.) fed into AG Grid's CSS variable theming API
 
-**Blocking vs non-blocking:** Unknown column/table → block execution. Warnings (e.g. type mismatches) → print but allow execution.
-
-**Tests:** `tests/test_errors.py`
-- Wrong column name → correct error message and line number
-- Wrong table name → correct error + "did you mean?" suggestion
-- Same-cell load+use → no false positive
-- Valid code with all checks → passes cleanly
-- Full existing test suite passes (no regressions)
+**Bundling:** webpack config already exists in the JupyterLab extension — adapt for `editors/vscode/out/`.
 
 ---
 
-#### Phase 4 — Runtime error filter
+#### Phase 4 — TreeView Explorer Panel
+**Effort: Medium (3–4 days)**
 
-**What:** Safety net for errors that slip past Phase 3 (e.g. columns that only exist after runtime transforms). Intercept `shell.run_cell()` errors and translate known Python exception patterns to Pivotal messages, suppressing the traceback.
+The left-panel object inspector. Unlike the viewer, `explorer.ts` cannot be ported — it must be rewritten using VS Code's `TreeDataProvider` API. Pivotal gets its own icon in the VS Code activity bar.
 
-**Files changed:** `magic.py`
+**`package.json` additions:**
+```json
+"viewsContainers": {
+  "activitybar": [{ "id": "pivotal-explorer", "title": "Pivotal", "icon": "icon.png" }]
+},
+"views": {
+  "pivotal-explorer": [
+    { "id": "pivotalData",   "name": "Data"   },
+    { "id": "pivotalCharts", "name": "Charts" },
+    { "id": "pivotalTables", "name": "Tables" }
+  ]
+}
+```
 
-**Deliverables:**
-- After `shell.run_cell()`, inspect `result.error_in_exec` before IPython displays it:
+**Tree structure:**
+```
+▼ sales  (5000 × 12)
+    region   — categorical
+    amount   — numeric
+    date     — datetime
+  revenue_chart
+  summary_table
+```
 
-| Python exception pattern | Pivotal message |
-|--------------------------|----------------|
-| `KeyError: 'col_name'` from Pandas/Polars | "Column 'col_name' not found" |
-| `NameError: name 'table' is not defined` | "Table 'table' not found — was it loaded in a previous cell?" |
-| `FileNotFoundError` | "File not found: [path]" |
-| `TypeError: not supported between ... 'str' and 'int'` | "Type mismatch — check column types in your expression" |
-
-- Matched errors → suppress traceback, show `PivotalError` via `format_error()`
-- Unmatched errors → let IPython display the traceback normally (genuine errors from `python...end` blocks should still surface)
-
-**Tests:** `tests/test_errors.py`
-- Known exception patterns → translated message, no traceback
-- Unknown exception patterns → traceback passes through unchanged
+- `getChildren()` returns DataFrames/Charts/Tables or column children
+- `onDidChangeTreeData` fires on new WebSocket payload
+- Click to view → focuses WebviewPanel and renders that item
+- Inline action buttons: eye (view), trash (delete)
+- Status bar item: `df: sales` — updates on `current_table` message
 
 ---
 
-#### Phase 5 — Remove embedded guard clauses from generated code
+#### Phase 5 — GUI Dialogs
+**Effort: Medium (2–3 days)**
 
-**What:** Now that Phases 3 and 4 handle validation, remove the inline `if 'table' not in locals()... raise NameError(...)` and `if not isinstance(...)... raise TypeError(...)` guards that are currently baked into generated Pandas/Polars code. Generated code becomes clean and readable.
+JupyterLab's Python-driven widget GUIs replaced with VS Code QuickPick/InputBox flows that generate and insert Pivotal code. No Python-side GUI code needed.
 
-**Files changed:** `dsl_parser.py` — `generate_copy_table_pandas`, `generate_validate_table_pandas`, and their Polars equivalents
+**Load Dataset** (`Ctrl+Shift+L`):
+1. `showOpenDialog` — file picker (CSV, XLSX, Parquet)
+2. `InputBox` — table name
+3. Insert `load <name> "<path>"` at cursor
 
-**Deliverables:**
-- Remove all embedded `raise NameError` / `raise TypeError` guard clauses from code generators
-- Generated code for `df summary from sales` becomes simply `summary = sales.copy()` with no guards
-- Keyword collision validation moves from the Lark transformer into the Phase 3 semantic validator
+**Save Package** (`Ctrl+Shift+S`):
+1. `QuickPick` (multi-select) — DataFrames/charts/tables from TreeView
+2. `InputBox` — package name
+3. `showOpenDialog` (directory) — output path
+4. `QuickPick` — format (parquet / csv / xlsx)
+5. Insert generated `save` block
 
-**Tests:** Full existing test suite passes. Manually verify that a missing-table error still produces a clean Pivotal message (not a traceback) via Phase 3/4.
+**Code Export** (`Ctrl+Shift+E`):
+1. `QuickPick` — backend (pandas / polars / duckdb / sql / pivotal)
+2. Run `python -m pivotal --compile --backend <X> "<file>"` → open result
+
+**Plot GUI** — QuickPick sequence (chart type → x col → y col → optional group). Columns populated from `pivotal_autocomplete.json`.
+
+**Pivot GUI** — QuickPick sequence (group col → value col → agg function). Generates `group by` / `agg` block.
+
+---
+
+#### Phase 6 — Notebook Integration Polish
+**Effort: Small (2–3 days) | Risk: Medium**
+
+- Suppress raw comm output in the interactive window now that the bridge handles display
+- Use VS Code Jupyter extension API (`ms-toolsai.jupyter`) to detect kernel state and auto-connect bridge when available — degrade gracefully if not present
+- Status bar indicator: bridge connection state (connected / waiting / disconnected)
+- Handle kernel restart: watch for WebSocket disconnect, re-watch bridge file, clear explorer
+
+---
+
+#### Risks
+
+| Risk | Mitigation |
+|---|---|
+| `websockets` not installed in user's Python env | Disable viewer gracefully, show one-time install prompt |
+| VS Code Jupyter API changes between versions | Bridge file is primary transport; Jupyter API is enhancement only |
+| AG Grid bundle size (~1.5 MB) | Community edition only; tree-shake; load lazily on first render |
+| `retainContextWhenHidden` memory cost | Call `gridApi.destroy()` on hide if memory is an issue; reconstruct from cached payload |
+
+---
+
+#### What Does NOT Change
+
+- `magic.py` message format — identical JSON payloads, viewer JS speaks the same protocol
+- `pivotal_autocomplete.json` schema — already used by both extensions
+- DSL compiler, error handling, Polars/DuckDB backends
+- Existing VS Code commands (executeFile, compileToFile, etc.)
+
+---
