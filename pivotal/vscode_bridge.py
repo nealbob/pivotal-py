@@ -56,6 +56,7 @@ class _VSCodeBridge:
         self._conn_lock = threading.Lock()
         self._port: Optional[int] = None
         self._on_msg_cb: Optional[Callable] = None
+        self._pending: list = []  # messages buffered while waiting for VS Code to connect
         self._start()
 
     # ------------------------------------------------------------------
@@ -64,18 +65,21 @@ class _VSCodeBridge:
     # ------------------------------------------------------------------
 
     def send(self, data: dict) -> None:
-        """Send a JSON message to the VS Code extension (non-blocking)."""
+        """Send a JSON message to the VS Code extension (non-blocking).
+
+        If VS Code has not connected yet the message is buffered and flushed
+        automatically when the connection is established — this handles the
+        common case where Python sends data before the extension's file-watcher
+        has had time to connect.
+        """
         with self._conn_lock:
             conn = self._conn
         if conn is None:
-            return
-        try:
-            line = (json.dumps(data, default=str) + '\n').encode()
-            conn.sendall(line)
-        except Exception:
+            # VS Code not connected yet — buffer for flush on connect
             with self._conn_lock:
-                if self._conn is conn:
-                    self._conn = None
+                self._pending.append(data)
+            return
+        self._send_to(conn, data)
 
     def on_msg(self, callback: Callable) -> None:
         """Register a callback for messages received from the VS Code extension.
@@ -115,6 +119,16 @@ class _VSCodeBridge:
             f.write(payload)
         os.replace(tmp, BRIDGE_FILE)
 
+    def _send_to(self, conn: socket.socket, data: dict) -> None:
+        """Write one JSON line to conn; clears self._conn on error."""
+        try:
+            line = (json.dumps(data, default=str) + '\n').encode()
+            conn.sendall(line)
+        except Exception:
+            with self._conn_lock:
+                if self._conn is conn:
+                    self._conn = None
+
     def _accept_loop(self) -> None:
         """Accept one client at a time; re-wait after each disconnect."""
         while True:
@@ -124,6 +138,13 @@ class _VSCodeBridge:
                 break
             with self._conn_lock:
                 self._conn = conn
+                pending, self._pending = list(self._pending), []
+            # Flush messages that were sent before the extension connected
+            for data in pending:
+                self._send_to(conn, data)
+                with self._conn_lock:
+                    if self._conn is not conn:
+                        break  # connection dropped mid-flush
             threading.Thread(target=self._read_loop, args=(conn,),
                              name='pivotal-bridge-read', daemon=True).start()
 
