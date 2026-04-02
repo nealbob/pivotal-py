@@ -585,21 +585,17 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     --ag-border-color: var(--vscode-panel-border, #444);
     --ag-header-column-separator-color: var(--vscode-panel-border, #444);
     --ag-font-size: 12px;
-    /* Popup/menu background — AG Grid leaves this transparent by default */
-    --ag-menu-background-color: var(--vscode-editorWidget-background, #fff);
-    --ag-popup-background-color: var(--vscode-editorWidget-background, #fff);
   }
-  /* Solid background on filter/menu popups — scope to .ag-popup-child so we
-     don't accidentally style the filter icon elements inside header cells */
-  .ag-theme-alpine .ag-popup-child,
-  .ag-theme-alpine .ag-menu,
-  .ag-theme-alpine .ag-popup-child .ag-filter {
+  /* Solid background on filter/menu popups.
+     Scope under .ag-popup (the overlay container AG Grid creates only when a
+     popup is actually open) so header icon elements are never affected. */
+  .ag-theme-alpine .ag-popup .ag-popup-child {
     background: var(--vscode-editorWidget-background, #fff) !important;
     border: 1px solid var(--vscode-panel-border, #444);
   }
   /* Padding to avoid text clashing with the magnifying-glass icon in text filters */
-  .ag-theme-alpine .ag-filter-body input[type="text"],
-  .ag-theme-alpine .ag-input-field-input {
+  .ag-theme-alpine .ag-popup .ag-filter-body input[type="text"],
+  .ag-theme-alpine .ag-popup .ag-input-field-input {
     padding-left: 24px !important;
   }
   .pv-empty { display: flex; align-items: center; justify-content: center;
