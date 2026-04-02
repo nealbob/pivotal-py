@@ -291,7 +291,9 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
 
         elif t == 'merge':
             right_table = node.get('right_table')
-            kwargs = node.get('kwargs', {})
+            # The parser stores join keys in 'keys' (a list) and kwargs as a
+            # string, not a dict.  Read keys directly from the node.
+            keys = node.get('keys') or []
 
             # If current_cols is unknown but the left table is in the namespace,
             # seed it now so we can validate join keys.
@@ -306,23 +308,9 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
                     errors.append(err)
 
             # Check join keys against the left table (current_cols)
-            on = kwargs.get('on')
-            if on:
-                on_list = [on] if isinstance(on, str) else list(on)
+            if keys:
+                on_list = [keys] if isinstance(keys, str) else list(keys)
                 errors.extend(_col_errors(on_list, current_cols, tbl, 'merge on'))
-
-            left_on = kwargs.get('left_on')
-            if left_on:
-                left_on_list = [left_on] if isinstance(left_on, str) else list(left_on)
-                errors.extend(_col_errors(left_on_list, current_cols, tbl, 'merge left_on'))
-
-            # Check right_on against the right table's columns
-            right_on = kwargs.get('right_on')
-            if right_on and right_table and right_table in namespace:
-                right_cols = _df_columns(right_table, namespace)
-                if right_cols:
-                    right_on_list = [right_on] if isinstance(right_on, str) else list(right_on)
-                    errors.extend(_col_errors(right_on_list, right_cols, right_table, 'merge right_on'))
 
             current_cols = None   # merged column set is not statically predictable
 

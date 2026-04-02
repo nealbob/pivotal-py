@@ -2,7 +2,7 @@
   "name": "pivotal-language",
   "displayName": "Pivotal",
   "description": "Syntax highlighting and execution support for the Pivotal data transformation DSL",
-  "version": "0.4.2",
+  "version": "0.4.6",
   "publisher": "pivotal",
   "engines": {
     "vscode": "^1.75.0"

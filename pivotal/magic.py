@@ -1120,7 +1120,24 @@ class PivotalMagics(Magics):
     def input_transform(self, lines):
         """
         Transform input if auto_pivotal is enabled and code parses as Pivotal.
+
+        Also normalises %%pivotal cell-magic syntax to an explicit
+        run_cell_magic() call.  VS Code's Interactive Window can mangle cell-
+        magic dispatch for non-empty cells (the body gets compiled as raw
+        Python instead of being passed to the handler).  Rewriting to
+        run_cell_magic() here — before cell-magic dispatch — guarantees the
+        magic handler is always invoked correctly regardless of host environment.
         """
+        import json as _json
+        if lines and lines[0].startswith('%%pivotal'):
+            first = lines[0].rstrip('\n\r')
+            magic_arg = first[len('%%pivotal'):].strip()
+            body = ''.join(lines[1:])
+            return [
+                f'get_ipython().run_cell_magic("pivotal", '
+                f'{_json.dumps(magic_arg)}, {_json.dumps(body)})\n'
+            ]
+
         if not self.auto_pivotal:
             return lines
 

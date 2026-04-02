@@ -315,6 +315,7 @@ type BridgeMessageHandler = (msg: Record<string, unknown>) => void;
 const _bridgeHandlers: BridgeMessageHandler[] = [];
 
 let _bridgeSocket: net.Socket | null = null;
+let _bridgePort: number | null = null;   // port of the currently connected (or connecting) bridge
 let _bridgeStatusBar: vscode.StatusBarItem | null = null;
 
 /** Register a handler for messages arriving from the Python bridge. */
@@ -355,11 +356,18 @@ function _setBridgeStatus(state: 'connected' | 'waiting' | 'disconnected'): void
 }
 
 function _connectBridge(port: number): void {
+  // Skip if already connecting or connected to this port.
+  // _bridgePort is set immediately when we start connecting (before the socket
+  // fires 'connect'), so checking port alone is sufficient to avoid racing
+  // with an in-flight connection attempt.
+  if (_bridgePort === port) { return; }
+
   // Tear down any existing socket before reconnecting.
   if (_bridgeSocket) {
     _bridgeSocket.destroy();
     _bridgeSocket = null;
   }
+  _bridgePort = port;
 
   const socket = net.createConnection(port, '127.0.0.1');
   let recvBuf = '';
@@ -387,12 +395,14 @@ function _connectBridge(port: number): void {
 
   socket.on('close', () => {
     if (_bridgeSocket === socket) { _bridgeSocket = null; }
+    if (_bridgePort === port) { _bridgePort = null; }
     _setBridgeStatus('waiting');
   });
 
   socket.on('error', () => {
     socket.destroy();
     if (_bridgeSocket === socket) { _bridgeSocket = null; }
+    if (_bridgePort === port) { _bridgePort = null; }
     _setBridgeStatus('disconnected');
   });
 }
@@ -417,16 +427,24 @@ function _startBridgeWatcher(context: vscode.ExtensionContext): void {
   _tryReadBridgeFile();
 
   // Watch the temp directory for bridge file creation / updates.
-  // fs.watch fires on both create and change events.
+  // On Linux/WSL2 the filename argument is not guaranteed to be non-null
+  // (Node.js docs: "filename is not always guaranteed to be provided").
+  // Guard against null and treat any change in the tmp dir as a potential
+  // bridge file update.
   try {
     const watcher = fs.watch(os.tmpdir(), (_event, filename) => {
-      if (filename === 'pivotal_bridge.json') {
+      if (!filename || filename === 'pivotal_bridge.json') {
         // Small delay to let Python finish the atomic rename.
         setTimeout(_tryReadBridgeFile, 100);
       }
     });
     context.subscriptions.push({ dispose: () => watcher.close() });
   } catch { /* fs.watch not available on this platform */ }
+
+  // Polling fallback: check every 2 s in case fs.watch misses the event
+  // (common on WSL2 and some Linux configurations).
+  const poll = setInterval(_tryReadBridgeFile, 2000);
+  context.subscriptions.push({ dispose: () => clearInterval(poll) });
 }
 
 // ---------------------------------------------------------------------------
@@ -567,6 +585,21 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     --ag-border-color: var(--vscode-panel-border, #444);
     --ag-header-column-separator-color: var(--vscode-panel-border, #444);
     --ag-font-size: 12px;
+    /* Popup/menu background — AG Grid leaves this transparent by default */
+    --ag-menu-background-color: var(--vscode-editorWidget-background, #fff);
+    --ag-popup-background-color: var(--vscode-editorWidget-background, #fff);
+  }
+  /* Solid background on filter popups (AG Grid v33 uses these classes) */
+  .ag-theme-alpine .ag-filter,
+  .ag-theme-alpine .ag-popup-child,
+  .ag-theme-alpine .ag-menu {
+    background: var(--vscode-editorWidget-background, #fff) !important;
+    border: 1px solid var(--vscode-panel-border, #444);
+  }
+  /* Padding to avoid text clashing with the magnifying-glass icon in text filters */
+  .ag-theme-alpine .ag-filter-body input[type="text"],
+  .ag-theme-alpine .ag-input-field-input {
+    padding-left: 24px !important;
   }
   .pv-empty { display: flex; align-items: center; justify-content: center;
     height: 100%; opacity: 0.4; font-size: 13px; }
