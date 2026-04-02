@@ -589,10 +589,11 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     --ag-menu-background-color: var(--vscode-editorWidget-background, #fff);
     --ag-popup-background-color: var(--vscode-editorWidget-background, #fff);
   }
-  /* Solid background on filter popups (AG Grid v33 uses these classes) */
-  .ag-theme-alpine .ag-filter,
+  /* Solid background on filter/menu popups — scope to .ag-popup-child so we
+     don't accidentally style the filter icon elements inside header cells */
   .ag-theme-alpine .ag-popup-child,
-  .ag-theme-alpine .ag-menu {
+  .ag-theme-alpine .ag-menu,
+  .ag-theme-alpine .ag-popup-child .ag-filter {
     background: var(--vscode-editorWidget-background, #fff) !important;
     border: 1px solid var(--vscode-panel-border, #444);
   }
