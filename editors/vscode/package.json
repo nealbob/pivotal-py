@@ -2,7 +2,7 @@
   "name": "pivotal-language",
   "displayName": "Pivotal",
   "description": "Syntax highlighting and execution support for the Pivotal data transformation DSL",
-  "version": "0.4.6",
+  "version": "0.5.5",
   "publisher": "pivotal",
   "engines": {
     "vscode": "^1.75.0"
@@ -17,9 +17,24 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onLanguage:pivotal"
+    "onLanguage:pivotal",
+    "onView:pivotalExplorer"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pivotal-explorer",
+          "title": "Pivotal",
+          "icon": "icon-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "pivotal-explorer": [
+        { "id": "pivotalExplorer", "name": "Pivotal" }
+      ]
+    },
     "languages": [
       {
         "id": "pivotal",
@@ -64,17 +79,63 @@
         "icon": "$(run-above)"
       },
       {
-        "command": "pivotal.compileToFile",
-        "title": "Pivotal: Compile to Python File",
-        "icon": "$(export)"
-      },
-      {
         "command": "pivotal.showViewer",
         "title": "Pivotal: Show Viewer",
         "icon": "$(preview)"
+      },
+      {
+        "command": "pivotal.explorer.view",
+        "title": "View",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "pivotal.explorer.delete",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pivotal.loadDataset",
+        "title": "Pivotal: Load Dataset",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "pivotal.savePackage",
+        "title": "Pivotal: Save Package",
+        "icon": "$(save-all)"
+      },
+      {
+        "command": "pivotal.codeExport",
+        "title": "Pivotal: Compile to Python or SQL",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "pivotal.plotGui",
+        "title": "Pivotal: Insert Plot (GUI)",
+        "icon": "$(graph-line)"
+      },
+      {
+        "command": "pivotal.pivotGui",
+        "title": "Pivotal: Insert Pivot Table (GUI)",
+        "icon": "$(group-by-ref-type)"
+      },
+      {
+        "command": "pivotal.selectPythonPath",
+        "title": "Pivotal: Select Python Environment",
+        "icon": "$(terminal)"
       }
     ],
     "keybindings": [
+      {
+        "command": "pivotal.executeInNotebook",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorLangId == pivotal"
+      },
+      {
+        "command": "pivotal.executeSelectionInNotebook",
+        "key": "shift+enter",
+        "when": "editorLangId == pivotal"
+      },
       {
         "command": "pivotal.executeFile",
         "key": "ctrl+f5",
@@ -86,6 +147,24 @@
         "key": "ctrl+shift+f5",
         "mac": "cmd+shift+f5",
         "when": "editorLangId == pivotal && editorHasSelection"
+      },
+      {
+        "command": "pivotal.loadDataset",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "editorLangId == pivotal"
+      },
+      {
+        "command": "pivotal.savePackage",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorLangId == pivotal"
+      },
+      {
+        "command": "pivotal.codeExport",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorLangId == pivotal"
       }
     ],
     "menus": {
@@ -101,9 +180,19 @@
           "group": "navigation@2"
         },
         {
-          "command": "pivotal.compileToFile",
+          "command": "pivotal.codeExport",
           "when": "resourceLangId == pivotal",
           "group": "navigation@3"
+        },
+        {
+          "command": "pivotal.plotGui",
+          "when": "resourceLangId == pivotal",
+          "group": "navigation@4"
+        },
+        {
+          "command": "pivotal.pivotGui",
+          "when": "resourceLangId == pivotal",
+          "group": "navigation@5"
         }
       ],
       "editor/context": [
@@ -111,13 +200,128 @@
           "command": "pivotal.executeSelectionInNotebook",
           "when": "editorHasSelection",
           "group": "pivotal@1"
+        },
+        {
+          "command": "pivotal.loadDataset",
+          "when": "resourceLangId == pivotal",
+          "group": "pivotal@2"
+        },
+        {
+          "command": "pivotal.savePackage",
+          "when": "resourceLangId == pivotal",
+          "group": "pivotal@3"
+        },
+        {
+          "command": "pivotal.plotGui",
+          "when": "resourceLangId == pivotal",
+          "group": "pivotal@5"
+        },
+        {
+          "command": "pivotal.pivotGui",
+          "when": "resourceLangId == pivotal",
+          "group": "pivotal@6"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "pivotal.loadDataset",
+          "when": "view == pivotalExplorer",
+          "group": "1_data@1"
+        },
+        {
+          "command": "pivotal.savePackage",
+          "when": "view == pivotalExplorer",
+          "group": "1_data@2"
+        },
+        {
+          "command": "pivotal.showViewer",
+          "when": "view == pivotalExplorer",
+          "group": "1_data@3"
+        },
+        {
+          "command": "pivotal.plotGui",
+          "when": "view == pivotalExplorer",
+          "group": "2_gui@1"
+        },
+        {
+          "command": "pivotal.pivotGui",
+          "when": "view == pivotalExplorer",
+          "group": "2_gui@2"
+        },
+        {
+          "command": "pivotal.executeFile",
+          "when": "view == pivotalExplorer",
+          "group": "3_run@1"
+        },
+        {
+          "command": "pivotal.executeInNotebook",
+          "when": "view == pivotalExplorer",
+          "group": "3_run@2"
+        },
+        {
+          "command": "pivotal.codeExport",
+          "when": "view == pivotalExplorer",
+          "group": "3_run@3"
+        },
+        {
+          "command": "pivotal.selectPythonPath",
+          "when": "view == pivotalExplorer",
+          "group": "4_config@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pivotal.explorer.view",
+          "when": "viewItem == pivotalDataframe || viewItem == pivotalChart || viewItem == pivotalTable",
+          "group": "inline@1"
+        },
+        {
+          "command": "pivotal.explorer.delete",
+          "when": "viewItem == pivotalDataframe || viewItem == pivotalChart || viewItem == pivotalTable",
+          "group": "inline@2"
         }
       ]
+    },
+    "configuration": {
+      "title": "Pivotal",
+      "properties": {
+        "pivotal.pythonPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the Python executable used for Pivotal compile/export commands. Leave empty to auto-detect from the active Jupyter kernel or VS Code Python extension.\n\nExample: `/home/user/miniconda3/envs/myenv/bin/python`"
+        },
+        "pivotal.viewer": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Send results to the Pivotal Viewer panel after each execution. Set to `false` to disable the viewer and use `show` in the DSL for inline output instead. Can be overridden per-session with `%pivotal_set viewer=false`."
+        },
+        "pivotal.backend": {
+          "type": "string",
+          "enum": ["pandas", "polars", "duckdb", "sql"],
+          "default": "pandas",
+          "markdownDescription": "Default code-generation backend for interactive execution. Can be overridden per-session with `%pivotal_set backend=duckdb`."
+        },
+        "pivotal.viewerFont": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "markdownDescription": "Default font size scale for the DataFrame viewer (1.0 = normal, 0.8 = smaller, 1.2 = larger). Can be overridden per-session with `%pivotal_set viewer_font=0.9`."
+        },
+        "pivotal.viewerNumFormat": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 15,
+          "markdownDescription": "Default number of significant digits for float columns in the DataFrame viewer. Set to 0 to disable formatting. Can be overridden per-session with `%pivotal_set viewer_num_format=3`."
+        }
+      }
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "watch": "tsc -watch -p tsconfig.json"
+    "watch": "tsc -watch -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && vsce package --no-dependencies && code --install-extension \"$(ls -t pivotal-language-*.vsix | head -1)\" --force"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

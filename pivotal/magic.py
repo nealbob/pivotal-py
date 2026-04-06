@@ -167,7 +167,7 @@ class _PivotalViewer:
 
     def send_dataframe(self, name: str, df, limit: int = None,
                        viewer_font: float = None, viewer_num_format: int = None,
-                       use_visions: bool = False):
+                       use_visions: bool = False, hidden: bool = False):
         self._ensure_comm()
         if self._comm is None:
             return
@@ -197,6 +197,7 @@ class _PivotalViewer:
                 'truncated': truncated,
                 'viewer_font': viewer_font,
                 'viewer_num_format': viewer_num_format,
+                'hidden': hidden,
             })
         except Exception:
             pass
@@ -373,7 +374,9 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     for node in results:
         if not isinstance(node, dict):
             continue
-        if node.get('type') in ('plot', 'agg_plot'):
+        if node.get('type') == 'delete':
+            viewer.send_delete(node['name'])
+        elif node.get('type') in ('plot', 'agg_plot'):
             plot_nodes.append(node)
         elif node.get('type') == 'gt_table':
             gt_table_nodes.append(node)
@@ -412,7 +415,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
                 viewer.send_dataframe(df_name, df,
                                       viewer_font=(settings or {}).get('viewer_font'),
                                       viewer_num_format=(settings or {}).get('viewer_num_format'),
-                                      use_visions=(settings or {}).get('use_visions', False))
+                                      use_visions=(settings or {}).get('use_visions', False),
+                                      hidden=True)
         if isinstance(fig, mfig.Figure):
             canvas_meta = _build_canvas_meta(fig, settings or {},
                                              canvas_override=node.get('canvas'))
@@ -1387,19 +1391,6 @@ class PivotalMagics(Magics):
         if not cell.endswith('\n'):
             cell += '\n'
 
-        # Pre-process top-level `del <name>` commands (not inside python: blocks)
-        import re as _re
-        del_names = []
-        kept_lines = []
-        for _line in cell.split('\n'):
-            _m = _re.match(r'^delete\s+(\w+)\s*$', _line)
-            if _m:
-                del_names.append(_m.group(1))
-            else:
-                kept_lines.append(_line)
-        if del_names:
-            cell = '\n'.join(kept_lines)
-
         results = self.parser.parse(cell)
 
         if isinstance(results, dict) and 'error' in results:
@@ -1447,11 +1438,6 @@ class PivotalMagics(Magics):
                     self._viewer.send_current_table(self.shell.user_ns.get('__table_name__'))
                 except Exception as e:
                     print(f"[Pivotal] viewer error: {e}")
-
-        # Execute any del commands collected above
-        for _name in del_names:
-            self.shell.user_ns.pop(_name, None)
-            self._viewer.send_delete(_name)
 
         self.parser.update_autocomplete_info(self.shell.user_ns)
 

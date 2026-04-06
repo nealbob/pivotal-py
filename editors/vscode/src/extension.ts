@@ -355,6 +355,19 @@ function _setBridgeStatus(state: 'connected' | 'waiting' | 'disconnected'): void
   _bridgeStatusBar.show();
 }
 
+function _injectDefaultSettings(): void {
+  const cfg = vscode.workspace.getConfiguration('pivotal');
+  const viewer         = cfg.get<boolean>('viewer', true);
+  const backend        = cfg.get<string>('backend', 'pandas');
+  const viewerFont     = cfg.get<number>('viewerFont', 1.0);
+  const viewerNumFmt   = cfg.get<number>('viewerNumFormat', 5);
+  const line = `viewer=${viewer} backend=${backend} viewer_font=${viewerFont} viewer_num_format=${viewerNumFmt}`;
+  const cell = `import pivotal; get_ipython().run_line_magic('pivotal_set', ${JSON.stringify(line)})`;
+  vscode.commands.executeCommand('jupyter.execSelectionInteractive', cell).then(
+    undefined, () => { /* interactive window not open yet — silently ignore */ }
+  );
+}
+
 function _connectBridge(port: number): void {
   // Skip if already connecting or connected to this port.
   // _bridgePort is set immediately when we start connecting (before the socket
@@ -375,6 +388,7 @@ function _connectBridge(port: number): void {
   socket.on('connect', () => {
     _bridgeSocket = socket;
     _setBridgeStatus('connected');
+    _injectDefaultSettings();
   });
 
   socket.on('data', (chunk: Buffer) => {
@@ -460,9 +474,10 @@ function _generateNonce(): string {
   return nonce;
 }
 
-function _getOrCreateViewerPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
+function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = false): vscode.WebviewPanel {
   if (_viewerPanel) {
-    _viewerPanel.reveal(vscode.ViewColumn.Two, true);
+    // reveal=true: user explicitly opened the viewer — show it where it already is, no column move
+    if (reveal) { _viewerPanel.reveal(undefined, false); }
     return _viewerPanel;
   }
   const panel = vscode.window.createWebviewPanel(
@@ -474,6 +489,14 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext): vscode.Webvi
   panel.webview.html = _buildViewerHtml(panel.webview);
   panel.webview.onDidReceiveMessage((msg: Record<string, unknown>) => {
     sendToBridge(msg);
+    // Keep explorer in sync with deletions/clears initiated from the viewer
+    if (msg.type === 'delete') {
+      _explorerItems.delete(msg.name as string);
+      _refreshExplorer();
+    } else if (msg.type === 'clear') {
+      _explorerItems.clear();
+      _refreshExplorer();
+    }
   }, undefined, context.subscriptions);
   panel.onDidDispose(() => { _viewerPanel = null; }, undefined, context.subscriptions);
   _viewerPanel = panel;
@@ -575,29 +598,13 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
   .pv-page-chart-img { position: absolute; }
-  /* AG Grid theme overrides to follow VS Code colours */
-  .ag-theme-alpine {
-    --ag-background-color: var(--vscode-editor-background);
-    --ag-foreground-color: var(--vscode-editor-foreground);
-    --ag-header-background-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-    --ag-odd-row-background-color: var(--vscode-editor-background);
-    --ag-row-hover-color: var(--vscode-list-hoverBackground, rgba(255,255,255,0.05));
-    --ag-border-color: var(--vscode-panel-border, #444);
-    --ag-header-column-separator-color: var(--vscode-panel-border, #444);
-    --ag-font-size: 12px;
-  }
-  /* Solid background on filter/menu popups.
-     Scope under .ag-popup (the overlay container AG Grid creates only when a
-     popup is actually open) so header icon elements are never affected. */
+  /* AG Grid */
+  .ag-theme-alpine { --ag-font-size: 12px; }
   .ag-theme-alpine .ag-popup .ag-popup-child {
-    background: var(--vscode-editorWidget-background, #fff) !important;
-    border: 1px solid var(--vscode-panel-border, #444);
+    background: #ffffff !important; border: 1px solid #d4d4d4; color: #1f1f1f !important;
   }
-  /* Padding to avoid text clashing with the magnifying-glass icon in text filters */
-  .ag-theme-alpine .ag-popup .ag-filter-body input[type="text"],
-  .ag-theme-alpine .ag-popup .ag-input-field-input {
-    padding-left: 24px !important;
-  }
+  .ag-theme-alpine .ag-popup .ag-popup-child * { color: inherit; }
+  .ag-theme-alpine .ag-popup input.ag-input-field-input { padding-left: 24px !important; }
   .pv-empty { display: flex; align-items: center; justify-content: center;
     height: 100%; opacity: 0.4; font-size: 13px; }
 </style>
@@ -708,8 +715,13 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       _dfCache.delete(msg.name);
     }
     if (isNew) _names.push(msg.name);
-    _index = _names.indexOf(msg.name);
-    render();
+    if (msg.hidden) {
+      // Update data silently — re-render only if this item is already on screen
+      if (_names.indexOf(msg.name) === _index) render();
+    } else {
+      _index = _names.indexOf(msg.name);
+      render();
+    }
   }
 
   function back()    { if (_index > 0) { _index--; render(); } }
@@ -892,6 +904,7 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       rowHeight: BASE_ROW_H, headerHeight: BASE_HDR_H,
       defaultColDef: { sortable: true, filter: true, resizable: true, minWidth: 60, maxWidth: 300, width: 120 },
       suppressFieldDotNotation: true,
+      suppressHeaderMenuButton: true,   // hide ≡ menu icon — doesn't respect :hover in VS Code webviews
       animateRows: false,
       localeText: { filterOoo: '' },
       onFirstDataRendered: e => {
@@ -1214,6 +1227,657 @@ function _buildViewerHtml(webview: vscode.Webview): string {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4 — TreeView Explorer
+// ---------------------------------------------------------------------------
+
+type ExplorerNode =
+  | { kind: 'category'; label: string; itemType: string }
+  | { kind: 'item';     type: string; name: string; payload: Record<string, unknown> }
+  | { kind: 'column';   parent: string; col: string; dtype: string; semType: string };
+
+/** Shared store: name → full bridge payload, updated on every bridge message. */
+const _explorerItems = new Map<string, Record<string, unknown>>();
+
+let _explorerProvider: _ExplorerProvider | null = null;
+
+function _refreshExplorer(_type?: string): void {
+  _explorerProvider?.refresh();
+}
+
+const _CATEGORIES = [
+  { label: 'Data',   itemType: 'dataframe' },
+  { label: 'Charts', itemType: 'chart'     },
+  { label: 'Tables', itemType: 'gt_table'  },
+];
+
+class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
+  private readonly _emitter = new vscode.EventEmitter<ExplorerNode | undefined>();
+  readonly onDidChangeTreeData = this._emitter.event;
+
+  refresh(): void { this._emitter.fire(undefined); }
+
+  getTreeItem(node: ExplorerNode): vscode.TreeItem {
+    if (node.kind === 'category') {
+      const item = new vscode.TreeItem(
+        node.label,
+        vscode.TreeItemCollapsibleState.Expanded,
+      );
+      item.contextValue = 'pivotalCategory';
+      return item;
+    }
+
+    if (node.kind === 'column') {
+      const iconMap: Record<string, string> = {
+        numeric: 'symbol-numeric', categorical: 'symbol-enum',
+        datetime: 'calendar',      boolean: 'symbol-boolean',
+        string: 'symbol-string',
+      };
+      const item = new vscode.TreeItem(node.col, vscode.TreeItemCollapsibleState.None);
+      item.description  = node.dtype;
+      item.iconPath     = new vscode.ThemeIcon(iconMap[node.semType] ?? 'symbol-string');
+      item.contextValue = 'pivotalColumn';
+      return item;
+    }
+
+    // kind === 'item'
+    const p = node.payload;
+    const hasColumns = node.type === 'dataframe'
+      && Array.isArray(p.columns) && (p.columns as string[]).length > 0;
+
+    const item = new vscode.TreeItem(
+      node.name,
+      hasColumns
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None,
+    );
+
+    if (node.type === 'dataframe') {
+      const shape = p.shape as [number, number] | undefined;
+      item.description  = shape ? `${shape[0].toLocaleString()} × ${shape[1]}` : '';
+      item.iconPath     = new vscode.ThemeIcon('table');
+      item.contextValue = 'pivotalDataframe';
+    } else if (node.type === 'chart') {
+      item.description  = 'chart';
+      item.iconPath     = new vscode.ThemeIcon('graph');
+      item.contextValue = 'pivotalChart';
+    } else {
+      item.description  = 'table';
+      item.iconPath     = new vscode.ThemeIcon('list-flat');
+      item.contextValue = 'pivotalTable';
+    }
+
+    item.command = { command: 'pivotal.explorer.view', title: 'View', arguments: [node] };
+    return item;
+  }
+
+  getChildren(node?: ExplorerNode): ExplorerNode[] {
+    if (!node) {
+      // Root: show only categories that have at least one item
+      return _CATEGORIES
+        .filter(c => [..._explorerItems.values()].some(p => p.type === c.itemType))
+        .map(c => ({ kind: 'category' as const, label: c.label, itemType: c.itemType }));
+    }
+    if (node.kind === 'category') {
+      const result: ExplorerNode[] = [];
+      for (const [name, payload] of _explorerItems) {
+        if ((payload.type as string) === node.itemType) {
+          result.push({ kind: 'item', type: node.itemType, name, payload });
+        }
+      }
+      return result;
+    }
+    if (node.kind === 'item' && node.type === 'dataframe') {
+      const columns  = (node.payload.columns   as string[])               ?? [];
+      const dtypes   = (node.payload.dtypes    as Record<string, string>) ?? {};
+      const colTypes = (node.payload.col_types as Record<string, string>) ?? {};
+      return columns.map(col => ({
+        kind:    'column' as const,
+        parent:  node.name,
+        col,
+        dtype:   dtypes[col]   ?? '',
+        semType: colTypes[col] ?? 'string',
+      }));
+    }
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 — GUI Dialogs (Plot & Pivot WebviewPanels; Load/Save/Export QuickPick)
+// ---------------------------------------------------------------------------
+
+let _plotGuiPanel:  vscode.WebviewPanel | null = null;
+let _pivotGuiPanel: vscode.WebviewPanel | null = null;
+
+/** Last focused .pivotal text editor — kept even when a webview steals focus. */
+let _lastPivotalEditor: vscode.TextEditor | undefined;
+
+/** Collect dataframe info from the live explorer store and push to a GUI panel. */
+function _sendTablesToGui(panel: vscode.WebviewPanel): void {
+  const tables: Record<string, { columns: string[]; dtypes: Record<string, string> }> = {};
+  for (const [name, payload] of _explorerItems) {
+    if ((payload.type as string) === 'dataframe') {
+      tables[name] = {
+        columns: (payload.columns as string[]) ?? [],
+        dtypes:  (payload.dtypes  as Record<string, string>) ?? {},
+      };
+    }
+  }
+  panel.webview.postMessage({ type: 'tables', tables });
+}
+
+/** Push updated table list to any open GUI panels (called after bridge updates). */
+function _refreshGuiPanels(): void {
+  if (_plotGuiPanel)  { _sendTablesToGui(_plotGuiPanel); }
+  if (_pivotGuiPanel) { _sendTablesToGui(_pivotGuiPanel); }
+}
+
+function _buildPlotGuiHtml(): string {
+  const nonce = _generateNonce();
+  const csp = [
+    `default-src 'none'`,
+    `script-src 'nonce-${nonce}'`,
+    `style-src 'unsafe-inline'`,
+  ].join('; ');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 16px 16px;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+  }
+  h2 { font-size: 13px; font-weight: 600; margin: 0 0 14px;
+    border-bottom: 1px solid var(--vscode-panel-border, #444); padding-bottom: 8px; }
+  .field { margin-bottom: 9px; }
+  .drow { display: flex; gap: 8px; }
+  .drow .field { flex: 1; min-width: 0; }
+  label { display: block; font-size: 11px; opacity: 0.7; margin-bottom: 3px;
+    text-transform: uppercase; letter-spacing: 0.04em; }
+  select, input[type="text"] {
+    width: 100%; padding: 3px 6px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 2px; font-size: 12px; font-family: inherit;
+  }
+  select:focus, input:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+  /* dynamic multi-col rows */
+  .dyn-section { margin-bottom: 9px; }
+  .dyn-section label { margin-bottom: 3px; }
+  .col-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+  .col-row select { flex: 1; }
+  .rm-btn, .add-btn {
+    flex-shrink: 0; width: 22px; height: 22px;
+    background: var(--vscode-button-secondaryBackground, transparent);
+    color: var(--vscode-button-secondaryForeground, inherit);
+    border: 1px solid var(--vscode-button-border, #555);
+    border-radius: 2px; cursor: pointer; font-size: 14px; line-height: 1;
+    padding: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .rm-btn:hover, .add-btn:hover { background: var(--vscode-list-hoverBackground); }
+  .add-row { display: flex; gap: 4px; margin-top: 2px; }
+  .add-btn.wide { width: auto; padding: 0 8px; font-size: 12px; }
+  /* 3 action buttons */
+  .btn-row { display: flex; gap: 6px; margin-top: 10px; }
+  .act-btn {
+    flex: 1; padding: 6px 4px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none; border-radius: 2px;
+    cursor: pointer; font-size: 11px; font-family: inherit; text-align: center;
+  }
+  .act-btn:hover { background: var(--vscode-button-hoverBackground); }
+  .act-btn.secondary {
+    background: var(--vscode-button-secondaryBackground, transparent);
+    color: var(--vscode-button-secondaryForeground, inherit);
+    border: 1px solid var(--vscode-button-border, #555);
+  }
+  .act-btn.secondary:hover { background: var(--vscode-list-hoverBackground); }
+  .hint { font-size: 11px; opacity: 0.5; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h2>Agg Plot</h2>
+<div class="drow">
+  <div class="field" style="flex:1.2">
+    <label>From (df)</label>
+    <select id="table"></select>
+  </div>
+  <div class="field" style="flex:0.8">
+    <label>Chart type</label>
+    <select id="chartType">
+      <option value="bar">bar</option>
+      <option value="line">line</option>
+      <option value="scatter">scatter</option>
+      <option value="area">area</option>
+    </select>
+  </div>
+</div>
+<div class="field">
+  <label>Chart name</label>
+  <input type="text" id="chartName" value="temp">
+</div>
+<div class="drow">
+  <div class="field">
+    <label>x column</label>
+    <select id="x"></select>
+  </div>
+  <div class="field">
+    <label>x label (optional)</label>
+    <input type="text" id="xLabel" placeholder="axis label">
+  </div>
+</div>
+<div class="dyn-section">
+  <label>y columns (agg func + column per row)</label>
+  <div id="yRows"></div>
+  <div class="add-row">
+    <input type="text" id="yLabel" placeholder="y axis label (optional)" style="flex:1">
+    <button class="add-btn wide" id="addYBtn">+ y column</button>
+  </div>
+</div>
+<div class="field">
+  <label>by (group-by, optional)</label>
+  <select id="by"><option value="">— none —</option></select>
+</div>
+<div class="btn-row">
+  <button class="act-btn" id="btnInsert">Insert at cursor</button>
+  <button class="act-btn secondary" id="btnExecute">Execute</button>
+</div>
+<p class="hint">Place cursor in .pivotal file, then click Insert.</p>
+
+<script nonce="${nonce}">
+(function () {
+  'use strict';
+  const api = acquireVsCodeApi();
+  let _tables = {};
+  let _yCols = [];  // array of {sel} objects
+
+  const tableEl    = document.getElementById('table');
+  const chartTypeEl= document.getElementById('chartType');
+  const chartNameEl= document.getElementById('chartName');
+  const xEl        = document.getElementById('x');
+  const xLabelEl   = document.getElementById('xLabel');
+  const yRowsEl    = document.getElementById('yRows');
+  const yLabelEl   = document.getElementById('yLabel');
+  const addYBtn    = document.getElementById('addYBtn');
+  const byEl       = document.getElementById('by');
+
+  const AGG_FUNCS = ['mean','sum','count','min','max','median'];
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function currentCols() {
+    const tbl = tableEl.value;
+    return (tbl && _tables[tbl]) ? _tables[tbl].columns : [];
+  }
+
+  function colOpts(cols, optional) {
+    return (optional ? '<option value="">\\u2014 none \\u2014</option>' : '')
+      + cols.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+  }
+
+  function aggOpts(selected) {
+    return AGG_FUNCS.map(f => '<option value="' + f + '"' + (f === selected ? ' selected' : '') + '>' + f + '</option>').join('');
+  }
+
+  function rebuildYRows() {
+    yRowsEl.innerHTML = '';
+    _yCols.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'col-row';
+
+      const aggSel = document.createElement('select');
+      aggSel.style.cssText = 'width:72px;flex-shrink:0';
+      aggSel.innerHTML = aggOpts(item.aggVal || 'mean');
+      aggSel.addEventListener('change', () => { item.aggVal = aggSel.value; updatePreview(); });
+      item.aggSel = aggSel;
+
+      const colSel = document.createElement('select');
+      colSel.innerHTML = colOpts(currentCols(), false);
+      if (item.colVal) { colSel.value = item.colVal; }
+      colSel.addEventListener('change', () => { item.colVal = colSel.value; updatePreview(); });
+      item.colSel = colSel;
+
+      const rm = document.createElement('button');
+      rm.className = 'rm-btn'; rm.textContent = '\\u2212'; rm.title = 'Remove';
+      rm.disabled = _yCols.length === 1;
+      rm.addEventListener('click', () => { _yCols.splice(i, 1); rebuildYRows(); updatePreview(); });
+
+      row.appendChild(aggSel); row.appendChild(colSel); row.appendChild(rm);
+      yRowsEl.appendChild(row);
+    });
+  }
+
+  function addYRow() {
+    const cols = currentCols();
+    _yCols.push({ aggVal: 'mean', colVal: cols[0] || '', aggSel: null, colSel: null });
+    rebuildYRows();
+    updatePreview();
+  }
+
+  function buildCode() {
+    const tbl   = tableEl.value;
+    const kind  = chartTypeEl.value;
+    const name  = chartNameEl.value.trim();
+    const x     = xEl.value;
+    const xl    = xLabelEl.value.trim();
+    const yl    = yLabelEl.value.trim();
+    const by    = byEl.value;
+    const yEntries = _yCols
+      .map(c => ({ agg: c.aggVal || (c.aggSel && c.aggSel.value) || 'mean', col: c.colVal || (c.colSel && c.colSel.value) || '' }))
+      .filter(e => e.col);
+    if (!tbl || !x || !yEntries.length) return '(select table, x and at least one y column)';
+    const lines = [
+      'df ' + tbl,
+      'agg plot ' + kind + (name ? ' ' + name : ''),
+      '    x ' + x + (xl ? ' "' + xl.replace(/"/g,'\\\\"') + '"' : ''),
+    ];
+    yEntries.forEach((e, i) => {
+      const label = (i === yEntries.length - 1 && yl) ? ' "' + yl.replace(/"/g,'\\\\"') + '"' : '';
+      lines.push('    y ' + e.agg + ' ' + e.col + label);
+    });
+    if (by) lines.push('    by ' + by);
+    return lines.join('\\n');
+  }
+
+  function updatePreview() {}
+
+  function populateCols() {
+    const cols = currentCols();
+    const prevX  = xEl.value;
+    const prevBy = byEl.value;
+    xEl.innerHTML  = colOpts(cols, false);
+    byEl.innerHTML = colOpts(cols, true);
+    if (prevX  && cols.indexOf(prevX)  !== -1) { xEl.value  = prevX; }
+    if (prevBy && cols.indexOf(prevBy) !== -1) { byEl.value = prevBy; }
+    _yCols.forEach(item => {
+      if (item.colSel) { item.colSel.innerHTML = colOpts(cols, false); if (item.colVal) item.colSel.value = item.colVal; }
+    });
+    updatePreview();
+  }
+
+  function populateTables() {
+    const names = Object.keys(_tables);
+    const prevTable = tableEl.value;
+    tableEl.innerHTML = names.length
+      ? names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('')
+      : '<option value="">\\u2014 no data in session \\u2014</option>';
+    if (prevTable && _tables[prevTable]) { tableEl.value = prevTable; }
+    populateCols();
+  }
+
+  tableEl.addEventListener('change', populateCols);
+  [chartTypeEl, xEl, byEl].forEach(el => el.addEventListener('change', updatePreview));
+  [chartNameEl, xLabelEl, yLabelEl].forEach(el => el.addEventListener('input', updatePreview));
+  addYBtn.addEventListener('click', addYRow);
+
+  function send(action) {
+    const code = buildCode();
+    if (code.startsWith('(')) return;
+    api.postMessage({ action, code });
+  }
+
+  document.getElementById('btnInsert') .addEventListener('click', () => send('insert'));
+  document.getElementById('btnExecute').addEventListener('click', () => send('execute'));
+
+  window.addEventListener('message', event => {
+    const msg = event.data;
+    if (msg.type === 'tables') { _tables = msg.tables || {}; populateTables(); }
+  });
+
+  // Initialise with one Y row
+  addYRow();
+})();
+</script>
+</body>
+</html>`;
+}
+
+function _buildPivotGuiHtml(): string {
+  const nonce = _generateNonce();
+  const csp = [
+    `default-src 'none'`,
+    `script-src 'nonce-${nonce}'`,
+    `style-src 'unsafe-inline'`,
+  ].join('; ');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 16px 16px;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+  }
+  h2 { font-size: 13px; font-weight: 600; margin: 0 0 14px;
+    border-bottom: 1px solid var(--vscode-panel-border, #444); padding-bottom: 8px; }
+  .field { margin-bottom: 9px; }
+  .drow { display: flex; gap: 8px; }
+  .drow .field { flex: 1; min-width: 0; }
+  label { display: block; font-size: 11px; opacity: 0.7; margin-bottom: 3px;
+    text-transform: uppercase; letter-spacing: 0.04em; }
+  select, input[type="text"] {
+    width: 100%; padding: 3px 6px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 2px; font-size: 12px; font-family: inherit;
+  }
+  select:focus, input:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+  .dyn-section { margin-bottom: 9px; }
+  .dyn-section label { margin-bottom: 3px; }
+  .col-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+  .col-row select { flex: 1; }
+  .rm-btn, .add-btn {
+    flex-shrink: 0; width: 22px; height: 22px;
+    background: var(--vscode-button-secondaryBackground, transparent);
+    color: var(--vscode-button-secondaryForeground, inherit);
+    border: 1px solid var(--vscode-button-border, #555);
+    border-radius: 2px; cursor: pointer; font-size: 14px; line-height: 1;
+    padding: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .rm-btn:hover, .add-btn:hover { background: var(--vscode-list-hoverBackground); }
+  .add-btn.wide { width: auto; padding: 0 8px; font-size: 12px; }
+  .btn-row { display: flex; gap: 6px; margin-top: 10px; }
+  .act-btn {
+    flex: 1; padding: 6px 4px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none; border-radius: 2px;
+    cursor: pointer; font-size: 11px; font-family: inherit; text-align: center;
+  }
+  .act-btn:hover { background: var(--vscode-button-hoverBackground); }
+  .act-btn.secondary {
+    background: var(--vscode-button-secondaryBackground, transparent);
+    color: var(--vscode-button-secondaryForeground, inherit);
+    border: 1px solid var(--vscode-button-border, #555);
+  }
+  .act-btn.secondary:hover { background: var(--vscode-list-hoverBackground); }
+  .hint { font-size: 11px; opacity: 0.5; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h2>Pivot</h2>
+<div class="drow">
+  <div class="field">
+    <label>Result name</label>
+    <input type="text" id="alias" value="temp">
+  </div>
+  <div class="field">
+    <label>From (df)</label>
+    <select id="table"></select>
+  </div>
+</div>
+<div class="dyn-section">
+  <label>rows</label>
+  <div id="rowsDiv"></div>
+  <button class="add-btn wide" id="addRowBtn">+ row column</button>
+</div>
+<div class="dyn-section">
+  <label>cols</label>
+  <div id="colsDiv"></div>
+  <button class="add-btn wide" id="addColBtn">+ col column</button>
+</div>
+<div class="drow">
+  <div class="field">
+    <label>agg function</label>
+    <select id="aggFunc">
+      <option value="mean">mean</option>
+      <option value="sum">sum</option>
+      <option value="count">count</option>
+      <option value="min">min</option>
+      <option value="max">max</option>
+      <option value="median">median</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>value column</label>
+    <select id="valueCol"></select>
+  </div>
+</div>
+<div class="btn-row">
+  <button class="act-btn" id="btnInsert">Insert at cursor</button>
+  <button class="act-btn secondary" id="btnExecute">Execute</button>
+</div>
+<p class="hint">Place cursor in .pivotal file, then click Insert.</p>
+
+<script nonce="${nonce}">
+(function () {
+  'use strict';
+  const api = acquireVsCodeApi();
+  let _tables = {};
+  let _rowCols = [];
+  let _colCols = [];
+
+  const tableEl   = document.getElementById('table');
+  const aliasEl   = document.getElementById('alias');
+  const rowsDiv   = document.getElementById('rowsDiv');
+  const colsDiv   = document.getElementById('colsDiv');
+  const aggEl     = document.getElementById('aggFunc');
+  const valueEl   = document.getElementById('valueCol');
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function currentCols() {
+    const tbl = tableEl.value;
+    return (tbl && _tables[tbl]) ? _tables[tbl].columns : [];
+  }
+
+  function colOpts(cols) {
+    return cols.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+  }
+
+  function rebuildDynSection(items, container) {
+    container.innerHTML = '';
+    items.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'col-row';
+      const sel = document.createElement('select');
+      sel.innerHTML = colOpts(currentCols());
+      if (item.val) { sel.value = item.val; }
+      sel.addEventListener('change', () => { item.val = sel.value; updatePreview(); });
+      item.sel = sel;
+      const rm = document.createElement('button');
+      rm.className = 'rm-btn'; rm.textContent = '\\u2212'; rm.title = 'Remove';
+      rm.disabled = items.length === 1;
+      rm.addEventListener('click', () => { items.splice(i, 1); rebuildDynSection(items, container); updatePreview(); });
+      row.appendChild(sel); row.appendChild(rm);
+      container.appendChild(row);
+    });
+  }
+
+  function addDynRow(items, container) {
+    const cols = currentCols();
+    items.push({ val: cols[0] || '', sel: null });
+    rebuildDynSection(items, container);
+    updatePreview();
+  }
+
+  function buildCode() {
+    const tbl   = tableEl.value;
+    const alias = aliasEl.value.trim();
+    const func  = aggEl.value;
+    const val   = valueEl.value;
+    const rows  = _rowCols.map(c => c.val || (c.sel && c.sel.value) || '').filter(Boolean);
+    const cols  = _colCols.map(c => c.val || (c.sel && c.sel.value) || '').filter(Boolean);
+    if (!tbl || !rows.length || !cols.length || !val) {
+      return '(select table, rows, cols and value column)';
+    }
+    const outName = alias || tbl;
+    const lines = [
+      'df ' + outName + ' from ' + tbl,
+      'pivot',
+      '    rows ' + rows.join(', '),
+      '    cols ' + cols.join(', '),
+      '    agg ' + func + '(' + val + ')',
+    ];
+    return lines.join('\\n');
+  }
+
+  function updatePreview() {}
+
+  function populateCols() {
+    const cols = currentCols();
+    const prevVal = valueEl.value;
+    valueEl.innerHTML = colOpts(cols);
+    if (prevVal && cols.indexOf(prevVal) !== -1) { valueEl.value = prevVal; }
+    _rowCols.forEach(item => { if (item.sel) { item.sel.innerHTML = colOpts(cols); if (item.val) item.sel.value = item.val; } });
+    _colCols.forEach(item => { if (item.sel) { item.sel.innerHTML = colOpts(cols); if (item.val) item.sel.value = item.val; } });
+    updatePreview();
+  }
+
+  function populateTables() {
+    const names = Object.keys(_tables);
+    const prevTable = tableEl.value;
+    tableEl.innerHTML = names.length
+      ? names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('')
+      : '<option value="">\\u2014 no data in session \\u2014</option>';
+    if (prevTable && _tables[prevTable]) { tableEl.value = prevTable; }
+    populateCols();
+  }
+
+  tableEl.addEventListener('change', populateCols);
+  [aggEl, valueEl].forEach(el => el.addEventListener('change', updatePreview));
+  aliasEl.addEventListener('input', updatePreview);
+  document.getElementById('addRowBtn').addEventListener('click', () => addDynRow(_rowCols, rowsDiv));
+  document.getElementById('addColBtn').addEventListener('click', () => addDynRow(_colCols, colsDiv));
+
+  function send(action) {
+    const code = buildCode();
+    if (code.startsWith('(')) return;
+    api.postMessage({ action, code });
+  }
+
+  document.getElementById('btnInsert') .addEventListener('click', () => send('insert'));
+  document.getElementById('btnExecute').addEventListener('click', () => send('execute'));
+
+  window.addEventListener('message', event => {
+    const msg = event.data;
+    if (msg.type === 'tables') { _tables = msg.tables || {}; populateTables(); }
+  });
+
+  // Initialise with one row and one col entry
+  addDynRow(_rowCols, rowsDiv);
+  addDynRow(_colCols, colsDiv);
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
 
@@ -1295,35 +1959,89 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   );
 
-  // --- Command: Compile .pivotal file to Python ---
-  const compileToFile = vscode.commands.registerCommand('pivotal.compileToFile', async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) { vscode.window.showErrorMessage('Pivotal: No active editor.'); return; }
-    const filePath = editor.document.uri.fsPath;
-    if (!filePath.endsWith('.pivotal')) {
-      vscode.window.showErrorMessage('Pivotal: Active file is not a .pivotal file.');
-      return;
+  // --- Helper: resolve the active .pivotal file path ---
+  // Uses _lastPivotalEditor first (works even when focus is elsewhere), then
+  // falls back to all open .pivotal documents with a QuickPick if needed.
+  async function _resolvePivotalFile(): Promise<string | undefined> {
+    // Prefer the last focused .pivotal editor
+    const candidate = _lastPivotalEditor ?? vscode.window.activeTextEditor;
+    if (candidate && (
+      candidate.document.languageId === 'pivotal' ||
+      candidate.document.uri.fsPath.endsWith('.pivotal')
+    )) {
+      await candidate.document.save();
+      return candidate.document.uri.fsPath;
     }
-    await editor.document.save();
-    const pyPath = filePath.replace(/\.pivotal$/, '.py');
-    return new Promise<void>(resolve => {
-      exec(`python -m pivotal --compile "${filePath}"`, (error, _stdout, stderr) => {
-        if (error) {
-          vscode.window.showErrorMessage(`Pivotal compile error: ${stderr || error.message}`);
-        } else {
-          vscode.window.showInformationMessage(`Pivotal: Compiled to ${pyPath}`, 'Open File')
-            .then(action => {
-              if (action === 'Open File') {
-                vscode.workspace.openTextDocument(pyPath).then(doc =>
-                  vscode.window.showTextDocument(doc)
-                );
+    // Fall back: collect all open .pivotal documents
+    const openPivotal = vscode.workspace.textDocuments.filter(
+      d => d.uri.fsPath.endsWith('.pivotal') && !d.isUntitled
+    );
+    if (!openPivotal.length) {
+      vscode.window.showErrorMessage('Pivotal: No .pivotal file is open.');
+      return undefined;
+    }
+    if (openPivotal.length === 1) {
+      await openPivotal[0].save();
+      return openPivotal[0].uri.fsPath;
+    }
+    // Multiple open — ask the user
+    const pick = await vscode.window.showQuickPick(
+      openPivotal.map(d => ({ label: path.basename(d.uri.fsPath), description: d.uri.fsPath, doc: d })),
+      { title: 'Pivotal: Select file to compile', placeHolder: 'Choose a .pivotal file' },
+    );
+    if (!pick) { return undefined; }
+    await pick.doc.save();
+    return pick.doc.uri.fsPath;
+  }
+
+  // --- Helper: get the Python executable for compile/export ---
+  // Priority: 1) pivotal.pythonPath setting  2) active Jupyter kernel interpreter
+  //           3) python.defaultInterpreterPath  4) "python"
+  async function _getPythonPath(): Promise<string> {
+    // 1. Explicit Pivotal setting
+    const pivotalCfg = vscode.workspace.getConfiguration('pivotal');
+    const explicit = pivotalCfg.get<string>('pythonPath');
+    if (explicit && explicit.trim() && !explicit.includes('${')) {
+      return explicit.trim();
+    }
+
+    // 2. Active Jupyter kernel interpreter (ms-toolsai.jupyter extension API)
+    try {
+      const jupyterExt = vscode.extensions.getExtension('ms-toolsai.jupyter');
+      if (jupyterExt) {
+        const api = await jupyterExt.activate() as Record<string, unknown>;
+        // Jupyter extension exposes kernels.getKernel() for a notebook document
+        const kernels = api.kernels as Record<string, unknown> | undefined;
+        if (kernels) {
+          // Try to find the active kernel's interpreter path from open notebooks
+          const getKernel = kernels.getKernel as ((nb: unknown) => unknown) | undefined;
+          if (getKernel) {
+            for (const nb of vscode.workspace.notebookDocuments) {
+              const kernel = getKernel.call(kernels, nb);
+              if (kernel) {
+                const k = kernel as Record<string, unknown>;
+                const kSpec = k.kernelConnectionMetadata as Record<string, unknown> | undefined;
+                const interpPath = kSpec?.interpreter as Record<string, unknown> | undefined;
+                const execPath = interpPath?.path as string | undefined;
+                if (execPath && execPath.trim() && !execPath.includes('${')) {
+                  return execPath.trim();
+                }
               }
-            });
+            }
+          }
         }
-        resolve();
-      });
-    });
-  });
+      }
+    } catch { /* Jupyter API not available or changed shape — fall through */ }
+
+    // 3. VS Code Python extension selected interpreter
+    const cfg = vscode.workspace.getConfiguration('python');
+    const interp = cfg.get<string>('defaultInterpreterPath') || cfg.get<string>('pythonPath');
+    // Ignore placeholder values that haven't been expanded
+    if (interp && interp.trim() && !interp.includes('${')) {
+      return interp.trim();
+    }
+    return 'python';
+  }
 
   // --- Hover provider for .pivotal files ---
   const hoverProvider = vscode.languages.registerHoverProvider(
@@ -1355,15 +2073,328 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Command: Show Pivotal Viewer panel ---
   const showViewer = vscode.commands.registerCommand('pivotal.showViewer', () => {
-    _getOrCreateViewerPanel(context);
+    _getOrCreateViewerPanel(context, true);
   });
 
-  // --- Bridge handler: forward Python viewer messages to the WebviewPanel ---
+  // --- Phase 4: Explorer (single unified view) ---
+  _explorerProvider = new _ExplorerProvider();
+  const _pivotalTreeView = vscode.window.createTreeView('pivotalExplorer', {
+    treeDataProvider: _explorerProvider,
+    // filterOnType was added in VS Code 1.73; cast to avoid old @types/vscode complaint
+    ...(({ filterOnType: true, showCollapseAll: true }) as Record<string, unknown>),
+  } as Parameters<typeof vscode.window.createTreeView>[1]);
+  context.subscriptions.push(_pivotalTreeView);
+
+  // --- Command: View item (focus in viewer panel) ---
+  const explorerView = vscode.commands.registerCommand(
+    'pivotal.explorer.view',
+    (node: ExplorerNode) => {
+      if (node.kind !== 'item') { return; }
+      const panel = _getOrCreateViewerPanel(context, true);
+      panel.webview.postMessage({ type: 'focus', name: node.name });
+    },
+  );
+
+  // --- Command: Delete item (from explorer inline button) ---
+  const explorerDelete = vscode.commands.registerCommand(
+    'pivotal.explorer.delete',
+    (node: ExplorerNode) => {
+      if (node.kind !== 'item') { return; }
+      const { name } = node;
+      sendToBridge({ type: 'delete', name });
+      _explorerItems.delete(name);
+      _refreshExplorer();
+      _viewerPanel?.webview.postMessage({ type: 'delete', name });
+    },
+  );
+
+  // --- Phase 5: Load Dataset ---
+  const loadDataset = vscode.commands.registerCommand('pivotal.loadDataset', async () => {
+    const uris = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: { 'Data files': ['csv', 'xlsx', 'parquet', 'json'], 'All files': ['*'] },
+      title: 'Pivotal: Select data file',
+    });
+    if (!uris?.length) { return; }
+    const filePath = uris[0].fsPath;
+    const defaultName = path.basename(filePath).replace(/\.[^.]+$/, '').replace(/\W+/g, '_').replace(/^(\d)/, '_$1');
+    const tableName = await vscode.window.showInputBox({
+      prompt: 'Table name',
+      value: defaultName,
+      validateInput: v => /^\w+$/.test(v) ? null : 'Use letters, numbers and underscores only',
+    });
+    if (!tableName) { return; }
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) { vscode.window.showErrorMessage('Pivotal: No active editor.'); return; }
+    const code = `load ${tableName} "${filePath}"\n`;
+    editor.edit(eb => eb.insert(editor.selection.active, code));
+  });
+
+  // --- Phase 5: Save Package ---
+  const savePackage = vscode.commands.registerCommand('pivotal.savePackage', async () => {
+    const allItems = [..._explorerItems.values()].map(p => ({
+      label: p.name as string,
+      description: p.type as string,
+      picked: true,
+    }));
+    if (!allItems.length) {
+      vscode.window.showInformationMessage('Pivotal: No data in session to save — run a Pivotal cell first.');
+      return;
+    }
+    const picks = await vscode.window.showQuickPick(allItems, {
+      canPickMany: true,
+      title: 'Pivotal: Select items to save',
+      placeHolder: 'Choose dataframes, charts, or tables to include',
+    });
+    if (!picks?.length) { return; }
+
+    const dirUris = await vscode.window.showOpenDialog({
+      canSelectFiles: false, canSelectFolders: true, canSelectMany: false,
+      title: 'Pivotal: Select output directory',
+    });
+    if (!dirUris?.length) { return; }
+    const outDir = dirUris[0].fsPath;
+
+    const pkgName = await vscode.window.showInputBox({
+      prompt: 'Package name (becomes the sub-folder)',
+      value: 'output',
+      validateInput: v => /^\w+$/.test(v) ? null : 'Use letters, numbers and underscores only',
+    });
+    if (!pkgName) { return; }
+
+    const fmt = await vscode.window.showQuickPick(['parquet', 'csv', 'xlsx'], {
+      title: 'Pivotal: Output format',
+      placeHolder: 'Select file format',
+    });
+    if (!fmt) { return; }
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) { vscode.window.showErrorMessage('Pivotal: No active editor.'); return; }
+
+    const includeList = picks.map(p => p.label).join(', ');
+    const sep = outDir.includes('\\') ? '\\\\' : '/';
+    const pkgPath = outDir + sep + pkgName;
+    const code = `save "${pkgPath}"\n    format ${fmt}\n    include ${includeList}\n`;
+    editor.edit(eb => eb.insert(editor.selection.active, code));
+  });
+
+  // --- Phase 5: Compile to Python or SQL ---
+  // Merged replacement for the old compileToFile + codeExport commands.
+  // Uses _resolvePivotalFile() so it works regardless of where focus currently is.
+  const codeExport = vscode.commands.registerCommand('pivotal.codeExport', async () => {
+    const filePath = await _resolvePivotalFile();
+    if (!filePath) { return; }
+
+    const backend = await vscode.window.showQuickPick(
+      ['pandas', 'polars', 'duckdb', 'sql'],
+      { title: 'Pivotal: Compile — select backend', placeHolder: 'Target backend' },
+    );
+    if (!backend) { return; }
+
+    const pythonPath = await _getPythonPath();
+    const outPath = filePath.replace(/\.pivotal$/, backend === 'sql' ? '.sql' : '.py');
+
+    return new Promise<void>(resolve => {
+      exec(`"${pythonPath}" -m pivotal --compile --backend ${backend} "${filePath}"`,
+        (error, _stdout, stderr) => {
+          if (error) {
+            const msg = stderr || error.message;
+            const isNoModule = msg.includes('No module named');
+            vscode.window.showErrorMessage(
+              `Pivotal compile error: ${msg}` +
+              (isNoModule ? `\n\nUsing: ${pythonPath}\nTip: Set "pivotal.pythonPath" in settings to point to the environment where Pivotal is installed.` : ''),
+              ...(isNoModule ? ['Configure Python Path', 'Select VS Code Interpreter'] : [])
+            ).then(action => {
+              if (action === 'Configure Python Path') {
+                vscode.commands.executeCommand('pivotal.selectPythonPath');
+              } else if (action === 'Select VS Code Interpreter') {
+                vscode.commands.executeCommand('python.setInterpreter');
+              }
+            });
+          } else {
+            vscode.window.showInformationMessage(`Pivotal: Compiled to ${outPath}`, 'Open File')
+              .then(action => {
+                if (action === 'Open File') {
+                  vscode.workspace.openTextDocument(outPath).then(doc =>
+                    vscode.window.showTextDocument(doc)
+                  );
+                }
+              });
+          }
+          resolve();
+        }
+      );
+    });
+  });
+
+  // --- Command: Select Python environment for Pivotal compile/export ---
+  const selectPythonPath = vscode.commands.registerCommand('pivotal.selectPythonPath', async () => {
+    const current = vscode.workspace.getConfiguration('pivotal').get<string>('pythonPath') || '';
+    const detected = await _getPythonPath();
+    const value = await vscode.window.showInputBox({
+      title: 'Pivotal: Select Python Environment',
+      prompt: 'Enter the full path to the Python executable for the environment where Pivotal is installed',
+      value: current || detected,
+      placeHolder: '/home/user/miniconda3/envs/myenv/bin/python',
+      validateInput: v => {
+        if (!v || !v.trim()) { return 'Path cannot be empty'; }
+        return undefined;
+      },
+    });
+    if (value === undefined) { return; } // cancelled
+    await vscode.workspace.getConfiguration('pivotal').update(
+      'pythonPath', value.trim(), vscode.ConfigurationTarget.Global,
+    );
+    vscode.window.showInformationMessage(`Pivotal: Python path set to ${value.trim()}`);
+  });
+
+  // Helper: execute a Pivotal code string directly in the interactive window.
+  // jupyter.execSelectionInteractive uses activeTextEditor to resolve the kernel.
+  // We briefly focus the .pivotal editor to set activeTextEditor, then the caller's
+  // sourcePanel.reveal() immediately returns focus to the GUI.
+  async function _executeGuiCode(code: string): Promise<void> {
+    const escaped = JSON.stringify(code);
+    const cellText = `import pivotal; get_ipython().run_cell_magic('pivotal', '', ${escaped})`;
+    try {
+      if (_lastPivotalEditor) {
+        await vscode.window.showTextDocument(
+          _lastPivotalEditor.document,
+          { viewColumn: _lastPivotalEditor.viewColumn, preserveFocus: false, preview: false },
+        );
+      }
+      await vscode.commands.executeCommand('jupyter.execSelectionInteractive', cellText);
+    } catch {
+      vscode.window.showErrorMessage(
+        'Pivotal: Could not send to Interactive Window — ensure a Python kernel is running.'
+      );
+    }
+  }
+
+  // Track the last focused .pivotal text editor so Insert works even when the
+  // GUI webview panel has keyboard focus (webviews do not preserve activeTextEditor).
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (editor && (
+        editor.document.languageId === 'pivotal' ||
+        editor.document.uri.fsPath.endsWith('.pivotal')
+      )) {
+        _lastPivotalEditor = editor;
+      }
+    }),
+  );
+  // Seed with whatever is already open.
+  if (vscode.window.activeTextEditor?.document.languageId === 'pivotal') {
+    _lastPivotalEditor = vscode.window.activeTextEditor;
+  }
+
+  // Helper: handle GUI actions (insert / execute).
+  function _handleGuiAction(action: string, code: string, sourcePanel: vscode.WebviewPanel): void {
+    if (action === 'insert') {
+      const editor = _lastPivotalEditor ?? vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage(
+          'Pivotal: No active .pivotal editor — open a .pivotal file and click in it first.'
+        );
+        return;
+      }
+      const wsEdit = new vscode.WorkspaceEdit();
+      wsEdit.insert(editor.document.uri, editor.selection.active, code + '\n');
+      vscode.workspace.applyEdit(wsEdit).then(() => {
+        // Focus editor so user can see where the code was inserted.
+        vscode.window.showTextDocument(editor.document, {
+          viewColumn: editor.viewColumn, preserveFocus: false, preview: false,
+        });
+      });
+    }
+    if (action === 'execute') {
+      _executeGuiCode(code).then(() => {
+        // Refocus the GUI panel — jupyter.execSelectionInteractive steals focus.
+        sourcePanel.reveal(undefined, false);
+      });
+    }
+  }
+
+  // --- Phase 5: Plot GUI ---
+  async function _openGuiPanel(
+    existing: vscode.WebviewPanel | null,
+    viewType: string,
+    title: string,
+    buildHtml: () => string,
+    onDispose: () => void,
+  ): Promise<vscode.WebviewPanel> {
+    if (existing) {
+      existing.reveal(undefined, false);
+      _sendTablesToGui(existing);
+      return existing;
+    }
+    const guiColumn = _lastPivotalEditor?.viewColumn ?? vscode.ViewColumn.One;
+    // Create with preserveFocus:false so the panel is active — needed for moveEditorToBelowGroup
+    const panel = vscode.window.createWebviewPanel(
+      viewType, title,
+      { viewColumn: guiColumn, preserveFocus: false },
+      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
+    );
+    panel.webview.html = buildHtml();
+    _sendTablesToGui(panel);
+    panel.webview.onDidReceiveMessage((msg: Record<string, unknown>) => {
+      _handleGuiAction(msg.action as string, msg.code as string, panel);
+    }, undefined, context.subscriptions);
+    panel.onDidDispose(onDispose, undefined, context.subscriptions);
+
+    // Move the panel to a horizontal split below the .pivotal editor
+    await vscode.commands.executeCommand('workbench.action.moveEditorToBelowGroup');
+
+    // Restore focus to the .pivotal editor
+    if (_lastPivotalEditor) {
+      await vscode.window.showTextDocument(_lastPivotalEditor.document, {
+        viewColumn: guiColumn, preserveFocus: false, preview: false,
+      });
+    }
+
+    return panel;
+  }
+
+  const plotGui = vscode.commands.registerCommand('pivotal.plotGui', async () => {
+    _plotGuiPanel = await _openGuiPanel(
+      _plotGuiPanel, 'pivotalPlotGui', 'Pivotal: Plot',
+      _buildPlotGuiHtml,
+      () => { _plotGuiPanel = null; },
+    );
+  });
+
+  // --- Phase 5: Pivot GUI ---
+  const pivotGui = vscode.commands.registerCommand('pivotal.pivotGui', async () => {
+    _pivotGuiPanel = await _openGuiPanel(
+      _pivotGuiPanel, 'pivotalPivotGui', 'Pivotal: Pivot',
+      _buildPivotGuiHtml,
+      () => { _pivotGuiPanel = null; },
+    );
+  });
+
+  // --- Bridge handler: forward Python viewer messages to viewer + explorer ---
   onBridgeMessage((msg: Record<string, unknown>) => {
     const t = msg.type as string;
     if (t === 'dataframe' || t === 'chart' || t === 'gt_table') {
+      const isFirstItem = _explorerItems.size === 0;
+      _explorerItems.set(msg.name as string, msg);
+      _refreshExplorer(t);
+      _refreshGuiPanels();
+      if (isFirstItem) {
+        vscode.commands.executeCommand('pivotalExplorer.focus');
+      }
       _getOrCreateViewerPanel(context).webview.postMessage(msg);
-    } else if (t === 'delete' || t === 'clear' || t === 'focus') {
+    } else if (t === 'delete') {
+      const existing = _explorerItems.get(msg.name as string);
+      _explorerItems.delete(msg.name as string);
+      _refreshExplorer(existing?.type as string | undefined);
+      _refreshGuiPanels();
+      _viewerPanel?.webview.postMessage(msg);
+    } else if (t === 'clear') {
+      _explorerItems.clear();
+      _refreshExplorer();
+      _refreshGuiPanels();
+      _viewerPanel?.webview.postMessage(msg);
+    } else if (t === 'focus') {
       _viewerPanel?.webview.postMessage(msg);
     }
   });
@@ -1374,10 +2405,17 @@ export function activate(context: vscode.ExtensionContext): void {
     executeFile,
     executeInNotebook,
     executeSelectionInNotebook,
-    compileToFile,
     hoverProvider,
     completionProvider,
     showViewer,
+    explorerView,
+    explorerDelete,
+    loadDataset,
+    savePackage,
+    codeExport,
+    selectPythonPath,
+    plotGui,
+    pivotGui,
   );
 }
 
