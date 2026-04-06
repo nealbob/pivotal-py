@@ -19,10 +19,8 @@
 
   NEed to check if this is ust an issue with the Plot GUI of whether this syntax is actualy supported in the Pivotal language grammer.
 
-include filter in agg plot
+include filter in agg plot call it pivot plot
 
-
-  
 
 click on column switches view to that table and puts cursor / focus on first row of that column in the table...
 
