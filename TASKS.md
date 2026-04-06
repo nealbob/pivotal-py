@@ -4,9 +4,31 @@
 
 ## Backlog
 
+  - Does the agg plot syntax in the pivotal grammer support multiple Y (values) columns? At present the GUI seems to create multiple Y lines
+
+    agg plot mechart
+      x colA
+      y mean colB
+      y mean colC
+  
+  But only the latter y column is displayed in the chart. To behave more like a regular plot statement it should probably support a comma seperated list
+
+    agg plot mechart
+      x colA
+      y mean colB, mean colC
+
+  NEed to check if this is ust an issue with the Plot GUI of whether this syntax is actualy supported in the Pivotal language grammer.
+
+include filter in agg plot call it pivot plot
+
+
+click on column switches view to that table and puts cursor / focus on first row of that column in the table...
+
+click on view button opens that item in the viewer (even if the viewer window isclosed or viewer = False??)
 
 ## Ideas
 
+  - [] bug in Jupyterlab pivot GUI need to allow for alias and from 
 
   - [] bug in load GUi parsing of file paths (fix wiht some pyhton processing)
 
@@ -202,27 +224,37 @@ The left-panel object inspector. Unlike the viewer, `explorer.ts` cannot be port
 #### Phase 5 — GUI Dialogs
 **Effort: Medium (2–3 days)**
 
-JupyterLab's Python-driven widget GUIs replaced with VS Code QuickPick/InputBox flows that generate and insert Pivotal code. No Python-side GUI code needed.
+JupyterLab's Python-driven widget GUIs replaced with VS Code dialogs that generate and insert Pivotal code. No Python-side GUI code needed.
 
-**Load Dataset** (`Ctrl+Shift+L`):
+Simple, linear workflows use **QuickPick/InputBox** sequences. Complex, interactive GUIs use a **WebviewPanel HTML form** (same mechanism as the viewer) so users can see all options at once and iterate quickly — like the JupyterLab widget experience.
+
+**Load Dataset** (`Ctrl+Shift+L`) — QuickPick sequence:
 1. `showOpenDialog` — file picker (CSV, XLSX, Parquet)
 2. `InputBox` — table name
 3. Insert `load <name> "<path>"` at cursor
 
-**Save Package** (`Ctrl+Shift+S`):
+**Save Package** (`Ctrl+Shift+S`) — QuickPick sequence:
 1. `QuickPick` (multi-select) — DataFrames/charts/tables from TreeView
 2. `InputBox` — package name
 3. `showOpenDialog` (directory) — output path
 4. `QuickPick` — format (parquet / csv / xlsx)
 5. Insert generated `save` block
 
-**Code Export** (`Ctrl+Shift+E`):
+**Code Export** (`Ctrl+Shift+E`) — QuickPick sequence:
 1. `QuickPick` — backend (pandas / polars / duckdb / sql / pivotal)
 2. Run `python -m pivotal --compile --backend <X> "<file>"` → open result
 
-**Plot GUI** — QuickPick sequence (chart type → x col → y col → optional group). Columns populated from `pivotal_autocomplete.json`.
+**Plot GUI** — WebviewPanel HTML form (persistent, all controls visible simultaneously):
+- Opens as a side panel (or in `ViewColumn.Two` alongside the viewer)
+- Form fields: chart type dropdown, X column, Y column, optional group-by column, optional secondary Y, title override
+- Columns populated live from the TreeView store (`_explorerItems`)
+- "Insert" button generates and inserts the `plot` block at cursor; panel stays open for iteration
+- Replicates the JupyterLab experience of flicking between different plot configurations quickly
 
-**Pivot GUI** — QuickPick sequence (group col → value col → agg function). Generates `group by` / `agg` block.
+**Pivot GUI** — WebviewPanel HTML form (persistent, all controls visible simultaneously):
+- Form fields: group-by column(s), value column, aggregation function dropdown (sum/mean/count/min/max/wavg), optional alias
+- "Insert" button generates and inserts the `group by` / `agg` block at cursor; panel stays open
+- Columns populated live from the TreeView store
 
 ---
 

@@ -33,6 +33,8 @@ def _is_vscode() -> bool:
         os.environ.get('VSCODE_PID') is not None
         or os.environ.get('TERM_PROGRAM') == 'vscode'
         or os.environ.get('VSCODE_INJECTION') == '1'
+        or os.environ.get('VSCODE_CWD') is not None
+        or os.environ.get('VSCODE_IPC_HOOK_CLI') is not None
     )
 
 

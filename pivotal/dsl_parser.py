@@ -22,7 +22,7 @@ _WAVG_CALL_RE = re.compile(
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords (not 'df' — it is unambiguous after its own token)
-    'load', 'filter', 'select', 'sort', 'order', 'save', 'all',
+    'load', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
@@ -77,6 +77,9 @@ grammar_indented = r"""
                | table_statement
                | save_statement
                | show_statement
+               | delete_statement
+
+    delete_statement: "delete" IDENTIFIER _NL?
 
     show_statement: "show" SHOW_MODE? _NL?
     SHOW_MODE: "head" | "summary"
@@ -891,6 +894,10 @@ class DSLTransformer(Transformer):
             'table_name': self.current_table,
             'func': str(func)
         }
+
+    def delete_statement(self, *args):
+        name = str(args[0])
+        return {'type': 'delete', 'name': name}
 
     def show_statement(self, *args):
         mode = 'df'
@@ -3625,6 +3632,10 @@ class CodeGenerator:
 
     def generate_python_pandas(self, ast_node):
         return ast_node['code']
+
+    def generate_delete_pandas(self, ast_node):
+        name = ast_node['name']
+        return f"try:\n    del {name}\nexcept NameError:\n    pass"
 
     def generate_show_pandas(self, ast_node):
         table = ast_node['table_name']
