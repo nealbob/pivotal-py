@@ -805,6 +805,56 @@ def test_keyword_column_in_loaded_csv_warns(parser, tmp_path, sample_df):
         run(parser, f'load df "{csv_path}"', ns)
 
 
+def test_load_sanitises_spaces(parser, tmp_path):
+    """Spaces in column names are replaced with underscores and a warning is issued."""
+    df = pd.DataFrame({'first name': ['Alice', 'Bob'], 'last name': ['Smith', 'Jones']})
+    csv_path = tmp_path / "spaced.csv"
+    df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    with pytest.warns(UserWarning, match="renamed"):
+        run(parser, f'load df "{csv_path}"', ns)
+    assert 'first_name' in ns['df'].columns
+    assert 'last_name' in ns['df'].columns
+
+
+def test_load_sanitises_special_chars(parser, tmp_path):
+    """Special characters are removed and a warning is issued."""
+    df = pd.DataFrame({'price(USD)': [1.0, 2.0], '2024Q1': [10, 20]})
+    csv_path = tmp_path / "special.csv"
+    df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    with pytest.warns(UserWarning, match="renamed"):
+        run(parser, f'load df "{csv_path}"', ns)
+    assert 'price_USD_' in ns['df'].columns or 'price_USD' in ns['df'].columns
+    # Leading digit gets underscore prefix
+    assert any(c.startswith('_') for c in ns['df'].columns)
+
+
+def test_load_sanitises_duplicate_collisions(parser, tmp_path):
+    """Columns that map to the same sanitised name get a numeric suffix."""
+    df = pd.DataFrame({'a b': [1, 2], 'a_b': [3, 4]})
+    csv_path = tmp_path / "dupes.csv"
+    df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    with pytest.warns(UserWarning, match="renamed"):
+        run(parser, f'load df "{csv_path}"', ns)
+    cols = list(ns['df'].columns)
+    assert len(set(cols)) == len(cols), "Columns should be unique after sanitisation"
+
+
+def test_load_clean_columns_no_warning(parser, tmp_path, sample_df):
+    """Clean column names produce no sanitisation warning."""
+    csv_path = tmp_path / "clean.csv"
+    sample_df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        run(parser, f'load df "{csv_path}"', ns)
+    sanitise_warns = [x for x in w if "renamed" in str(x.message)]
+    assert not sanitise_warns, "No sanitisation warning expected for clean column names"
+
+
 # ---------------------------------------------------------------------------
 # save / load_all / load_package_table
 # ---------------------------------------------------------------------------

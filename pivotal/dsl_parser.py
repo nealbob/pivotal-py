@@ -40,6 +40,23 @@ PIVOTAL_KEYWORDS = frozenset({
     'true', 'false', 'none',
 })
 
+# Inline helper emitted into generated code to sanitise DataFrame column names.
+# Spaces and special chars → underscore; leading digit → prefixed; duplicates suffixed.
+_SANITISE_HELPER = (
+    "def _pvt_sanitise(cols):\n"
+    "    import re as _re\n"
+    "    seen, renamed, new = {}, {}, []\n"
+    "    for c in cols:\n"
+    "        s = str(c)\n"
+    "        n = _re.sub(r'_+', '_', _re.sub(r'[^a-zA-Z0-9_]', '_', s)).strip('_') or 'col'\n"
+    "        if n[0].isdigit(): n = '_' + n\n"
+    "        cnt = seen.get(n, 0); seen[n] = cnt + 1\n"
+    "        if cnt: n = f'{n}_{cnt}'\n"
+    "        new.append(n)\n"
+    "        if n != s: renamed[s] = n\n"
+    "    return new, renamed\n"
+)
+
 #AGG_DICT: _NL _INDENT IDENTIFIER AGG_FUNCTION ("," AGG_FUNCTION)* _DEDENT (_NL _INDENT IDENTIFIER AGG_FUNCTION ("," AGG_FUNCTION)* _DEDENT)* _NL?
 # Grammar definition using indentation
 grammar_indented = r"""
@@ -1860,6 +1877,14 @@ class CodeGenerator:
 
         kw_set = repr(PIVOTAL_KEYWORDS)
         tname = ast_node['table_name']
+        sanitise_code = (
+            f"{_SANITISE_HELPER}"
+            f"_pvt_new_cols, _pvt_renamed = _pvt_sanitise({tname}.columns.tolist())\n"
+            f"{tname}.columns = _pvt_new_cols\n"
+            f"if _pvt_renamed:\n"
+            f"    import warnings\n"
+            f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{tname}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)\n"
+        )
         kw_check = (
             f"_kw_cols = [c for c in {tname}.columns if c.lower() in {kw_set}]\n"
             f"if _kw_cols:\n"
@@ -1869,7 +1894,7 @@ class CodeGenerator:
             f"        \"Use a 'python' block to reference them.\",\n"
             f"        UserWarning, stacklevel=2)"
         )
-        return f"{load_table}\n{kw_check}\n{table_name_marker}"
+        return f"{load_table}\n{sanitise_code}\n{kw_check}\n{table_name_marker}"
 
     def generate_load_table_polars(self, ast_node):
         source = ast_node['source']
@@ -1912,7 +1937,16 @@ class CodeGenerator:
             else:
                 load_table = f"{tname} = pl.read_csv({repr(source_str)}{ast_node['kwargs_str']})"
 
-        return f"{load_table}\n{table_name_marker}"
+        tname = ast_node['table_name']
+        sanitise_code = (
+            f"{_SANITISE_HELPER}"
+            f"_, _pvt_renamed = _pvt_sanitise({tname}.columns)\n"
+            f"if _pvt_renamed:\n"
+            f"    {tname} = {tname}.rename(_pvt_renamed)\n"
+            f"    import warnings\n"
+            f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{tname}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)\n"
+        )
+        return f"{load_table}\n{sanitise_code}\n{table_name_marker}"
 
     def generate_copy_table_pandas(self, ast_node):
         copy_code = f"{ast_node['table_name']} = {ast_node['copy_from']}.copy()"
@@ -4427,7 +4461,17 @@ class CodeGenerator:
             else:
                 load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv(\'{source_str}\')")'
 
-        return f"{load_code}\n{marker}"
+        sanitise_code = (
+            f"{_SANITISE_HELPER}"
+            f"_pvt_info = [r[1] for r in _pvt.execute('PRAGMA table_info({t})').fetchall()]\n"
+            f"_, _pvt_renamed = _pvt_sanitise(_pvt_info)\n"
+            f"for _pvt_old, _pvt_new in _pvt_renamed.items():\n"
+            f"    _pvt.execute(f'ALTER TABLE {t} RENAME COLUMN \"{{_pvt_old}}\" TO \"{{_pvt_new}}\"')\n"
+            f"if _pvt_renamed:\n"
+            f"    import warnings\n"
+            f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{t}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)\n"
+        )
+        return f"{load_code}\n{sanitise_code}\n{marker}"
 
     def generate_filter_duckdb(self, ast_node):
         t = ast_node['table_name']

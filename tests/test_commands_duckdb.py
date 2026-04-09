@@ -155,6 +155,49 @@ def test_load_variable_path_duckdb(parser, tmp_path, sample_df):
     assert len(df) == len(sample_df)
 
 
+def test_load_sanitises_spaces_duckdb(parser, tmp_path):
+    """Spaces in column names are replaced with underscores in DuckDB backend."""
+    df = pd.DataFrame({'first name': ['Alice', 'Bob'], 'last name': ['Smith', 'Jones']})
+    csv_path = tmp_path / 'spaced.csv'
+    df.to_csv(csv_path, index=False)
+    conn = duckdb.connect()
+    ns = ddb_ns(conn)
+    with pytest.warns(UserWarning, match="renamed"):
+        run_ddb(parser, f'load people "{csv_path}"', ns)
+    result = fetch(ns, 'people')
+    assert 'first_name' in result.columns
+    assert 'last_name' in result.columns
+
+
+def test_load_sanitises_special_chars_duckdb(parser, tmp_path):
+    """Special characters removed from column names in DuckDB backend."""
+    df = pd.DataFrame({'price(USD)': [1.0], '2024Q1': [10]})
+    csv_path = tmp_path / 'special.csv'
+    df.to_csv(csv_path, index=False)
+    conn = duckdb.connect()
+    ns = ddb_ns(conn)
+    with pytest.warns(UserWarning, match="renamed"):
+        run_ddb(parser, f'load data "{csv_path}"', ns)
+    result = fetch(ns, 'data')
+    # Leading digit gets underscore prefix; all cols should be valid identifiers
+    for col in result.columns:
+        assert col.replace('_', '').replace('USD', '').isalnum() or col.startswith('_')
+
+
+def test_load_clean_columns_no_warning_duckdb(parser, tmp_path, sample_df):
+    """Clean column names produce no sanitisation warning in DuckDB backend."""
+    csv_path = tmp_path / 'clean.csv'
+    sample_df.to_csv(csv_path, index=False)
+    conn = duckdb.connect()
+    ns = ddb_ns(conn)
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        run_ddb(parser, f'load sales "{csv_path}"', ns)
+    sanitise_warns = [x for x in w if "renamed" in str(x.message)]
+    assert not sanitise_warns
+
+
 # ---------------------------------------------------------------------------
 # copy_table
 # ---------------------------------------------------------------------------
