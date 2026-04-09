@@ -277,7 +277,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run(parser, 'df data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
     n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
     s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
     assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
@@ -304,6 +304,59 @@ def test_assign_wavg_by_group(parser):
     result = ns['data']
     assert result.loc[result['region'] == 'N', 'dev'].tolist() == pytest.approx([-150.0, 50.0])
     assert result.loc[result['region'] == 'S', 'dev'].tolist() == pytest.approx([-100.0, 100.0])
+
+
+def test_wmean_keyword_alias_for_wavg(parser):
+    """wmean is the preferred keyword; wavg still works as an alias in bracket form."""
+    df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    # bracket form: wmean(col, weight) — col first
+    run(parser, 'df data\nwa = wmean(amount, weight)\n', ns)
+    assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)
+
+
+def test_wmean_agg_whole_table(parser):
+    """wmean weight col in agg with no group-by produces correct whole-table wmean."""
+    df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\n    agg wmean weight amount\n', ns)
+    assert ns['data']['wmean_amount'].iloc[0] == pytest.approx(250.0)
+
+
+def test_wmean_agg_whole_table_alias(parser):
+    """wmean weight col as alias works for single-column whole-table agg."""
+    df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\n    agg wmean weight amount as wa\n', ns)
+    assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)
+
+
+def test_wmean_agg_multi_column(parser):
+    """wmean weight col1 col2 produces one wmean column per value column."""
+    df = pd.DataFrame({'a': [1.0, 3.0], 'b': [10.0, 30.0], 'w': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\n    agg wmean w a b\n', ns)
+    assert ns['data']['wmean_a'].iloc[0] == pytest.approx(2.5)   # (1+9)/4
+    assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)  # (10+90)/4
+
+
+def test_wmean_groupby_multi_column(parser):
+    """wmean weight col1 col2 inside group by produces per-group wmeans."""
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'x':   [1.0, 3.0, 2.0, 4.0],
+        'y':   [10.0, 30.0, 20.0, 40.0],
+        'w':   [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'df data\ngroup by grp\n    agg wmean w x y\n', ns)
+    result = ns['data']
+    a = result[result['grp'] == 'A'].iloc[0]
+    b = result[result['grp'] == 'B'].iloc[0]
+    assert a['wmean_x'] == pytest.approx(2.5)   # (1+9)/4
+    assert a['wmean_y'] == pytest.approx(25.0)
+    assert b['wmean_x'] == pytest.approx(3.0)   # (4+8)/4
+    assert b['wmean_y'] == pytest.approx(30.0)
 
 
 # ---------------------------------------------------------------------------

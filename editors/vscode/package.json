@@ -2,8 +2,8 @@
   "name": "pivotal-language",
   "displayName": "Pivotal",
   "description": "Syntax highlighting and execution support for the Pivotal data transformation DSL",
-  "version": "0.5.5",
-  "publisher": "pivotal",
+  "version": "0.5.6",
+  "publisher": "NealHughes",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -13,7 +13,7 @@
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pivotal/pivotal-py"
+    "url": "https://github.com/nealbob/pivotal-py"
   },
   "main": "./out/extension.js",
   "activationEvents": [
@@ -94,6 +94,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "pivotal.explorer.search",
+        "title": "Search",
+        "icon": "$(search)"
+      },
+      {
         "command": "pivotal.loadDataset",
         "title": "Pivotal: Load Dataset",
         "icon": "$(file-add)"
@@ -165,6 +170,12 @@
         "key": "ctrl+shift+e",
         "mac": "cmd+shift+e",
         "when": "editorLangId == pivotal"
+      },
+      {
+        "command": "pivotal.explorer.search",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "focusedView == pivotalExplorer"
       }
     ],
     "menus": {
@@ -223,6 +234,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "pivotal.explorer.search",
+          "when": "view == pivotalExplorer",
+          "group": "navigation@1"
+        },
         {
           "command": "pivotal.loadDataset",
           "when": "view == pivotalExplorer",
@@ -288,7 +304,7 @@
         "pivotal.pythonPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the Python executable used for Pivotal compile/export commands. Leave empty to auto-detect from the active Jupyter kernel or VS Code Python extension.\n\nExample: `/home/user/miniconda3/envs/myenv/bin/python`"
+          "markdownDescription": "Path to the Python executable for the environment where Pivotal is installed. When set, this is automatically applied to `python.defaultInterpreterPath` so VS Code Jupyter uses the correct kernel for new sessions.\n\nExample: `/home/user/miniconda3/envs/pivotal/bin/python`"
         },
         "pivotal.viewer": {
           "type": "boolean",
@@ -321,7 +337,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -watch -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json && vsce package --no-dependencies && code --install-extension \"$(ls -t pivotal-language-*.vsix | head -1)\" --force"
+    "dev": "tsc -p tsconfig.json && vsce package --no-dependencies --allow-missing-repository && code --install-extension \"$(ls -t pivotal-language-*.vsix | head -1)\" --force"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

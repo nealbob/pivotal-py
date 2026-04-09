@@ -124,7 +124,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
 
   // Plotting
   { label: 'plot',     snippet: 'plot ${1:line}\n    x ${2:x_col}\n    y ${3:y_col}',         detail: 'plot <type>  x <col>  y <col>' },
-  { label: 'agg plot', snippet: 'agg plot ${1:bar}\n    x ${2:x_col}\n    y ${3:y_col}',      detail: 'agg plot <type>  x <col>  y <col>' },
+  { label: 'pivot plot', snippet: 'pivot plot ${1:bar}\n    x ${2:x_col}\n    y ${3:mean} ${4:y_col}',      detail: 'pivot plot <type>  x <col>  y <func> <col>, ...' },
 
   // Output / misc
   { label: 'show' },
@@ -388,7 +388,10 @@ function _connectBridge(port: number): void {
   socket.on('connect', () => {
     _bridgeSocket = socket;
     _setBridgeStatus('connected');
-    _injectDefaultSettings();
+    // Delay settings injection slightly so pending bridge data (flushed
+    // immediately on accept) is processed first — avoids the
+    // jupyter.execSelectionInteractive call racing with viewer panel creation.
+    setTimeout(_injectDefaultSettings, 200);
   });
 
   socket.on('data', (chunk: Buffer) => {
@@ -461,11 +464,32 @@ function _startBridgeWatcher(context: vscode.ExtensionContext): void {
   context.subscriptions.push({ dispose: () => clearInterval(poll) });
 }
 
+/** Rapid bridge-file polling after cell execution.
+ *  On the first execution the kernel starts, creates the bridge, and writes
+ *  the bridge file.  On WSL2 `fs.watch` often misses this event, and the 2 s
+ *  steady-state poll can feel sluggish.  This does a short burst of fast
+ *  checks (every 300 ms for ~6 s) so the viewer connects promptly.  Stops
+ *  early once the bridge is connected. */
+let _rapidPollTimer: ReturnType<typeof setInterval> | null = null;
+function _scheduleRapidBridgePoll(): void {
+  if (_rapidPollTimer || _bridgeSocket) { return; }
+  let remaining = 20;   // 20 × 300 ms = 6 s
+  _rapidPollTimer = setInterval(() => {
+    if (_bridgeSocket || --remaining <= 0) {
+      clearInterval(_rapidPollTimer!);
+      _rapidPollTimer = null;
+      return;
+    }
+    _tryReadBridgeFile();
+  }, 300);
+}
+
 // ---------------------------------------------------------------------------
 // Phase 3 — Viewer WebviewPanel
 // ---------------------------------------------------------------------------
 
 let _viewerPanel: vscode.WebviewPanel | null = null;
+let _viewerReady = false;   // true once the webview has confirmed 'ready'
 
 function _generateNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -488,6 +512,15 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
   );
   panel.webview.html = _buildViewerHtml(panel.webview);
   panel.webview.onDidReceiveMessage((msg: Record<string, unknown>) => {
+    if (msg.type === 'ready') {
+      // Webview has finished loading — replay all items that may have been
+      // sent (and lost) before the message listener was registered.
+      _viewerReady = true;
+      for (const [, payload] of _explorerItems) {
+        panel.webview.postMessage(payload);
+      }
+      return;
+    }
     sendToBridge(msg);
     // Keep explorer in sync with deletions/clears initiated from the viewer
     if (msg.type === 'delete') {
@@ -498,7 +531,7 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
       _refreshExplorer();
     }
   }, undefined, context.subscriptions);
-  panel.onDidDispose(() => { _viewerPanel = null; }, undefined, context.subscriptions);
+  panel.onDidDispose(() => { _viewerPanel = null; _viewerReady = false; }, undefined, context.subscriptions);
   _viewerPanel = panel;
   return panel;
 }
@@ -1220,6 +1253,10 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     }
   });
 
+  // Signal to the extension that the webview is ready to receive messages.
+  // The extension will replay any items that arrived while the webview was loading.
+  vscodeApi.postMessage({ type: 'ready' });
+
 })();
 </script>
 </body>
@@ -1253,6 +1290,8 @@ const _CATEGORIES = [
 class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
   private readonly _emitter = new vscode.EventEmitter<ExplorerNode | undefined>();
   readonly onDidChangeTreeData = this._emitter.event;
+
+  filter = '';   // current search string (lower-cased); empty = show all
 
   refresh(): void { this._emitter.fire(undefined); }
 
@@ -1311,16 +1350,19 @@ class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
   }
 
   getChildren(node?: ExplorerNode): ExplorerNode[] {
+    const f = this.filter;
     if (!node) {
-      // Root: show only categories that have at least one item
+      // Root: show only categories that have at least one (matching) item
       return _CATEGORIES
-        .filter(c => [..._explorerItems.values()].some(p => p.type === c.itemType))
+        .filter(c => [..._explorerItems.entries()].some(
+          ([name, p]) => p.type === c.itemType && (!f || name.toLowerCase().includes(f))
+        ))
         .map(c => ({ kind: 'category' as const, label: c.label, itemType: c.itemType }));
     }
     if (node.kind === 'category') {
       const result: ExplorerNode[] = [];
       for (const [name, payload] of _explorerItems) {
-        if ((payload.type as string) === node.itemType) {
+        if ((payload.type as string) === node.itemType && (!f || name.toLowerCase().includes(f))) {
           result.push({ kind: 'item', type: node.itemType, name, payload });
         }
       }
@@ -1464,6 +1506,10 @@ function _buildPlotGuiHtml(): string {
   <label>Chart name</label>
   <input type="text" id="chartName" value="temp">
 </div>
+<div class="field">
+  <label>filter (optional)</label>
+  <input type="text" id="filterExpr" placeholder="e.g. season > 2010">
+</div>
 <div class="drow">
   <div class="field">
     <label>x column</label>
@@ -1499,15 +1545,16 @@ function _buildPlotGuiHtml(): string {
   let _tables = {};
   let _yCols = [];  // array of {sel} objects
 
-  const tableEl    = document.getElementById('table');
-  const chartTypeEl= document.getElementById('chartType');
-  const chartNameEl= document.getElementById('chartName');
-  const xEl        = document.getElementById('x');
-  const xLabelEl   = document.getElementById('xLabel');
-  const yRowsEl    = document.getElementById('yRows');
-  const yLabelEl   = document.getElementById('yLabel');
-  const addYBtn    = document.getElementById('addYBtn');
-  const byEl       = document.getElementById('by');
+  const tableEl      = document.getElementById('table');
+  const chartTypeEl  = document.getElementById('chartType');
+  const chartNameEl  = document.getElementById('chartName');
+  const filterExprEl = document.getElementById('filterExpr');
+  const xEl          = document.getElementById('x');
+  const xLabelEl     = document.getElementById('xLabel');
+  const yRowsEl      = document.getElementById('yRows');
+  const yLabelEl     = document.getElementById('yLabel');
+  const addYBtn      = document.getElementById('addYBtn');
+  const byEl         = document.getElementById('by');
 
   const AGG_FUNCS = ['mean','sum','count','min','max','median'];
 
@@ -1563,26 +1610,26 @@ function _buildPlotGuiHtml(): string {
   }
 
   function buildCode() {
-    const tbl   = tableEl.value;
-    const kind  = chartTypeEl.value;
-    const name  = chartNameEl.value.trim();
-    const x     = xEl.value;
-    const xl    = xLabelEl.value.trim();
-    const yl    = yLabelEl.value.trim();
-    const by    = byEl.value;
+    const tbl    = tableEl.value;
+    const kind   = chartTypeEl.value;
+    const name   = chartNameEl.value.trim();
+    const filt   = filterExprEl.value.trim();
+    const x      = xEl.value;
+    const xl     = xLabelEl.value.trim();
+    const yl     = yLabelEl.value.trim();
+    const by     = byEl.value;
     const yEntries = _yCols
       .map(c => ({ agg: c.aggVal || (c.aggSel && c.aggSel.value) || 'mean', col: c.colVal || (c.colSel && c.colSel.value) || '' }))
       .filter(e => e.col);
     if (!tbl || !x || !yEntries.length) return '(select table, x and at least one y column)';
+    const yStr = yEntries.map(e => e.agg + ' ' + e.col).join(', ');
     const lines = [
       'df ' + tbl,
-      'agg plot ' + kind + (name ? ' ' + name : ''),
+      ...(filt ? ['filter ' + filt] : []),
+      'pivot plot ' + kind + (name ? ' ' + name : ''),
       '    x ' + x + (xl ? ' "' + xl.replace(/"/g,'\\\\"') + '"' : ''),
+      '    y ' + yStr + (yl ? ' "' + yl.replace(/"/g,'\\\\"') + '"' : ''),
     ];
-    yEntries.forEach((e, i) => {
-      const label = (i === yEntries.length - 1 && yl) ? ' "' + yl.replace(/"/g,'\\\\"') + '"' : '';
-      lines.push('    y ' + e.agg + ' ' + e.col + label);
-    });
     if (by) lines.push('    by ' + by);
     return lines.join('\\n');
   }
@@ -1615,7 +1662,7 @@ function _buildPlotGuiHtml(): string {
 
   tableEl.addEventListener('change', populateCols);
   [chartTypeEl, xEl, byEl].forEach(el => el.addEventListener('change', updatePreview));
-  [chartNameEl, xLabelEl, yLabelEl].forEach(el => el.addEventListener('input', updatePreview));
+  [chartNameEl, filterExprEl, xLabelEl, yLabelEl].forEach(el => el.addEventListener('input', updatePreview));
   addYBtn.addEventListener('click', addYRow);
 
   function send(action) {
@@ -1930,6 +1977,8 @@ export function activate(context: vscode.ExtensionContext): void {
           await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
+      _scheduleKernelCheck();
+      _scheduleRapidBridgePoll();
     }
   );
 
@@ -1950,6 +1999,8 @@ export function activate(context: vscode.ExtensionContext): void {
         `import pivotal; get_ipython().run_cell_magic('pivotal', '', ${escapedContents})`;
       try {
         await vscode.commands.executeCommand('jupyter.execSelectionInteractive', cellText);
+        _scheduleKernelCheck();
+        _scheduleRapidBridgePoll();
       } catch {
         vscode.window.showErrorMessage(
           'Pivotal: Failed to send selection to Interactive Window. ' +
@@ -2092,6 +2143,22 @@ export function activate(context: vscode.ExtensionContext): void {
       if (node.kind !== 'item') { return; }
       const panel = _getOrCreateViewerPanel(context, true);
       panel.webview.postMessage({ type: 'focus', name: node.name });
+    },
+  );
+
+  // --- Command: Search / filter explorer items ---
+  const explorerSearch = vscode.commands.registerCommand(
+    'pivotal.explorer.search',
+    async () => {
+      const current = _explorerProvider?.filter ?? '';
+      const value = await vscode.window.showInputBox({
+        prompt: 'Filter Pivotal Explorer items',
+        placeHolder: 'Type to filter by name… (leave empty to clear)',
+        value: current,
+      });
+      if (value === undefined || !_explorerProvider) { return; }
+      _explorerProvider.filter = value.toLowerCase().trim();
+      _refreshExplorer();
     },
   );
 
@@ -2382,7 +2449,13 @@ export function activate(context: vscode.ExtensionContext): void {
       if (isFirstItem) {
         vscode.commands.executeCommand('pivotalExplorer.focus');
       }
-      _getOrCreateViewerPanel(context).webview.postMessage(msg);
+      // Ensure the viewer panel exists.  If the webview has already
+      // confirmed 'ready', post immediately; otherwise the item is stored
+      // in _explorerItems and will be replayed when 'ready' fires.
+      const panel = _getOrCreateViewerPanel(context);
+      if (_viewerReady) {
+        panel.webview.postMessage(msg);
+      }
     } else if (t === 'delete') {
       const existing = _explorerItems.get(msg.name as string);
       _explorerItems.delete(msg.name as string);
@@ -2401,6 +2474,63 @@ export function activate(context: vscode.ExtensionContext): void {
 
   _startBridgeWatcher(context);
 
+  // ── Interpreter sync ─────────────────────────────────────────────────────
+  // When pivotal.pythonPath is configured, write it into python.defaultInterpreterPath
+  // (workspace-level) so VS Code Jupyter picks the right kernel for new sessions.
+  // This runs on activation and whenever the setting changes.
+
+  function _syncPivotalInterpreter(): void {
+    const pivotalPath = vscode.workspace.getConfiguration('pivotal').get<string>('pythonPath');
+    if (!pivotalPath || !pivotalPath.trim() || pivotalPath.includes('${')) { return; }
+    const resolved = pivotalPath.trim();
+    const pythonCfg = vscode.workspace.getConfiguration('python');
+    const current = pythonCfg.get<string>('defaultInterpreterPath') || '';
+    if (current === resolved) { return; }   // already in sync
+    const target = vscode.workspace.workspaceFolders?.length
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+    pythonCfg.update('defaultInterpreterPath', resolved, target);
+  }
+
+  _syncPivotalInterpreter();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('pivotal.pythonPath')) {
+        _syncPivotalInterpreter();
+      }
+    }),
+  );
+
+  // ── Wrong-kernel warning ─────────────────────────────────────────────────
+  // After each execution attempt, if the bridge hasn't connected within a few
+  // seconds and pivotal.pythonPath is configured, the kernel is probably wrong.
+  // Show a one-shot notification so the user knows what to fix.
+
+  let _kernelWarnShown = false;
+
+  function _scheduleKernelCheck(): void {
+    const pivotalPath = vscode.workspace.getConfiguration('pivotal').get<string>('pythonPath');
+    if (!pivotalPath || !pivotalPath.trim() || _kernelWarnShown || _bridgeSocket) { return; }
+    setTimeout(() => {
+      // Re-check: did the bridge connect in the meantime?
+      if (_bridgeSocket || _kernelWarnShown) { return; }
+      _kernelWarnShown = true;
+      vscode.window.showWarningMessage(
+        `Pivotal: the interactive kernel may not be using the configured Python environment (${pivotalPath.trim()}). If results are not appearing, switch the kernel and restart.`,
+        'Switch Kernel',
+        'Dismiss',
+      ).then(choice => {
+        if (choice === 'Switch Kernel') {
+          vscode.commands.executeCommand('jupyter.selectKernelForInteractiveWindow');
+        }
+      });
+    }, 8000);
+  }
+
+  // Reset the warning flag when the bridge connects (kernel is correct).
+  onBridgeMessage(() => { _kernelWarnShown = false; });
+
   context.subscriptions.push(
     executeFile,
     executeInNotebook,
@@ -2410,6 +2540,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showViewer,
     explorerView,
     explorerDelete,
+    explorerSearch,
     loadDataset,
     savePackage,
     codeExport,

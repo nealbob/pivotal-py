@@ -647,7 +647,7 @@ def test_groupby_nunique_duckdb(parser):
 def test_groupby_wavg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg wavg amount weight as wa\n', ns)
+    run_ddb(parser, 'df data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
     df = fetch(ns, 'data')
     n_wa = df[df['region'] == 'N']['wa'].iloc[0]
     s_wa = df[df['region'] == 'S']['wa'].iloc[0]
@@ -717,7 +717,7 @@ def test_codegen_groupby_sum_duckdb(parser):
 
 
 def test_codegen_groupby_wavg_duckdb(parser):
-    nodes = parser.parse('df data\ngroup by region\n    agg wavg amount weight as wa\n')
+    nodes = parser.parse('df data\ngroup by region\n    agg wmean weight amount as wa\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SUM(amount * weight)' in code
     assert 'GROUP BY region' in code

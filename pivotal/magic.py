@@ -376,7 +376,7 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
             continue
         if node.get('type') == 'delete':
             viewer.send_delete(node['name'])
-        elif node.get('type') in ('plot', 'agg_plot'):
+        elif node.get('type') in ('plot', 'agg_plot', 'pivot_plot'):
             plot_nodes.append(node)
         elif node.get('type') == 'gt_table':
             gt_table_nodes.append(node)
@@ -407,8 +407,8 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
     for node in plot_nodes:
         chart_name = node.get('name') or node.get('table_name') or 'chart'
         fig = ns.get(chart_name)
-        # agg_plot: send df first so chart arrives last and gets viewer focus
-        if node.get('type') == 'agg_plot':
+        # pivot_plot: send df first so chart arrives last and gets viewer focus
+        if node.get('type') in ('agg_plot', 'pivot_plot'):
             df_name = f"{chart_name}_df"
             df = ns.get(df_name)
             if _is_dataframe(df):
@@ -468,6 +468,7 @@ def plot_gui(df_name: str = None):
 
     # Layout constants
     _dd  = widgets.Layout(width='130px')
+    _dd_sm = widgets.Layout(width='80px')
     _tx  = widgets.Layout(width='140px')
     _lbl = widgets.Layout(width='44px')
     _sm  = widgets.Layout(width='26px', height='24px', padding='0px')
@@ -478,6 +479,8 @@ def plot_gui(df_name: str = None):
     def _row(*ws):
         return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
 
+    _AGG_FUNCS = ['mean', 'sum', 'count', 'min', 'max', 'median']
+
     # Static widgets
     df_sel       = widgets.Dropdown(options=df_names,
                        value=df_name if df_name in df_names else df_names[0],
@@ -485,8 +488,8 @@ def plot_gui(df_name: str = None):
     chart_type   = widgets.Dropdown(options=['bar', 'line', 'scatter', 'area'],
                        value='bar', description='', layout=_dd)
     chart_name_w = widgets.Text(value='', placeholder='name', description='', layout=_tx)
-    agg_func     = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median'],
-                       value='mean', description='', layout=_dd)
+    filter_w     = widgets.Text(value='', placeholder='filter condition (optional)', description='',
+                                layout=widgets.Layout(width='260px'))
     x_col        = widgets.Dropdown(options=[], description='', layout=_dd)
     x_label_w    = widgets.Text(value='', placeholder='x label', description='', layout=_tx)
     y_label_w    = widgets.Text(value='', placeholder='y label', description='', layout=_tx)
@@ -495,19 +498,21 @@ def plot_gui(df_name: str = None):
     gen_btn      = widgets.Button(description='Generate', button_style='primary',
                                   layout=widgets.Layout(width='90px'))
 
-    # Dynamic Y rows
-    y_rows    = []   # list of Dropdown widgets
+    # Dynamic Y rows — each entry is (func_dd, col_dd)
+    y_rows    = []   # list of (func_dropdown, col_dropdown) tuples
     y_section = widgets.VBox([])
     add_y_btn = widgets.Button(description='+', layout=_sm)
 
-    def _make_y_dd(cols):
-        return widgets.Dropdown(options=cols, description='', layout=_dd)
+    def _make_y_row(cols):
+        func_dd = widgets.Dropdown(options=_AGG_FUNCS, value='mean', description='', layout=_dd_sm)
+        col_dd  = widgets.Dropdown(options=cols, description='', layout=_dd)
+        return (func_dd, col_dd)
 
     def _rebuild_y():
         rows = []
-        for i, dd in enumerate(y_rows):
+        for i, (func_dd, col_dd) in enumerate(y_rows):
             minus = widgets.Button(description='−', layout=_sm)
-            minus.on_click(lambda _, d=dd: _remove_y(d))
+            minus.on_click(lambda _, entry=(func_dd, col_dd): _remove_y(entry))
             if i == 0:
                 lbl  = _lh('y')
                 btns = widgets.HBox(
@@ -516,19 +521,19 @@ def plot_gui(df_name: str = None):
             else:
                 lbl  = widgets.HTML('', layout=_lbl)
                 btns = widgets.HBox([minus], layout=widgets.Layout(align_items='center'))
-            rows.append(widgets.HBox([lbl, dd, btns],
+            rows.append(widgets.HBox([lbl, func_dd, col_dd, btns],
                                      layout=widgets.Layout(align_items='center', margin='2px 0')))
-        # agg func + y label pinned at bottom of Y block
-        rows.append(_row(widgets.HTML('', layout=_lbl), agg_func, y_label_w))
+        # y label pinned at bottom of Y block
+        rows.append(_row(widgets.HTML('', layout=_lbl), y_label_w))
         y_section.children = tuple(rows)
 
-    def _remove_y(dd):
-        if dd in y_rows and len(y_rows) > 1:
-            y_rows.remove(dd)
+    def _remove_y(entry):
+        if entry in y_rows and len(y_rows) > 1:
+            y_rows.remove(entry)
             _rebuild_y()
 
     def _add_y(_btn=None):
-        y_rows.append(_make_y_dd(list(x_col.options)))
+        y_rows.append(_make_y_row(list(x_col.options)))
         _rebuild_y()
 
     add_y_btn.on_click(_add_y)
@@ -545,43 +550,44 @@ def plot_gui(df_name: str = None):
         x_col.options = cols
         if cols:
             x_col.value = cols[0]
-        for dd in y_rows:
-            dd.options = cols
+        for _, col_dd in y_rows:
+            col_dd.options = cols
         by_col.options = ['(none)'] + cols
         by_col.value = '(none)'
 
     df_sel.observe(_refresh_cols, names='value')
 
     # Initialise with one Y row then populate column lists
-    y_rows.append(_make_y_dd([]))
+    y_rows.append(_make_y_row([]))
     _refresh_cols()
     _rebuild_y()
 
     def _build_dsl(_btn=None, _gui_id=''):
-        table = df_sel.value
-        kind  = chart_type.value
-        name  = chart_name_w.value.strip() or f'{table}_plot'
-        func  = agg_func.value
-        x     = x_col.value
-        xl    = x_label_w.value.strip()
-        ys    = [dd.value for dd in y_rows if dd.value]
-        yl    = y_label_w.value.strip()
-        by    = by_col.value if by_col.value != '(none)' else None
+        table  = df_sel.value
+        kind   = chart_type.value
+        name   = chart_name_w.value.strip() or f'{table}_plot'
+        filt   = filter_w.value.strip()
+        x      = x_col.value
+        xl     = x_label_w.value.strip()
+        y_entries = [(func_dd.value, col_dd.value) for func_dd, col_dd in y_rows if col_dd.value]
+        yl     = y_label_w.value.strip()
+        by     = by_col.value if by_col.value != '(none)' else None
 
-        if not ys:
+        if not y_entries:
             with output:
                 output.clear_output()
                 print('Select at least one Y column.')
             return
 
+        y_str = ', '.join(f'{func} {col}' for func, col in y_entries)
         params = []
         params.append(f'  x {x} "{xl}"' if xl else f'  x {x}')
-        y_part = ' '.join(ys)
-        params.append(f'  y {func} {y_part} "{yl}"' if yl else f'  y {func} {y_part}')
+        params.append(f'  y {y_str} "{yl}"' if yl else f'  y {y_str}')
         if by:
             params.append(f'  by {by}')
 
-        dsl = f'%%pivotal\ndf {table}\nagg plot {kind} {name}\n' + '\n'.join(params)
+        filter_line = f'\nfilter {filt}' if filt else ''
+        dsl = f'%%pivotal\ndf {table}{filter_line}\npivot plot {kind} {name}\n' + '\n'.join(params)
 
         viewer = _get_viewer()
         if viewer is not None:
@@ -599,11 +605,12 @@ def plot_gui(df_name: str = None):
     gen_btn.on_click(_build_dsl_plot)
 
     content = widgets.VBox([
-        _row(_lh('df'),   df_sel),
-        _row(_lh('plot'), chart_type, chart_name_w),
-        _row(_lh('x'),    x_col, x_label_w),
+        _row(_lh('df'),     df_sel),
+        _row(_lh('plot'),   chart_type, chart_name_w),
+        _row(_lh('filter'), filter_w),
+        _row(_lh('x'),      x_col, x_label_w),
         y_section,
-        _row(_lh('by'),   by_col),
+        _row(_lh('by'),     by_col),
         widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,
     ])
@@ -647,6 +654,8 @@ def pivot_gui(df_name: str = None):
     df_sel   = widgets.Dropdown(options=df_names,
                    value=df_name if df_name in df_names else df_names[0],
                    description='', layout=_dd)
+    filter_w = widgets.Text(value='', placeholder='filter condition (optional)', description='',
+                            layout=widgets.Layout(width='260px'))
     agg_func = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median'],
                    value='mean', description='', layout=_dd)
     val_col  = widgets.Dropdown(options=[], description='', layout=_dd)
@@ -718,6 +727,7 @@ def pivot_gui(df_name: str = None):
 
     def _build_dsl(_btn=None):
         table  = df_sel.value
+        filt   = filter_w.value.strip()
         row_cs = [dd.value for dd in rows_items if dd.value]
         col_cs = [dd.value for dd in cols_items if dd.value]
         func   = agg_func.value
@@ -729,7 +739,8 @@ def pivot_gui(df_name: str = None):
                 print('Fill in rows, cols, and agg value columns.')
             return
 
-        dsl = (f'%%pivotal\ndf {table}\npivot\n'
+        filter_line = f'\nfilter {filt}' if filt else ''
+        dsl = (f'%%pivotal\ndf {table}{filter_line}\npivot\n'
                f'  rows {" ".join(row_cs)}\n'
                f'  cols {" ".join(col_cs)}\n'
                f'  agg {func} {val}')
@@ -746,8 +757,9 @@ def pivot_gui(df_name: str = None):
     gen_btn.on_click(_build_dsl)
 
     content = widgets.VBox([
-        _row(_lh('df'),  df_sel),
-        _row(_lh('agg'), agg_func, val_col,
+        _row(_lh('df'),     df_sel),
+        _row(_lh('filter'), filter_w),
+        _row(_lh('agg'),    agg_func, val_col,
              widgets.HTML('<span style="color:var(--jp-ui-font-color2);font-size:0.85em">(values)</span>')),
         rows_section,
         cols_section,
@@ -1400,12 +1412,10 @@ class PivotalMagics(Magics):
             display_error(err, cell)
             return
 
-        # Semantic validation — check table/column references before code runs.
+        # Semantic validation — collect errors but don't block execution.
+        # Only surfaced if the cell actually errors at runtime (avoids false
+        # positives for columns created earlier in the same cell).
         val_errors = _validate_ast(results, self.shell.user_ns, cell)
-        if val_errors:
-            for err in val_errors:
-                display_error(err, cell)
-            return
 
         python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
         combined = '\n\n'.join(python_code_list)
@@ -1415,7 +1425,7 @@ class PivotalMagics(Magics):
         if use_viewer:
             close_stmts = []
             for node in results:
-                if isinstance(node, dict) and node.get('type') in ('plot', 'agg_plot'):
+                if isinstance(node, dict) and node.get('type') in ('plot', 'agg_plot', 'pivot_plot'):
                     if not node.get('show') and not node.get('on'):
                         chart_name = node.get('name') or node.get('table_name') or 'chart'
                         close_stmts.append(
@@ -1424,7 +1434,7 @@ class PivotalMagics(Magics):
             if close_stmts:
                 combined += '\n\n' + '\n'.join(close_stmts)
 
-        result = run_cell_with_error_filter(self.shell, combined, cell)
+        result = run_cell_with_error_filter(self.shell, combined, cell, val_errors=val_errors)
 
         if not result.error_in_exec:
             if output_code:

@@ -118,6 +118,57 @@ df sales
 
 ---
 
+## `pivot plot` — chart with inline aggregation
+
+`pivot plot` groups and aggregates the source table then plots the result directly, without producing a separate summary table. The `y` line takes one or more `func col` pairs separated by commas, allowing different aggregation functions per column.
+
+### Basic syntax
+
+```pivotal
+df sales
+    pivot plot bar revenue_chart
+        x region
+        y sum amount
+```
+
+### Multiple y columns (different funcs per column)
+
+```pivotal
+df matches
+    pivot plot line season_chart
+        x season
+        y mean home_team_goal, mean away_team_goal "Goals"
+```
+
+### With filter
+
+Place a `filter` statement before `pivot plot` to pre-filter the source data:
+
+```pivotal
+df sales
+    filter year > 2020
+    pivot plot bar recent_chart
+        x category
+        y sum revenue, mean price
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `x <col>` | X-axis (group-by) column |
+| `y <func> <col>, ...` | One or more `func col` pairs; optional label string at end |
+| `by <col>` | Facet into subplots by this column |
+| `cols <n>` | Number of columns in faceted layout (default 2) |
+| `canvas <size>` | Figure canvas size |
+| `show` | Render inline in addition to viewer |
+
+Aggregation functions: `mean  sum  count  min  max  median`
+
+> **Note:** `agg plot` is accepted as a silent alias for backward compatibility.
+
+---
+
 ## `table` — publication-ready table
 
 Create a formatted table using [Great Tables](https://posit-dev.github.io/great-tables/). Requires `pip install pivotal[tables]`.

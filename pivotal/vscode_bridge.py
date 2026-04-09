@@ -76,11 +76,10 @@ class _VSCodeBridge:
         """
         with self._conn_lock:
             conn = self._conn
-        if conn is None:
-            # VS Code not connected yet — buffer for flush on connect
-            with self._conn_lock:
+            if conn is None:
+                # VS Code not connected yet — buffer for flush on connect
                 self._pending.append(data)
-            return
+                return
         self._send_to(conn, data)
 
     def on_msg(self, callback: Callable) -> None:

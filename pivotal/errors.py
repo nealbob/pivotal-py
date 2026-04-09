@@ -220,12 +220,15 @@ def display_error_with_traceback(err: PivotalError, source_code: str,
     print(tb_text)
 
 
-def run_cell_with_error_filter(shell, combined: str, source_code: str) -> object:
+def run_cell_with_error_filter(shell, combined: str, source_code: str,
+                               val_errors=None) -> object:
     """
     Run *combined* Python code via IPython's run_cell, intercepting tracebacks.
 
-    - Known error patterns (KeyError, NameError, etc.) → friendly message only.
-    - Unrecognised errors → friendly generic message with expandable traceback.
+    - If *val_errors* are provided and the cell errors, show them with an
+      expandable traceback (they predicted the failure).
+    - If no *val_errors*, known error patterns → friendly message only;
+      unrecognised errors → generic message with expandable traceback.
 
     Returns the IPython ExecutionResult.
     """
@@ -249,26 +252,35 @@ def run_cell_with_error_filter(shell, combined: str, source_code: str) -> object
         shell.showtraceback = original_showtb
 
     if result.error_in_exec is not None:
-        friendly = _translate_runtime_error(result.error_in_exec)
         tb_text = _captured_tb_text[0] or ''
 
-        if friendly:
-            # Recognised pattern — clean message, no traceback needed.
-            display_error(friendly, source_code)
+        if val_errors:
+            # Validation errors predicted this failure — show them with traceback.
+            for err in val_errors:
+                if tb_text:
+                    display_error_with_traceback(err, source_code, tb_text)
+                else:
+                    display_error(err, source_code)
         else:
-            # Unrecognised — show a friendly wrapper with expandable traceback.
-            if tb_text and _is_eval_error(tb_text):
-                msg = "Error in assign expression - check column names and expression syntax"
-                suggestion = str(result.error_in_exec)
-            else:
-                msg = "An error occurred while executing your Pivotal script"
-                suggestion = str(result.error_in_exec)
+            friendly = _translate_runtime_error(result.error_in_exec)
 
-            err = PivotalError(
-                message=msg,
-                error_type="Runtime Error",
-                suggestion=suggestion if suggestion else None,
-            )
-            display_error_with_traceback(err, source_code, tb_text)
+            if friendly:
+                # Recognised pattern — clean message, no traceback needed.
+                display_error(friendly, source_code)
+            else:
+                # Unrecognised — show a friendly wrapper with expandable traceback.
+                if tb_text and _is_eval_error(tb_text):
+                    msg = "Error in assign expression - check column names and expression syntax"
+                    suggestion = str(result.error_in_exec)
+                else:
+                    msg = "An error occurred while executing your Pivotal script"
+                    suggestion = str(result.error_in_exec)
+
+                err = PivotalError(
+                    message=msg,
+                    error_type="Runtime Error",
+                    suggestion=suggestion if suggestion else None,
+                )
+                display_error_with_traceback(err, source_code, tb_text)
 
     return result

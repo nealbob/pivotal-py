@@ -90,7 +90,7 @@ load data "path/to/file.csv"
 | [`apply`](python-interop.md) | Apply a Python function to a table |
 | [`show`](output.md) | Display inline |
 | [`plot`](output.md) | Create a chart |
-| [`agg plot`](output.md) | Create a chart with aggregation |
+| [`pivot plot`](output.md) | Create a chart with aggregation |
 | [`table`](output.md) | Create a publication-ready table |
 | [`save`](saving.md) | Export tables and charts |
 | [`delete`](saving.md) | Remove a table from memory |

@@ -301,13 +301,21 @@ df summary
         cols 2
 ```
 
-`agg plot` produces a plot directly from a grouped aggregation without creating a separate summary table:
+`pivot plot` produces a plot directly from a grouped aggregation without creating a separate summary table. Each `y` entry is a `func col` pair; multiple pairs are comma-separated. An optional `filter` before the statement pre-filters the data:
 ```pivotal
 df sales
-    agg plot bar
+    pivot plot bar revenue_chart
         x region
-        y sum amount
-        title "Total by Region"
+        y sum amount, mean price
+```
+
+```pivotal
+df sales
+    filter year > 2020
+    pivot plot line trend_chart
+        x month
+        y mean amount "Avg Sale"
+        by category
 ```
 
 Chart types: `line  bar  scatter  hist  box  area`

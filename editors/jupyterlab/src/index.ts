@@ -239,7 +239,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Plotting
   { label: 'plot',     type: 'keyword', apply: snippet('plot ${line}\n    x ${x_col}\n    y ${y_col}'), detail: 'plot <type>  x <col>  y <col>' },
-  { label: 'agg plot', type: 'keyword', apply: snippet('agg plot ${bar}\n    x ${x_col}\n    y ${y_col}'), detail: 'agg plot <type>  x <col>  y <col>' },
+  { label: 'pivot plot', type: 'keyword', apply: snippet('pivot plot ${bar}\n    x ${x_col}\n    y ${mean} ${y_col}'), detail: 'pivot plot <type>  x <col>  y <func> <col>, ...' },
 
   // Output / misc
   { label: 'show',         type: 'keyword', detail: 'show' },

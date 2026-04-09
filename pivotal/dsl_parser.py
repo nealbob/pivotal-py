@@ -16,7 +16,7 @@ _AGG_CALL_RE = re.compile(
     r'\(([a-zA-Z_][a-zA-Z0-9_]*)\)'
 )
 _WAVG_CALL_RE = re.compile(
-    r'\bwavg\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)'
+    r'\b(?:wavg|wmean)\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)'
 )
 
 # All reserved words in the Pivotal grammar.  Used for collision validation.
@@ -33,7 +33,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'in', 'not', 'between', 'contains', 'startswith', 'endswith',
     'and', 'or',
     # Aggregation functions
-    'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std',
+    'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std', 'wavg', 'wmean',
     # Sort / merge modifiers
     'asc', 'desc', 'left', 'right', 'inner', 'outer',
     # Atoms
@@ -86,17 +86,18 @@ grammar_indented = r"""
 
     apply_statement: "apply" IDENTIFIER _NL?
 
-    agg_plot_statement: "agg" "plot" IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT agg_plot_params _DEDENT)?
+    agg_plot_statement: ("pivot" "plot" | "agg" "plot") IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT agg_plot_params _DEDENT)?
 
     agg_plot_params: agg_plot_param+
-    agg_plot_param: "x" IDENTIFIER STRING _NL?            -> agg_plot_x_labeled
-                  | "x" IDENTIFIER _NL?                   -> agg_plot_x
-                  | "y" IDENTIFIER IDENTIFIER+ STRING _NL? -> agg_plot_y_labeled
-                  | "y" IDENTIFIER IDENTIFIER+ _NL?       -> agg_plot_y
-                  | "by" IDENTIFIER _NL?                  -> agg_plot_by
-                  | "cols" NUMBER _NL?                    -> agg_plot_cols
-                  | "canvas" IDENTIFIER _NL?              -> agg_plot_canvas
-                  | "show" _NL?                           -> agg_plot_show
+    agg_plot_y_item: IDENTIFIER IDENTIFIER
+    agg_plot_param: "x" IDENTIFIER STRING _NL?                                  -> agg_plot_x_labeled
+                  | "x" IDENTIFIER _NL?                                         -> agg_plot_x
+                  | "y" agg_plot_y_item ("," agg_plot_y_item)* STRING _NL?     -> agg_plot_y_labeled
+                  | "y" agg_plot_y_item ("," agg_plot_y_item)* _NL?            -> agg_plot_y
+                  | "by" IDENTIFIER _NL?                                        -> agg_plot_by
+                  | "cols" NUMBER _NL?                                          -> agg_plot_cols
+                  | "canvas" IDENTIFIER _NL?                                    -> agg_plot_canvas
+                  | "show" _NL?                                                 -> agg_plot_show
 
     plot_statement: "plot" IDENTIFIER IDENTIFIER? plot_on? (_NL | _NL _INDENT plot_params _DEDENT)?
     plot_on: "on" IDENTIFIER
@@ -162,8 +163,9 @@ grammar_indented = r"""
 
     agg_item: AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
             | AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
-            | "wavg" "(" (IDENTIFIER | PYTHON_VAR) "," (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)? -> wavg_item
-            | "wavg" (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)? -> wavg_item
+            | ("wmean" | "wavg") "(" (IDENTIFIER | PYTHON_VAR) "," (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)? -> wmean_bracket_item
+            | ("wmean" | "wavg") (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) "as" IDENTIFIER -> wmean_alias_item
+            | ("wmean" | "wavg") (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR)+ -> wmean_cols_item
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -781,6 +783,8 @@ class DSLTransformer(Transformer):
         for item in items:
             if isinstance(item, dict) and 'func' in item:
                 agg_list.append(item)
+            elif isinstance(item, list):
+                agg_list.extend(d for d in item if isinstance(d, dict) and 'func' in d)
         return {
             'type': 'groupby',
             'table_name': self.current_table,
@@ -1226,7 +1230,13 @@ class DSLTransformer(Transformer):
 
     def agg_line(self, *items):
         """Single agg line: 'agg func col [as name], ...' — returns list of agg_item dicts."""
-        return [item for item in items if isinstance(item, dict)]
+        result = []
+        for item in items:
+            if isinstance(item, dict):
+                result.append(item)
+            elif isinstance(item, list):
+                result.extend(d for d in item if isinstance(d, dict))
+        return result
 
     def agg_clause(self, *lines):
         """Flatten agg_line results into a single list of agg_item dicts."""
@@ -1238,11 +1248,28 @@ class DSLTransformer(Transformer):
                 result.append(line)
         return result
 
-    def wavg_item(self, col, weight, alias=None):
-        res = {'func': 'wavg', 'column': str(col), 'weight': str(weight)}
+    def wmean_bracket_item(self, col, weight, alias=None):
+        """wmean(col, weight) — bracket form, col-first for backward compat with wavg."""
+        res = {'func': 'wmean', 'column': str(col), 'weight': str(weight)}
         if alias:
             res['alias'] = str(alias)
         return res
+
+    def wmean_alias_item(self, weight, col, alias):
+        """wmean weight col as alias — space form, single col with alias."""
+        return {'func': 'wmean', 'column': str(col), 'weight': str(weight), 'alias': str(alias)}
+
+    def wmean_cols_item(self, *args):
+        """wmean weight col1 col2 ... — space form, one or more cols, no alias.
+        Lark passes (IDENTIFIER | PYTHON_VAR)+ as a single list argument."""
+        # Lark collapses (TOKEN)+ into one list passed as a single arg
+        items = args[0] if (len(args) == 1 and isinstance(args[0], list)) else list(args)
+        weight = str(items[0])
+        return [{'func': 'wmean', 'column': str(c), 'weight': weight} for c in items[1:]]
+
+    # Keep wavg_item as an alias so old parsed ASTs / direct calls still work
+    def wavg_item(self, col, weight, alias=None):
+        return self.wmean_bracket_item(col, weight, alias)
 
     def agg_item(self, func, col, alias=None):
         if isinstance(col, dict) and col.get('type') == 'var':
@@ -1379,8 +1406,7 @@ class DSLTransformer(Transformer):
 
         x_col = None
         x_label = None
-        agg_func = None
-        y_cols = []
+        y_items = []   # list of {func, col}
         y_label = None
         by_col = None
         n_cols = None
@@ -1392,9 +1418,9 @@ class DSLTransformer(Transformer):
                 x_col = p['col']
                 x_label = p.get('label')
             elif k == 'y':
-                agg_func = p['func']
-                y_cols = p['cols']
-                y_label = p.get('label')
+                y_items.extend(p['items'])
+                if p.get('label'):
+                    y_label = p['label']
             elif k == 'by':
                 by_col = p['col']
             elif k == 'cols':
@@ -1405,14 +1431,13 @@ class DSLTransformer(Transformer):
                 show = True
 
         return {
-            'type': 'agg_plot',
+            'type': 'pivot_plot',
             'table_name': self.current_table,
             'name': name,
             'kind': kind or 'line',
             'x': x_col,
             'x_label': x_label,
-            'agg_func': agg_func or 'mean',
-            'y_cols': y_cols,
+            'y_items': y_items,   # list of {func, col}
             'y_label': y_label,
             'by': by_col,
             'cols': n_cols,
@@ -1429,14 +1454,20 @@ class DSLTransformer(Transformer):
     def agg_plot_x_labeled(self, col, label):
         return {'key': 'x', 'col': str(col), 'label': str(label).strip('"').strip("'")}
 
-    def agg_plot_y(self, func, *cols):
-        return {'key': 'y', 'func': str(func), 'cols': [str(c) for c in cols], 'label': None}
+    def agg_plot_y_item(self, func, col):
+        return {'func': str(func), 'col': str(col)}
 
-    def agg_plot_y_labeled(self, func, *args):
-        # args: col1, col2, ..., STRING_label
-        *cols, label = args
-        return {'key': 'y', 'func': str(func), 'cols': [str(c) for c in cols],
-                'label': str(label).strip('"').strip("'")}
+    def agg_plot_y(self, *args):
+        # args: agg_plot_y_item dicts (commas filtered by Lark)
+        items = [a for a in args if isinstance(a, dict)]
+        return {'key': 'y', 'items': items, 'label': None}
+
+    def agg_plot_y_labeled(self, *args):
+        # args: agg_plot_y_item dicts, then STRING label
+        items = [a for a in args if isinstance(a, dict)]
+        labels = [a for a in args if not isinstance(a, dict)]
+        label = str(labels[0]).strip('"').strip("'") if labels else None
+        return {'key': 'y', 'items': items, 'label': label}
 
     def agg_plot_by(self, col):
         return {'key': 'by', 'col': str(col)}
@@ -2913,10 +2944,18 @@ class CodeGenerator:
                 for item in agg_list:
                     col = item['column']
                     func = item['func']
-                    alias = item.get('alias') or f"{col}_{func}"
-                    polars_func = self._POLARS_AGG_MAP.get(func, func)
                     col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
-                    exprs.append(f"pl.col({col_code}).{polars_func}().alias('{alias}')")
+                    if func in ('wavg', 'wmean'):
+                        wt = item['weight']
+                        alias = item.get('alias') or f"wmean_{col}"
+                        exprs.append(
+                            f"((pl.col({col_code}) * pl.col('{wt}')).sum()"
+                            f" / pl.col('{wt}').sum()).alias('{alias}')"
+                        )
+                    else:
+                        alias = item.get('alias') or f"{col}_{func}"
+                        polars_func = self._POLARS_AGG_MAP.get(func, func)
+                        exprs.append(f"pl.col({col_code}).{polars_func}().alias('{alias}')")
                 return f"{tbl} = {tbl}.select([{', '.join(exprs)}])"
             else:
                 return f"{tbl} = {tbl}.select(pl.all().sum())"
@@ -2948,10 +2987,10 @@ class CodeGenerator:
                         f"for c in ({var_name} if isinstance({var_name}, list) else [{var_name}]):\n"
                         f"    _agg_exprs.append(pl.col(c).{polars_func}().alias({alias_expr}))"
                     )
-                elif func == 'wavg':
+                elif func in ('wavg', 'wmean'):
                     wt = item['weight']
                     col_str = str(col)
-                    alias_val = alias or f'wavg_{col_str}'
+                    alias_val = alias or f'wmean_{col_str}'
                     lines.append(
                         f"_agg_exprs.append("
                         f"((pl.col('{col_str}') * pl.col('{wt}')).sum()"
@@ -2973,9 +3012,9 @@ class CodeGenerator:
             col = str(item['column'])
             alias = item.get('alias')
 
-            if func == 'wavg':
+            if func in ('wavg', 'wmean'):
                 wt = item['weight']
-                alias_val = alias or f'wavg_{col}'
+                alias_val = alias or f'wmean_{col}'
                 expr = (
                     f"((pl.col('{col}') * pl.col('{wt}')).sum()"
                     f" / pl.col('{wt}').sum()).alias('{alias_val}')"
@@ -3209,14 +3248,16 @@ class CodeGenerator:
         lines.append(self.generate_plot_pandas(pandas_node))
         return "\n".join(lines)
 
-    def generate_agg_plot_polars(self, ast_node):
-        # Convert to pandas first, then delegate to the pandas agg_plot generator
+    def generate_pivot_plot_polars(self, ast_node):
+        # Convert to pandas first, then delegate to the pandas pivot_plot generator
         table = ast_node['table_name']
         pd_var = f"_{table}_pd"
         lines = [f"{pd_var} = {table}.to_pandas()"]
         pandas_node = dict(ast_node, table_name=pd_var)
-        lines.append(self.generate_agg_plot_pandas(pandas_node))
+        lines.append(self.generate_pivot_plot_pandas(pandas_node))
         return "\n".join(lines)
+
+    generate_agg_plot_polars = generate_pivot_plot_polars
 
     def generate_filter_pandas(self, ast_node):
         query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
@@ -3448,10 +3489,17 @@ class CodeGenerator:
                 for item in agg_list:
                     col = item['column']
                     func = item['func']
-                    alias = item.get('alias') or f"{col}_{func}"
-                    pandas_func = 'mean' if func == 'avg' else func
+                    alias = item.get('alias') or (f"wmean_{col}" if func in ('wavg', 'wmean') else f"{col}_{func}")
                     col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
-                    parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
+                    if func in ('wavg', 'wmean'):
+                        wt = item['weight']
+                        parts.append(
+                            f"'{alias}': [({table}[{col_code}] * {table}['{wt}']).sum()"
+                            f" / {table}['{wt}'].sum()]"
+                        )
+                    else:
+                        pandas_func = 'mean' if func == 'avg' else func
+                        parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
                 return f"{table} = __import__('pandas').DataFrame({{{', '.join(parts)}}})"
             else:
                 return f"{table} = {table}.agg('sum').to_frame().T.reset_index(drop=True)"
@@ -3476,10 +3524,10 @@ class CodeGenerator:
 
         if agg_list:
             table = ast_node['table_name']
-            wavg_items = [i for i in agg_list if i['func'] == 'wavg']
-            regular_items = [i for i in agg_list if i['func'] != 'wavg']
+            wavg_items = [i for i in agg_list if i['func'] in ('wavg', 'wmean')]
+            regular_items = [i for i in agg_list if i['func'] not in ('wavg', 'wmean')]
 
-            # wavg requires named agg with a lambda — force that path
+            # wmean requires named agg with a lambda — force that path
             if wavg_items:
                 agg_args = []
                 for item in regular_items:
@@ -3491,7 +3539,7 @@ class CodeGenerator:
                 for item in wavg_items:
                     col = item['column']
                     wt = item['weight']
-                    alias = item.get('alias', f"wavg_{col}")
+                    alias = item.get('alias', f"wmean_{col}")
                     lam = (f"lambda x: (x * {table}.loc[x.index, {wt!r}]).sum()"
                            f" / {table}.loc[x.index, {wt!r}].sum()")
                     agg_args.append(f"{alias}=('{col}', {lam})")
@@ -3751,34 +3799,37 @@ class CodeGenerator:
 
         return "\n".join(lines)
 
-    def generate_agg_plot_pandas(self, ast_node):
-        table     = ast_node['table_name']
-        name      = ast_node['name']
-        kind      = ast_node['kind']
-        x_col     = ast_node['x']
-        x_label   = ast_node.get('x_label')
-        agg_func  = ast_node['agg_func']
-        y_cols    = ast_node['y_cols']
-        y_label   = ast_node.get('y_label')
-        by_col    = ast_node.get('by')
-        n_cols    = int(ast_node.get('cols') or 2)
-        df_name   = f"{name}_df"   # intermediate aggregated table stored in namespace
+    def generate_pivot_plot_pandas(self, ast_node):
+        table   = ast_node['table_name']
+        name    = ast_node['name']
+        kind    = ast_node['kind']
+        x_col   = ast_node['x']
+        x_label = ast_node.get('x_label')
+        y_items = ast_node.get('y_items') or []
+        y_label = ast_node.get('y_label')
+        by_col  = ast_node.get('by')
+        n_cols  = int(ast_node.get('cols') or 2)
+        df_name = f"{name}_df"
 
         lines = ["import matplotlib.pyplot as plt"]
 
+        y_cols   = [item['col'] for item in y_items]
+        agg_dict = {item['col']: item['func'] for item in y_items}
+
         if not by_col:
-            # No faceting — just groupby x and aggregate
+            # No faceting — groupby x, aggregate each y col (possibly with different funcs)
             lines += [
-                f"{df_name} = {table}.groupby({x_col!r})[{[c for c in y_cols]!r}].agg({agg_func!r}).reset_index()",
+                f"{df_name} = {table}.groupby({x_col!r})[{y_cols!r}].agg({agg_dict!r}).reset_index()",
                 f"{df_name}.columns = {df_name}.columns.astype(str)",
                 f"_ax = {df_name}.plot(x={x_col!r}, y={y_cols!r}, kind={kind!r})",
                 f"{name} = _ax.get_figure()",
             ]
             if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
             if y_label: lines.append(f"_ax.set_ylabel({y_label!r})")
-        elif len(y_cols) == 1:
-            # Single y + by → pivot so each by-value becomes a column → legend
-            y_col = y_cols[0]
+        elif len(y_items) == 1:
+            # Single y + by → pivot so each by-value becomes a column
+            y_col    = y_items[0]['col']
+            agg_func = y_items[0]['func']
             lines += [
                 f"{df_name} = {table}.pivot_table(index={x_col!r}, columns={by_col!r}, values={y_col!r}, aggfunc={agg_func!r})",
                 f"{df_name}.columns = [str(c) for c in {df_name}.columns]",
@@ -3790,9 +3841,9 @@ class CodeGenerator:
             ]
             if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
         else:
-            # Multiple y cols + by → groupby → faceted subplots per by value
+            # Multiple y cols + by → faceted subplots per by value
             lines += [
-                f"{df_name} = {table}.groupby([{x_col!r}, {by_col!r}])[{y_cols!r}].agg({agg_func!r}).reset_index()",
+                f"{df_name} = {table}.groupby([{x_col!r}, {by_col!r}])[{y_cols!r}].agg({agg_dict!r}).reset_index()",
                 f"_by_vals = {df_name}[{by_col!r}].unique()",
                 f"_n_cols = {n_cols}",
                 f"_n_rows = -(-len(_by_vals) // _n_cols)",
@@ -3822,6 +3873,9 @@ class CodeGenerator:
             ]
 
         return "\n".join(lines)
+
+    # Backward-compat alias — old serialised AST nodes used type 'agg_plot'
+    generate_agg_plot_pandas = generate_pivot_plot_pandas
 
     def generate_gt_table_pandas(self, ast_node):
         table = ast_node['table_name']
@@ -4555,7 +4609,7 @@ class CodeGenerator:
     @staticmethod
     def _ddb_agg_expr(col, func, alias, weight=None):
         """Return a SQL agg expression string for one agg_list item."""
-        if func == 'wavg':
+        if func in ('wavg', 'wmean'):
             return f"SUM({col} * {weight}) / NULLIF(SUM({weight}), 0) AS {alias}"
         if func == 'nunique':
             return f"COUNT(DISTINCT {col}) AS {alias}"
@@ -4656,7 +4710,7 @@ class CodeGenerator:
                 alias = item.get('alias') or (f"agg_{func}" if isinstance(col, dict) else col)
                 if isinstance(col, dict) and col.get('type') == 'var':
                     v = col['name']
-                    if func == 'wavg':
+                    if func in ('wavg', 'wmean'):
                         wt = item.get('weight', '')
                         lines.append(
                             f"_ddb_sel_parts.append("
@@ -5274,12 +5328,14 @@ class CodeGenerator:
         pandas_code = self.generate_plot_pandas(dict(ast_node, table_name=df_var))
         return '\n'.join(mat_lines) + '\n' + pandas_code
 
-    def generate_agg_plot_duckdb(self, ast_node):
-        """Materialise table then agg-plot using the pandas agg_plot generator."""
+    def generate_pivot_plot_duckdb(self, ast_node):
+        """Materialise table then pivot-plot using the pandas pivot_plot generator."""
         t = ast_node['table_name']
         mat_lines, df_var = self._ddb_materialize(t)
-        pandas_code = self.generate_agg_plot_pandas(dict(ast_node, table_name=df_var))
+        pandas_code = self.generate_pivot_plot_pandas(dict(ast_node, table_name=df_var))
         return '\n'.join(mat_lines) + '\n' + pandas_code
+
+    generate_agg_plot_duckdb = generate_pivot_plot_duckdb
 
     def generate_gt_table_duckdb(self, ast_node):
         """Materialise table then build GT table using the pandas gt_table generator."""
@@ -5666,8 +5722,10 @@ class CodeGenerator:
     def generate_plot_sql(self, ast_node):
         return None
 
-    def generate_agg_plot_sql(self, ast_node):
+    def generate_pivot_plot_sql(self, ast_node):
         return None
+
+    generate_agg_plot_sql = generate_pivot_plot_sql
 
     def generate_gt_table_sql(self, ast_node):
         return None

@@ -4,27 +4,12 @@
 
 ## Backlog
 
-  - Does the agg plot syntax in the pivotal grammer support multiple Y (values) columns? At present the GUI seems to create multiple Y lines
-
-    agg plot mechart
-      x colA
-      y mean colB
-      y mean colC
-  
-  But only the latter y column is displayed in the chart. To behave more like a regular plot statement it should probably support a comma seperated list
-
-    agg plot mechart
-      x colA
-      y mean colB, mean colC
-
-  NEed to check if this is ust an issue with the Plot GUI of whether this syntax is actualy supported in the Pivotal language grammer.
-
-include filter in agg plot call it pivot plot
+  - 
 
 
 click on column switches view to that table and puts cursor / focus on first row of that column in the table...
 
-click on view button opens that item in the viewer (even if the viewer window isclosed or viewer = False??)
+click on view button opens that item in the viewer (even if the viewer window is closed or viewer = False??)
 
 ## Ideas
 

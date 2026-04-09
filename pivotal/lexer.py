@@ -57,7 +57,7 @@ class PivotalLexer(RegexLexer):
     # Built-in aggregation and string functions
     BUILTINS = (
         'sum', 'mean', 'count', 'min', 'max', 'median', 'std', 'nunique',
-        'wavg', 'avg',
+        'wmean', 'wavg', 'avg',
         'upper', 'lower', 'trim', 'ltrim', 'rtrim',
         'left', 'right', 'substr', 'len', 'replace',
     )
