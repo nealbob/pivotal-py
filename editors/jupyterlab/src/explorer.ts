@@ -42,6 +42,7 @@ export class PivotalExplorerWidget extends Widget {
   private _expanded: Set<string> = new Set();
   private _collapsedFolders: Set<string> = new Set();
   private _clickCb: ((name: string) => void) | null = null;
+  private _colClickCb: ((tableName: string, colName: string) => void) | null = null;
   private _deleteCb: ((name: string) => void) | null = null;
   private _currentTable: string | null = null;
   private _viewingItem: string | null = null;
@@ -144,6 +145,10 @@ export class PivotalExplorerWidget extends Widget {
 
   setItemClickCallback(cb: (name: string) => void): void {
     this._clickCb = cb;
+  }
+
+  setColClickCallback(cb: (tableName: string, colName: string) => void): void {
+    this._colClickCb = cb;
   }
 
   setDeleteCallback(cb: (name: string) => void): void {
@@ -398,6 +403,15 @@ export class PivotalExplorerWidget extends Widget {
         colType.className = `pv-explorer-col-type pv-col-type-${col.col_type ?? 'string'}`;
         colType.textContent = col.col_type ?? '';
         colType.title = col.col_type ?? '';
+
+        colRow.style.cursor = 'pointer';
+        colRow.title = `Navigate to column "${col.name}"`;
+        colRow.addEventListener('click', e => {
+          e.stopPropagation();
+          this._focusedName = navKey;
+          this._colClickCb?.(item.name, col.name);
+          this._render();
+        });
 
         colRow.appendChild(colName);
         colRow.appendChild(colType);

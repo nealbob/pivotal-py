@@ -127,6 +127,11 @@
         "command": "pivotal.selectPythonPath",
         "title": "Pivotal: Select Python Environment",
         "icon": "$(terminal)"
+      },
+      {
+        "command": "pivotal.quickOpen",
+        "title": "Pivotal: Quick Open Data / Chart / Table",
+        "icon": "$(search)"
       }
     ],
     "keybindings": [
@@ -176,6 +181,12 @@
         "key": "ctrl+f",
         "mac": "cmd+f",
         "when": "focusedView == pivotalExplorer"
+      },
+      {
+        "command": "pivotal.quickOpen",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "editorLangId == pivotal"
       }
     ],
     "menus": {

@@ -288,6 +288,43 @@
 
 
 /* ---------------------------------------------------------------------------
+   Column pin context menu
+   --------------------------------------------------------------------------- */
+
+.pv-pin-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--jp-layout-color1, #fff);
+  border: 1px solid var(--jp-border-color1, #ccc);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  padding: 2px 0;
+  min-width: 150px;
+  font-size: 12px;
+}
+
+.pv-pin-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--jp-ui-font-color1);
+  white-space: nowrap;
+}
+
+.pv-pin-item:hover {
+  background: var(--jp-layout-color3, #e8e8e8);
+}
+
+/* Brief flash when navigating to a column via the explorer */
+@keyframes pv-col-flash-anim {
+  0%   { background: var(--jp-brand-color3, rgba(25, 118, 210, 0.35)); }
+  100% { background: transparent; }
+}
+
+.pv-col-flash {
+  animation: pv-col-flash-anim 0.8s ease-out forwards;
+}
+
+/* ---------------------------------------------------------------------------
    Chart display
    --------------------------------------------------------------------------- */
 

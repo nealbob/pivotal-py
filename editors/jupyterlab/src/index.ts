@@ -719,6 +719,13 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       activateViewer();
     });
 
+    // Clicking a column in the explorer scrolls the grid to that column
+    explorer.setColClickCallback((tableName, colName) => {
+      viewer.focusItem(tableName);
+      viewer.scrollToColumn(tableName, colName);
+      activateViewer();
+    });
+
     // Deleting from explorer also removes from viewer and Python namespace
     explorer.setDeleteCallback(name => viewer.requestDelete(name));
 

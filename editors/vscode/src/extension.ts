@@ -498,16 +498,21 @@ function _generateNonce(): string {
   return nonce;
 }
 
-function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = false): vscode.WebviewPanel {
+async function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = false): Promise<vscode.WebviewPanel> {
   if (_viewerPanel) {
     // reveal=true: user explicitly opened the viewer — show it where it already is, no column move
     if (reveal) { _viewerPanel.reveal(undefined, false); }
     return _viewerPanel;
   }
+  // Open the viewer in the same column as the active editor, then move it
+  // to a horizontal split above so the notebook remains visible below.
+  const sourceColumn = (vscode.window.tabGroups as any)?.activeTabGroup?.viewColumn
+    ?? vscode.window.activeTextEditor?.viewColumn
+    ?? vscode.ViewColumn.One;
   const panel = vscode.window.createWebviewPanel(
     'pivotalViewer',
     'Pivotal Viewer',
-    { viewColumn: vscode.ViewColumn.Two, preserveFocus: true },
+    { viewColumn: sourceColumn, preserveFocus: false },
     { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
   );
   panel.webview.html = _buildViewerHtml(panel.webview);
@@ -533,6 +538,8 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
   }, undefined, context.subscriptions);
   panel.onDidDispose(() => { _viewerPanel = null; _viewerReady = false; }, undefined, context.subscriptions);
   _viewerPanel = panel;
+  // Move viewer to a horizontal split above, leaving the notebook below
+  await vscode.commands.executeCommand('workbench.action.moveEditorToAboveGroup');
   return panel;
 }
 
@@ -640,6 +647,45 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   .ag-theme-alpine .ag-popup input.ag-input-field-input { padding-left: 24px !important; }
   .pv-empty { display: flex; align-items: center; justify-content: center;
     height: 100%; opacity: 0.4; font-size: 13px; }
+  /* Column panel (left sidebar in DataFrame view) */
+  .pv-body { flex-direction: row !important; }
+  .pv-col-panel {
+    width: 130px; min-width: 130px; display: none; flex-direction: column;
+    border-right: 1px solid var(--vscode-panel-border, #444);
+    overflow-y: auto; font-size: 11px;
+  }
+  .pv-col-panel.pv-visible { display: flex; }
+  .pv-col-panel-header {
+    padding: 4px 6px; font-weight: 600; font-size: 10px; opacity: 0.6;
+    text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+    border-bottom: 1px solid var(--vscode-panel-border, #444);
+  }
+  .pv-col-panel-list { flex: 1; overflow-y: auto; }
+  .pv-col-item {
+    padding: 3px 8px; cursor: pointer; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .pv-col-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.1)); }
+  .pv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  /* Column pin context menu */
+  .pv-pin-menu {
+    position: fixed; z-index: 9999;
+    background: var(--vscode-menu-background, #2d2d2d);
+    border: 1px solid var(--vscode-menu-border, #555);
+    border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    padding: 2px 0; min-width: 140px; font-size: 12px;
+  }
+  .pv-pin-item {
+    padding: 5px 12px; cursor: pointer;
+    color: var(--vscode-menu-foreground, inherit); white-space: nowrap;
+  }
+  .pv-pin-item:hover { background: var(--vscode-menu-selectionBackground, #094771); }
+  /* Column flash animation */
+  @keyframes pv-col-flash-anim {
+    0%   { background: rgba(0, 120, 212, 0.4); }
+    100% { background: transparent; }
+  }
+  .pv-col-flash { animation: pv-col-flash-anim 0.8s ease-out forwards; }
 </style>
 </head>
 <body>
@@ -655,7 +701,13 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   <button class="pv-btn" id="btn-del"     title="Delete object">&#10005;</button>
   <button class="pv-btn" id="btn-clear"   title="Delete all">&#128465;</button>
 </div>
-<div class="pv-body" id="pv-body"><div class="pv-empty">No data yet — run a Pivotal cell</div></div>
+<div class="pv-body" id="pv-body">
+  <div class="pv-col-panel" id="pv-col-panel">
+    <div class="pv-col-panel-header">Columns</div>
+    <div class="pv-col-panel-list" id="pv-col-list"></div>
+  </div>
+  <div class="pv-main" id="pv-main"><div class="pv-empty">No data yet — run a Pivotal cell</div></div>
+</div>
 <div class="pv-footer" id="pv-footer"></div>
 
 <script nonce="${nonce}" src="${AG}/dist/ag-grid-community.min.js"></script>
@@ -688,8 +740,11 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   const refreshBtn= document.getElementById('btn-refresh');
   const delBtn    = document.getElementById('btn-del');
   const clearBtn  = document.getElementById('btn-clear');
-  const bodyEl    = document.getElementById('pv-body');
+  const bodyEl    = document.getElementById('pv-main');
   const footerEl  = document.getElementById('pv-footer');
+  const colPanel  = document.getElementById('pv-col-panel');
+  const colList   = document.getElementById('pv-col-list');
+  let   _pinMenu  = null;
 
   backBtn.disabled = fwdBtn.disabled = copyBtn.disabled =
     refreshBtn.disabled = delBtn.disabled = clearBtn.disabled = true;
@@ -836,9 +891,15 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     while (bodyEl.firstChild) bodyEl.removeChild(bodyEl.firstChild);
     while (footerEl.firstChild) footerEl.removeChild(footerEl.firstChild);
 
-    if (p.type === 'dataframe')     renderDataFrame(p);
-    else if (p.type === 'chart')    renderChart(p);
-    else                            renderGtTable(p);
+    if (p.type === 'dataframe') {
+      colPanel.classList.add('pv-visible');
+      renderDataFrame(p);
+    } else {
+      colPanel.classList.remove('pv-visible');
+      colList.innerHTML = '';
+      if (p.type === 'chart') renderChart(p);
+      else                    renderGtTable(p);
+    }
   }
 
   // ── DataFrame (AG Grid) ────────────────────────────────────────────────────
@@ -848,6 +909,19 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       bodyEl.appendChild(cached.body);
       footerEl.appendChild(cached.footer);
       _zoomCb = cached.applyZoom;
+      // Repopulate column panel (api reference is in cache)
+      colList.innerHTML = '';
+      for (const col of p.columns) {
+        const el = document.createElement('div');
+        el.className = 'pv-col-item';
+        el.textContent = col; el.title = col;
+        el.addEventListener('click', () => {
+          cached.api.ensureColumnVisible(col);
+          const hdr = cached.body.querySelector('.ag-header-cell[col-id="' + col.replace(/"/g, '\\"') + '"]');
+          if (hdr) { hdr.classList.add('pv-col-flash'); setTimeout(() => hdr.classList.remove('pv-col-flash'), 800); }
+        });
+        colList.appendChild(el);
+      }
       return;
     }
 
@@ -939,11 +1013,56 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       suppressFieldDotNotation: true,
       suppressHeaderMenuButton: true,   // hide ≡ menu icon — doesn't respect :hover in VS Code webviews
       animateRows: false,
+      enableCellTextSelection: true,
       localeText: { filterOoo: '' },
       onFirstDataRendered: e => {
         setTimeout(() => { if (container.clientWidth > 0) e.api.autoSizeAllColumns(false); }, 600);
       },
     });
+
+    // Column pin: right-click a header cell to toggle pinned-left
+    const hidePinMenu = () => { if (_pinMenu) { _pinMenu.remove(); _pinMenu = null; } };
+    container.addEventListener('contextmenu', e => {
+      const headerCell = e.target.closest('.ag-header-cell');
+      if (!headerCell) return;
+      const colId = headerCell.getAttribute('col-id');
+      if (!colId || colId === '_idx') return;
+      e.preventDefault();
+      hidePinMenu();
+      const isPinned = api.getColumnState().find(s => s.colId === colId)?.pinned === 'left';
+      const menu = document.createElement('div');
+      menu.className = 'pv-pin-menu';
+      const item = document.createElement('div');
+      item.className = 'pv-pin-item';
+      item.textContent = isPinned ? '📌 Unpin column' : '📌 Pin to left';
+      item.addEventListener('click', () => {
+        api.applyColumnState({ state: [{ colId, pinned: isPinned ? null : 'left' }] });
+        hidePinMenu();
+      });
+      menu.appendChild(item);
+      menu.style.left = e.clientX + 'px';
+      menu.style.top  = e.clientY + 'px';
+      document.body.appendChild(menu);
+      _pinMenu = menu;
+      setTimeout(() => document.addEventListener('click', hidePinMenu, { once: true }), 0);
+    });
+
+    // Populate column panel and wire click-to-navigate
+    colList.innerHTML = '';
+    for (const col of columns) {
+      const el = document.createElement('div');
+      el.className = 'pv-col-item';
+      el.textContent = col;
+      el.title = col;
+      el.addEventListener('click', () => {
+        api.ensureColumnVisible(col);
+        const escaped = col.replace(/"/g, '\\"');
+        const hdr = container.querySelector('.ag-header-cell[col-id="' + escaped + '"]');
+        if (hdr) { hdr.classList.add('pv-col-flash'); setTimeout(() => hdr.classList.remove('pv-col-flash'), 800); }
+      });
+      colList.appendChild(el);
+    }
+    colPanel.classList.add('pv-visible');
 
     const applyZoom = mult => {
       zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
@@ -1276,6 +1395,7 @@ type ExplorerNode =
 const _explorerItems = new Map<string, Record<string, unknown>>();
 
 let _explorerProvider: _ExplorerProvider | null = null;
+let _pivotalTreeView: vscode.TreeView<ExplorerNode> | null = null;
 
 function _refreshExplorer(_type?: string): void {
   _explorerProvider?.refresh();
@@ -2123,25 +2243,57 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Command: Show Pivotal Viewer panel ---
   const showViewer = vscode.commands.registerCommand('pivotal.showViewer', () => {
-    _getOrCreateViewerPanel(context, true);
+    _getOrCreateViewerPanel(context, true).catch(() => {});
   });
 
   // --- Phase 4: Explorer (single unified view) ---
   _explorerProvider = new _ExplorerProvider();
-  const _pivotalTreeView = vscode.window.createTreeView('pivotalExplorer', {
+  _pivotalTreeView = vscode.window.createTreeView('pivotalExplorer', {
     treeDataProvider: _explorerProvider,
     // filterOnType was added in VS Code 1.73; cast to avoid old @types/vscode complaint
     ...(({ filterOnType: true, showCollapseAll: true }) as Record<string, unknown>),
-  } as Parameters<typeof vscode.window.createTreeView>[1]);
-  context.subscriptions.push(_pivotalTreeView);
+  } as Parameters<typeof vscode.window.createTreeView>[1]) as vscode.TreeView<ExplorerNode>;
+  context.subscriptions.push(_pivotalTreeView!);
 
   // --- Command: View item (focus in viewer panel) ---
   const explorerView = vscode.commands.registerCommand(
     'pivotal.explorer.view',
     (node: ExplorerNode) => {
       if (node.kind !== 'item') { return; }
-      const panel = _getOrCreateViewerPanel(context, true);
-      panel.webview.postMessage({ type: 'focus', name: node.name });
+      _getOrCreateViewerPanel(context, true).then(panel => {
+        panel.webview.postMessage({ type: 'focus', name: node.name });
+      }).catch(() => {});
+    },
+  );
+
+  // --- Command: Quick-open a viewer item by name (keyboard shortcut from editor) ---
+  const quickOpen = vscode.commands.registerCommand(
+    'pivotal.quickOpen',
+    async () => {
+      if (_explorerItems.size === 0) {
+        vscode.window.showInformationMessage('No Pivotal data loaded yet.');
+        return;
+      }
+      const iconMap: Record<string, string> = { dataframe: '$(table)', chart: '$(graph)', gt_table: '$(list-flat)' };
+      const picks = [..._explorerItems.entries()].map(([name, p]) => {
+        const t = p.type as string;
+        const shape = t === 'dataframe' && Array.isArray((p as any).shape)
+          ? `${((p as any).shape as [number,number])[0].toLocaleString()} × ${((p as any).shape as [number,number])[1]}`
+          : t === 'chart' ? 'chart' : 'table';
+        return { label: `${iconMap[t] ?? '$(database)'}  ${name}`, description: shape, name };
+      });
+      const chosen = await vscode.window.showQuickPick(picks, {
+        placeHolder: 'Type to search data, charts and tables…',
+        matchOnDescription: false,
+      });
+      if (!chosen) { return; }
+      // Reveal in explorer tree (without stealing focus from editor)
+      const node = { kind: 'item' as const, type: _explorerItems.get(chosen.name)?.type as string, name: chosen.name, payload: _explorerItems.get(chosen.name)! };
+      _pivotalTreeView?.reveal(node, { select: true, focus: false, expand: true }).then(undefined, () => {});
+      // Show in viewer
+      _getOrCreateViewerPanel(context, true).then(panel => {
+        panel.webview.postMessage({ type: 'focus', name: chosen.name });
+      }).catch(() => {});
     },
   );
 
@@ -2451,10 +2603,11 @@ export function activate(context: vscode.ExtensionContext): void {
       // Ensure the viewer panel exists.  If the webview has already
       // confirmed 'ready', post immediately; otherwise the item is stored
       // in _explorerItems and will be replayed when 'ready' fires.
-      const panel = _getOrCreateViewerPanel(context);
-      if (_viewerReady) {
-        panel.webview.postMessage(msg);
-      }
+      _getOrCreateViewerPanel(context).then(panel => {
+        if (_viewerReady) {
+          panel.webview.postMessage(msg);
+        }
+      }).catch(() => {});
     } else if (t === 'delete') {
       const existing = _explorerItems.get(msg.name as string);
       _explorerItems.delete(msg.name as string);
@@ -2540,6 +2693,7 @@ export function activate(context: vscode.ExtensionContext): void {
     explorerView,
     explorerDelete,
     explorerSearch,
+    quickOpen,
     loadDataset,
     savePackage,
     codeExport,

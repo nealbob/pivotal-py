@@ -154,6 +154,7 @@ export class PivotalViewerWidget extends Widget {
   // Callback set by canvas renderers (_renderChartOnPage / _renderGtTableOnPage)
   // so that Lumino's onResize can trigger a re-layout when the panel is resized.
   private _panelResizeCb: (() => void) | null = null;
+  private _pinMenu: HTMLElement | null = null;
 
   private _titleEl!: HTMLElement;
   private _counterEl!: HTMLElement;
@@ -338,6 +339,22 @@ export class PivotalViewerWidget extends Widget {
       }
     }
     this.node.focus();
+  }
+
+  // Scroll the AG Grid for tableName so that colName is visible, then flash it.
+  scrollToColumn(tableName: string, colName: string): void {
+    const cached = this._dfCache.get(tableName);
+    if (!cached?.api) return;
+    try {
+      cached.api.ensureColumnVisible(colName);
+      // Brief highlight on the header cell
+      const escaped = CSS.escape(colName);
+      const headerEl = this.node.querySelector(`.ag-header-cell[col-id="${escaped}"]`);
+      if (headerEl) {
+        headerEl.classList.add('pv-col-flash');
+        setTimeout(() => headerEl.classList.remove('pv-col-flash'), 800);
+      }
+    } catch (_) { /* column may not exist */ }
   }
 
   // Delete a named item AND tell Python to delete it from the namespace.
@@ -599,6 +616,7 @@ export class PivotalViewerWidget extends Widget {
       },
       suppressFieldDotNotation: true,   // allow dots in column names (e.g. "2.6")
       animateRows: false,
+      enableCellTextSelection: true,
       localeText: { filterOoo: '' },
       onFirstDataRendered: (e) => {
         // Best-effort auto-size after layout settles. The ↔ button is the
@@ -608,6 +626,33 @@ export class PivotalViewerWidget extends Widget {
         }, 600);
       },
     } as GridOptions);
+
+    // Column pin: right-click a header cell to toggle pinned-left
+    const hidePinMenu = () => {
+      this._pinMenu?.remove();
+      this._pinMenu = null;
+    };
+    container.addEventListener('contextmenu', (e: MouseEvent) => {
+      const headerCell = (e.target as Element).closest('.ag-header-cell');
+      if (!headerCell) return;
+      const colId = headerCell.getAttribute('col-id');
+      if (!colId || colId === '_idx') return;
+      e.preventDefault();
+      hidePinMenu();
+      const isPinned = api.getColumnState().find(s => s.colId === colId)?.pinned === 'left';
+      const menu = document.createElement('div');
+      menu.className = 'pv-pin-menu';
+      menu.innerHTML = `<div class="pv-pin-item">${isPinned ? '📌 Unpin column' : '📌 Pin to left'}</div>`;
+      menu.style.left = `${e.clientX}px`;
+      menu.style.top  = `${e.clientY}px`;
+      menu.querySelector('.pv-pin-item')!.addEventListener('click', () => {
+        api.applyColumnState({ state: [{ colId, pinned: isPinned ? null : 'left' }] });
+        hidePinMenu();
+      });
+      document.body.appendChild(menu);
+      this._pinMenu = menu;
+      setTimeout(() => document.addEventListener('click', hidePinMenu, { once: true }), 0);
+    });
 
     const applyZoom = (mult: number) => {
       zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
