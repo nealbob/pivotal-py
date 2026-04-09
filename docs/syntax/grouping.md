@@ -6,7 +6,7 @@ Group rows by one or more columns and compute aggregate statistics.
 Each aggregation sub-clause is prefixed with `agg`:
 
 ```pivotal
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 ```
@@ -37,19 +37,19 @@ agg wavg(price, quantity) as avg  # bracket syntax
 ## Basic usage
 
 ```pivotal
-df by_region from sales
+with sales as by_region
     group by region
         agg sum revenue as total
 ```
 
 ```pivotal
-df by_category from sales
+with sales as by_category
     group by category
         agg mean price as avg_price
 ```
 
 ```pivotal
-df counts from events
+with events as counts
     group by event_type
         agg count id as n
 ```
@@ -59,13 +59,13 @@ df counts from events
 List multiple aggregation functions separated by commas on a single `agg` line, or on multiple `agg` lines:
 
 ```pivotal
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total, mean revenue as avg, count id as deals
 ```
 
 ```pivotal
-df detailed from sales
+with sales as detailed
     group by region
         agg sum revenue as total
         agg mean revenue as avg_deal
@@ -76,7 +76,7 @@ df detailed from sales
 ## Multiple group-by columns
 
 ```pivotal
-df by_region_category from sales
+with sales as by_region_category
     group by region, category
         agg sum revenue as total, count id as deals
 ```
@@ -96,7 +96,7 @@ agg mean price as avg_price
 `wavg <value_col> <weight_col>` computes a weighted mean:
 
 ```pivotal
-df products
+with products
     group by category
         agg wavg price quantity as avg_price
 ```
@@ -104,7 +104,7 @@ df products
 ## `nunique` — count distinct values
 
 ```pivotal
-df summary from orders
+with orders as summary
     group by region
         agg nunique customer_id as unique_customers
 ```
@@ -114,7 +114,7 @@ df summary from orders
 To aggregate without grouping, use `agg` on its own:
 
 ```pivotal
-df totals from sales
+with sales as totals
     agg sum revenue as total, mean price as avg_price, count id as n
 ```
 
@@ -123,7 +123,7 @@ This produces a single-row result. The same aggregation functions are supported 
 ## Example: full summary table
 
 ```pivotal
-df sales_summary from orders
+with orders as sales_summary
     filter status == "complete"
     group by region, category
         agg sum revenue as total, mean revenue as avg, count id as n, nunique customer_id as customers

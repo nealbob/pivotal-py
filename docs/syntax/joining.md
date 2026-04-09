@@ -5,7 +5,7 @@ The `merge` statement joins two tables. The active table is the left table; the 
 ## Basic merge (inner join)
 
 ```pivotal
-df enriched from sales
+with sales as enriched
     merge customers on customer_id
 ```
 
@@ -16,16 +16,16 @@ Keeps only rows where `customer_id` exists in both tables.
 Prefix the merge with the join type:
 
 ```pivotal
-df enriched from sales
+with sales as enriched
     left merge customers on customer_id
 
-df enriched from sales
+with sales as enriched
     right merge customers on customer_id
 
-df enriched from sales
+with sales as enriched
     inner merge customers on customer_id
 
-df enriched from sales
+with sales as enriched
     outer merge customers on customer_id
 ```
 
@@ -42,14 +42,14 @@ df enriched from sales
 ### Single key
 
 ```pivotal
-df result from sales
+with sales as result
     left merge customers on customer_id
 ```
 
 ### Multiple keys
 
 ```pivotal
-df result from orders
+with orders as result
     left merge inventory on product_id, warehouse_id
 ```
 
@@ -58,7 +58,7 @@ df result from orders
 When the join columns have different names in each table:
 
 ```pivotal
-df result from sales
+with sales as result
     left merge customers
         left_on id
         right_on customer_id
@@ -69,7 +69,7 @@ df result from sales
 When both tables have columns with the same name (other than the join key), suffixes are added automatically. Customise them:
 
 ```pivotal
-df result from sales
+with sales as result
     left merge targets
         on region, category
         suffixes ["_actual", "_target"]
@@ -78,11 +78,11 @@ df result from sales
 ## Example: enriching a fact table
 
 ```pivotal
-load orders "orders.csv"
-load customers "customers.csv"
-load products "products.csv"
+load "orders.csv" as orders
+load "customers.csv" as customers
+load "products.csv" as products
 
-df enriched from orders
+with orders as enriched
     left merge customers on customer_id
     left merge products on product_id
     filter status == "complete"
@@ -96,10 +96,10 @@ df enriched from orders
 Append rows from another table onto the active table:
 
 ```pivotal
-df all_sales from jan_sales
+with jan_sales as all_sales
     concat feb_sales
 
-df all_sales from q1
+with q1 as all_sales
     concat q2, q3, q4
 ```
 
@@ -112,7 +112,7 @@ Both tables must have compatible columns. Extra columns in either table will be 
 Keep rows that appear in both the active table and the named table (set intersection):
 
 ```pivotal
-df common from all_customers
+with all_customers as common
     intersect active_customers
 ```
 
@@ -125,12 +125,12 @@ Duplicate rows are removed from the result.
 Remove rows from the active table that appear in the named table (set difference):
 
 ```pivotal
-df new_customers from all_customers
+with all_customers as new_customers
     exclude existing_customers
 ```
 
 ```pivotal
-df unmatched from leads
+with leads as unmatched
     exclude converted, disqualified
 ```
 

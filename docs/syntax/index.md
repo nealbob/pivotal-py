@@ -4,16 +4,16 @@ Pivotal is a line-oriented pipeline language. Each statement occupies one or mor
 
 ## Structure
 
-A Pivotal script is a sequence of **blocks**. Each block begins with a top-level statement (`load`, `df`, `save`, `delete`) and its indented sub-statements:
+A Pivotal script is a sequence of **blocks**. Each block begins with a top-level statement (`load`, `with`, `save`, `delete`) and its indented sub-statements:
 
 ```pivotal
-load sales "data/sales.csv"      # top-level: load a file
+load "data/sales.csv" as sales      # top-level: load a file
 
-df summary from sales             # top-level: define a table
+with sales as summary             # top-level: define a table
     filter status == "active"     # indented: sub-operation
     group by region               #           sub-operation
         agg sum revenue as total  #           sub-option of group by
-    sort total desc               # back to df level
+    sort total desc               # back to with level
 
 save "report"                     # top-level: save output
 ```
@@ -43,10 +43,10 @@ categories = ["A", "B"]
 ```
 
 ```pivotal
-df filtered from sales
+with sales as filtered
     filter amount > :threshold
     filter category in :categories
-    load data :my_file_path
+    load :my_file_path as data
 ```
 
 This works in Jupyter (referencing notebook variables) and in the Python API (referencing the namespace passed to `execute()`).
@@ -57,7 +57,7 @@ Strings use double quotes:
 
 ```pivotal
 filter name == "Alice"
-load data "path/to/file.csv"
+load "path/to/file.csv" as data
 ```
 
 ## Statements
@@ -65,7 +65,7 @@ load data "path/to/file.csv"
 | Statement | Purpose |
 |-----------|---------|
 | [`load`](data-sources.md) | Load a file into a table |
-| [`df`](data-sources.md) | Set or create a table |
+| [`with`](data-sources.md) | Set or create a table |
 | [`filter`](filtering.md) | Filter rows |
 | [`select`](selection.md) | Keep specific columns |
 | [`drop`](selection.md) | Remove specific columns |

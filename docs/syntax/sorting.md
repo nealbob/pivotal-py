@@ -7,16 +7,16 @@ Sort the table by one or more columns.
 ### Single column
 
 ```pivotal
-df sales
+with sales
     sort revenue
 ```
 
 Default order is ascending. Specify explicitly:
 
 ```pivotal
-df sales
+with sales
     sort revenue asc
-df sales
+with sales
     sort revenue desc
 ```
 
@@ -25,7 +25,7 @@ df sales
 Separate columns with commas:
 
 ```pivotal
-df sales
+with sales
     sort category asc, revenue desc
     sort region asc, date asc, amount desc
 ```

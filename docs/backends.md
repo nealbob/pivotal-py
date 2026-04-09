@@ -130,7 +130,7 @@ Override for a single cell:
 
 ```pivotal
 %%pivotal backend=duckdb
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 ```

@@ -48,7 +48,7 @@ The extension provides context-aware completions:
 | Context | Completions |
 |---------|-------------|
 | Start of line | All DSL commands |
-| After `df ... from` | Available table names |
+| After `with ... as` | Available table names |
 | After `group by`, `sort`, `filter`, etc. | Column names for the active table |
 | After `group by` | Aggregation functions |
 | After `plot` | Chart types (`bar`, `line`, `scatter`, `hist`, `box`, `area`) |
@@ -101,11 +101,11 @@ Use `#%%` to divide a `.pivotal` file into sections:
 
 ```pivotal
 #%% Load data
-load sales "data/sales.csv"
-load customers "customers.csv"
+load "data/sales.csv" as sales
+load "customers.csv" as customers
 
 #%% Analysis
-df summary from sales
+with sales as summary
     left merge customers on customer_id
     group by region
         agg sum amount as total

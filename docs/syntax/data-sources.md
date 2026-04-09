@@ -5,19 +5,19 @@
 Load a CSV, Excel, or Parquet file into a named table.
 
 ```pivotal
-load <table_name> "<file_path>"
+load "<file_path>" as <table_name>
 ```
 
 ```pivotal
-load sales "data/sales.csv"
-load products "catalog.xlsx"
-load transactions "archive.parquet"
+load "data/sales.csv" as sales
+load "catalog.xlsx" as products
+load "archive.parquet" as transactions
 ```
 
 Use a Python variable for the path:
 
 ```pivotal
-load data :my_file_path
+load :my_file_path as data
 ```
 
 ### Options
@@ -25,7 +25,7 @@ load data :my_file_path
 Indent options beneath the `load` statement:
 
 ```pivotal
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
     header 0           # row index of header (default 0)
     names ["product", "quantity", "price"]  # override column names
 ```
@@ -37,14 +37,14 @@ load sales "data/sales.csv"
 
 ---
 
-## `df` — set or create a table
+## `with` — set or create a table
 
 ### Set active table
 
 Make an existing table the active table for subsequent operations:
 
 ```pivotal
-df sales
+with sales
     filter price > 100
     sort price desc
 ```
@@ -54,43 +54,43 @@ df sales
 Create a new table by applying operations to an existing one. The original is unchanged:
 
 ```pivotal
-df top_sales from sales
+with sales as top_sales
     filter revenue > 1000
     sort revenue desc
 ```
 
 ```pivotal
-df summary from orders
+with orders as summary
     group by region
         agg sum amount as total
 ```
 
-The `from <table>` clause is optional. Without it, operations apply to the named table in-place:
+Without `as`, operations apply to the named table in-place:
 
 ```pivotal
-df sales              # operates on 'sales', modifying it
+with sales              # operates on 'sales', modifying it
     filter active == True
 ```
 
-With `from`, a new table is created:
+With `as`, a new table is created:
 
 ```pivotal
-df active_sales from sales    # creates 'active_sales', 'sales' unchanged
+with sales as active_sales    # creates 'active_sales', 'sales' unchanged
     filter active == True
 ```
 
 ### Chaining
 
-Multiple `df` blocks can be chained — the output of one becomes the input of the next:
+Multiple `with` blocks can be chained — the output of one becomes the input of the next:
 
 ```pivotal
-load raw "data.csv"
+load "data.csv" as raw
 
-df cleaned from raw
+with raw as cleaned
     dropna price, quantity
     fillna 0
 
-df summary from cleaned
+with cleaned as summary
     group by category
         agg sum price as total
     sort total desc

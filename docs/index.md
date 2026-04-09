@@ -5,16 +5,16 @@ Pivotal is a data analysis language for Python.  It offers a concise syntax for 
 
 
 ```pivotal
-load invoices "invoices.csv"
-load customers "customers.csv"
+load "invoices.csv" as invoices
+load "customers.csv" as customers
 
-df invoices
+with invoices
     filter invoice_date >= "1970-01-16"
     transaction_fees = 0.8
     income = total - transaction_fees
     filter income > 1
 
-df summary from invoices
+with invoices as summary
     group by customer_id
         agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
@@ -60,9 +60,9 @@ pip install lark pandas matplotlib
 
     ```python
     %%pivotal
-    load orders "orders.csv"
+    load "orders.csv" as orders
 
-    df monthly from orders
+    with orders as monthly
         filter status == "complete"
         assign month = left(date, 7)
         group by month
@@ -77,9 +77,9 @@ pip install lark pandas matplotlib
 
     parser = DSLParser()
     parser.execute("""
-    load orders "orders.csv"
+    load "orders.csv" as orders
 
-    df monthly from orders
+    with orders as monthly
         filter status == "complete"
         assign month = left(date, 7)
         group by month
@@ -92,9 +92,9 @@ pip install lark pandas matplotlib
 
     ```
     # monthly_report.pivotal
-    load orders "orders.csv"
+    load "orders.csv" as orders
 
-    df monthly from orders
+    with orders as monthly
         filter status == "complete"
         assign month = left(date, 7)
         group by month

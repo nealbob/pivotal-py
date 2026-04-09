@@ -47,9 +47,9 @@ After installing the JupyterLab extension, open a notebook and create a `%%pivot
 
 ```python
 %%pivotal
-load sales "my_data.csv"
+load "my_data.csv" as sales
 
-df summary from sales
+with sales as summary
     group by category
         agg sum revenue as total
     sort total desc
@@ -76,9 +76,9 @@ parser = DSLParser()
 
 # Execute directly
 parser.execute("""
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
 
-df top from sales
+with sales as top
     filter revenue > 1000
     sort revenue desc
 """)
@@ -93,7 +93,7 @@ print(parser.namespace['top'])
 
 ```python
 results = parser.parse("""
-df top from sales
+with sales as top
     filter revenue > 1000
 """)
 
@@ -112,9 +112,9 @@ Create a file called `analysis.pivotal`:
 ```pivotal
 # analysis.pivotal
 
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
 
-df summary from sales
+with sales as summary
     filter status == "active"
     group by region
         agg sum revenue as total
@@ -142,10 +142,10 @@ See [CLI](cli.md) for all commands.
 
 ### The active table
 
-Most operations act on the **active table**, set with `df`:
+Most operations act on the **active table**, set with `with`:
 
 ```pivotal
-df sales           # set sales as the active table
+with sales           # set sales as the active table
     filter ...     # operates on sales
     sort ...       # still operating on sales
 ```
@@ -153,7 +153,7 @@ df sales           # set sales as the active table
 Create a new table derived from an existing one:
 
 ```pivotal
-df top_sales from sales   # new table 'top_sales', reads from 'sales'
+with sales as top_sales   # new table 'top_sales', reads from 'sales'
     filter revenue > 1000
     sort revenue desc
 ```
@@ -163,10 +163,10 @@ df top_sales from sales   # new table 'top_sales', reads from 'sales'
 Sub-options and clauses are indented under their parent statement. The exact number of spaces doesn't matter — just be consistent:
 
 ```pivotal
-df summary from sales
-    group by region         # indented under df
+with sales as summary
+    group by region         # indented under with
         agg sum revenue # indented under group by
-    sort revenue desc       # back to df level
+    sort revenue desc       # back to with level
 ```
 
 ### Comments
@@ -191,7 +191,7 @@ regions = ["North", "South"]
 ```
 
 ```pivotal
-df filtered from sales
+with sales as filtered
     filter revenue > :my_threshold
     filter region in :regions
 ```

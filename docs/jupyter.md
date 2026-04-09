@@ -18,9 +18,9 @@ Write Pivotal DSL in a notebook cell by starting it with `%%pivotal`:
 
 ```python
 %%pivotal
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
 
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
     sort total desc
@@ -34,7 +34,7 @@ Pass options on the magic line to override session settings for that cell only:
 
 ```python
 %%pivotal backend=duckdb output_code=true
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 ```
@@ -151,7 +151,7 @@ Tables computed in `%%pivotal` cells are available as regular Python variables i
 
 ```python
 %%pivotal
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 ```

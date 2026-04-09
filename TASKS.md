@@ -11,9 +11,8 @@
 # view X (focus viewer in code?) 
 # keyboard navigation?
 # freeze pane in viewer
+2
 
-# split horixontal in right pane
-# with as
 
 click on column switches view to that table and puts cursor / focus on first row of that column in the table...
 

@@ -7,7 +7,7 @@ Pivotal is designed to be embedded in Python. When its built-in operations are n
 For a single Python statement, write it on the same line as `python` — no `end` required:
 
 ```pivotal
-df sales
+with sales
     python sales["price"] = sales["price"].str.replace("$", "").astype(float)
     python sales = sales.dropna(subset=["amount"])
 ```
@@ -34,7 +34,7 @@ python
         return df
 end
 
-df sales
+with sales
     price = clean_price(price)
 ```
 
@@ -59,7 +59,7 @@ end
 `python...end` blocks run in the file's execution namespace. Tables created before the block are available:
 
 ```pivotal
-load data "file.csv"
+load "file.csv" as data
 
 python
     # data is available as a pandas DataFrame
@@ -83,7 +83,7 @@ python
         return s.str[0].str.upper()
 end
 
-df sales
+with sales
     price = clean_price(price)
     abbr = initials(name)
 ```
@@ -106,10 +106,10 @@ python
         return df
 end
 
-df sales
+with sales
     apply remove_outliers
 
-df sales
+with sales
     apply normalise
     group by category
         agg mean amount as avg_z_score
@@ -130,9 +130,9 @@ path = "data/sales.csv"
 ```
 
 ```pivotal
-load sales :path
+load :path as sales
 
-df filtered from sales
+with sales as filtered
     filter date >= :min_date
     filter region in :regions
 ```
@@ -155,7 +155,7 @@ from pivotal import DSLParser
 
 parser = DSLParser()
 parser.execute("""
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 """)
@@ -169,7 +169,7 @@ In Jupyter, tables are available directly in the next cell:
 
 ```python
 %%pivotal
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 ```

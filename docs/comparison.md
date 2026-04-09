@@ -10,16 +10,16 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
 
     ```pivotal
     %%pivotal
-    load invoices "invoices.csv"
-    load customers "customers.csv"
+    load "invoices.csv" as invoices
+    load "customers.csv" as customers
 
-    df invoices
+    with invoices
         filter invoice_date >= "1970-01-16"
         transaction_fees = 0.8
         income = total - transaction_fees
         filter income > 1
 
-    df summary from invoices
+    with invoices as summary
         group by customer_id
             agg mean total, sum income as sum_income, count total as ct
         sort sum_income desc

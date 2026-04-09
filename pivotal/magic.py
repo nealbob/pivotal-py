@@ -587,7 +587,7 @@ def plot_gui(df_name: str = None):
             params.append(f'  by {by}')
 
         filter_line = f'\nfilter {filt}' if filt else ''
-        dsl = f'%%pivotal\ndf {table}{filter_line}\npivot plot {kind} {name}\n' + '\n'.join(params)
+        dsl = f'%%pivotal\nwith {table}{filter_line}\npivot plot {kind} {name}\n' + '\n'.join(params)
 
         viewer = _get_viewer()
         if viewer is not None:
@@ -605,7 +605,7 @@ def plot_gui(df_name: str = None):
     gen_btn.on_click(_build_dsl_plot)
 
     content = widgets.VBox([
-        _row(_lh('df'),     df_sel),
+        _row(_lh('with'),   df_sel),
         _row(_lh('plot'),   chart_type, chart_name_w),
         _row(_lh('filter'), filter_w),
         _row(_lh('x'),      x_col, x_label_w),
@@ -740,7 +740,7 @@ def pivot_gui(df_name: str = None):
             return
 
         filter_line = f'\nfilter {filt}' if filt else ''
-        dsl = (f'%%pivotal\ndf {table}{filter_line}\npivot\n'
+        dsl = (f'%%pivotal\nwith {table}{filter_line}\npivot\n'
                f'  rows {" ".join(row_cs)}\n'
                f'  cols {" ".join(col_cs)}\n'
                f'  agg {func} {val}')
@@ -757,7 +757,7 @@ def pivot_gui(df_name: str = None):
     gen_btn.on_click(_build_dsl)
 
     content = widgets.VBox([
-        _row(_lh('df'),     df_sel),
+        _row(_lh('with'),   df_sel),
         _row(_lh('filter'), filter_w),
         _row(_lh('agg'),    agg_func, val_col,
              widgets.HTML('<span style="color:var(--jp-ui-font-color2);font-size:0.85em">(values)</span>')),
@@ -787,7 +787,7 @@ def load_gui():
     def _row(*ws):
         return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
 
-    name_w  = widgets.Text(value='', placeholder='df name', description='', layout=_dd)
+    name_w  = widgets.Text(value='', placeholder='table name', description='', layout=_dd)
     output  = widgets.Output()
     gen_btn = widgets.Button(description='Load', button_style='primary',
                              layout=widgets.Layout(width='70px'))
@@ -806,9 +806,9 @@ def load_gui():
         if not name or not path:
             with output:
                 output.clear_output()
-                print('Enter a df name and select a file.')
+                print('Enter a table name and select a file.')
             return
-        dsl = f'%%pivotal\nload {name} "{path}"'
+        dsl = f'%%pivotal\nload "{path}" as {name}'
         viewer = _get_viewer()
         if viewer is not None:
             viewer.send_insert_cell(dsl)
@@ -820,7 +820,7 @@ def load_gui():
     gen_btn.on_click(_build_dsl)
 
     content = widgets.VBox([
-        _row(_lh('df'),   name_w),
+        _row(_lh('as'),   name_w),
         fc,
         widgets.HBox([gen_btn], layout=widgets.Layout(margin='6px 0 2px 0')),
         output,

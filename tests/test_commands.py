@@ -74,7 +74,7 @@ def test_load_csv(parser, tmp_path, sample_df):
     csv_path = tmp_path / "data.csv"
     sample_df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
-    run(parser, f'load df "{csv_path}"', ns)
+    run(parser, f'load "{csv_path}" as df', ns)
     assert 'df' in ns
     assert list(ns['df'].columns) == list(sample_df.columns)
 
@@ -84,7 +84,7 @@ def test_load_parquet(parser, tmp_path, sample_df):
     path = tmp_path / "data.parquet"
     sample_df.to_parquet(path, index=False)
     ns = {'pd': pd}
-    run(parser, f'load df "{path}"', ns)
+    run(parser, f'load "{path}" as df', ns)
     assert 'df' in ns
     assert len(ns['df']) == len(sample_df)
 
@@ -94,26 +94,26 @@ def test_load_excel(parser, tmp_path, sample_df):
     path = tmp_path / "data.xlsx"
     sample_df.to_excel(path, index=False)
     ns = {'pd': pd}
-    run(parser, f'load df "{path}"', ns)
+    run(parser, f'load "{path}" as df', ns)
     assert 'df' in ns
     assert len(ns['df']) == len(sample_df)
 
 
 def test_filter(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter price > 200', ns)
+    run(parser, 'with sales\nfilter price > 200', ns)
     assert all(ns['sales']['price'] > 200)
 
 
 def test_select(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nselect product, price', ns)
+    run(parser, 'with sales\nselect product, price', ns)
     assert list(ns['sales'].columns) == ['product', 'price']
 
 
 def test_sort(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nsort price desc', ns)
+    run(parser, 'with sales\nsort price desc', ns)
     prices = list(ns['sales']['price'])
     assert prices == sorted(prices, reverse=True)
 
@@ -124,14 +124,14 @@ def test_sort(parser, sample_df):
 
 def test_assign_new_column(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nrevenue = price * quantity', ns)
+    run(parser, 'with sales\nrevenue = price * quantity', ns)
     assert 'revenue' in ns['sales'].columns
     assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
 
 
 def test_assign_where(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\ndiscounted = price * 0.9\n    where category == "Electronics"', ns)
+    run(parser, 'with sales\ndiscounted = price * 0.9\n    where category == "Electronics"', ns)
     assert 'discounted' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['discounted'].notna())
@@ -140,7 +140,7 @@ def test_assign_where(parser, sample_df):
 def test_assign_where_scalar(parser, sample_df):
     """Scalar rhs (int/float/string) with where clause must not subscript the scalar."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nflag = 1\n    where category == "Electronics"', ns)
+    run(parser, 'with sales\nflag = 1\n    where category == "Electronics"', ns)
     assert 'flag' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['flag'] == 1)
@@ -156,7 +156,7 @@ def test_assign_where_scalar(parser, sample_df):
 def test_assign_case_basic(parser, sample_df):
     """Multi-case assign produces correct values for each branch."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = ('df sales\ntier =\n'
+    dsl = ('with sales\ntier =\n'
            '    where price > 300: price * 2\n'
            '    where price > 100: price\n'
            '    0\n')
@@ -173,7 +173,7 @@ def test_assign_case_first_match_wins(parser):
     """When a row satisfies multiple conditions, the first branch wins."""
     df = pd.DataFrame({'x': [10, 5, 1]})
     ns = {'pd': pd, 'data': df}
-    dsl = ('df data\nlabel =\n'
+    dsl = ('with data\nlabel =\n'
            '    where x > 3: x * 10\n'
            '    where x > 1: x * 100\n'
            '    0\n')
@@ -190,7 +190,7 @@ def test_assign_case_no_default(parser):
     """Multi-case with no default gives pd.NA for unmatched rows."""
     df = pd.DataFrame({'x': [10, 1]})
     ns = {'pd': pd, 'data': df}
-    dsl = ('df data\nlabel =\n'
+    dsl = ('with data\nlabel =\n'
            '    where x > 5: x\n')
     run(parser, dsl, ns)
     assert ns['data'].loc[0, 'label'] == 10
@@ -199,7 +199,7 @@ def test_assign_case_no_default(parser):
 
 def test_assign_case_code_generation(parser):
     """Multi-case generates np.select with conditions in branch order."""
-    nodes = parser.parse('df sales\nt =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
+    nodes = parser.parse('with sales\nt =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert 'np.select' in code
     # First branch condition appears before second in the conditions list
@@ -214,7 +214,7 @@ def test_assign_agg_whole_table(parser):
     """sum(col) in assign expression computes whole-table aggregate."""
     df = pd.DataFrame({'amount': [100, 200, 300]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\npct = amount / sum(amount)\n', ns)
+    run(parser, 'with data\npct = amount / sum(amount)\n', ns)
     assert ns['data']['pct'].sum() == pytest.approx(1.0)
     assert ns['data'].loc[0, 'pct'] == pytest.approx(100 / 600)
 
@@ -223,7 +223,7 @@ def test_assign_agg_by_group(parser):
     """sum(col) with by computes per-group aggregate via transform."""
     df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 200]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\npct = amount / sum(amount)\n    by region\n', ns)
+    run(parser, 'with data\npct = amount / sum(amount)\n    by region\n', ns)
     n_rows = ns['data'][ns['data']['region'] == 'N']
     s_rows = ns['data'][ns['data']['region'] == 'S']
     assert n_rows['pct'].sum() == pytest.approx(1.0)
@@ -234,14 +234,14 @@ def test_assign_agg_multiple_calls(parser):
     """Multiple agg calls in one expression all get substituted."""
     df = pd.DataFrame({'amount': [100, 200, 300, 400]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nz = (amount - mean(amount)) / std(amount)\n', ns)
+    run(parser, 'with data\nz = (amount - mean(amount)) / std(amount)\n', ns)
     assert ns['data']['z'].mean() == pytest.approx(0.0, abs=1e-10)
     assert ns['data']['z'].std() == pytest.approx(1.0)
 
 
 def test_assign_agg_code_generation(parser):
     """Agg calls produce @variable preamble lines before eval."""
-    nodes = parser.parse('df sales\npct = amount / sum(amount)\n')
+    nodes = parser.parse('with sales\npct = amount / sum(amount)\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert "_agg_0 = sales['amount'].sum()" in code
     assert '@_agg_0' in code
@@ -249,7 +249,7 @@ def test_assign_agg_code_generation(parser):
 
 def test_assign_agg_by_code_generation(parser):
     """Agg with by generates groupby transform."""
-    nodes = parser.parse('df sales\npct = amount / sum(amount)\n    by region\n')
+    nodes = parser.parse('with sales\npct = amount / sum(amount)\n    by region\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert "groupby(['region'])['amount'].transform('sum')" in code
 
@@ -262,7 +262,7 @@ def test_groupby_nunique(parser):
     """nunique agg counts distinct values per group."""
     df = pd.DataFrame({'region': ['N', 'N', 'N', 'S', 'S'], 'amount': [100, 100, 200, 300, 300]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run(parser, 'with data\ngroup by region\n    agg nunique amount as n\n', ns)
     n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
     s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
     assert n_row['n'] == 2   # 100 and 200
@@ -277,7 +277,7 @@ def test_groupby_wavg(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
+    run(parser, 'with data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
     n_wa = ns['data'][ns['data']['region'] == 'N'].iloc[0]['wa']
     s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
     assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
@@ -288,7 +288,7 @@ def test_assign_wavg_whole_table(parser):
     """wavg(col, weight) in assign computes whole-table weighted average."""
     df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\nwa = wavg(amount, weight)\n', ns)
+    run(parser, 'with data\nwa = wavg(amount, weight)\n', ns)
     assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)  # (100+900)/4
 
 
@@ -300,7 +300,7 @@ def test_assign_wavg_by_group(parser):
         'weight': [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ndev = amount - wavg(amount, weight)\n    by region\n', ns)
+    run(parser, 'with data\ndev = amount - wavg(amount, weight)\n    by region\n', ns)
     result = ns['data']
     assert result.loc[result['region'] == 'N', 'dev'].tolist() == pytest.approx([-150.0, 50.0])
     assert result.loc[result['region'] == 'S', 'dev'].tolist() == pytest.approx([-100.0, 100.0])
@@ -311,7 +311,7 @@ def test_wmean_keyword_alias_for_wavg(parser):
     df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
     ns = {'pd': pd, 'data': df}
     # bracket form: wmean(col, weight) — col first
-    run(parser, 'df data\nwa = wmean(amount, weight)\n', ns)
+    run(parser, 'with data\nwa = wmean(amount, weight)\n', ns)
     assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)
 
 
@@ -319,7 +319,7 @@ def test_wmean_agg_whole_table(parser):
     """wmean weight col in agg with no group-by produces correct whole-table wmean."""
     df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\n    agg wmean weight amount\n', ns)
+    run(parser, 'with data\n    agg wmean weight amount\n', ns)
     assert ns['data']['wmean_amount'].iloc[0] == pytest.approx(250.0)
 
 
@@ -327,7 +327,7 @@ def test_wmean_agg_whole_table_alias(parser):
     """wmean weight col as alias works for single-column whole-table agg."""
     df = pd.DataFrame({'amount': [100, 300], 'weight': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\n    agg wmean weight amount as wa\n', ns)
+    run(parser, 'with data\n    agg wmean weight amount as wa\n', ns)
     assert ns['data']['wa'].iloc[0] == pytest.approx(250.0)
 
 
@@ -335,7 +335,7 @@ def test_wmean_agg_multi_column(parser):
     """wmean weight col1 col2 produces one wmean column per value column."""
     df = pd.DataFrame({'a': [1.0, 3.0], 'b': [10.0, 30.0], 'w': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\n    agg wmean w a b\n', ns)
+    run(parser, 'with data\n    agg wmean w a b\n', ns)
     assert ns['data']['wmean_a'].iloc[0] == pytest.approx(2.5)   # (1+9)/4
     assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)  # (10+90)/4
 
@@ -349,7 +349,7 @@ def test_wmean_groupby_multi_column(parser):
         'w':   [1, 3, 2, 2],
     })
     ns = {'pd': pd, 'data': df}
-    run(parser, 'df data\ngroup by grp\n    agg wmean w x y\n', ns)
+    run(parser, 'with data\ngroup by grp\n    agg wmean w x y\n', ns)
     result = ns['data']
     a = result[result['grp'] == 'A'].iloc[0]
     b = result[result['grp'] == 'B'].iloc[0]
@@ -365,14 +365,14 @@ def test_wmean_groupby_multi_column(parser):
 
 def test_drop_single_column(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\ndrop quantity', ns)
+    run(parser, 'with sales\ndrop quantity', ns)
     assert 'quantity' not in ns['sales'].columns
     assert 'price' in ns['sales'].columns
 
 
 def test_drop_multiple_columns(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\ndrop quantity, id', ns)
+    run(parser, 'with sales\ndrop quantity, id', ns)
     assert 'quantity' not in ns['sales'].columns
     assert 'id' not in ns['sales'].columns
     assert 'product' in ns['sales'].columns
@@ -384,14 +384,14 @@ def test_drop_multiple_columns(parser, sample_df):
 
 def test_fillna_numeric(parser, df_with_nulls):
     ns = {'pd': pd, 'df': df_with_nulls.copy()}
-    run(parser, 'df df\nfillna 0', ns)
+    run(parser, 'with df\nfillna 0', ns)
     assert ns['df'].isna().sum().sum() == 0
     assert ns['df'].loc[2, 'a'] == 0
 
 
 def test_fillna_string(parser, df_with_nulls):
     ns = {'pd': pd, 'df': df_with_nulls.copy()}
-    run(parser, 'df df\nfillna "unknown"', ns)
+    run(parser, 'with df\nfillna "unknown"', ns)
     assert ns['df'].isna().sum().sum() == 0
     assert ns['df'].loc[1, 'b'] == 'unknown'
 
@@ -402,7 +402,7 @@ def test_fillna_string(parser, df_with_nulls):
 
 def test_dropna_all(parser, df_with_nulls):
     ns = {'pd': pd, 'df': df_with_nulls.copy()}
-    run(parser, 'df df\ndropna', ns)
+    run(parser, 'with df\ndropna', ns)
     assert ns['df'].isna().sum().sum() == 0
     assert len(ns['df']) == 2  # rows 0 and 3 have no nulls
 
@@ -410,7 +410,7 @@ def test_dropna_all(parser, df_with_nulls):
 def test_dropna_subset(parser, df_with_nulls):
     ns = {'pd': pd, 'df': df_with_nulls.copy()}
     # Only drop rows where column 'a' is null (row 2)
-    run(parser, 'df df\ndropna a', ns)
+    run(parser, 'with df\ndropna a', ns)
     assert len(ns['df']) == 3
     assert 2 not in ns['df'].index
 
@@ -421,13 +421,13 @@ def test_dropna_subset(parser, df_with_nulls):
 
 def test_distinct_all_columns(parser, df_with_dupes):
     ns = {'pd': pd, 'df': df_with_dupes.copy()}
-    run(parser, 'df df\ndistinct', ns)
+    run(parser, 'with df\ndistinct', ns)
     assert len(ns['df']) == 3  # 2 exact duplicate rows removed
 
 
 def test_distinct_subset(parser, df_with_dupes):
     ns = {'pd': pd, 'df': df_with_dupes.copy()}
-    run(parser, 'df df\ndistinct product', ns)
+    run(parser, 'with df\ndistinct product', ns)
     assert len(ns['df']) == 3  # Laptop, Mouse, Chair
 
 
@@ -437,14 +437,14 @@ def test_distinct_subset(parser, df_with_dupes):
 
 def test_rename_single(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nrename price as cost', ns)
+    run(parser, 'with sales\nrename price as cost', ns)
     assert 'cost' in ns['sales'].columns
     assert 'price' not in ns['sales'].columns
 
 
 def test_rename_multiple(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nrename product as item, quantity as qty', ns)
+    run(parser, 'with sales\nrename product as item, quantity as qty', ns)
     assert 'item' in ns['sales'].columns
     assert 'qty' in ns['sales'].columns
     assert 'product' not in ns['sales'].columns
@@ -459,7 +459,7 @@ def test_concat(parser, sample_df):
     half1 = sample_df.iloc[:2].copy()
     half2 = sample_df.iloc[2:].copy()
     ns = {'pd': pd, 'half1': half1, 'half2': half2}
-    run(parser, 'df half1\nconcat half2', ns)
+    run(parser, 'with half1\nconcat half2', ns)
     assert len(ns['half1']) == len(sample_df)
     assert list(ns['half1'].reset_index(drop=True)['product']) == list(sample_df['product'])
 
@@ -469,7 +469,7 @@ def test_concat_multiple(parser, sample_df):
     part2 = sample_df.iloc[1:2].copy()
     part3 = sample_df.iloc[2:3].copy()
     ns = {'pd': pd, 'part1': part1, 'part2': part2, 'part3': part3}
-    run(parser, 'df part1\nconcat part2, part3', ns)
+    run(parser, 'with part1\nconcat part2, part3', ns)
     assert len(ns['part1']) == 3
 
 
@@ -479,7 +479,7 @@ def test_concat_multiple(parser, sample_df):
 
 def test_filter_between(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter price between [100, 400]', ns)
+    run(parser, 'with sales\nfilter price between [100, 400]', ns)
     assert all(ns['sales']['price'] >= 100)
     assert all(ns['sales']['price'] <= 400)
     # Desk 299, Chair 159.99, Monitor 399 = 3 rows
@@ -489,7 +489,7 @@ def test_filter_between(parser, sample_df):
 def test_filter_between_combined(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
     # Between 100–350 AND Furniture → Desk 299, Chair 159.99
-    run(parser, 'df sales\nfilter price between [100, 350] and category == "Furniture"', ns)
+    run(parser, 'with sales\nfilter price between [100, 350] and category == "Furniture"', ns)
     assert len(ns['sales']) == 2
     assert all(ns['sales']['category'] == 'Furniture')
 
@@ -500,7 +500,7 @@ def test_filter_between_combined(parser, sample_df):
 
 def test_filter_contains(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter product contains "op"', ns)
+    run(parser, 'with sales\nfilter product contains "op"', ns)
     # "Laptop" contains "op"
     assert len(ns['sales']) == 1
     assert ns['sales'].iloc[0]['product'] == 'Laptop'
@@ -508,26 +508,26 @@ def test_filter_contains(parser, sample_df):
 
 def test_filter_not_contains(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter category not contains "Furniture"', ns)
+    run(parser, 'with sales\nfilter category not contains "Furniture"', ns)
     assert all(ns['sales']['category'] == 'Electronics')
 
 
 def test_filter_startswith(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter product startswith "Mo"', ns)
+    run(parser, 'with sales\nfilter product startswith "Mo"', ns)
     assert len(ns['sales']) == 2  # Mouse, Monitor
     assert all(ns['sales']['product'].str.startswith('Mo'))
 
 
 def test_filter_endswith(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter product endswith "r"', ns)
+    run(parser, 'with sales\nfilter product endswith "r"', ns)
     assert len(ns['sales']) == 2  # Chair, Monitor
 
 
 def test_filter_in_literal_list(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nfilter category in ["Electronics"]', ns)
+    run(parser, 'with sales\nfilter category in ["Electronics"]', ns)
     assert len(ns['sales']) == 3
     assert all(ns['sales']['category'] == 'Electronics')
 
@@ -535,7 +535,7 @@ def test_filter_in_literal_list(parser, sample_df):
 def test_filter_in_python_var(parser, sample_df):
     """filter col in :var — variable holds a list of allowed values."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'cats': ['Electronics']}
-    run(parser, 'df sales\nfilter category in :cats', ns)
+    run(parser, 'with sales\nfilter category in :cats', ns)
     assert len(ns['sales']) == 3
     assert all(ns['sales']['category'] == 'Electronics')
 
@@ -543,7 +543,7 @@ def test_filter_in_python_var(parser, sample_df):
 def test_filter_not_in_python_var(parser, sample_df):
     """filter col not in :var — variable holds a list of excluded values."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'excl': ['Furniture']}
-    run(parser, 'df sales\nfilter category not in :excl', ns)
+    run(parser, 'with sales\nfilter category not in :excl', ns)
     assert len(ns['sales']) == 3
     assert all(ns['sales']['category'] == 'Electronics')
 
@@ -551,7 +551,7 @@ def test_filter_not_in_python_var(parser, sample_df):
 def test_filter_in_python_var_combined(parser, sample_df):
     """filter col in :var combined with another condition."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'prods': ['Laptop', 'Monitor']}
-    run(parser, 'df sales\nfilter product in :prods and price > 300', ns)
+    run(parser, 'with sales\nfilter product in :prods and price > 300', ns)
     assert len(ns['sales']) == 2
     assert set(ns['sales']['product']) == {'Laptop', 'Monitor'}
 
@@ -564,7 +564,7 @@ def test_load_variable_csv(parser, tmp_path, sample_df):
     csv_path = str(tmp_path / "data.csv")
     sample_df.to_csv(csv_path, index=False)
     ns = {'pd': pd, 'my_path': csv_path}
-    run(parser, 'load df :my_path', ns)
+    run(parser, 'load :my_path as df', ns)
     assert 'df' in ns
     assert len(ns['df']) == len(sample_df)
 
@@ -580,7 +580,7 @@ def test_apply_adds_column(parser, sample_df):
         return df
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'add_tax': add_tax}
-    run(parser, 'df sales\napply add_tax', ns)
+    run(parser, 'with sales\napply add_tax', ns)
     assert 'tax' in ns['sales'].columns
     assert ns['sales'].iloc[0]['tax'] == pytest.approx(999.99 * 0.2)
 
@@ -590,7 +590,7 @@ def test_apply_filters_rows(parser, sample_df):
         return df[df['category'] == 'Electronics'].reset_index(drop=True)
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'only_electronics': only_electronics}
-    run(parser, 'df sales\napply only_electronics', ns)
+    run(parser, 'with sales\napply only_electronics', ns)
     assert all(ns['sales']['category'] == 'Electronics')
 
 
@@ -603,7 +603,7 @@ def test_assign_user_func(parser, sample_df):
         return s * 2
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'double': double}
-    run(parser, 'df sales\ndoubled = double(price)', ns)
+    run(parser, 'with sales\ndoubled = double(price)', ns)
     assert 'doubled' in ns['sales'].columns
     assert ns['sales'].iloc[0]['doubled'] == pytest.approx(999.99 * 2)
 
@@ -613,7 +613,7 @@ def test_assign_user_func_with_where(parser, sample_df):
         return s * 0.9
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'discount': discount}
-    run(parser, 'df sales\ndiscounted = discount(price)\n    where category == "Electronics"', ns)
+    run(parser, 'with sales\ndiscounted = discount(price)\n    where category == "Electronics"', ns)
     assert 'discounted' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['discounted'].notna())
@@ -622,7 +622,7 @@ def test_assign_user_func_with_where(parser, sample_df):
 def test_assign_arithmetic_unchanged(parser, sample_df):
     """Ensure existing arithmetic assign still routes through df.eval(), not user func path."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nrevenue = price * quantity', ns)
+    run(parser, 'with sales\nrevenue = price * quantity', ns)
     assert 'revenue' in ns['sales'].columns
     assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
 
@@ -634,7 +634,7 @@ def test_assign_arithmetic_unchanged(parser, sample_df):
 def test_assign_string_literal(parser, sample_df):
     """newcol = "constant" should broadcast a string scalar, not pass to eval."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nlabel = "active"', ns)
+    run(parser, 'with sales\nlabel = "active"', ns)
     assert 'label' in ns['sales'].columns
     assert (ns['sales']['label'] == 'active').all()
 
@@ -642,7 +642,7 @@ def test_assign_string_literal(parser, sample_df):
 def test_assign_string_literal_with_where(parser, sample_df):
     """newcol = "constant" with a where clause should only set matching rows."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    run(parser, 'df sales\nflag = "yes"\n    where category == "Electronics"', ns)
+    run(parser, 'with sales\nflag = "yes"\n    where category == "Electronics"', ns)
     assert 'flag' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert (electronics['flag'] == 'yes').all()
@@ -653,7 +653,7 @@ def test_assign_string_literal_with_where(parser, sample_df):
 def test_assign_pyvar_plus_string_literal(parser, sample_df):
     """newcol = :var + "suffix" should concat a Python variable with a string literal."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'prefix': 'ID-'}
-    run(parser, 'df sales\nlabel = :prefix + "end"', ns)
+    run(parser, 'with sales\nlabel = :prefix + "end"', ns)
     assert 'label' in ns['sales'].columns
     assert (ns['sales']['label'] == 'ID-end').all()
 
@@ -661,7 +661,7 @@ def test_assign_pyvar_plus_string_literal(parser, sample_df):
 def test_assign_string_literal_plus_pyvar(parser, sample_df):
     """newcol = "prefix" + :var should work (string literal first, then var)."""
     ns = {'pd': pd, 'sales': sample_df.copy(), 'suffix': '-X'}
-    run(parser, 'df sales\nlabel = "item" + :suffix', ns)
+    run(parser, 'with sales\nlabel = "item" + :suffix', ns)
     assert 'label' in ns['sales'].columns
     assert (ns['sales']['label'] == 'item-X').all()
 
@@ -674,7 +674,7 @@ def test_keyword_table_name_raises(parser):
     """df <keyword> should return a PivotalError mentioning 'reserved keyword'."""
     from pivotal.errors import PivotalError
     ns = {'pd': pd}
-    result = parser.parse('df filter')
+    result = parser.parse('with filter')
     assert isinstance(result, dict) and 'error' in result
     err = result['error']
     assert isinstance(err, PivotalError)
@@ -685,7 +685,7 @@ def test_keyword_assign_target_fails(parser, sample_df):
     """Using a keyword as an assign target should fail (parse error)."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
     # 'filter' is a keyword so it can't be an assign target — parse returns None
-    result = parser.execute('df sales\nfilter = price * 2', ns, verbose=False)
+    result = parser.execute('with sales\nfilter = price * 2', ns, verbose=False)
     assert result is None
 
 
@@ -706,82 +706,82 @@ def str_df():
 
 def test_assign_upper(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nup = upper(first)', ns)
+    run(parser, 'with df\nup = upper(first)', ns)
     assert list(ns['df']['up']) == ['ALICE', 'BOB', 'CHARLIE']
 
 
 def test_assign_lower(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nlo = lower(first)', ns)
+    run(parser, 'with df\nlo = lower(first)', ns)
     assert list(ns['df']['lo']) == ['alice', 'bob', 'charlie']
 
 
 def test_assign_trim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nt = trim(padded)', ns)
+    run(parser, 'with df\nt = trim(padded)', ns)
     assert list(ns['df']['t']) == ['hello', 'world', 'foo']
 
 
 def test_assign_ltrim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nt = ltrim(padded)', ns)
+    run(parser, 'with df\nt = ltrim(padded)', ns)
     assert ns['df']['t'].iloc[0] == 'hello  '
 
 
 def test_assign_rtrim(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nt = rtrim(padded)', ns)
+    run(parser, 'with df\nt = rtrim(padded)', ns)
     assert ns['df']['t'].iloc[0] == '  hello'
 
 
 def test_assign_left(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nabbr = left(first, 3)', ns)
+    run(parser, 'with df\nabbr = left(first, 3)', ns)
     assert list(ns['df']['abbr']) == ['Ali', 'Bob', 'Cha']
 
 
 def test_assign_right(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nsuffix = right(code, 3)', ns)
+    run(parser, 'with df\nsuffix = right(code, 3)', ns)
     assert list(ns['df']['suffix']) == ['123', '456', '789']
 
 
 def test_assign_substr(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nmid = substr(code, 2, 3)', ns)
+    run(parser, 'with df\nmid = substr(code, 2, 3)', ns)
     assert list(ns['df']['mid']) == ['123', '456', '789']
 
 
 def test_assign_len(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nn = len(first)', ns)
+    run(parser, 'with df\nn = len(first)', ns)
     assert list(ns['df']['n']) == [5, 3, 7]
 
 
 def test_assign_replace(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nclean = replace(notes, "N/A", "")', ns)
+    run(parser, 'with df\nclean = replace(notes, "N/A", "")', ns)
     assert list(ns['df']['clean']) == ['', 'ok', '']
 
 
 def test_assign_nested_string_func(parser, str_df):
     """upper(left(col, n)) — nesting produces chained .str accessor."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nup3 = upper(left(first, 3))', ns)
+    run(parser, 'with df\nup3 = upper(left(first, 3))', ns)
     assert list(ns['df']['up3']) == ['ALI', 'BOB', 'CHA']
 
 
 def test_assign_string_concat(parser, str_df):
     """col + ", " + col — mixed identifier/literal concatenation."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nfull = last + ", " + first', ns)
+    run(parser, 'with df\nfull = last + ", " + first', ns)
     assert list(ns['df']['full']) == ['Smith, Alice', 'Jones, Bob', 'Brown, Charlie']
 
 
 def test_assign_string_func_with_where(parser, str_df):
     """String function combined with a where clause."""
     ns = {'pd': pd, 'df': str_df.copy()}
-    run(parser, 'df df\nup = upper(first)\n    where notes == "N/A"', ns)
+    run(parser, 'with df\nup = upper(first)\n    where notes == "N/A"', ns)
     assert ns['df'].loc[0, 'up'] == 'ALICE'    # condition met
     assert ns['df'].loc[1, 'up'] != 'BOB'      # condition not met — NaN
 
@@ -791,7 +791,7 @@ def test_assign_arithmetic_unchanged(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
     ns['df']['price'] = [10.0, 20.0, 30.0]
     ns['df']['qty']   = [2, 3, 4]
-    run(parser, 'df df\ntotal = price * qty', ns)
+    run(parser, 'with df\ntotal = price * qty', ns)
     assert list(ns['df']['total']) == [20.0, 60.0, 120.0]
 
 
@@ -802,7 +802,7 @@ def test_keyword_column_in_loaded_csv_warns(parser, tmp_path, sample_df):
     df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
     with pytest.warns(UserWarning, match="Pivotal keywords"):
-        run(parser, f'load df "{csv_path}"', ns)
+        run(parser, f'load "{csv_path}" as df', ns)
 
 
 def test_load_sanitises_spaces(parser, tmp_path):
@@ -812,7 +812,7 @@ def test_load_sanitises_spaces(parser, tmp_path):
     df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
     with pytest.warns(UserWarning, match="renamed"):
-        run(parser, f'load df "{csv_path}"', ns)
+        run(parser, f'load "{csv_path}" as df', ns)
     assert 'first_name' in ns['df'].columns
     assert 'last_name' in ns['df'].columns
 
@@ -824,7 +824,7 @@ def test_load_sanitises_special_chars(parser, tmp_path):
     df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
     with pytest.warns(UserWarning, match="renamed"):
-        run(parser, f'load df "{csv_path}"', ns)
+        run(parser, f'load "{csv_path}" as df', ns)
     assert 'price_USD_' in ns['df'].columns or 'price_USD' in ns['df'].columns
     # Leading digit gets underscore prefix
     assert any(c.startswith('_') for c in ns['df'].columns)
@@ -837,7 +837,7 @@ def test_load_sanitises_duplicate_collisions(parser, tmp_path):
     df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
     with pytest.warns(UserWarning, match="renamed"):
-        run(parser, f'load df "{csv_path}"', ns)
+        run(parser, f'load "{csv_path}" as df', ns)
     cols = list(ns['df'].columns)
     assert len(set(cols)) == len(cols), "Columns should be unique after sanitisation"
 
@@ -850,7 +850,7 @@ def test_load_clean_columns_no_warning(parser, tmp_path, sample_df):
     import warnings
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        run(parser, f'load df "{csv_path}"', ns)
+        run(parser, f'load "{csv_path}" as df', ns)
     sanitise_warns = [x for x in w if "renamed" in str(x.message)]
     assert not sanitise_warns, "No sanitisation warning expected for clean column names"
 
@@ -962,8 +962,8 @@ def test_full_pipeline_save_reload(parser, tmp_path, sample_df):
     # First session: process and save
     ns1 = {'pd': pd}
     dsl = (
-        f'load raw "{csv_path}"\n'
-        'df clean from raw\n'
+        f'load "{csv_path}" as raw\n'
+        'with raw as clean\n'
         'filter price > 100\n'
         f'save "e2e"\n    path "{tmp_path}"'
     )
@@ -992,11 +992,11 @@ def test_comment_between_statements_dash(parser, sample_df):
     """
     ns = {'pd': pd, 'sales': sample_df.copy()}
     dsl = (
-        'df sales\n'
+        'with sales\n'
         'filter price > 0\n'
         '\n'
         '-- pick the top rows\n'
-        'df top from sales\n'
+        'with sales as top\n'
         'sort price desc\n'
     )
     run(parser, dsl, ns)
@@ -1007,11 +1007,11 @@ def test_comment_between_statements_hash(parser, sample_df):
     """Comments (# style) between statements must not cause a parse error."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
     dsl = (
-        'df sales\n'
+        'with sales\n'
         'filter price > 0\n'
         '\n'
         '# pick the top rows\n'
-        'df top from sales\n'
+        'with sales as top\n'
         'sort price desc\n'
     )
     run(parser, dsl, ns)
@@ -1024,9 +1024,9 @@ def test_comment_after_load(parser, tmp_path, sample_df):
     sample_df.to_csv(csv_path, index=False)
     ns = {'pd': pd}
     dsl = (
-        f'load sales "{csv_path}"\n'
+        f'load "{csv_path}" as sales\n'
         '-- now work on it\n'
-        'df clean from sales\n'
+        'with sales as clean\n'
         'filter price > 0\n'
     )
     run(parser, dsl, ns)
@@ -1045,7 +1045,7 @@ def _parse_gt_nodes(parser, dsl):
 
 def test_table_name_no_params(parser):
     """Table statement with no params must capture the table name."""
-    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable summary\n')
+    nodes = _parse_gt_nodes(parser, 'with sales\n\ntable summary\n')
     assert len(nodes) == 1
     assert nodes[0]['name'] == 'summary'
 
@@ -1053,7 +1053,7 @@ def test_table_name_no_params(parser):
 def test_table_name_with_params(parser):
     """Table statement with params must still capture the correct name."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table myreport\n'
         '    title "Sales Report"\n'
         '    stripe\n'
@@ -1066,7 +1066,7 @@ def test_table_name_with_params(parser):
 def test_table_params_title_subtitle(parser):
     """title and subtitle params are extracted correctly."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    title "My Title"\n'
         '    subtitle "My Subtitle"\n'
@@ -1079,7 +1079,7 @@ def test_table_params_title_subtitle(parser):
 def test_table_params_font(parser):
     """font size and family are extracted correctly."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    font size 11\n'
         '    font "Georgia"\n'
@@ -1091,7 +1091,7 @@ def test_table_params_font(parser):
 
 def test_table_font_size_generates_tab_style(parser):
     """font size must generate tab_style(style.text(size=...)) not opt_table_font(size=...)."""
-    dsl = 'df sales\n\ntable t1\n    font size 12\n'
+    dsl = 'with sales\n\ntable t1\n    font size 12\n'
     results = parser.parse(dsl)
     combined = '\n'.join(parser.generate_code(results))
     assert 'tab_style' in combined
@@ -1103,7 +1103,7 @@ def test_table_font_size_executes(parser, sample_df):
     """font size command must not raise when great_tables executes it."""
     pytest.importorskip('great_tables')
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = 'df sales\n\ntable t1\n    font size 11\n    font "Arial"\n'
+    dsl = 'with sales\n\ntable t1\n    font size 11\n    font "Arial"\n'
     run(parser, dsl, ns)
     gt = ns.get('_pivotal_gt_tables', {})
     assert 't1' in gt
@@ -1113,7 +1113,7 @@ def test_table_font_size_executes(parser, sample_df):
 def test_table_params_stub_stripe_canvas(parser):
     """stub, stripe, and canvas params are extracted correctly."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    stub product\n'
         '    stripe\n'
@@ -1127,14 +1127,14 @@ def test_table_params_stub_stripe_canvas(parser):
 
 def test_table_label_single(parser):
     """label line with one column rename is extracted."""
-    dsl = 'df sales\n\ntable t1\n    label price as "Unit Price"\n'
+    dsl = 'with sales\n\ntable t1\n    label price as "Unit Price"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['labels'] == [{'col': 'price', 'label': 'Unit Price'}]
 
 
 def test_table_label_multiple(parser):
     """label line with multiple comma-separated renames is extracted."""
-    dsl = 'df sales\n\ntable t1\n    label price as "Price", quantity as "Qty"\n'
+    dsl = 'with sales\n\ntable t1\n    label price as "Price", quantity as "Qty"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     labels = {l['col']: l['label'] for l in nodes[0]['labels']}
     assert labels == {'price': 'Price', 'quantity': 'Qty'}
@@ -1142,14 +1142,14 @@ def test_table_label_multiple(parser):
 
 def test_table_format_all(parser):
     """format <type> without a column name applies to all columns."""
-    dsl = 'df sales\n\ntable t1\n    format number 2\n'
+    dsl = 'with sales\n\ntable t1\n    format number 2\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['formats'] == [{'col': None, 'fmt': 'number', 'decimals': 2.0}]
 
 
 def test_table_format_specific_col(parser):
     """format <col> as <type> applies to one column."""
-    dsl = 'df sales\n\ntable t1\n    format price as number 2\n'
+    dsl = 'with sales\n\ntable t1\n    format price as number 2\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['formats'] == [{'col': 'price', 'fmt': 'number', 'decimals': 2.0}]
 
@@ -1157,7 +1157,7 @@ def test_table_format_specific_col(parser):
 def test_table_format_types(parser):
     """All format types parse correctly."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    format price as number 2\n'
         '    format quantity as integer\n'
@@ -1177,7 +1177,7 @@ def test_table_format_types(parser):
 def test_table_label_and_format_together(parser):
     """label and format lines can coexist in the same table block."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    label price as "Price", quantity as "Qty"\n'
         '    format number 1\n'
@@ -1193,7 +1193,7 @@ def test_table_label_and_format_together(parser):
 
 def test_table_generates_correct_code(parser):
     """generate_code must include the table name as the dict key."""
-    dsl = 'df sales\n\ntable weekly\n    title "Weekly"\n'
+    dsl = 'with sales\n\ntable weekly\n    title "Weekly"\n'
     results = parser.parse(dsl)
     code_blocks = parser.generate_code(results)
     combined = '\n'.join(code_blocks)
@@ -1207,7 +1207,7 @@ def test_table_stored_in_namespace(parser, sample_df):
     """Executing a table command must populate _pivotal_gt_tables with the correct key."""
     pytest.importorskip('great_tables')
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = 'df sales\n\ntable mysummary\n    title "Summary"\n'
+    dsl = 'with sales\n\ntable mysummary\n    title "Summary"\n'
     run(parser, dsl, ns)
     gt = ns.get('_pivotal_gt_tables', {})
     assert 'mysummary' in gt, f"Expected 'mysummary' key, got: {list(gt.keys())}"
@@ -1217,14 +1217,14 @@ def test_table_stored_in_namespace(parser, sample_df):
 
 def test_table_style_file_parsed(parser):
     """style "path" is stored in the AST node."""
-    dsl = 'df sales\n\ntable t1\n    style "mystyle.py"\n'
+    dsl = 'with sales\n\ntable t1\n    style "mystyle.py"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['style_file'] == 'mystyle.py'
 
 
 def test_table_style_file_generates_importlib(parser):
     """style file generates importlib.util loading code that calls apply()."""
-    dsl = 'df sales\n\ntable t1\n    style "mystyle.py"\n'
+    dsl = 'with sales\n\ntable t1\n    style "mystyle.py"\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert 'importlib.util' in combined
     assert 'mystyle.py' in combined
@@ -1240,26 +1240,26 @@ def test_table_style_file_executes(parser, sample_df, tmp_path):
         '    return gt.opt_row_striping()\n'
     )
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = f'df sales\n\ntable t1\n    style "{style_file}"\n'
+    dsl = f'with sales\n\ntable t1\n    style "{style_file}"\n'
     run(parser, dsl, ns)
     assert 't1' in ns.get('_pivotal_gt_tables', {})
 
 
 def test_table_summary_bare(parser):
     """summary sum produces a default 'Total' label."""
-    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable t1\n    summary sum\n')
+    nodes = _parse_gt_nodes(parser, 'with sales\n\ntable t1\n    summary sum\n')
     assert nodes[0]['summary'] == [{'fn': 'sum', 'label': 'Total'}]
 
 
 def test_table_summary_labeled(parser):
     """summary sum as 'label' uses the user-supplied label."""
-    nodes = _parse_gt_nodes(parser, 'df sales\n\ntable t1\n    summary sum as "Grand Total"\n')
+    nodes = _parse_gt_nodes(parser, 'with sales\n\ntable t1\n    summary sum as "Grand Total"\n')
     assert nodes[0]['summary'] == [{'fn': 'sum', 'label': 'Grand Total'}]
 
 
 def test_table_summary_multiple(parser):
     """Multiple comma-separated summary specs are all captured."""
-    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Average", min\n'
+    dsl = 'with sales\n\ntable t1\n    summary sum as "Total", mean as "Average", min\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['summary'] == [
         {'fn': 'sum',  'label': 'Total'},
@@ -1270,7 +1270,7 @@ def test_table_summary_multiple(parser):
 
 def test_table_summary_generates_grand_summary_rows(parser):
     """summary generates grand_summary_rows with numeric-only lambdas."""
-    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Average"\n'
+    dsl = 'with sales\n\ntable t1\n    summary sum as "Total", mean as "Average"\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert 'grand_summary_rows' in combined
     assert "'Total'" in combined
@@ -1282,7 +1282,7 @@ def test_table_summary_executes(parser, sample_df):
     """summary generates working GT code that produces HTML."""
     pytest.importorskip('great_tables')
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = 'df sales\n\ntable t1\n    summary sum as "Total", mean as "Mean"\n'
+    dsl = 'with sales\n\ntable t1\n    summary sum as "Total", mean as "Mean"\n'
     run(parser, dsl, ns)
     assert 't1' in ns.get('_pivotal_gt_tables', {})
     assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
@@ -1294,7 +1294,7 @@ def test_table_summary_executes(parser, sample_df):
 
 def test_table_stub_labeled(parser):
     """stub with a quoted label sets stub_label in the AST node."""
-    dsl = 'df sales\n\ntable t1\n    stub product "Product Name"\n'
+    dsl = 'with sales\n\ntable t1\n    stub product "Product Name"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['stub'] == 'product'
     assert nodes[0]['stub_label'] == 'Product Name'
@@ -1303,7 +1303,7 @@ def test_table_stub_labeled(parser):
 
 def test_table_stub_grouped(parser):
     """stub with two columns sets stub_group (groupname_col)."""
-    dsl = 'df sales\n\ntable t1\n    stub product, category\n'
+    dsl = 'with sales\n\ntable t1\n    stub product, category\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['stub'] == 'product'
     assert nodes[0]['stub_group'] == 'category'
@@ -1312,7 +1312,7 @@ def test_table_stub_grouped(parser):
 
 def test_table_stub_grouped_labeled(parser):
     """stub with two columns and a label sets all three fields."""
-    dsl = 'df sales\n\ntable t1\n    stub product, category "Item"\n'
+    dsl = 'with sales\n\ntable t1\n    stub product, category "Item"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert nodes[0]['stub'] == 'product'
     assert nodes[0]['stub_group'] == 'category'
@@ -1321,14 +1321,14 @@ def test_table_stub_grouped_labeled(parser):
 
 def test_table_stub_group_generates_groupname_col(parser):
     """stub with group column generates groupname_col= in GT constructor."""
-    dsl = 'df sales\n\ntable t1\n    stub product, category\n'
+    dsl = 'with sales\n\ntable t1\n    stub product, category\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert "groupname_col='category'" in combined
 
 
 def test_table_stub_label_generates_tab_stubhead(parser):
     """stub with a string label generates tab_stubhead() call."""
-    dsl = 'df sales\n\ntable t1\n    stub product "Item"\n'
+    dsl = 'with sales\n\ntable t1\n    stub product "Item"\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert "tab_stubhead(label='Item')" in combined
 
@@ -1337,7 +1337,7 @@ def test_table_stub_grouped_executes(parser, sample_df):
     """stub with group column produces valid GT HTML."""
     pytest.importorskip('great_tables')
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = 'df sales\n\ntable t1\n    stub product, category "Product"\n'
+    dsl = 'with sales\n\ntable t1\n    stub product, category "Product"\n'
     run(parser, dsl, ns)
     assert 't1' in ns.get('_pivotal_gt_tables', {})
     assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
@@ -1349,7 +1349,7 @@ def test_table_stub_grouped_executes(parser, sample_df):
 
 def test_table_manual_spanner_parsed(parser):
     """spanner line with columns and a label is captured in the AST."""
-    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    dsl = 'with sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert len(nodes[0]['spanners']) == 1
     sp = nodes[0]['spanners'][0]
@@ -1360,7 +1360,7 @@ def test_table_manual_spanner_parsed(parser):
 
 def test_table_manual_spanner_single_col(parser):
     """spanner works with a single column too."""
-    dsl = 'df sales\n\ntable t1\n    spanner price "Price"\n'
+    dsl = 'with sales\n\ntable t1\n    spanner price "Price"\n'
     nodes = _parse_gt_nodes(parser, dsl)
     sp = nodes[0]['spanners'][0]
     assert sp['columns'] == ['price']
@@ -1369,7 +1369,7 @@ def test_table_manual_spanner_single_col(parser):
 
 def test_table_auto_spanner_parsed(parser):
     """auto spanner keyword sets type=auto in the AST."""
-    dsl = 'df sales\n\ntable t1\n    auto spanner\n'
+    dsl = 'with sales\n\ntable t1\n    auto spanner\n'
     nodes = _parse_gt_nodes(parser, dsl)
     assert len(nodes[0]['spanners']) == 1
     assert nodes[0]['spanners'][0] == {'type': 'auto'}
@@ -1377,14 +1377,14 @@ def test_table_auto_spanner_parsed(parser):
 
 def test_table_manual_spanner_generates_tab_spanner(parser):
     """Manual spanner generates tab_spanner() call with label and columns."""
-    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    dsl = 'with sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert "tab_spanner(label='Metrics', columns=['price', 'quantity'])" in combined
 
 
 def test_table_auto_spanner_generates_multiindex_check(parser):
     """auto spanner generates MultiIndex detection code in the GT constructor block."""
-    dsl = 'df sales\n\ntable t1\n    auto spanner\n'
+    dsl = 'with sales\n\ntable t1\n    auto spanner\n'
     combined = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert 'MultiIndex' in combined
     assert 'tab_spanner' in combined
@@ -1396,7 +1396,7 @@ def test_table_manual_spanner_executes(parser, sample_df):
     """Manual spanner produces valid GT HTML."""
     pytest.importorskip('great_tables')
     ns = {'pd': pd, 'sales': sample_df.copy()}
-    dsl = 'df sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
+    dsl = 'with sales\n\ntable t1\n    spanner price, quantity "Metrics"\n'
     run(parser, dsl, ns)
     assert 't1' in ns.get('_pivotal_gt_tables', {})
     assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
@@ -1414,7 +1414,7 @@ def test_table_auto_spanner_executes_with_multiindex(parser):
     pivoted = pd.pivot_table(df, values=['sales', 'quantity'],
                              index='product', columns='region', aggfunc='sum').reset_index()
     ns = {'pd': pd, 'pivoted': pivoted}
-    dsl = 'df pivoted\n\ntable t1\n    auto spanner\n'
+    dsl = 'with pivoted\n\ntable t1\n    auto spanner\n'
     run(parser, dsl, ns)
     assert 't1' in ns.get('_pivotal_gt_tables', {})
     assert ns['_pivotal_gt_tables']['t1'].get('viewer_html')
@@ -1423,7 +1423,7 @@ def test_table_auto_spanner_executes_with_multiindex(parser):
 def test_table_multiple_spanners(parser):
     """Multiple spanner lines all appear in the AST and generated code."""
     dsl = (
-        'df sales\n\n'
+        'with sales\n\n'
         'table t1\n'
         '    spanner price "Pricing"\n'
         '    spanner quantity "Volume"\n'
@@ -1452,7 +1452,7 @@ def wide_df():
 def test_unpivot_basic(parser, wide_df):
     """unpivot with id only melts all non-id columns."""
     ns = {'pd': pd, 'sales': wide_df}
-    run(parser, 'df sales\nunpivot\n    id region\n', ns)
+    run(parser, 'with sales\nunpivot\n    id region\n', ns)
     result = ns['sales']
     assert list(result.columns) == ['region', 'variable', 'value']
     assert len(result) == 6   # 2 rows × 3 month columns
@@ -1462,7 +1462,7 @@ def test_unpivot_basic(parser, wide_df):
 def test_unpivot_with_cols(parser, wide_df):
     """unpivot cols restricts which columns are melted."""
     ns = {'pd': pd, 'sales': wide_df}
-    run(parser, 'df sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
+    run(parser, 'with sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
     result = ns['sales']
     assert set(result['variable']) == {'jan', 'feb'}
     assert len(result) == 4   # 2 rows × 2 selected columns
@@ -1471,7 +1471,7 @@ def test_unpivot_with_cols(parser, wide_df):
 def test_unpivot_custom_names(parser, wide_df):
     """name and value options rename the variable and value columns."""
     ns = {'pd': pd, 'sales': wide_df}
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
+    dsl = 'with sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
     run(parser, dsl, ns)
     result = ns['sales']
     assert list(result.columns) == ['region', 'month', 'amount']
@@ -1480,7 +1480,7 @@ def test_unpivot_custom_names(parser, wide_df):
 def test_unpivot_values_correct(parser, wide_df):
     """Unpivoted values match the source data."""
     ns = {'pd': pd, 'sales': wide_df}
-    run(parser, 'df sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n', ns)
+    run(parser, 'with sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n', ns)
     result = ns['sales'].set_index('region')
     assert result.loc['North', 'amount'] == 100
     assert result.loc['South', 'amount'] == 200
@@ -1495,7 +1495,7 @@ def test_unpivot_multiple_id_cols(parser):
         'q2':       [150,     250],
     })
     ns = {'pd': pd, 'sales': df}
-    run(parser, 'df sales\nunpivot\n    id region, year\n', ns)
+    run(parser, 'with sales\nunpivot\n    id region, year\n', ns)
     result = ns['sales']
     assert 'region' in result.columns
     assert 'year' in result.columns
@@ -1504,7 +1504,7 @@ def test_unpivot_multiple_id_cols(parser):
 
 def test_unpivot_code_generation(parser, wide_df):
     """Generated code contains melt with correct arguments."""
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
+    dsl = 'with sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl)))
     assert 'melt' in code
     assert "id_vars=['region']" in code
@@ -1531,7 +1531,7 @@ def window_df():
 def test_rank_basic(parser, window_df):
     """rank adds a rank column without reordering rows."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount desc as r\n', ns)
+    run(parser, 'with sales\nrank amount desc as r\n', ns)
     result = ns['sales']
     assert 'r' in result.columns
     assert result.loc[result['amount'].idxmax(), 'r'] == 1.0
@@ -1540,7 +1540,7 @@ def test_rank_basic(parser, window_df):
 def test_rank_ascending(parser, window_df):
     """rank asc gives rank 1 to the smallest value."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount asc as r\n', ns)
+    run(parser, 'with sales\nrank amount asc as r\n', ns)
     result = ns['sales']
     assert result.loc[result["amount"].idxmax(), "r"] == result["r"].max()
 
@@ -1548,7 +1548,7 @@ def test_rank_ascending(parser, window_df):
 def test_rank_partitioned(parser, window_df):
     """rank by partition ranks independently within each group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount desc as r\n    by region\n', ns)
+    run(parser, 'with sales\nrank amount desc as r\n    by region\n', ns)
     result = ns['sales']
     assert 'r' in result.columns
     # Each region has its own rank 1
@@ -1557,7 +1557,7 @@ def test_rank_partitioned(parser, window_df):
 
 def test_rank_code_generation(parser):
     """Generated rank code contains correct pandas call."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount desc as r\n    by region\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('with sales\nrank amount desc as r\n    by region\n')))
     assert "rank(ascending=False" in code
     assert "groupby(['region'])" in code
 
@@ -1565,20 +1565,20 @@ def test_rank_code_generation(parser):
 def test_rank_pct_values(parser, window_df):
     """rank pct produces values between 0 and 1."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount pct as r\n', ns)
+    run(parser, 'with sales\nrank amount pct as r\n', ns)
     assert ns['sales']['r'].between(0, 1).all()
 
 
 def test_rank_pct_code_generation(parser):
     """rank pct generates pct=True in pandas call."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nrank amount pct as r\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('with sales\nrank amount pct as r\n')))
     assert "pct=True" in code
 
 
 def test_rank_pct_partitioned(parser, window_df):
     """rank pct with by gives per-group percentile ranks."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrank amount pct as r\n    by region\n', ns)
+    run(parser, 'with sales\nrank amount pct as r\n    by region\n', ns)
     assert ns['sales']['r'].between(0, 1).all()
 
 
@@ -1587,7 +1587,7 @@ def test_rank_pct_partitioned(parser, window_df):
 def test_lag_basic(parser, window_df):
     """lag shifts values down by n periods."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlag amount 1 as prev\n    order date\n', ns)
+    run(parser, 'with sales\nlag amount 1 as prev\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     # First row (date=1 per region boundary) will have NaN or the previous row's value
     assert 'prev' in result.columns
@@ -1596,7 +1596,7 @@ def test_lag_basic(parser, window_df):
 def test_lag_partitioned_values(parser, window_df):
     """lag by partition does not bleed across groups."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlag amount 1 as prev\n    by region\n    order date\n', ns)
+    run(parser, 'with sales\nlag amount 1 as prev\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     # First row of each region should be NaN
     first_rows = result.groupby("region").nth(0)
@@ -1606,7 +1606,7 @@ def test_lag_partitioned_values(parser, window_df):
 def test_lead_partitioned(parser, window_df):
     """lead shifts values up by n periods within partition."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nlead amount 1 as nxt\n    by region\n    order date\n', ns)
+    run(parser, 'with sales\nlead amount 1 as nxt\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     assert 'nxt' in result.columns
     last_rows = result.groupby("region").nth(-1)
@@ -1615,14 +1615,14 @@ def test_lead_partitioned(parser, window_df):
 
 def test_lag_code_generation(parser):
     """Generated lag code sorts then shifts by positive n."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlag amount 1 as prev\n    order date\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('with sales\nlag amount 1 as prev\n    order date\n')))
     assert "sort_values('date')" in code
     assert ".shift(1)" in code
 
 
 def test_lead_code_generation(parser):
     """Generated lead code shifts by negative n."""
-    code = '\n'.join(parser.generate_code(parser.parse('df sales\nlead amount 1 as nxt\n    order date\n')))
+    code = '\n'.join(parser.generate_code(parser.parse('with sales\nlead amount 1 as nxt\n    order date\n')))
     assert ".shift(-1)" in code
 
 
@@ -1631,7 +1631,7 @@ def test_lead_code_generation(parser):
 def test_cumsum_basic(parser, window_df):
     """cumsum produces a monotonically increasing running total."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncumsum amount as running\n    order date\n', ns)
+    run(parser, 'with sales\ncumsum amount as running\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert 'running' in result.columns
     assert (result['running'].diff().dropna() >= 0).all()
@@ -1640,7 +1640,7 @@ def test_cumsum_basic(parser, window_df):
 def test_cumsum_partitioned(parser, window_df):
     """cumsum by partition resets for each group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncumsum amount as running\n    by region\n    order date\n', ns)
+    run(parser, 'with sales\ncumsum amount as running\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     # Each group's running total should not exceed its own sum
     group_sums = window_df.groupby('region')['amount'].sum()
@@ -1652,15 +1652,15 @@ def test_cumsum_partitioned(parser, window_df):
 def test_cummean_basic(parser, window_df):
     """cummean produces expanding mean (uses expanding().mean())."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\ncummean amount as running\n    order date\n', ns)
+    run(parser, 'with sales\ncummean amount as running\n    order date\n', ns)
     assert 'running' in ns['sales'].columns
 
 
 def test_cummin_cummax(parser, window_df):
     """cummin and cummax produce monotone sequences."""
     ns = {'pd': pd, 'sales': window_df.copy()}
-    run(parser, 'df sales\ncummin amount as cmin\n    order date\n', ns)
-    run(parser, 'df sales\ncummax amount as cmax\n    order date\n', ns)
+    run(parser, 'with sales\ncummin amount as cmin\n    order date\n', ns)
+    run(parser, 'with sales\ncummax amount as cmax\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert (result['cmin'].diff().dropna() <= 0).all()
     assert (result['cmax'].diff().dropna() >= 0).all()
@@ -1671,7 +1671,7 @@ def test_cummin_cummax(parser, window_df):
 def test_rolling_basic(parser, window_df):
     """rolling mean produces NaN for the first window-1 rows."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrolling mean amount 2 as roll\n    order date\n', ns)
+    run(parser, 'with sales\nrolling mean amount 2 as roll\n    order date\n', ns)
     result = ns['sales'].sort_values('date')
     assert 'roll' in result.columns
 
@@ -1679,7 +1679,7 @@ def test_rolling_basic(parser, window_df):
 def test_rolling_partitioned(parser, window_df):
     """rolling by partition computes independently per group."""
     ns = {'pd': pd, 'sales': window_df}
-    run(parser, 'df sales\nrolling mean amount 2 as roll\n    by region\n    order date\n', ns)
+    run(parser, 'with sales\nrolling mean amount 2 as roll\n    by region\n    order date\n', ns)
     result = ns['sales'].sort_values(['region', 'date'])
     assert 'roll' in result.columns
     # Check a known value: North date=2, window=[100,200], mean=150
@@ -1690,7 +1690,7 @@ def test_rolling_partitioned(parser, window_df):
 def test_rolling_code_generation(parser):
     """Generated rolling code uses transform for partitioned case."""
     code = '\n'.join(parser.generate_code(parser.parse(
-        'df sales\nrolling mean amount 3 as roll\n    by region\n    order date\n'
+        'with sales\nrolling mean amount 3 as roll\n    by region\n    order date\n'
     )))
     assert "rolling(3).mean()" in code
     assert "transform" in code
@@ -1704,7 +1704,7 @@ def test_intersect_basic(parser):
     a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
     b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
     ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
-    run(parser, 'df a\n    intersect b\n', ns)
+    run(parser, 'with a\n    intersect b\n', ns)
     assert set(ns['a']['x']) == {2, 3}
 
 
@@ -1713,7 +1713,7 @@ def test_exclude_basic(parser):
     a = pd.DataFrame({'x': [1, 2, 3], 'y': ['a', 'b', 'c']})
     b = pd.DataFrame({'x': [2, 3, 4], 'y': ['b', 'c', 'd']})
     ns = {'pd': pd, 'a': a.copy(), 'b': b.copy()}
-    run(parser, 'df a\n    exclude b\n', ns)
+    run(parser, 'with a\n    exclude b\n', ns)
     assert set(ns['a']['x']) == {1}
 
 
@@ -1723,7 +1723,7 @@ def test_fillna_per_col(parser):
     """fillna with indented col=value fills each column independently."""
     df = pd.DataFrame({'price': [1.0, None, 3.0], 'name': ['a', None, 'c']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    fillna\n        price = 0\n        name = "unknown"\n', ns)
+    run(parser, 'with t\n    fillna\n        price = 0\n        name = "unknown"\n', ns)
     assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
     assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
 
@@ -1732,7 +1732,7 @@ def test_fillna_all_unchanged(parser):
     """fillna with a scalar still fills all columns."""
     df = pd.DataFrame({'a': [1.0, None], 'b': [None, 2.0]})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    fillna 0\n', ns)
+    run(parser, 'with t\n    fillna 0\n', ns)
     assert ns['t'].isnull().sum().sum() == 0
 
 
@@ -1752,28 +1752,28 @@ def df_dates():
 def test_date_year(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2023-06-15', '2024-01-01'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    yr = year(d)\n', ns)
+    run(parser, 'with t\n    yr = year(d)\n', ns)
     assert ns['t']['yr'].tolist() == [2023, 2024]
 
 
 def test_date_month(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-03-01', '2024-11-30'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    mo = month(d)\n', ns)
+    run(parser, 'with t\n    mo = month(d)\n', ns)
     assert ns['t']['mo'].tolist() == [3, 11]
 
 
 def test_date_day(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-03-07', '2024-11-25'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    dy = day(d)\n', ns)
+    run(parser, 'with t\n    dy = day(d)\n', ns)
     assert ns['t']['dy'].tolist() == [7, 25]
 
 
 def test_date_quarter(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    q = quarter(d)\n', ns)
+    run(parser, 'with t\n    q = quarter(d)\n', ns)
     assert ns['t']['q'].tolist() == [1, 2, 3, 4]
 
 
@@ -1781,28 +1781,28 @@ def test_date_dayofweek(parser):
     # 2024-01-01 is a Monday (0), 2024-01-07 is a Sunday (6)
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-01-07'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    dow = dayofweek(d)\n', ns)
+    run(parser, 'with t\n    dow = dayofweek(d)\n', ns)
     assert ns['t']['dow'].tolist() == [0, 6]
 
 
 def test_date_hour(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01 09:30:00', '2024-01-01 15:45:00'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    hr = hour(d)\n', ns)
+    run(parser, 'with t\n    hr = hour(d)\n', ns)
     assert ns['t']['hr'].tolist() == [9, 15]
 
 
 def test_date_minute(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01 09:30:00', '2024-01-01 15:45:00'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    mn = minute(d)\n', ns)
+    run(parser, 'with t\n    mn = minute(d)\n', ns)
     assert ns['t']['mn'].tolist() == [30, 45]
 
 
 def test_date_format(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-03-15', '2024-11-01'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    run(parser, 'with t\n    lbl = date_format(d, "%b %Y")\n', ns)
     assert ns['t']['lbl'].tolist() == ['Mar 2024', 'Nov 2024']
 
 
@@ -1812,14 +1812,14 @@ def test_date_diff(parser):
         'end':   pd.to_datetime(['2024-01-11', '2024-03-06']),
     })
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    days = date_diff(end, start)\n', ns)
+    run(parser, 'with t\n    days = date_diff(end, start)\n', ns)
     assert ns['t']['days'].tolist() == [10, 5]
 
 
 def test_date_add(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-06-15'])})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    run(parser, 'with t\n    due = date_add(d, 30)\n', ns)
     expected = pd.to_datetime(['2024-01-31', '2024-07-15'])
     assert ns['t']['due'].tolist() == expected.tolist()
 
@@ -1827,7 +1827,7 @@ def test_date_add(parser):
 def test_to_date(parser):
     df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    d = to_date(ds)\n', ns)
+    run(parser, 'with t\n    d = to_date(ds)\n', ns)
     assert pd.api.types.is_datetime64_any_dtype(ns['t']['d'])
     assert ns['t']['d'].dt.year.tolist() == [2024, 2024]
 
@@ -1840,7 +1840,7 @@ def test_cast_float_coerce(parser):
     """cast as float uses pd.to_numeric(errors='coerce') — bad values become NaN."""
     df = pd.DataFrame({'amount': ['1.5', 'bad', '3.0']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast amount as float\n', ns)
+    run(parser, 'with t\n    cast amount as float\n', ns)
     assert ns['t']['amount'].tolist()[0] == 1.5
     assert pd.isna(ns['t']['amount'].tolist()[1])
     assert ns['t']['amount'].tolist()[2] == 3.0
@@ -1850,7 +1850,7 @@ def test_cast_float_strict(parser):
     """cast as float strict uses .astype(float) — raises on bad values."""
     df = pd.DataFrame({'amount': [1.5, 2.0, 3.0]})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast amount as float strict\n', ns)
+    run(parser, 'with t\n    cast amount as float strict\n', ns)
     assert ns['t']['amount'].dtype == float
 
 
@@ -1858,7 +1858,7 @@ def test_cast_int_coerce(parser):
     """cast as int coerce returns nullable Int64."""
     df = pd.DataFrame({'n': ['1', 'bad', '3']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast n as int\n', ns)
+    run(parser, 'with t\n    cast n as int\n', ns)
     assert ns['t']['n'].tolist()[0] == 1
     assert pd.isna(ns['t']['n'].tolist()[1])
 
@@ -1867,7 +1867,7 @@ def test_cast_multi_columns(parser):
     """cast multiple columns in one statement."""
     df = pd.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast price, cost as float\n', ns)
+    run(parser, 'with t\n    cast price, cost as float\n', ns)
     assert ns['t']['price'].tolist()[0] == 1.5
     assert ns['t']['cost'].tolist()[0] == 0.5
 
@@ -1876,7 +1876,7 @@ def test_cast_string(parser):
     """cast as string converts to str dtype."""
     df = pd.DataFrame({'n': [1, 2, 3]})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast n as string\n', ns)
+    run(parser, 'with t\n    cast n as string\n', ns)
     assert ns['t']['n'].tolist() == ['1', '2', '3']
 
 
@@ -1884,7 +1884,7 @@ def test_cast_datetime_coerce(parser):
     """cast as datetime uses pd.to_datetime(errors='coerce')."""
     df = pd.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    cast ds as datetime\n', ns)
+    run(parser, 'with t\n    cast ds as datetime\n', ns)
     assert pd.api.types.is_datetime64_any_dtype(ns['t']['ds'])
     assert pd.isna(ns['t']['ds'].tolist()[1])
 
@@ -1897,7 +1897,7 @@ def test_inline_cast_float(parser):
     """amount = float(amount) coerces string column to float."""
     df = pd.DataFrame({'amount': ['1.5', 'bad', '3.0']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    amount = float(amount)\n', ns)
+    run(parser, 'with t\n    amount = float(amount)\n', ns)
     assert ns['t']['amount'].tolist()[0] == 1.5
     assert pd.isna(ns['t']['amount'].tolist()[1])
 
@@ -1906,7 +1906,7 @@ def test_inline_cast_str(parser):
     """label = str(code) converts int column to string."""
     df = pd.DataFrame({'code': [1, 2, 3]})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    label = str(code)\n', ns)
+    run(parser, 'with t\n    label = str(code)\n', ns)
     assert ns['t']['label'].tolist() == ['1', '2', '3']
 
 
@@ -1914,5 +1914,5 @@ def test_inline_cast_datetime(parser):
     """ds = datetime(ds) coerces string to datetime."""
     df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
     ns = {'pd': pd, 't': df.copy()}
-    run(parser, 'df t\n    ds = datetime(ds)\n', ns)
+    run(parser, 'with t\n    ds = datetime(ds)\n', ns)
     assert pd.api.types.is_datetime64_any_dtype(ns['t']['ds'])

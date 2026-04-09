@@ -5,7 +5,7 @@
 Display the current state of the active table inline in the notebook or terminal output.
 
 ```pivotal
-df sales
+with sales
     filter price > 100
     show
 ```
@@ -21,7 +21,7 @@ show summary  # descriptive statistics (like df.describe())
 `show` can appear mid-pipeline — it displays the table at that point without interrupting subsequent operations:
 
 ```pivotal
-df sales
+with sales
     filter status == "active"
     show head              # peek at filtered data
     group by region
@@ -38,7 +38,7 @@ Create a matplotlib chart from the active table.
 ### Basic syntax
 
 ```pivotal
-df summary
+with summary
     plot <chart_name>
         kind "<chart_type>"
         x <col>
@@ -51,7 +51,7 @@ df summary
 The chart type can be specified directly after `plot`:
 
 ```pivotal
-df summary
+with summary
     plot bar revenue_chart
         x category
         y total
@@ -88,7 +88,7 @@ df summary
 ### Examples
 
 ```pivotal
-df trends
+with trends
     plot line price_trend
         x date
         y price
@@ -97,7 +97,7 @@ df trends
 ```
 
 ```pivotal
-df raw
+with raw
     plot scatter price_qty
         x price
         y quantity
@@ -107,7 +107,7 @@ df raw
 ```
 
 ```pivotal
-df sales
+with sales
     plot bar regional_chart
         x category
         y revenue
@@ -125,7 +125,7 @@ df sales
 ### Basic syntax
 
 ```pivotal
-df sales
+with sales
     pivot plot bar revenue_chart
         x region
         y sum amount
@@ -134,7 +134,7 @@ df sales
 ### Multiple y columns (different funcs per column)
 
 ```pivotal
-df matches
+with matches
     pivot plot line season_chart
         x season
         y mean home_team_goal, mean away_team_goal "Goals"
@@ -145,7 +145,7 @@ df matches
 Place a `filter` statement before `pivot plot` to pre-filter the source data:
 
 ```pivotal
-df sales
+with sales
     filter year > 2020
     pivot plot bar recent_chart
         x category
@@ -176,7 +176,7 @@ Create a formatted table using [Great Tables](https://posit-dev.github.io/great-
 ### Basic table
 
 ```pivotal
-df results
+with results
     table summary
         title "Sales Summary"
         format number 2
@@ -185,7 +185,7 @@ df results
 ### Full options
 
 ```pivotal
-df results
+with results
     table report
         title "Season Results"
         subtitle "All matches, 2023–24"

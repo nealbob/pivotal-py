@@ -99,7 +99,7 @@ def test_preamble_creates_connection(parser, sample_df):
         sample_df.to_csv(f, index=False)
         path = f.name
     try:
-        run_ddb(parser, f'load sales "{path}"', ns)
+        run_ddb(parser, f'load "{path}" as sales', ns)
         assert '_pivotal_ddb' in ns
         df = fetch(ns, 'sales')
         assert len(df) == len(sample_df)
@@ -116,7 +116,7 @@ def test_load_csv_duckdb(parser, tmp_path, sample_df):
     ns = ddb_ns(conn)
     csv_path = tmp_path / 'data.csv'
     sample_df.to_csv(csv_path, index=False)
-    run_ddb(parser, f'load sales "{csv_path}"', ns)
+    run_ddb(parser, f'load "{csv_path}" as sales', ns)
     df = fetch(ns, 'sales')
     assert list(df.columns) == list(sample_df.columns)
     assert len(df) == len(sample_df)
@@ -128,7 +128,7 @@ def test_load_parquet_duckdb(parser, tmp_path, sample_df):
     ns = ddb_ns(conn)
     path = tmp_path / 'data.parquet'
     sample_df.to_parquet(path, index=False)
-    run_ddb(parser, f'load sales "{path}"', ns)
+    run_ddb(parser, f'load "{path}" as sales', ns)
     df = fetch(ns, 'sales')
     assert len(df) == len(sample_df)
 
@@ -139,18 +139,18 @@ def test_load_excel_duckdb(parser, tmp_path, sample_df):
     ns = ddb_ns(conn)
     path = tmp_path / 'data.xlsx'
     sample_df.to_excel(path, index=False)
-    run_ddb(parser, f'load sales "{path}"', ns)
+    run_ddb(parser, f'load "{path}" as sales', ns)
     df = fetch(ns, 'sales')
     assert len(df) == len(sample_df)
 
 
 def test_load_variable_path_duckdb(parser, tmp_path, sample_df):
-    """load with :var path — CSV detected at runtime."""
+    """load :var as name — CSV detected at runtime."""
     conn = duckdb.connect()
     csv_path = str(tmp_path / 'data.csv')
     sample_df.to_csv(csv_path, index=False)
     ns = ddb_ns(conn, {'my_path': csv_path})
-    run_ddb(parser, 'load sales :my_path', ns)
+    run_ddb(parser, 'load :my_path as sales', ns)
     df = fetch(ns, 'sales')
     assert len(df) == len(sample_df)
 
@@ -163,7 +163,7 @@ def test_load_sanitises_spaces_duckdb(parser, tmp_path):
     conn = duckdb.connect()
     ns = ddb_ns(conn)
     with pytest.warns(UserWarning, match="renamed"):
-        run_ddb(parser, f'load people "{csv_path}"', ns)
+        run_ddb(parser, f'load "{csv_path}" as people', ns)
     result = fetch(ns, 'people')
     assert 'first_name' in result.columns
     assert 'last_name' in result.columns
@@ -177,7 +177,7 @@ def test_load_sanitises_special_chars_duckdb(parser, tmp_path):
     conn = duckdb.connect()
     ns = ddb_ns(conn)
     with pytest.warns(UserWarning, match="renamed"):
-        run_ddb(parser, f'load data "{csv_path}"', ns)
+        run_ddb(parser, f'load "{csv_path}" as data', ns)
     result = fetch(ns, 'data')
     # Leading digit gets underscore prefix; all cols should be valid identifiers
     for col in result.columns:
@@ -193,7 +193,7 @@ def test_load_clean_columns_no_warning_duckdb(parser, tmp_path, sample_df):
     import warnings
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        run_ddb(parser, f'load sales "{csv_path}"', ns)
+        run_ddb(parser, f'load "{csv_path}" as sales', ns)
     sanitise_warns = [x for x in w if "renamed" in str(x.message)]
     assert not sanitise_warns
 
@@ -205,7 +205,7 @@ def test_load_clean_columns_no_warning_duckdb(parser, tmp_path, sample_df):
 def test_copy_table_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df backup from sales', ns)
+    run_ddb(parser, 'with sales as backup', ns)
     df = fetch(ns, 'backup')
     assert len(df) == len(sample_df)
     assert list(df.columns) == list(sample_df.columns)
@@ -215,7 +215,7 @@ def test_copy_is_independent_duckdb(parser, sample_df):
     """Modifying the copy should not affect the original."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df backup from sales\nfilter price > 200', ns)
+    run_ddb(parser, 'with sales as backup\nfilter price > 200', ns)
     original = fetch(ns, 'sales')
     copy = fetch(ns, 'backup')
     assert len(original) == len(sample_df)
@@ -230,7 +230,7 @@ def test_validate_table_exists_duckdb(parser, sample_df):
     """df tablename on an existing DuckDB table should not raise."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nsort price asc', ns)
+    run_ddb(parser, 'with sales\nsort price asc', ns)
     # DuckDB columnar storage does not guarantee SELECT * respects physical row
     # order; use ORDER BY in the verification query.
     df = ns['_pivotal_ddb'].execute("SELECT * FROM sales ORDER BY price ASC").df()
@@ -243,7 +243,7 @@ def test_validate_table_missing_duckdb(parser, capsys):
     conn = duckdb.connect()
     ns = ddb_ns(conn)
     # execute() catches errors internally — verify the error is reported
-    run_ddb(parser, 'df nonexistent\nsort price asc', ns)
+    run_ddb(parser, 'with nonexistent\nsort price asc', ns)
     captured = capsys.readouterr()
     assert 'nonexistent' in captured.out
 
@@ -255,7 +255,7 @@ def test_validate_table_missing_duckdb(parser, capsys):
 def test_filter_numeric_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter price > 200', ns)
+    run_ddb(parser, 'with sales\nfilter price > 200', ns)
     df = fetch(ns, 'sales')
     assert all(df['price'] > 200)
 
@@ -263,7 +263,7 @@ def test_filter_numeric_duckdb(parser, sample_df):
 def test_filter_string_eq_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter category == "Electronics"', ns)
+    run_ddb(parser, 'with sales\nfilter category == "Electronics"', ns)
     df = fetch(ns, 'sales')
     assert all(df['category'] == 'Electronics')
 
@@ -271,7 +271,7 @@ def test_filter_string_eq_duckdb(parser, sample_df):
 def test_filter_between_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter price between [100, 400]', ns)
+    run_ddb(parser, 'with sales\nfilter price between [100, 400]', ns)
     df = fetch(ns, 'sales')
     assert all(df['price'] >= 100)
     assert all(df['price'] <= 400)
@@ -281,7 +281,7 @@ def test_filter_between_duckdb(parser, sample_df):
 def test_filter_contains_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter product contains "op"', ns)
+    run_ddb(parser, 'with sales\nfilter product contains "op"', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 1
     assert df.iloc[0]['product'] == 'Laptop'
@@ -290,7 +290,7 @@ def test_filter_contains_duckdb(parser, sample_df):
 def test_filter_not_contains_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter category not contains "Furniture"', ns)
+    run_ddb(parser, 'with sales\nfilter category not contains "Furniture"', ns)
     df = fetch(ns, 'sales')
     assert all(df['category'] == 'Electronics')
 
@@ -298,7 +298,7 @@ def test_filter_not_contains_duckdb(parser, sample_df):
 def test_filter_startswith_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter product startswith "Mo"', ns)
+    run_ddb(parser, 'with sales\nfilter product startswith "Mo"', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 2  # Mouse, Monitor
     assert all(df['product'].str.startswith('Mo'))
@@ -307,7 +307,7 @@ def test_filter_startswith_duckdb(parser, sample_df):
 def test_filter_endswith_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter product endswith "r"', ns)
+    run_ddb(parser, 'with sales\nfilter product endswith "r"', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 2  # Chair, Monitor
 
@@ -315,7 +315,7 @@ def test_filter_endswith_duckdb(parser, sample_df):
 def test_filter_in_list_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter category in ["Electronics"]', ns)
+    run_ddb(parser, 'with sales\nfilter category in ["Electronics"]', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 3
     assert all(df['category'] == 'Electronics')
@@ -325,7 +325,7 @@ def test_filter_in_var_duckdb(parser, sample_df):
     """filter col in :var injects the Python list into SQL at runtime."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn, {'cats': ['Electronics']})
-    run_ddb(parser, 'df sales\nfilter category in :cats', ns)
+    run_ddb(parser, 'with sales\nfilter category in :cats', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 3
     assert all(df['category'] == 'Electronics')
@@ -334,7 +334,7 @@ def test_filter_in_var_duckdb(parser, sample_df):
 def test_filter_not_in_var_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn, {'excl': ['Furniture']})
-    run_ddb(parser, 'df sales\nfilter category not in :excl', ns)
+    run_ddb(parser, 'with sales\nfilter category not in :excl', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 3
     assert all(df['category'] == 'Electronics')
@@ -343,7 +343,7 @@ def test_filter_not_in_var_duckdb(parser, sample_df):
 def test_filter_and_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nfilter price between [100, 350] and category == "Furniture"', ns)
+    run_ddb(parser, 'with sales\nfilter price between [100, 350] and category == "Furniture"', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 2
     assert all(df['category'] == 'Furniture')
@@ -356,7 +356,7 @@ def test_filter_and_duckdb(parser, sample_df):
 def test_select_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nselect product, price', ns)
+    run_ddb(parser, 'with sales\nselect product, price', ns)
     df = fetch(ns, 'sales')
     assert list(df.columns) == ['product', 'price']
 
@@ -364,7 +364,7 @@ def test_select_duckdb(parser, sample_df):
 def test_select_with_rename_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nselect product as item, price as cost', ns)
+    run_ddb(parser, 'with sales\nselect product as item, price as cost', ns)
     df = fetch(ns, 'sales')
     assert 'item' in df.columns
     assert 'cost' in df.columns
@@ -378,7 +378,7 @@ def test_select_with_rename_duckdb(parser, sample_df):
 def test_rename_single_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nrename price as cost', ns)
+    run_ddb(parser, 'with sales\nrename price as cost', ns)
     df = fetch(ns, 'sales')
     assert 'cost' in df.columns
     assert 'price' not in df.columns
@@ -389,7 +389,7 @@ def test_rename_single_duckdb(parser, sample_df):
 def test_rename_multiple_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nrename product as item, quantity as qty', ns)
+    run_ddb(parser, 'with sales\nrename product as item, quantity as qty', ns)
     df = fetch(ns, 'sales')
     assert 'item' in df.columns
     assert 'qty' in df.columns
@@ -403,19 +403,19 @@ def test_rename_multiple_duckdb(parser, sample_df):
 
 def test_sort_asc_duckdb(parser, sample_df):
     # Verify the sort SQL is generated correctly (codegen test)
-    nodes = parser.parse('df sales\nsort price asc')
+    nodes = parser.parse('with sales\nsort price asc')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'ORDER BY price ASC' in code
 
 
 def test_sort_desc_duckdb(parser, sample_df):
-    nodes = parser.parse('df sales\nsort price desc')
+    nodes = parser.parse('with sales\nsort price desc')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'ORDER BY price DESC' in code
 
 
 def test_sort_multi_column_duckdb(parser, sample_df):
-    nodes = parser.parse('df sales\nsort category asc, price desc')
+    nodes = parser.parse('with sales\nsort category asc, price desc')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'ORDER BY category ASC, price DESC' in code
 
@@ -424,7 +424,7 @@ def test_sort_execution_duckdb(parser, sample_df):
     """Sort runs without error and produces the correct number of rows."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nsort price asc', ns)
+    run_ddb(parser, 'with sales\nsort price asc', ns)
     # Verify with ORDER BY since DuckDB columnar storage doesn't guarantee
     # physical-row order is reflected in a plain SELECT *.
     df = ns['_pivotal_ddb'].execute("SELECT * FROM sales ORDER BY price ASC").df()
@@ -440,7 +440,7 @@ def test_sort_execution_duckdb(parser, sample_df):
 def test_drop_single_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\ndrop quantity', ns)
+    run_ddb(parser, 'with sales\ndrop quantity', ns)
     df = fetch(ns, 'sales')
     assert 'quantity' not in df.columns
     assert 'price' in df.columns
@@ -449,7 +449,7 @@ def test_drop_single_duckdb(parser, sample_df):
 def test_drop_multiple_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\ndrop quantity, id', ns)
+    run_ddb(parser, 'with sales\ndrop quantity, id', ns)
     df = fetch(ns, 'sales')
     assert 'quantity' not in df.columns
     assert 'id' not in df.columns
@@ -463,7 +463,7 @@ def test_drop_multiple_duckdb(parser, sample_df):
 def test_distinct_all_duckdb(parser, df_with_dupes):
     conn = make_conn('df', df_with_dupes)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df df\ndistinct', ns)
+    run_ddb(parser, 'with df\ndistinct', ns)
     result = fetch(ns, 'df')
     assert len(result) == 3  # 2 exact duplicates removed
 
@@ -471,7 +471,7 @@ def test_distinct_all_duckdb(parser, df_with_dupes):
 def test_distinct_subset_duckdb(parser, df_with_dupes):
     conn = make_conn('df', df_with_dupes)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df df\ndistinct product', ns)
+    run_ddb(parser, 'with df\ndistinct product', ns)
     result = fetch(ns, 'df')
     assert len(result) == 3  # Laptop, Mouse, Chair
 
@@ -485,7 +485,7 @@ def test_concat_duckdb(parser, sample_df):
     half2 = sample_df.iloc[2:].copy()
     conn = make_conn('half1', half1, 'half2', half2)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df half1\nconcat half2', ns)
+    run_ddb(parser, 'with half1\nconcat half2', ns)
     df = fetch(ns, 'half1')
     assert len(df) == len(sample_df)
 
@@ -496,7 +496,7 @@ def test_concat_multiple_duckdb(parser, sample_df):
     part3 = sample_df.iloc[2:3].copy()
     conn = make_conn('part1', part1, 'part2', part2, 'part3', part3)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df part1\nconcat part2, part3', ns)
+    run_ddb(parser, 'with part1\nconcat part2, part3', ns)
     df = fetch(ns, 'part1')
     assert len(df) == 3
 
@@ -510,7 +510,7 @@ def test_merge_inner_duckdb(parser):
     labels = pd.DataFrame({'id': [1, 2, 4], 'label': ['a', 'b', 'd']})
     conn = make_conn('orders', orders, 'labels', labels)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df orders\nmerge labels on id', ns)
+    run_ddb(parser, 'with orders\nmerge labels on id', ns)
     df = fetch(ns, 'orders')
     assert len(df) == 2  # ids 1 and 2 match
     assert set(df['id']) == {1, 2}
@@ -522,7 +522,7 @@ def test_merge_left_duckdb(parser):
     labels = pd.DataFrame({'id': [1, 2], 'label': ['a', 'b']})
     conn = make_conn('orders', orders, 'labels', labels)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df orders\nleft merge labels on id', ns)
+    run_ddb(parser, 'with orders\nleft merge labels on id', ns)
     df = fetch(ns, 'orders')
     assert len(df) == 3  # all left rows kept
     assert df[df['id'] == 3]['label'].isna().all()
@@ -541,7 +541,7 @@ def test_merge_multi_key_duckdb(parser):
     })
     conn = make_conn('facts', facts, 'dims', dims)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df facts\nmerge dims on year, cat', ns)
+    run_ddb(parser, 'with facts\nmerge dims on year, cat', ns)
     df = fetch(ns, 'facts')
     assert len(df) == 2
     assert 'label' in df.columns
@@ -553,7 +553,7 @@ def test_merge_left_on_right_on_duckdb(parser):
     customers = pd.DataFrame({'id': [10, 20], 'name': ['Alice', 'Bob']})
     conn = make_conn('orders', orders, 'customers', customers)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df orders\nleft merge customers\n    left_on cust_id\n    right_on id\n', ns)
+    run_ddb(parser, 'with orders\nleft merge customers\n    left_on cust_id\n    right_on id\n', ns)
     df = fetch(ns, 'orders')
     assert 'name' in df.columns
     assert df[df['cust_id'] == 10]['name'].iloc[0] == 'Alice'
@@ -565,38 +565,38 @@ def test_merge_left_on_right_on_duckdb(parser):
 # ---------------------------------------------------------------------------
 
 def test_codegen_filter_duckdb(parser):
-    nodes = parser.parse('df sales\nfilter price > 200')
+    nodes = parser.parse('with sales\nfilter price > 200')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert '_pvt.execute(' in code
     assert 'WHERE price > 200' in code
 
 
 def test_codegen_select_duckdb(parser):
-    nodes = parser.parse('df sales\nselect product, price')
+    nodes = parser.parse('with sales\nselect product, price')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SELECT product, price FROM sales' in code
 
 
 def test_codegen_sort_duckdb(parser):
-    nodes = parser.parse('df sales\nsort price desc')
+    nodes = parser.parse('with sales\nsort price desc')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'ORDER BY price DESC' in code
 
 
 def test_codegen_drop_duckdb(parser):
-    nodes = parser.parse('df sales\ndrop quantity, id')
+    nodes = parser.parse('with sales\ndrop quantity, id')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'EXCLUDE (quantity, id)' in code
 
 
 def test_codegen_merge_duckdb(parser):
-    nodes = parser.parse('df orders\nmerge labels on id')
+    nodes = parser.parse('with orders\nmerge labels on id')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'JOIN labels USING (id)' in code
 
 
 def test_codegen_preamble_duckdb(parser):
-    nodes = parser.parse('df sales\nfilter price > 0')
+    nodes = parser.parse('with sales\nfilter price > 0')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'import duckdb' in code
     assert '_pivotal_ddb' in code
@@ -634,7 +634,7 @@ def wide_df():
 def test_groupby_sum_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount as total\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg sum amount as total\n', ns)
     df = fetch(ns, 'data')
     assert set(df.columns) >= {'region', 'total'}
     n_total = df[df['region'] == 'N']['total'].iloc[0]
@@ -647,7 +647,7 @@ def test_groupby_sum_no_alias_duckdb(parser, region_df):
     """agg sum col without 'as alias' must keep the original column name."""
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg sum amount\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg sum amount\n', ns)
     df = fetch(ns, 'data')
     assert 'amount' in df.columns, "column should stay named 'amount', not 'amount_sum'"
     assert 'amount_sum' not in df.columns
@@ -656,7 +656,7 @@ def test_groupby_sum_no_alias_duckdb(parser, region_df):
 def test_groupby_avg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg avg amount as mean_amt\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg avg amount as mean_amt\n', ns)
     df = fetch(ns, 'data')
     n_mean = df[df['region'] == 'N']['mean_amt'].iloc[0]
     s_mean = df[df['region'] == 'S']['mean_amt'].iloc[0]
@@ -667,7 +667,7 @@ def test_groupby_avg_duckdb(parser, region_df):
 def test_groupby_count_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg count amount as n\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg count amount as n\n', ns)
     df = fetch(ns, 'data')
     assert all(df['n'] == 2)
 
@@ -679,7 +679,7 @@ def test_groupby_nunique_duckdb(parser):
     })
     conn = make_conn('data', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg nunique amount as n\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg nunique amount as n\n', ns)
     result = fetch(ns, 'data')
     n_val = result[result['region'] == 'N']['n'].iloc[0]
     s_val = result[result['region'] == 'S']['n'].iloc[0]
@@ -690,7 +690,7 @@ def test_groupby_nunique_duckdb(parser):
 def test_groupby_wavg_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n    agg wmean weight amount as wa\n', ns)
     df = fetch(ns, 'data')
     n_wa = df[df['region'] == 'N']['wa'].iloc[0]
     s_wa = df[df['region'] == 'S']['wa'].iloc[0]
@@ -704,7 +704,7 @@ def test_groupby_multi_agg_duckdb(parser, region_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df data\ngroup by region\n    agg sum amount as total, avg amount as avg_amt\n',
+        'with data\ngroup by region\n    agg sum amount as total, avg amount as avg_amt\n',
         ns,
     )
     df = fetch(ns, 'data')
@@ -720,7 +720,7 @@ def test_groupby_multi_column_by_duckdb(parser, region_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df data\ngroup by region, category\n    agg sum amount as total\n',
+        'with data\ngroup by region, category\n    agg sum amount as total\n',
         ns,
     )
     df = fetch(ns, 'data')
@@ -732,7 +732,7 @@ def test_groupby_no_agg_duckdb(parser, region_df):
     """groupby with no agg list sums all value columns."""
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df data\ngroup by region\n', ns)
+    run_ddb(parser, 'with data\ngroup by region\n', ns)
     df = fetch(ns, 'data')
     assert len(df) == 2
     assert 'region' in df.columns
@@ -741,7 +741,7 @@ def test_groupby_no_agg_duckdb(parser, region_df):
 def test_groupby_result_has_correct_rows_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\ngroup by category\n    agg sum price as total_price, count price as n\n', ns)
+    run_ddb(parser, 'with sales\ngroup by category\n    agg sum price as total_price, count price as n\n', ns)
     df = fetch(ns, 'sales')
     assert len(df) == 2  # Electronics and Furniture
     elec = df[df['category'] == 'Electronics'].iloc[0]
@@ -753,21 +753,21 @@ def test_groupby_result_has_correct_rows_duckdb(parser, sample_df):
 # ---------------------------------------------------------------------------
 
 def test_codegen_groupby_sum_duckdb(parser):
-    nodes = parser.parse('df sales\ngroup by region\n    agg sum amount as total\n')
+    nodes = parser.parse('with sales\ngroup by region\n    agg sum amount as total\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SUM(amount) AS total' in code
     assert 'GROUP BY region' in code
 
 
 def test_codegen_groupby_wavg_duckdb(parser):
-    nodes = parser.parse('df data\ngroup by region\n    agg wmean weight amount as wa\n')
+    nodes = parser.parse('with data\ngroup by region\n    agg wmean weight amount as wa\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'SUM(amount * weight)' in code
     assert 'GROUP BY region' in code
 
 
 def test_codegen_groupby_nunique_duckdb(parser):
-    nodes = parser.parse('df data\ngroup by region\n    agg nunique amount as n\n')
+    nodes = parser.parse('with data\ngroup by region\n    agg nunique amount as n\n')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'COUNT(DISTINCT amount) AS n' in code
 
@@ -791,7 +791,7 @@ def test_pivot_basic_duckdb(parser, pivot_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        'with sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
         ns,
     )
     df = fetch(ns, 'sales')
@@ -804,7 +804,7 @@ def test_pivot_values_correct_duckdb(parser, pivot_df):
     ns = ddb_ns(conn)
     run_ddb(
         parser,
-        'df sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
+        'with sales\npivot\n    agg sum revenue\n    rows product\n    cols region\n',
         ns,
     )
     df = fetch(ns, 'sales').set_index('product')
@@ -814,7 +814,7 @@ def test_pivot_values_correct_duckdb(parser, pivot_df):
 
 
 def test_pivot_codegen_duckdb(parser):
-    dsl = 'df sales\npivot\n    agg sum revenue as rev_sum\n    rows product\n    cols region\n'
+    dsl = 'with sales\npivot\n    agg sum revenue as rev_sum\n    rows product\n    cols region\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'PIVOT' in code
     assert 'SUM(revenue) AS rev_sum' in code
@@ -830,7 +830,7 @@ def test_unpivot_basic_duckdb(parser, wide_df):
     """unpivot with id only melts all non-id columns."""
     conn = make_conn('sales', wide_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nunpivot\n    id region\n', ns)
+    run_ddb(parser, 'with sales\nunpivot\n    id region\n', ns)
     df = fetch(ns, 'sales')
     assert 'region' in df.columns
     assert 'variable' in df.columns
@@ -842,7 +842,7 @@ def test_unpivot_basic_duckdb(parser, wide_df):
 def test_unpivot_with_cols_duckdb(parser, wide_df):
     conn = make_conn('sales', wide_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
+    run_ddb(parser, 'with sales\nunpivot\n    id region\n    cols jan, feb\n', ns)
     df = fetch(ns, 'sales')
     assert set(df['variable']) == {'jan', 'feb'}
     assert len(df) == 4
@@ -851,7 +851,7 @@ def test_unpivot_with_cols_duckdb(parser, wide_df):
 def test_unpivot_custom_names_duckdb(parser, wide_df):
     conn = make_conn('sales', wide_df)
     ns = ddb_ns(conn)
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
+    dsl = 'with sales\nunpivot\n    id region\n    cols jan, feb, mar\n    variable "month"\n    value "amount"\n'
     run_ddb(parser, dsl, ns)
     df = fetch(ns, 'sales')
     assert 'month' in df.columns
@@ -861,7 +861,7 @@ def test_unpivot_custom_names_duckdb(parser, wide_df):
 def test_unpivot_values_correct_duckdb(parser, wide_df):
     conn = make_conn('sales', wide_df)
     ns = ddb_ns(conn)
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n'
+    dsl = 'with sales\nunpivot\n    id region\n    cols jan\n    variable "month"\n    value "amount"\n'
     run_ddb(parser, dsl, ns)
     df = fetch(ns, 'sales').set_index('region')
     assert df.loc['North', 'amount'] == 100
@@ -877,7 +877,7 @@ def test_unpivot_multiple_id_cols_duckdb(parser):
     })
     conn = make_conn('sales', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nunpivot\n    id region, year\n', ns)
+    run_ddb(parser, 'with sales\nunpivot\n    id region, year\n', ns)
     result = fetch(ns, 'sales')
     assert 'region' in result.columns
     assert 'year' in result.columns
@@ -885,7 +885,7 @@ def test_unpivot_multiple_id_cols_duckdb(parser):
 
 
 def test_unpivot_codegen_duckdb(parser, wide_df):
-    dsl = 'df sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
+    dsl = 'with sales\nunpivot\n    id region\n    cols jan, feb\n    variable "month"\n    value "amount"\n'
     nodes = parser.parse(dsl)
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
     assert 'UNPIVOT' in code
@@ -902,7 +902,7 @@ def test_date_year_duckdb(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2023-06-15', '2024-01-01'])})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    yr = year(d)\n', ns)
+    run_ddb(parser, 'with t\n    yr = year(d)\n', ns)
     result = fetch(ns, 't')
     assert result['yr'].tolist() == [2023, 2024]
 
@@ -911,7 +911,7 @@ def test_date_month_duckdb(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-03-01', '2024-11-30'])})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    mo = month(d)\n', ns)
+    run_ddb(parser, 'with t\n    mo = month(d)\n', ns)
     result = fetch(ns, 't')
     assert result['mo'].tolist() == [3, 11]
 
@@ -920,7 +920,7 @@ def test_date_quarter_duckdb(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-04-01', '2024-07-01', '2024-10-01'])})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    q = quarter(d)\n', ns)
+    run_ddb(parser, 'with t\n    q = quarter(d)\n', ns)
     result = fetch(ns, 't')
     assert result['q'].tolist() == [1, 2, 3, 4]
 
@@ -932,7 +932,7 @@ def test_date_diff_duckdb(parser):
     })
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    days = date_diff(close_date, open_date)\n', ns)
+    run_ddb(parser, 'with t\n    days = date_diff(close_date, open_date)\n', ns)
     result = fetch(ns, 't')
     assert result['days'].tolist() == [10, 5]
 
@@ -941,7 +941,7 @@ def test_date_add_duckdb(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-01-01', '2024-06-15'])})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    due = date_add(d, 30)\n', ns)
+    run_ddb(parser, 'with t\n    due = date_add(d, 30)\n', ns)
     result = fetch(ns, 't')
     expected = pd.to_datetime(['2024-01-31', '2024-07-15']).date.tolist()
     assert [d.date() if hasattr(d, 'date') else d for d in result['due'].tolist()] == expected
@@ -951,7 +951,7 @@ def test_date_format_duckdb(parser):
     df = pd.DataFrame({'d': pd.to_datetime(['2024-03-15', '2024-11-01'])})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    lbl = date_format(d, "%b %Y")\n', ns)
+    run_ddb(parser, 'with t\n    lbl = date_format(d, "%b %Y")\n', ns)
     result = fetch(ns, 't')
     assert result['lbl'].tolist() == ['Mar 2024', 'Nov 2024']
 
@@ -960,7 +960,7 @@ def test_to_date_duckdb(parser):
     df = pd.DataFrame({'ds': ['2024-01-15', '2024-06-30']})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    d = to_date(ds)\n', ns)
+    run_ddb(parser, 'with t\n    d = to_date(ds)\n', ns)
     result = fetch(ns, 't')
     assert result['d'].tolist()[0].year == 2024
 
@@ -973,7 +973,7 @@ def test_cast_float_duckdb(parser):
     df = pd.DataFrame({'n': ['1.5', 'bad', '3.0']})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    cast n as float\n', ns)
+    run_ddb(parser, 'with t\n    cast n as float\n', ns)
     result = fetch(ns, 't')
     assert result['n'][0] == pytest.approx(1.5)
     assert pd.isna(result['n'][1])
@@ -983,7 +983,7 @@ def test_cast_int_duckdb(parser):
     df = pd.DataFrame({'n': ['1', 'bad', '3']})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    cast n as int\n', ns)
+    run_ddb(parser, 'with t\n    cast n as int\n', ns)
     result = fetch(ns, 't')
     assert result['n'][0] == 1
     assert pd.isna(result['n'][1])
@@ -993,7 +993,7 @@ def test_cast_string_duckdb(parser):
     df = pd.DataFrame({'n': [1, 2, 3]})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    cast n as string\n', ns)
+    run_ddb(parser, 'with t\n    cast n as string\n', ns)
     result = fetch(ns, 't')
     assert result['n'].tolist() == ['1', '2', '3']
 
@@ -1002,7 +1002,7 @@ def test_cast_datetime_duckdb(parser):
     df = pd.DataFrame({'ds': ['2024-01-15', 'not-a-date', '2024-06-30']})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    cast ds as datetime\n', ns)
+    run_ddb(parser, 'with t\n    cast ds as datetime\n', ns)
     result = fetch(ns, 't')
     assert pd.api.types.is_datetime64_any_dtype(result['ds'])
     assert pd.isna(result['ds'][1])
@@ -1012,7 +1012,7 @@ def test_cast_multi_duckdb(parser):
     df = pd.DataFrame({'price': ['1.5', 'bad'], 'cost': ['0.5', 'bad']})
     conn = make_conn('t', df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df t\n    cast price, cost as float\n', ns)
+    run_ddb(parser, 'with t\n    cast price, cost as float\n', ns)
     result = fetch(ns, 't')
     assert result['price'][0] == pytest.approx(1.5)
     assert result['cost'][0] == pytest.approx(0.5)

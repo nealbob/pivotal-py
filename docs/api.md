@@ -16,7 +16,7 @@ Parse a Pivotal source string into an abstract syntax tree (list of AST nodes).
 
 ```python
 results = parser.parse("""
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
 """)
@@ -62,9 +62,9 @@ Parse and execute Pivotal source in one call.
 
 ```python
 parser.execute("""
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
 
-df summary from sales
+with sales as summary
     group by region
         agg sum revenue as total
     sort total desc
@@ -91,7 +91,7 @@ Or pass in an existing namespace to share variables:
 ```python
 ns = {'threshold': 1000, 'sales': existing_df}
 parser.execute("""
-df filtered from sales
+with sales as filtered
     filter amount > :threshold
 """, namespace=ns)
 

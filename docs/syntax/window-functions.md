@@ -9,14 +9,14 @@ Rank rows by a column value.
 ### Basic rank
 
 ```pivotal
-df sales
+with sales
     rank amount desc as sales_rank
 ```
 
 ### Ascending rank
 
 ```pivotal
-df sales
+with sales
     rank amount asc as rank_asc
 ```
 
@@ -25,7 +25,7 @@ df sales
 Returns a value between 0 and 1:
 
 ```pivotal
-df sales
+with sales
     rank amount pct as pct_rank
 ```
 
@@ -34,13 +34,13 @@ df sales
 Use `by` to rank within groups:
 
 ```pivotal
-df sales
+with sales
     rank amount desc as regional_rank
         by region
 ```
 
 ```pivotal
-df sales
+with sales
     rank amount desc as cat_rank
         by region, category
 ```
@@ -54,7 +54,7 @@ Access values from a previous (`lag`) or future (`lead`) row.
 ### Basic lag
 
 ```pivotal
-df sales
+with sales
     lag amount 1 as prev_amount
         order date
 ```
@@ -64,7 +64,7 @@ The `order` clause specifies which column defines row order. It is **required**.
 ### Lead
 
 ```pivotal
-df sales
+with sales
     lead amount 1 as next_amount
         order date
 ```
@@ -72,7 +72,7 @@ df sales
 ### With partition
 
 ```pivotal
-df sales
+with sales
     lag amount 1 as prev_regional_amount
         by region
         order date
@@ -81,7 +81,7 @@ df sales
 ### Larger offsets
 
 ```pivotal
-df sales
+with sales
     lag amount 3 as amount_3_periods_ago
         order date
 ```
@@ -102,20 +102,20 @@ Compute running totals, averages, min, and max.
 The `order` clause specifies row order and is **required**. Use `by` for partitioned cumulation.
 
 ```pivotal
-df sales
+with sales
     cumsum amount as running_total
         order date
 
-df sales
+with sales
     cummean amount as running_avg
         order date
 
-df sales
+with sales
     cummin amount as running_min
         by region
         order date
 
-df sales
+with sales
     cummax amount as running_max
         by region
         order date
@@ -124,7 +124,7 @@ df sales
 ### Partitioned cumulation
 
 ```pivotal
-df sales
+with sales
     cumsum amount as regional_running_total
         by region
         order date
@@ -137,7 +137,7 @@ df sales
 Compute statistics over a sliding window of N rows.
 
 ```pivotal
-df sales
+with sales
     rolling mean amount 7 as rolling_7d_avg
         order date
 ```
@@ -155,7 +155,7 @@ df sales
 ### Options
 
 ```pivotal
-df sales
+with sales
     rolling mean amount 4 as rolling_avg
         by region     # compute within groups
         order date    # required: defines row order
@@ -164,15 +164,15 @@ df sales
 ### Examples
 
 ```pivotal
-df daily_sales
+with daily_sales
     rolling sum revenue 7 as weekly_revenue
         order date
 
-df daily_sales
+with daily_sales
     rolling mean revenue 30 as monthly_avg
         order date
 
-df regional_sales
+with regional_sales
     rolling sum revenue 4 as quarterly_rolling
         by region
         order date

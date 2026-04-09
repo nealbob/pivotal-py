@@ -5,7 +5,7 @@ Create new columns or modify existing ones by writing `column_name = expression`
 ## Simple expressions
 
 ```pivotal
-df sales
+with sales
     revenue = price * quantity
     margin = (revenue - cost) / revenue
     tax = revenue * 0.1
@@ -29,7 +29,7 @@ Any arithmetic expression is valid: `+`, `-`, `*`, `/`, `**` (power).
 | `replace(col, old, new)` | Replace substring |
 
 ```pivotal
-df products
+with products
     name = upper(name)
     code = left(sku, 4)
     slug = lower(trim(name))
@@ -41,7 +41,7 @@ df products
 **String concatenation** with `+`:
 
 ```pivotal
-df contacts
+with contacts
     full_name = last_name + ", " + first_name
     label = code + "-" + region
 ```
@@ -49,7 +49,7 @@ df contacts
 **Nesting** is supported:
 
 ```pivotal
-df products
+with products
     abbr = upper(left(name, 3))
 ```
 
@@ -72,7 +72,7 @@ Extract components from date/datetime columns or perform date arithmetic:
 | `date_add(col, n)` | Add `n` days to a date column |
 
 ```pivotal
-df sales
+with sales
     yr       = year(order_date)
     mo       = month(order_date)
     quarter  = quarter(order_date)
@@ -84,7 +84,7 @@ df sales
 **Tip:** to filter or group by a date part, create the column first, then use it:
 
 ```pivotal
-df monthly from sales
+with sales as monthly
     yr = year(order_date)
     mo = month(order_date)
     filter yr == 2024
@@ -97,7 +97,7 @@ df monthly from sales
 Convert column data types using `cast ... as <type>`:
 
 ```pivotal
-df sales
+with sales
     cast price as float            # coerce — bad values become NaN/null
     cast qty as int
     cast created_at as datetime
@@ -110,7 +110,7 @@ Types: `int` / `integer`  `float`  `string` / `str`  `bool` / `boolean`  `dateti
 Inline cast inside an expression:
 
 ```pivotal
-df sales
+with sales
     price = float(price)
     label = str(code)
     ts    = datetime(ts_col)
@@ -130,7 +130,7 @@ Use aggregate functions to compute values relative to the whole table:
 | `count(col)` | Count |
 
 ```pivotal
-df sales
+with sales
     pct_of_total = amount / sum(amount)
     z_score = (amount - mean(amount)) / std(amount)
 ```
@@ -138,7 +138,7 @@ df sales
 **Windowed aggregates** — compute the aggregate within groups using `by`:
 
 ```pivotal
-df sales
+with sales
     pct_of_region = amount / sum(amount)
         by region
 
@@ -151,7 +151,7 @@ df sales
 Create a column with different values depending on a condition:
 
 ```pivotal
-df sales
+with sales
     discounted_price = price * 0.9
         where category == "clearance"
 ```
@@ -163,7 +163,7 @@ Rows where the condition is false receive `null` / `NaN`. To provide a fallback,
 Test multiple conditions in order; the last line is the default (else):
 
 ```pivotal
-df sales
+with sales
     tier =
         where amount > 500: "Gold"
         where amount > 100: "Silver"
@@ -171,7 +171,7 @@ df sales
 ```
 
 ```pivotal
-df products
+with products
     price_band =
         where price > 1000: "premium"
         where price > 200:  "mid"
@@ -179,7 +179,7 @@ df products
 ```
 
 ```pivotal
-df sales
+with sales
     adjusted =
         where amount > 500: amount * 2
         where amount > 100: amount * 1.5

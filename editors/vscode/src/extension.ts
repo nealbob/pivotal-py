@@ -76,8 +76,8 @@ interface CommandCompletion {
 
 const COMMAND_COMPLETIONS: CommandCompletion[] = [
   // Table declarations
-  { label: 'df',     detail: 'df <table> [from <source>]' },
-  { label: 'load',   snippet: 'load ${1:tbl} ${2:path}',   detail: 'load <table> <path>' },
+  { label: 'with',   snippet: 'with ${1:source} as ${2:output}', detail: 'with <source> [as <output>]' },
+  { label: 'load',   snippet: 'load ${1:path} as ${2:tbl}',   detail: 'load <path> as <table>' },
 
   // Row operations
   { label: 'filter',   detail: 'filter <condition>' },
@@ -147,9 +147,9 @@ function findActiveTable(
 ): string | null {
   for (let i = cursorLine; i >= 0; i--) {
     const t = lines[i].trimStart();
-    const dfM = t.match(/^df\s+(\w+)/);
-    if (dfM) return dfM[1];
-    const loadM = t.match(/^load\s+(\w+)/);
+    const withM = t.match(/^with\s+(\w+)(?:\s+as\s+(\w+))?/);
+    if (withM) return withM[2] ?? withM[1];
+    const loadM = t.match(/^load\s+\S+\s+as\s+(\w+)/);
     if (loadM) return loadM[1];
   }
   return ac?.current_table ?? null;
@@ -168,8 +168,8 @@ function detectContext(
 
   if (trimmed === '' && indent === 0) return { type: 'command' };
 
-  if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
-  if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
+  if (/^with\s+\w*$/.test(trimmed)) return { type: 'table' };
+  if (/^with\s+\w+\s+as\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
@@ -1489,7 +1489,7 @@ function _buildPlotGuiHtml(): string {
 <h2>Agg Plot</h2>
 <div class="drow">
   <div class="field" style="flex:1.2">
-    <label>From (df)</label>
+    <label>with (source)</label>
     <select id="table"></select>
   </div>
   <div class="field" style="flex:0.8">
@@ -1624,7 +1624,7 @@ function _buildPlotGuiHtml(): string {
     if (!tbl || !x || !yEntries.length) return '(select table, x and at least one y column)';
     const yStr = yEntries.map(e => e.agg + ' ' + e.col).join(', ');
     const lines = [
-      'df ' + tbl,
+      'with ' + tbl,
       ...(filt ? ['filter ' + filt] : []),
       'pivot plot ' + kind + (name ? ' ' + name : ''),
       '    x ' + x + (xl ? ' "' + xl.replace(/"/g,'\\\\"') + '"' : ''),
@@ -1759,12 +1759,12 @@ function _buildPivotGuiHtml(): string {
 <h2>Pivot</h2>
 <div class="drow">
   <div class="field">
-    <label>Result name</label>
-    <input type="text" id="alias" value="temp">
+    <label>with (source)</label>
+    <select id="table"></select>
   </div>
   <div class="field">
-    <label>From (df)</label>
-    <select id="table"></select>
+    <label>as (output)</label>
+    <input type="text" id="alias" value="temp">
   </div>
 </div>
 <div class="dyn-section">
@@ -1862,9 +1862,8 @@ function _buildPivotGuiHtml(): string {
     if (!tbl || !rows.length || !cols.length || !val) {
       return '(select table, rows, cols and value column)';
     }
-    const outName = alias || tbl;
     const lines = [
-      'df ' + outName + ' from ' + tbl,
+      alias ? 'with ' + tbl + ' as ' + alias : 'with ' + tbl,
       'pivot',
       '    rows ' + rows.join(', '),
       '    cols ' + cols.join(', '),

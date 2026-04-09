@@ -3,7 +3,7 @@
 The `filter` statement keeps rows that match a condition. Rows that do not match are dropped.
 
 ```pivotal
-df active from sales
+with sales as active
     filter status == "active"
 ```
 
@@ -104,7 +104,7 @@ filter region == :target_region
 Multiple `filter` lines under the same `df` are applied in sequence (AND logic):
 
 ```pivotal
-df result from sales
+with sales as result
     filter status == "active"
     filter amount > 500
     filter region in ["North", "South"]

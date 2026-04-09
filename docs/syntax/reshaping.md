@@ -7,7 +7,7 @@ Pivot a long table into wide format by spreading a column's values across multip
 ### Minimal pivot
 
 ```pivotal
-df pivot_table from sales
+with sales as pivot_table
     pivot
         rows product
         cols region
@@ -19,7 +19,7 @@ This creates a table where each unique value of `region` becomes a column, and e
 ### Multiple aggregations
 
 ```pivotal
-df summary from sales
+with sales as summary
     pivot
         rows category
         cols quarter
@@ -29,7 +29,7 @@ df summary from sales
 ### Multiple row and column dimensions
 
 ```pivotal
-df detailed from sales
+with sales as detailed
     pivot
         rows product, category
         cols region, quarter
@@ -55,7 +55,7 @@ Convert wide-format data (multiple value columns) to long format (single value c
 Specify the ID column(s) to keep fixed:
 
 ```pivotal
-df long from monthly_sales
+with monthly_sales as long
     unpivot
         id region
 ```
@@ -65,7 +65,7 @@ All other columns become rows, with a generated `variable` and `value` column.
 ### Specify value columns
 
 ```pivotal
-df long from monthly_sales
+with monthly_sales as long
     unpivot
         id region
         cols jan, feb, mar, apr
@@ -76,7 +76,7 @@ Columns not listed in `id` or `cols` are dropped.
 ### Custom column names
 
 ```pivotal
-df long from monthly_sales
+with monthly_sales as long
     unpivot
         id region
         cols jan, feb, mar
@@ -87,7 +87,7 @@ df long from monthly_sales
 ### Multiple ID columns
 
 ```pivotal
-df long from sales
+with sales as long
     unpivot
         id region, year
         cols q1, q2, q3, q4

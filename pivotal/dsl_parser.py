@@ -21,8 +21,8 @@ _WAVG_CALL_RE = re.compile(
 
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
-    # Statement keywords (not 'df' — it is unambiguous after its own token)
-    'load', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
+    # Statement keywords
+    'with', 'load', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
@@ -190,7 +190,7 @@ grammar_indented = r"""
     keys: IDENTIFIER ("," IDENTIFIER)*
     RIGHT_TABLE: IDENTIFIER
 
-    load_statement: "load" table_name (STRING | PATH | PYTHON_VAR) (_NL | _NL _INDENT params _DEDENT)?
+    load_statement: "load" (STRING | PATH | PYTHON_VAR) "as" table_name (_NL | _NL _INDENT params _DEDENT)?
                   | "load" "all" _NL?
                   | "load" table_name _NL?
 
@@ -205,7 +205,7 @@ grammar_indented = r"""
 
     save_id_list: IDENTIFIER ("," IDENTIFIER)*
 
-    dataframe_statement: "df" table_name ("from" copy_table)? _NL?
+    dataframe_statement: "with" table_name ("as" copy_table)? _NL?
 
     assign_statement: target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
                     | target "=" _NL _INDENT case_list _DEDENT
@@ -435,9 +435,9 @@ class DSLTransformer(Transformer):
 
     def load_statement(self, *args):
         """Handle all three load forms:
-        - load name "path"  → load_table (existing file)
-        - load all          → load_all (all tables from active package)
-        - load name         → load_package_table (named table from active package)
+        - load "path" as name  → load_table (existing file)
+        - load all             → load_all (all tables from active package)
+        - load name            → load_package_table (named table from active package)
         """
         if len(args) == 0:
             # "load all" — no named children (both "load" and "all" are anonymous terminals)
@@ -448,8 +448,8 @@ class DSLTransformer(Transformer):
             table_name_str = str(args[0])
             return {'type': 'load_package_table', 'table_name': table_name_str}
 
-        # len(args) >= 2: "load table_name source [params]"
-        table_name, source = args[0], args[1]
+        # len(args) >= 2: "load source as table_name [params]"
+        source, table_name = args[0], args[1]
         params = args[2] if len(args) > 2 else None
 
         if isinstance(source, dict) and source.get('type') == 'var':
@@ -550,49 +550,43 @@ class DSLTransformer(Transformer):
         return [str(i) for i in ids]
     
     def dataframe_statement(self, *args):
-        """Handle table statements with optional 'from' clause"""
-        
-        # Filter out the keyword if it's passed (it might be the first arg)
-        # And filter out _NL if it's passed
-        
+        """Handle 'with' statements:
+        - with source          → operate on existing table
+        - with source as new   → copy source to new table
+        """
         clean_args = []
         for arg in args:
-            # We used to filter 'df', 'table' here, but that caused issues
-            # when the table name itself was 'df'.
-            # Since these are anonymous terminals in the grammar, they shouldn't appear in args anyway.
             if isinstance(arg, Token) and arg.type == '_NL':
                 continue
             clean_args.append(arg)
-            
-        table_name = clean_args[0]
-        copy_table = clean_args[1] if len(clean_args) > 1 else None
-        
-        table_name_str = str(table_name)
 
-        if table_name_str.lower() in PIVOTAL_KEYWORDS:
+        source_table = clean_args[0]
+        new_table = clean_args[1] if len(clean_args) > 1 else None
+
+        source_table_str = str(source_table)
+
+        if source_table_str.lower() in PIVOTAL_KEYWORDS:
             raise ValueError(
-                f"'{table_name_str}' is a Pivotal reserved keyword and cannot be used as a table name."
+                f"'{source_table_str}' is a Pivotal reserved keyword and cannot be used as a table name."
             )
 
-        if copy_table is not None:
-            # Case: table new_table from existing_table
-            copy_table_str = str(copy_table)
+        if new_table is not None:
+            # Case: with source as new_table — copy
+            new_table_str = str(new_table)
             ast_node = {
                 'type': 'copy_table',
-                'table_name': table_name_str,
-                'copy_from': copy_table_str
+                'table_name': new_table_str,
+                'copy_from': source_table_str,
             }
-            
-    
+            self.current_table = new_table_str
         else:
-            # Case: table existing_table (just validate it exists)
+            # Case: with source — operate on existing
             ast_node = {
                 'type': 'validate_table',
-                'table_name': table_name_str
+                'table_name': source_table_str,
             }
-            
-        self.current_table = table_name_str
-        
+            self.current_table = source_table_str
+
         return ast_node
     
     def assign_where(self, condition_list):
