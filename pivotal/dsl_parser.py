@@ -64,6 +64,7 @@ grammar_indented = r"""
     start: _NL* (_INDENT? statement _DEDENT?)+ _NL*
 
     statement: load_statement
+               | from_statement
                | dataframe_statement
                | assign_statement
                | filter_statement
@@ -193,6 +194,12 @@ grammar_indented = r"""
     load_statement: "load" (STRING | PATH | PYTHON_VAR) "as" table_name (_NL | _NL _INDENT params _DEDENT)?
                   | "load" "all" _NL?
                   | "load" table_name _NL?
+
+    from_statement: "from" (STRING | PATH | PYTHON_VAR) _NL _INDENT from_body+ _DEDENT
+    from_body: from_load_line | from_query_line
+    from_load_line:  "load"  from_item ("," from_item)* _NL
+    from_query_line: "query" STRING "as" table_name _NL
+    from_item: table_name "as" table_name
 
     save_statement: "save" STRING (_NL _INDENT save_params _DEDENT)? _NL?
 
@@ -463,28 +470,51 @@ class DSLTransformer(Transformer):
             kwargs = {}
             kwargs_str = ''
 
-        # Extract sql_query before building kwargs_str so it doesn't leak
-        # into pandas reader calls
-        sql_query = kwargs.pop('query', None) if isinstance(kwargs, dict) else None
-        if sql_query is not None:
-            kwargs_str = ', '.join(
-                f"{k}='{v}'" if isinstance(v, str) else f"{k}={v}"
-                for k, v in kwargs.items()
-            )
-            if kwargs_str:
-                kwargs_str = ', ' + kwargs_str
-
         ast_node = {
             'type': 'load_table',
             'table_name': str(table_name),
             'source': source_val,
             'kwargs': kwargs,
             'kwargs_str': kwargs_str,
-            'sql_query': sql_query,
         }
 
         self.current_table = str(table_name)
         return ast_node
+
+    # ------------------------------------------------------------------
+    # from_statement transformer methods
+    # ------------------------------------------------------------------
+
+    def from_item(self, *args):
+        return {'sql_table': str(args[0]), 'alias': str(args[1])}
+
+    def from_load_line(self, *args):
+        return {'kind': 'load', 'items': list(args)}
+
+    def from_query_line(self, *args):
+        return {'kind': 'query', 'sql': str(args[0]), 'alias': str(args[1])}
+
+    def from_body(self, *args):
+        return args[0]
+
+    def from_statement(self, *args):
+        source = args[0]
+        bodies = list(args[1:])
+        # Set current_table to last alias defined in the block
+        all_aliases = []
+        for b in bodies:
+            if b['kind'] == 'load':
+                all_aliases += [i['alias'] for i in b['items']]
+            else:
+                all_aliases.append(b['alias'])
+        if all_aliases:
+            self.current_table = all_aliases[-1]
+        source_val = source if isinstance(source, dict) and source.get('type') == 'var' else str(source)
+        return {
+            'type': 'from_db',
+            'source': source_val,
+            'bodies': bodies,
+        }
 
     # ------------------------------------------------------------------
     # save transformer methods
@@ -1840,7 +1870,6 @@ class CodeGenerator:
             var = source['name']
             kw = ast_node['kwargs_str']
             tname = ast_node['table_name']
-            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
             load_table = (
                 f"_src = {var}\n"
                 f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
@@ -1848,27 +1877,13 @@ class CodeGenerator:
                 f"    {tname} = pd.read_excel(_src{kw})\n"
                 f"elif _ext == 'parquet':\n"
                 f"    {tname} = pd.read_parquet(_src{kw})\n"
-                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
-                f"    import sqlite3 as _sqlite3\n"
-                f"    with _sqlite3.connect(_src) as _conn:\n"
-                f"        {tname} = pd.read_sql({repr(sql_query)}, _conn)\n"
                 f"else:\n"
                 f"    {tname} = pd.read_csv(_src{kw})"
             )
         else:
             source_str = str(source)
-            ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
-            if ext in ('sqlite', 'db', 'sqlite3'):
-                tname = ast_node['table_name']
-                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
-                load_table = (
-                    f"import sqlite3 as _sqlite3\n"
-                    f"with _sqlite3.connect('{source_str}') as _conn:\n"
-                    f"    {tname} = pd.read_sql({repr(sql_query)}, _conn)"
-                )
-            else:
-                reader = self._reader_for_source(source_str)
-                load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+            reader = self._reader_for_source(source_str)
+            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
 
         kw_set = repr(PIVOTAL_KEYWORDS)
         tname = ast_node['table_name']
@@ -1891,6 +1906,250 @@ class CodeGenerator:
         )
         return f"{load_table}\n{sanitise_code}\n{kw_check}\n{table_name_marker}"
 
+    # ------------------------------------------------------------------
+    # from_db code generators (pandas / polars / duckdb / sql)
+    # ------------------------------------------------------------------
+
+    def _from_db_source_type(self, source):
+        """Return ('sqlite'|'duckdb'|'uri'|'unknown', source_str)."""
+        if isinstance(source, dict) and source.get('type') == 'var':
+            return 'var', source['name']
+        s = str(source)
+        ext = s.rsplit('.', 1)[-1].lower() if '.' in s and '://' not in s else ''
+        if ext in ('sqlite', 'db', 'sqlite3'):
+            return 'sqlite', s
+        if ext in ('ddb', 'duckdb'):
+            return 'duckdb', s
+        if '://' in s:
+            return 'uri', s
+        return 'unknown', s
+
+    def _from_db_sanitise_pandas(self, alias):
+        kw_set = repr(PIVOTAL_KEYWORDS)
+        return (
+            f"{_SANITISE_HELPER}"
+            f"_pvt_new_cols, _pvt_renamed = _pvt_sanitise({alias}.columns.tolist())\n"
+            f"{alias}.columns = _pvt_new_cols\n"
+            f"if _pvt_renamed:\n"
+            f"    import warnings\n"
+            f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{alias}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)\n"
+            f"_kw_cols = [c for c in {alias}.columns if c.lower() in {kw_set}]\n"
+            f"if _kw_cols:\n"
+            f"    import warnings\n"
+            f"    warnings.warn(f\"Table '{alias}' has columns that are Pivotal keywords: {{_kw_cols}}. Use a 'python' block to reference them.\", UserWarning, stacklevel=2)\n"
+        )
+
+    def _from_db_sanitise_polars(self, alias):
+        return (
+            f"{_SANITISE_HELPER}"
+            f"_, _pvt_renamed = _pvt_sanitise({alias}.columns)\n"
+            f"if _pvt_renamed:\n"
+            f"    {alias} = {alias}.rename(_pvt_renamed)\n"
+        )
+
+    def _from_db_items(self, bodies):
+        """Flatten bodies into list of (sql, alias) tuples."""
+        items = []
+        for b in bodies:
+            if b['kind'] == 'load':
+                for it in b['items']:
+                    items.append((f"SELECT * FROM {it['sql_table']}", it['alias']))
+            else:
+                items.append((b['sql'], b['alias']))
+        return items
+
+    def generate_from_db_pandas(self, ast_node):
+        source = ast_node['source']
+        bodies = ast_node['bodies']
+        items = self._from_db_items(bodies)
+        src_type, src_val = self._from_db_source_type(source)
+        lines = []
+        markers = []
+
+        if src_type == 'sqlite':
+            lines.append(f"import sqlite3 as _sqlite3")
+            lines.append(f"with _sqlite3.connect({repr(src_val)}) as _conn:")
+            for sql, alias in items:
+                lines.append(f"    {alias} = pd.read_sql({repr(sql)}, _conn)")
+        elif src_type == 'duckdb':
+            lines.append(f"import duckdb as _duckdb")
+            lines.append(f"with _duckdb.connect({repr(src_val)}) as _dconn:")
+            for sql, alias in items:
+                lines.append(f"    {alias} = _dconn.execute({repr(sql)}).df()")
+        elif src_type == 'uri':
+            lines.append(
+                f"try:\n"
+                f"    from sqlalchemy import create_engine as _sa_engine\n"
+                f"    _engine = _sa_engine({repr(src_val)})\n"
+            )
+            for sql, alias in items:
+                lines.append(f"    {alias} = pd.read_sql({repr(sql)}, _engine)")
+            lines.append(
+                f"except ImportError:\n"
+                f"    raise ImportError(\"SQLAlchemy is required for database URIs: pip install sqlalchemy\")"
+            )
+        else:
+            # var — runtime detection
+            lines.append(f"_src = {src_val}")
+            lines.append(f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''")
+            lines.append(f"if _ext in ('sqlite', 'db', 'sqlite3'):")
+            lines.append(f"    import sqlite3 as _sqlite3")
+            lines.append(f"    with _sqlite3.connect(_src) as _conn:")
+            for sql, alias in items:
+                lines.append(f"        {alias} = pd.read_sql({repr(sql)}, _conn)")
+            lines.append(f"elif _ext in ('ddb', 'duckdb'):")
+            lines.append(f"    import duckdb as _duckdb")
+            lines.append(f"    with _duckdb.connect(_src) as _dconn:")
+            for sql, alias in items:
+                lines.append(f"        {alias} = _dconn.execute({repr(sql)}).df()")
+            lines.append(f"elif '://' in _src:")
+            lines.append(f"    try:")
+            lines.append(f"        from sqlalchemy import create_engine as _sa_engine")
+            lines.append(f"        _engine = _sa_engine(_src)")
+            for sql, alias in items:
+                lines.append(f"        {alias} = pd.read_sql({repr(sql)}, _engine)")
+            lines.append(f"    except ImportError:")
+            lines.append(f"        raise ImportError(\"SQLAlchemy is required for database URIs: pip install sqlalchemy\")")
+            lines.append(f"else:")
+            lines.append(f"    raise ValueError(f\"Unsupported database source: {{_src}}\")")
+
+        code = '\n'.join(lines)
+        for sql, alias in items:
+            san = self._from_db_sanitise_pandas(alias)
+            marker = f"#__pivotal__\n__table_name__ = '{alias}'\n#__pivotal__"
+            markers.append(f"{san}{marker}")
+        return code + '\n' + '\n'.join(markers)
+
+    def generate_from_db_polars(self, ast_node):
+        source = ast_node['source']
+        bodies = ast_node['bodies']
+        items = self._from_db_items(bodies)
+        src_type, src_val = self._from_db_source_type(source)
+        lines = []
+
+        if src_type == 'sqlite':
+            lines.append(f"import sqlite3 as _sqlite3; import pandas as _pd")
+            lines.append(f"with _sqlite3.connect({repr(src_val)}) as _conn:")
+            for sql, alias in items:
+                lines.append(f"    {alias} = pl.from_pandas(_pd.read_sql({repr(sql)}, _conn))")
+        elif src_type == 'duckdb':
+            lines.append(f"import duckdb as _duckdb")
+            lines.append(f"with _duckdb.connect({repr(src_val)}) as _dconn:")
+            for sql, alias in items:
+                lines.append(f"    {alias} = pl.from_pandas(_dconn.execute({repr(sql)}).df())")
+        elif src_type == 'uri':
+            lines.append(
+                f"try:\n"
+                f"    import connectorx as _cx\n"
+                f"    _cx_avail = True\n"
+                f"except ImportError:\n"
+                f"    _cx_avail = False\n"
+            )
+            for sql, alias in items:
+                lines.append(
+                    f"if _cx_avail:\n"
+                    f"    {alias} = pl.read_database({repr(sql)}, {repr(src_val)})\n"
+                    f"else:\n"
+                    f"    try:\n"
+                    f"        from sqlalchemy import create_engine as _sa_engine; import pandas as _pd\n"
+                    f"        _engine = _sa_engine({repr(src_val)})\n"
+                    f"        {alias} = pl.from_pandas(_pd.read_sql({repr(sql)}, _engine))\n"
+                    f"    except ImportError:\n"
+                    f"        raise ImportError(\"Install connectorx or sqlalchemy: pip install connectorx sqlalchemy\")"
+                )
+        else:
+            lines.append(f"_src = {src_val}")
+            lines.append(f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''")
+            lines.append(f"import sqlite3 as _sqlite3; import pandas as _pd")
+            lines.append(f"if _ext in ('sqlite', 'db', 'sqlite3'):")
+            lines.append(f"    with _sqlite3.connect(_src) as _conn:")
+            for sql, alias in items:
+                lines.append(f"        {alias} = pl.from_pandas(_pd.read_sql({repr(sql)}, _conn))")
+            lines.append(f"elif _ext in ('ddb', 'duckdb'):")
+            lines.append(f"    import duckdb as _duckdb")
+            lines.append(f"    with _duckdb.connect(_src) as _dconn:")
+            for sql, alias in items:
+                lines.append(f"        {alias} = pl.from_pandas(_dconn.execute({repr(sql)}).df())")
+            lines.append(f"else:")
+            lines.append(f"    raise ValueError(f\"Unsupported database source: {{_src}}\")")
+
+        code = '\n'.join(lines)
+        post = []
+        for sql, alias in items:
+            san = self._from_db_sanitise_polars(alias)
+            marker = f"#__pivotal__\n__table_name__ = '{alias}'\n#__pivotal__"
+            post.append(f"{san}{marker}")
+        return code + '\n' + '\n'.join(post)
+
+    def generate_from_db_duckdb(self, ast_node):
+        source = ast_node['source']
+        bodies = ast_node['bodies']
+        items = self._from_db_items(bodies)
+        src_type, src_val = self._from_db_source_type(source)
+        lines = []
+
+        if src_type == 'sqlite':
+            # Read via sqlite3, register as DuckDB tables
+            lines.append(f"import sqlite3 as _sqlite3")
+            lines.append(f"with _sqlite3.connect({repr(src_val)}) as _conn:")
+            for sql, alias in items:
+                lines.append(f"    _df_tmp = pd.read_sql({repr(sql)}, _conn)")
+                lines.append(f"    _pvt.register('_load_tmp', _df_tmp)")
+                lines.append(f"    _pvt.execute('CREATE OR REPLACE TABLE {alias} AS SELECT * FROM _load_tmp')")
+        elif src_type == 'duckdb':
+            lines.append(f"_ext_conn = _pvt.cursor()")
+            lines.append(f"_ext_conn.execute(\"ATTACH {repr(src_val)} AS _ext_db (READ_ONLY)\")")
+            for sql, alias in items:
+                lines.append(f"_pvt.execute(\"CREATE OR REPLACE TABLE {alias} AS ({sql})\")")
+            lines.append(f"_ext_conn.execute(\"DETACH _ext_db\")")
+        elif src_type == 'uri':
+            # Use DuckDB's extension for the URI type (postgres_scanner etc.)
+            lines.append(f"_pvt.execute(\"INSTALL postgres_scanner; LOAD postgres_scanner\" )")
+            lines.append(f"_pvt.execute(\"ATTACH {repr(src_val)} AS _ext_db\")")
+            for sql, alias in items:
+                lines.append(f"_pvt.execute(\"CREATE OR REPLACE TABLE {alias} AS ({sql})\")")
+            lines.append(f"_pvt.execute(\"DETACH _ext_db\")")
+        else:
+            lines.append(f"_src = {src_val}")
+            lines.append(f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''")
+            lines.append(f"if _ext in ('sqlite', 'db', 'sqlite3'):")
+            lines.append(f"    import sqlite3 as _sqlite3")
+            lines.append(f"    with _sqlite3.connect(_src) as _conn:")
+            for sql, alias in items:
+                lines.append(f"        _df_tmp = pd.read_sql({repr(sql)}, _conn)")
+                lines.append(f"        _pvt.register('_load_tmp', _df_tmp)")
+                lines.append(f"        _pvt.execute('CREATE OR REPLACE TABLE {alias} AS SELECT * FROM _load_tmp')")
+            lines.append(f"elif _ext in ('ddb', 'duckdb'):")
+            for sql, alias in items:
+                lines.append(f"    _pvt.execute(\"CREATE OR REPLACE TABLE {alias} AS ({sql})\")")
+            lines.append(f"else:")
+            lines.append(f"    raise ValueError(f\"Unsupported database source: {{_src}}\")")
+
+        code = '\n'.join(lines)
+        san_lines = []
+        for sql, alias in items:
+            san = (
+                f"{_SANITISE_HELPER}"
+                f"_pvt_info = [row[0] for row in _pvt.execute('PRAGMA table_info({alias})').fetchall()]\n"
+                f"_, _pvt_renamed = _pvt_sanitise(_pvt_info)\n"
+                f"if _pvt_renamed:\n"
+                f"    _pvt.execute('ALTER TABLE {alias} RENAME COLUMN ' + ' ; ALTER TABLE {alias} RENAME COLUMN '.join(f'\"{{o}}\" TO \"{{n}}\"' for o,n in _pvt_renamed.items()))\n"
+            )
+            marker = f"#__pivotal__\n__table_name__ = '{alias}'\n#__pivotal__"
+            san_lines.append(f"{san}{marker}")
+        return code + '\n' + '\n'.join(san_lines)
+
+    def generate_from_db_sql(self, ast_node):
+        # SQL/CTE backend — emit a comment pointing to the source
+        source = ast_node['source']
+        bodies = ast_node['bodies']
+        items = self._from_db_items(bodies)
+        src_type, src_val = self._from_db_source_type(source)
+        lines = [f"-- [from database: {src_val}]"]
+        for sql, alias in items:
+            lines.append(f"-- {alias}: {sql}")
+        return '\n'.join(lines)
+
     def generate_load_table_polars(self, ast_node):
         source = ast_node['source']
         table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
@@ -1899,7 +2158,6 @@ class CodeGenerator:
             var = source['name']
             kw = ast_node['kwargs_str']
             tname = ast_node['table_name']
-            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
             load_table = (
                 f"_src = {var}\n"
                 f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
@@ -1907,10 +2165,6 @@ class CodeGenerator:
                 f"    {tname} = pl.read_excel(_src{kw})\n"
                 f"elif _ext == 'parquet':\n"
                 f"    {tname} = pl.read_parquet(_src{kw})\n"
-                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
-                f"    import sqlite3 as _sqlite3; import pandas as _pd\n"
-                f"    with _sqlite3.connect(_src) as _conn:\n"
-                f"        {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))\n"
                 f"else:\n"
                 f"    {tname} = pl.read_csv(_src{kw})"
             )
@@ -1918,14 +2172,7 @@ class CodeGenerator:
             source_str = str(source)
             ext = source_str.rsplit('.', 1)[-1].lower() if '.' in source_str else ''
             tname = ast_node['table_name']
-            if ext in ('sqlite', 'db', 'sqlite3'):
-                sql_query = ast_node.get('sql_query') or f"SELECT * FROM {tname}"
-                load_table = (
-                    f"import sqlite3 as _sqlite3; import pandas as _pd\n"
-                    f"with _sqlite3.connect({repr(source_str)}) as _conn:\n"
-                    f"    {tname} = pl.from_pandas(_pd.read_sql({repr(sql_query)}, _conn))"
-                )
-            elif ext in ('xlsx', 'xls'):
+            if ext in ('xlsx', 'xls'):
                 load_table = f"{tname} = pl.read_excel({repr(source_str)}{ast_node['kwargs_str']})"
             elif ext == 'parquet':
                 load_table = f"{tname} = pl.read_parquet({repr(source_str)}{ast_node['kwargs_str']})"
@@ -4414,7 +4661,6 @@ class CodeGenerator:
 
         if isinstance(source, dict) and source.get('type') == 'var':
             var = source['name']
-            sql_query = ast_node.get('sql_query') or f"SELECT * FROM {t}"
             load_code = (
                 f"_src = {var}.replace('\\\\', '/')\n"
                 f"_ext = _src.rsplit('.', 1)[-1].lower() if '.' in _src else ''\n"
@@ -4424,12 +4670,6 @@ class CodeGenerator:
                 f"    _pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')\n"
                 f"elif _ext == 'parquet':\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet('{{_src}}')\")\n"
-                f"elif _ext in ('sqlite', 'db', 'sqlite3'):\n"
-                f"    import sqlite3 as _sqlite3\n"
-                f"    with _sqlite3.connect(_src) as _conn:\n"
-                f"        _df_tmp = pd.read_sql('SELECT * FROM {t}', _conn)\n"
-                f"    _pvt.register('_load_tmp', _df_tmp)\n"
-                f"    _pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')\n"
                 f"else:\n"
                 f"    _pvt.execute(f\"CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv('{{_src}}')\")"
             )
@@ -4445,14 +4685,6 @@ class CodeGenerator:
                 )
             elif ext == 'parquet':
                 load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_parquet(\'{source_str}\')")'
-            elif ext in ('sqlite', 'db', 'sqlite3'):
-                load_code = (
-                    f"import sqlite3 as _sqlite3\n"
-                    f"with _sqlite3.connect('{source_str}') as _conn:\n"
-                    f"    _df_tmp = pd.read_sql('SELECT * FROM {t}', _conn)\n"
-                    f"_pvt.register('_load_tmp', _df_tmp)\n"
-                    f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _load_tmp')"
-                )
             else:
                 load_code = f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * FROM read_csv(\'{source_str}\')")'
 

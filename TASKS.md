@@ -267,102 +267,43 @@ Simple, linear workflows use **QuickPick/InputBox** sequences. Complex, interact
 
 ---
 
-### `connect` Statement — Database Connection Syntax
+### `from` Statement — Database Connection Syntax
 
-Replace the existing `load "file.sqlite" as name` + `query:` param pattern with a dedicated `connect` statement that makes database access explicit and supports multiple tables/queries per connection.
+Replace the existing `load "file.sqlite" as name` + `query:` param pattern with a dedicated `from` statement that makes database access explicit and supports multiple tables/queries per connection.
 
 #### Target syntax
 
 ```
-connect "mydata.sqlite"
+from "mydata.sqlite"
     load orders as orders_df, customers as customers_df
 
-connect "mydata.sqlite"
+from "mydata.sqlite"
     query "SELECT id, name FROM customers WHERE active=1" as customers_df
 
-connect "mydata.sqlite"
+from "mydata.sqlite"
     load orders as orders_df
     query "SELECT SUM(amount) as total FROM orders" as summary_df
 ```
 
-#### Step 1 — Grammar (`dsl_parser.py`)
+#### Backend strategy
 
-Add `connect_statement` to the `statement` rule and define the sub-grammar:
+| Source | Pandas | Polars | DuckDB |
+|---|---|---|---|
+| `.sqlite` / `.db` | `sqlite3` + `pd.read_sql` | `sqlite3` + `pd.read_sql` → `pl.from_pandas` | `sqlite3` → register → DuckDB table |
+| `.ddb` / `.duckdb` | `duckdb.connect().execute().df()` | same → `pl.from_pandas` | `duckdb.connect()` native |
+| `://` URI (PostgreSQL etc.) | SQLAlchemy `create_engine` + `pd.read_sql` | `pl.read_database(uri)` via connectorx, fallback SQLAlchemy | DuckDB extension (`postgres_scanner` etc.) |
 
-```lark
-statement: ...
-         | connect_statement
+SQLAlchemy is only needed for pandas/polars with non-SQLite URIs. For URIs, detect `://` and attempt SQLAlchemy; give a clear "pip install sqlalchemy" error if missing. DuckDB backend uses its own extension mechanism — no SQLAlchemy involved.
 
-connect_statement: "connect" (STRING | PATH | PYTHON_VAR) _NL _INDENT connect_body+ _DEDENT
+#### Steps — implemented on branch `from-statement`
 
-connect_body: connect_load_line
-            | connect_query_line
-
-connect_load_line:  "load"  connect_item ("," connect_item)* _NL
-connect_query_line: "query" STRING "as" table_name _NL
-
-connect_item: table_name "as" table_name
-```
-
-- `connect_item` first `table_name` = SQL table name; second = Python variable name.
-- `connect_body+` allows mixing `load` and `query` lines in one block.
-- Add `'connect'` to `PIVOTAL_KEYWORDS`.
-
-#### Step 2 — Transformer (`dsl_parser.py`)
-
-New transformer methods: `connect_item`, `connect_load_line`, `connect_query_line`, `connect_statement`. The statement transformer collects all bodies, sets `self.current_table` to the last alias defined, and returns:
-
-```python
-{'type': 'connect', 'source': str(source), 'bodies': bodies}
-```
-
-#### Step 3 — Code generation (all backends)
-
-Add `generate_connect_pandas`, `generate_connect_polars`, `generate_connect_duckdb`, `generate_connect_sql`. Open the connection once, emit one read call per item:
-
-```python
-# pandas / sqlite
-with sqlite3.connect("mydata.sqlite") as _conn:
-    orders_df  = pd.read_sql("SELECT * FROM orders", _conn)
-    summary_df = pd.read_sql("SELECT SUM(amount) as total FROM orders", _conn)
-```
-
-For DuckDB backend use `duckdb.connect(source).execute(sql).df()`. Wire the `connect` AST node type into the `generate_statement` dispatch chain.
-
-#### Step 4 — Remove old SQL path from `load_statement`
-
-- Remove `sql_query = kwargs.pop('query', None)` from the `load_statement` transformer.
-- Remove `query:` from recognised load params.
-- Remove sqlite/db/sqlite3 branches from `generate_load_table_pandas/polars/duckdb/sql`.
-- `load` then handles only flat files (CSV, Parquet, Excel, JSON, Arrow) and package tables.
-
-#### Step 5 — Tests
-
-- Add test cases for `connect` + `load` (single and multiple items).
-- Add test cases for `connect` + `query`.
-- Add test cases for mixed `load` + `query` in one block.
-- Add duckdb-backend tests in `test_commands_duckdb.py`.
-- Remove / update existing tests that used `load "file.sqlite" as name` with `query:` param.
-
-#### Step 6 — Docs
-
-Update `docs/syntax/data-sources.md`: remove `query:` param from `load` docs; add `connect` section with syntax template, examples, and a list of supported sources (SQLite, DuckDB; SQLAlchemy URI as future).
-
-#### Step 7 — VS Code extension
-
-- Add `connect` entry to `COMMAND_COMPLETIONS` with snippet `connect ${1:path}\n\tload ${2:table} as ${3:df}`.
-- Update `findActiveTable()` to scan for last alias defined in `connect` blocks.
-- Update `detectContext()` to recognise the `connect` block context for autocomplete.
-
-#### Step 8 — `magic.py`
-
-- Remove SQL path from `load_gui` (flat files only).
-- Optionally add a `connect_gui` that collects DB path + table name and inserts a `connect` block.
-
-#### Open questions before starting
-
-1. **Single-table shorthand** — is `connect "file.sqlite"\n    load t as df` acceptable verbosity for the common single-table case, or do we want a compact inline form as well?
-2. **Non-SQLite databases** — include SQLAlchemy URI support (`postgresql://...`) as a stub with a clear "install sqlalchemy" error, or defer entirely?
-3. **PYTHON_VAR source** — `connect :my_conn_str` should work the same as in `load`; verify in transformer.
+1. Grammar: `from_statement` rule with `from_load_line` / `from_query_line` / `from_item` sub-rules. Add `'from'` to `PIVOTAL_KEYWORDS`.
+2. Transformer: `from_item`, `from_load_line`, `from_query_line`, `from_statement` methods. AST type `'from_db'`.
+3. Code generation: `generate_from_db_pandas`, `_polars`, `_duckdb`, `_sql`. Open connection once, emit one read per item.
+4. Remove old SQL path from `load_statement` transformer and all `generate_load_table_*` backends.
+5. Tests: add `from` + `load`, `from` + `query`, mixed, duckdb backend. Update/remove old sqlite load tests.
+6. Docs: update `data-sources.md`.
+7. VS Code: add `from` snippet, update `findActiveTable` and `detectContext`.
+8. `magic.py`: remove SQL path from `load_gui`.
 
 ---

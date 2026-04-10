@@ -1244,14 +1244,14 @@ def test_gt_table_stores_html_polars(parser, output_df):
 # load: SQLite
 # ---------------------------------------------------------------------------
 
-def test_load_sqlite_polars(parser, tmp_path, sample_df):
+def test_from_sqlite_polars(parser, tmp_path, sample_df):
     import sqlite3, pandas as pd
     db_path = tmp_path / "data.sqlite"
     pdf = sample_df.to_pandas()
     with sqlite3.connect(db_path) as conn:
         pdf.to_sql('products', conn, index=False)
     ns = {}
-    run(parser, f'load products "{db_path}"', ns)
+    run(parser, f'from "{db_path}"\n    load products as products\n', ns)
     assert 'products' in ns
     result = ns['products']
     assert isinstance(result, pl.DataFrame)
@@ -1259,9 +1259,9 @@ def test_load_sqlite_polars(parser, tmp_path, sample_df):
     assert set(result.columns) == set(sample_df.columns)
 
 
-def test_load_sqlite_codegen_polars(parser, tmp_path):
+def test_from_sqlite_codegen_polars(parser, tmp_path):
     db_path = tmp_path / "test.sqlite"
-    dsl = f'load items "{db_path}"'
+    dsl = f'from "{db_path}"\n    load items as items\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='polars'))
     assert 'sqlite3' in code
     assert 'pl.from_pandas' in code

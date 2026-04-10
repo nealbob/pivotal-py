@@ -78,6 +78,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   // Table declarations
   { label: 'with',   snippet: 'with ${1:source} as ${2:output}', detail: 'with <source> [as <output>]' },
   { label: 'load',   snippet: 'load ${1:path} as ${2:tbl}',   detail: 'load <path> as <table>' },
+  { label: 'from',   snippet: 'from ${1:path}\n\tload ${2:table} as ${3:df}', detail: 'from <database>\n    load <table> as <df>\n    query "SELECT..." as <df>' },
 
   // Row operations
   { label: 'filter',   detail: 'filter <condition>' },
@@ -151,6 +152,22 @@ function findActiveTable(
     if (withM) return withM[2] ?? withM[1];
     const loadM = t.match(/^load\s+\S+\s+as\s+(\w+)/);
     if (loadM) return loadM[1];
+    // from block: scan indented load/query lines for the last alias defined
+    const fromM = t.match(/^from\s+/);
+    if (fromM) {
+      let lastAlias: string | null = null;
+      for (let j = i + 1; j <= cursorLine; j++) {
+        const inner = lines[j]?.trimStart() ?? '';
+        const lm = inner.match(/^load\s+([\w,\s]+as\s+\w+)/);
+        if (lm) {
+          const aliases = [...lm[1].matchAll(/\w+\s+as\s+(\w+)/g)];
+          if (aliases.length) lastAlias = aliases[aliases.length - 1][1];
+        }
+        const qm = inner.match(/^query\s+.*\s+as\s+(\w+)/);
+        if (qm) lastAlias = qm[1];
+      }
+      if (lastAlias) return lastAlias;
+    }
   }
   return ac?.current_table ?? null;
 }

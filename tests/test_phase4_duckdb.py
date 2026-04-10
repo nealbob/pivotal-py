@@ -63,13 +63,13 @@ def test_python_passthrough_duckdb(parser, sample_df):
     """python block code executes verbatim in the DuckDB namespace."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\npython x = 42\n', ns)
+    run_ddb(parser, 'with sales\npython x = 42\n', ns)
     assert ns.get('x') == 42
 
 
 def test_codegen_python_duckdb(parser):
     """python block is passed through unchanged."""
-    dsl = 'df sales\npython x = 1 + 1\n'
+    dsl = 'with sales\npython x = 1 + 1\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'x = 1 + 1' in code
 
@@ -90,13 +90,13 @@ def test_apply_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     # Make clean_prices available in the namespace
     ns = ddb_ns(conn, {'clean_prices': clean_prices})
-    run_ddb(parser, 'df sales\napply clean_prices\n', ns)
+    run_ddb(parser, 'with sales\napply clean_prices\n', ns)
     df = fetch(ns, 'sales')
     assert list(df['price']) == pytest.approx([p * 3 for p in sample_df['price']])
 
 
 def test_codegen_apply_duckdb(parser):
-    dsl = 'df sales\napply my_func\n'
+    dsl = 'with sales\napply my_func\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert '_pvt.execute(' in code       # re-registers the table
     assert 'my_func' in code
@@ -109,20 +109,20 @@ def test_codegen_apply_duckdb(parser):
 
 def test_codegen_show_duckdb(parser):
     """show generates materialise + IPython display code."""
-    dsl = 'df sales\nshow\n'
+    dsl = 'with sales\nshow\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'SELECT * FROM sales' in code   # materialise
     assert '_ipyd' in code                 # display call
 
 
 def test_codegen_show_head_duckdb(parser):
-    dsl = 'df sales\nshow head\n'
+    dsl = 'with sales\nshow head\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert '.head()' in code
 
 
 def test_codegen_show_summary_duckdb(parser):
-    dsl = 'df sales\nshow summary\n'
+    dsl = 'with sales\nshow summary\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert '.describe()' in code
 
@@ -132,7 +132,7 @@ def test_show_runs_without_error_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
     # display() from IPython doesn't error in a plain Python process
-    run_ddb(parser, 'df sales\nshow\n', ns)
+    run_ddb(parser, 'with sales\nshow\n', ns)
     # If we got here, no exception was raised
 
 
@@ -142,7 +142,7 @@ def test_show_runs_without_error_duckdb(parser, sample_df):
 
 def test_codegen_plot_duckdb(parser):
     """plot generates materialise + matplotlib code."""
-    dsl = 'df sales\nplot bar my_chart\n    x category\n    y price\n'
+    dsl = 'with sales\nplot bar my_chart\n    x category\n    y price\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'SELECT * FROM sales' in code   # materialise
     assert 'matplotlib' in code            # uses matplotlib
@@ -153,7 +153,7 @@ def test_plot_produces_figure_duckdb(parser, sample_df):
     """plot creates a matplotlib Figure and stores it in _pivotal_charts."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nplot bar my_chart\n    x category\n    y price\n', ns)
+    run_ddb(parser, 'with sales\nplot bar my_chart\n    x category\n    y price\n', ns)
     assert '_pivotal_charts' in ns
     assert 'my_chart' in ns['_pivotal_charts']
     fig = ns['_pivotal_charts']['my_chart']['fig']
@@ -166,7 +166,7 @@ def test_plot_produces_figure_duckdb(parser, sample_df):
 # ===========================================================================
 
 def test_codegen_agg_plot_duckdb(parser):
-    dsl = 'df sales\nagg plot bar my_chart\n    x category\n    y sum price\n'
+    dsl = 'with sales\nagg plot bar my_chart\n    x category\n    y sum price\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'SELECT * FROM sales' in code
     assert 'groupby' in code
@@ -176,7 +176,7 @@ def test_codegen_agg_plot_duckdb(parser):
 def test_agg_plot_produces_figure_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\nagg plot bar my_chart\n    x category\n    y sum price\n', ns)
+    run_ddb(parser, 'with sales\nagg plot bar my_chart\n    x category\n    y sum price\n', ns)
     assert '_pivotal_charts' in ns
     assert 'my_chart' in ns['_pivotal_charts']
 
@@ -190,7 +190,7 @@ gt = pytest.importorskip('great_tables')
 
 def test_codegen_gt_table_duckdb(parser):
     """gt_table generates materialise + great_tables code."""
-    dsl = 'df sales\ntable my_table\n'
+    dsl = 'with sales\ntable my_table\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'SELECT * FROM sales' in code   # materialise
     assert 'great_tables' in code          # uses GT
@@ -201,7 +201,7 @@ def test_gt_table_stores_html_duckdb(parser, sample_df):
     """gt_table stores HTML in _pivotal_gt_tables."""
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
-    run_ddb(parser, 'df sales\ntable my_table\n', ns)
+    run_ddb(parser, 'with sales\ntable my_table\n', ns)
     assert '_pivotal_gt_tables' in ns
     assert 'my_table' in ns['_pivotal_gt_tables']
     html = ns['_pivotal_gt_tables']['my_table']['html']

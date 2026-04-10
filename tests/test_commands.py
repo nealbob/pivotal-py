@@ -1916,3 +1916,75 @@ def test_inline_cast_datetime(parser):
     ns = {'pd': pd, 't': df.copy()}
     run(parser, 'with t\n    ds = datetime(ds)\n', ns)
     assert pd.api.types.is_datetime64_any_dtype(ns['t']['ds'])
+
+
+# ---------------------------------------------------------------------------
+# from statement — database connections
+# ---------------------------------------------------------------------------
+
+def test_from_sqlite_load_single(parser, tmp_path, sample_df):
+    """from "db" / load table as df — loads one table from sqlite."""
+    import sqlite3
+    db = tmp_path / "data.sqlite"
+    with sqlite3.connect(db) as conn:
+        sample_df.to_sql('products', conn, index=False)
+    ns = {'pd': pd}
+    run(parser, f'from "{db}"\n    load products as products\n', ns)
+    assert 'products' in ns
+    assert len(ns['products']) == len(sample_df)
+    assert set(ns['products'].columns) == set(sample_df.columns)
+
+
+def test_from_sqlite_load_multiple(parser, tmp_path, sample_df):
+    """from "db" / load a as x, b as y — loads two tables."""
+    import sqlite3
+    db = tmp_path / "multi.sqlite"
+    with sqlite3.connect(db) as conn:
+        sample_df.to_sql('orders', conn, index=False)
+        sample_df.to_sql('customers', conn, index=False)
+    ns = {'pd': pd}
+    run(parser, f'from "{db}"\n    load orders as orders, customers as customers\n', ns)
+    assert 'orders' in ns and 'customers' in ns
+    assert len(ns['orders']) == len(sample_df)
+
+
+def test_from_sqlite_query(parser, tmp_path, sample_df):
+    """from "db" / query "SELECT..." as df — runs arbitrary SQL."""
+    import sqlite3
+    db = tmp_path / "query.sqlite"
+    with sqlite3.connect(db) as conn:
+        sample_df.to_sql('sales', conn, index=False)
+    ns = {'pd': pd}
+    run(parser, f'from "{db}"\n    query "SELECT * FROM sales WHERE quantity > 5" as result\n', ns)
+    assert 'result' in ns
+    assert len(ns['result']) == len(sample_df[sample_df['quantity'] > 5])
+
+
+def test_from_sqlite_mixed_load_and_query(parser, tmp_path, sample_df):
+    """from block can mix load and query lines."""
+    import sqlite3
+    db = tmp_path / "mixed.sqlite"
+    with sqlite3.connect(db) as conn:
+        sample_df.to_sql('sales', conn, index=False)
+    ns = {'pd': pd}
+    run(
+        parser,
+        f'from "{db}"\n'
+        f'    load sales as sales_raw\n'
+        f'    query "SELECT category, SUM(quantity) as total FROM sales GROUP BY category" as summary\n',
+        ns
+    )
+    assert 'sales_raw' in ns and 'summary' in ns
+    assert set(ns['summary'].columns) >= {'category', 'total'}
+
+
+def test_from_codegen_sqlite_pandas(parser, tmp_path):
+    """Code generator emits sqlite3 connection for pandas backend."""
+    db = tmp_path / "test.sqlite"
+    code = '\n'.join(parser.generate_code(
+        parser.parse(f'from "{db}"\n    load orders as orders\n'),
+        backend='pandas'
+    ))
+    assert 'sqlite3' in code
+    assert 'pd.read_sql' in code
+    assert 'orders' in code
