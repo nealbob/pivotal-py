@@ -507,6 +507,7 @@ function _scheduleRapidBridgePoll(): void {
 
 let _viewerPanel: vscode.WebviewPanel | null = null;
 let _viewerReady = false;   // true once the webview has confirmed 'ready'
+let _viewerSplit = false;   // true once the viewer has been moved to a split
 
 function _generateNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -521,12 +522,15 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
     if (reveal) { _viewerPanel.reveal(undefined, false); }
     return _viewerPanel;
   }
-  // Open in column 2 (where the notebook lives), then split that column
-  // horizontally so the viewer sits above the notebook.
+  // Open in column 2 (where the notebook lives) WITHOUT stealing focus.
+  // The split into a horizontal layout happens once the webview confirms
+  // 'ready' — see the onDidReceiveMessage handler below.  Doing this at
+  // creation time (with preserveFocus:false + moveEditorToAboveGroup)
+  // caused races that dropped the first batch of bridge messages.
   const panel = vscode.window.createWebviewPanel(
     'pivotalViewer',
     'Pivotal Viewer',
-    { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
+    { viewColumn: vscode.ViewColumn.Two, preserveFocus: true },
     { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
   );
   panel.webview.html = _buildViewerHtml(panel.webview);
@@ -537,6 +541,12 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
       _viewerReady = true;
       for (const [, payload] of _explorerItems) {
         panel.webview.postMessage(payload);
+      }
+      // Move the viewer into a horizontal split above the notebook — once only.
+      if (!_viewerSplit) {
+        _viewerSplit = true;
+        panel.reveal(undefined, false);   // briefly focus the panel so the move targets it
+        vscode.commands.executeCommand('workbench.action.moveEditorToAboveGroup').then(undefined, () => {});
       }
       return;
     }
@@ -550,13 +560,8 @@ function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = fals
       _refreshExplorer();
     }
   }, undefined, context.subscriptions);
-  panel.onDidDispose(() => { _viewerPanel = null; _viewerReady = false; }, undefined, context.subscriptions);
+  panel.onDidDispose(() => { _viewerPanel = null; _viewerReady = false; _viewerSplit = false; }, undefined, context.subscriptions);
   _viewerPanel = panel;
-  // Fire the split move without awaiting — the panel is already set up and
-  // message-handling works regardless of when the move completes.
-  // Awaiting this caused a race where _viewerReady could be checked before
-  // the webview had loaded, dropping the first batch of bridge messages.
-  vscode.commands.executeCommand('workbench.action.moveEditorToAboveGroup').then(undefined, () => {});
   return panel;
 }
 
