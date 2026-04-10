@@ -1,15 +1,15 @@
-load invoices "invoices.csv"
-load customers "customers.csv"
+load "invoices.csv" as invoices 
+load "customers.csv" as customers 
 
-df invoices
+with invoices
     filter invoice_date >= "1970-01-16"
     transaction_fees = 0.8
     income = total - transaction_fees
     filter income > 1
 
-df summary from invoices
+with invoices as inv_summary
     group by customer_id
-        mean total, sum income as sum_income, count total as ct
+        agg mean total, sum income as sum_income, count total as ct
     sort sum_income desc
     left merge customers on customer_id
     name = last_name + ", " + first_name
