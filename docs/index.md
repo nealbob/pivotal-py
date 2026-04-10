@@ -1,7 +1,7 @@
 # Pivotal
 
 
-Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  The JupyterLab and VS Code extensions provide autocomplete, an interactive viewer and GUI controls, making Pivotal a friendly entry point to the Python data ecosystem.
+Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  With comprehensive JupyterLab and VS Code support (syntax highlighting, autocomplete, interactive viewer, GUI controls) Pivotal provides a friendly entry point to the Python data ecosystem.
 
 
 ```pivotal
@@ -34,8 +34,9 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 - **Readable, Writable syntax** — write data transformations in a simple declarative syntax
 - **Multiple backends** — run the same code as Pandas, Polars or DuckDB/SQL
-- **Jupyter integration** — `%%pivotal` cell magic with a live viewer panel
-- **VS Code integration** — syntax highlighting, autocomplete, and one-key execution
+
+**JupyterLab and VS Code integration** — syntax highlighting, autocomplete, `%%pivotal` cell magic, interactive object viewer and explorer,  GUI controls
+
 - **Export to code** — compile any notebook or `.pivotal` file to `.py` or `.sql`
 - **Plotting & tables** — built-in chart and publication-ready table support
 - **Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
