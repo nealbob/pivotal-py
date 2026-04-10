@@ -649,6 +649,7 @@ class DSLTransformer(Transformer):
         opts = rest[1] if len(rest) > 1 else []
         conditions = None
         operators = None
+        
         query_str = None
         by_cols = []
 
