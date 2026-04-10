@@ -504,15 +504,12 @@ async function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal 
     if (reveal) { _viewerPanel.reveal(undefined, false); }
     return _viewerPanel;
   }
-  // Open the viewer in the same column as the active editor, then move it
-  // to a horizontal split above so the notebook remains visible below.
-  const sourceColumn = (vscode.window.tabGroups as any)?.activeTabGroup?.viewColumn
-    ?? vscode.window.activeTextEditor?.viewColumn
-    ?? vscode.ViewColumn.One;
+  // Open in column 2 (where the notebook lives), then split that column
+  // horizontally so the viewer sits above the notebook.
   const panel = vscode.window.createWebviewPanel(
     'pivotalViewer',
     'Pivotal Viewer',
-    { viewColumn: sourceColumn, preserveFocus: false },
+    { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
     { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
   );
   panel.webview.html = _buildViewerHtml(panel.webview);
@@ -647,25 +644,6 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   .ag-theme-alpine .ag-popup input.ag-input-field-input { padding-left: 24px !important; }
   .pv-empty { display: flex; align-items: center; justify-content: center;
     height: 100%; opacity: 0.4; font-size: 13px; }
-  /* Column panel (left sidebar in DataFrame view) */
-  .pv-body { flex-direction: row !important; }
-  .pv-col-panel {
-    width: 130px; min-width: 130px; display: none; flex-direction: column;
-    border-right: 1px solid var(--vscode-panel-border, #444);
-    overflow-y: auto; font-size: 11px;
-  }
-  .pv-col-panel.pv-visible { display: flex; }
-  .pv-col-panel-header {
-    padding: 4px 6px; font-weight: 600; font-size: 10px; opacity: 0.6;
-    text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
-    border-bottom: 1px solid var(--vscode-panel-border, #444);
-  }
-  .pv-col-panel-list { flex: 1; overflow-y: auto; }
-  .pv-col-item {
-    padding: 3px 8px; cursor: pointer; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .pv-col-item:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.1)); }
   .pv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   /* Column pin context menu */
   .pv-pin-menu {
@@ -702,10 +680,6 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   <button class="pv-btn" id="btn-clear"   title="Delete all">&#128465;</button>
 </div>
 <div class="pv-body" id="pv-body">
-  <div class="pv-col-panel" id="pv-col-panel">
-    <div class="pv-col-panel-header">Columns</div>
-    <div class="pv-col-panel-list" id="pv-col-list"></div>
-  </div>
   <div class="pv-main" id="pv-main"><div class="pv-empty">No data yet — run a Pivotal cell</div></div>
 </div>
 <div class="pv-footer" id="pv-footer"></div>
@@ -742,8 +716,6 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   const clearBtn  = document.getElementById('btn-clear');
   const bodyEl    = document.getElementById('pv-main');
   const footerEl  = document.getElementById('pv-footer');
-  const colPanel  = document.getElementById('pv-col-panel');
-  const colList   = document.getElementById('pv-col-list');
   let   _pinMenu  = null;
 
   backBtn.disabled = fwdBtn.disabled = copyBtn.disabled =
@@ -892,11 +864,8 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     while (footerEl.firstChild) footerEl.removeChild(footerEl.firstChild);
 
     if (p.type === 'dataframe') {
-      colPanel.classList.add('pv-visible');
       renderDataFrame(p);
     } else {
-      colPanel.classList.remove('pv-visible');
-      colList.innerHTML = '';
       if (p.type === 'chart') renderChart(p);
       else                    renderGtTable(p);
     }
@@ -909,19 +878,6 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       bodyEl.appendChild(cached.body);
       footerEl.appendChild(cached.footer);
       _zoomCb = cached.applyZoom;
-      // Repopulate column panel (api reference is in cache)
-      colList.innerHTML = '';
-      for (const col of p.columns) {
-        const el = document.createElement('div');
-        el.className = 'pv-col-item';
-        el.textContent = col; el.title = col;
-        el.addEventListener('click', () => {
-          cached.api.ensureColumnVisible(col);
-          const hdr = cached.body.querySelector('.ag-header-cell[col-id="' + col.replace(/"/g, '\\"') + '"]');
-          if (hdr) { hdr.classList.add('pv-col-flash'); setTimeout(() => hdr.classList.remove('pv-col-flash'), 800); }
-        });
-        colList.appendChild(el);
-      }
       return;
     }
 
@@ -1047,23 +1003,7 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       setTimeout(() => document.addEventListener('click', hidePinMenu, { once: true }), 0);
     });
 
-    // Populate column panel and wire click-to-navigate
-    colList.innerHTML = '';
-    for (const col of columns) {
-      const el = document.createElement('div');
-      el.className = 'pv-col-item';
-      el.textContent = col;
-      el.title = col;
-      el.addEventListener('click', () => {
-        api.ensureColumnVisible(col);
-        const escaped = col.replace(/"/g, '\\"');
-        const hdr = container.querySelector('.ag-header-cell[col-id="' + escaped + '"]');
-        if (hdr) { hdr.classList.add('pv-col-flash'); setTimeout(() => hdr.classList.remove('pv-col-flash'), 800); }
-      });
-      colList.appendChild(el);
-    }
-    colPanel.classList.add('pv-visible');
-
+    
     const applyZoom = mult => {
       zoomFactor = Math.max(0.5, Math.min(3.0, zoomFactor * mult));
       container.style.width  = (100 / zoomFactor) + '%';
@@ -1369,6 +1309,17 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       case 'focus':
         focusItem(msg.name);
         break;
+      case 'scroll_col': {
+        // Scroll the current AG Grid to the named column and flash it
+        const cached = _dfCache.get(msg.name);
+        if (cached) {
+          cached.api.ensureColumnVisible(msg.col);
+          const escaped = msg.col.replace(/"/g, '\\"');
+          const hdr = cached.body.querySelector('.ag-header-cell[col-id="' + escaped + '"]');
+          if (hdr) { hdr.classList.add('pv-col-flash'); setTimeout(() => hdr.classList.remove('pv-col-flash'), 800); }
+        }
+        break;
+      }
     }
   });
 
@@ -1435,6 +1386,7 @@ class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
       item.description  = node.dtype;
       item.iconPath     = new vscode.ThemeIcon(iconMap[node.semType] ?? 'symbol-string');
       item.contextValue = 'pivotalColumn';
+      item.command = { command: 'pivotal.explorer.scrollToColumn', title: 'Scroll to column', arguments: [node] };
       return item;
     }
 
@@ -2266,6 +2218,22 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  // --- Command: Click a column in the explorer → scroll viewer to that column ---
+  const explorerScrollToColumn = vscode.commands.registerCommand(
+    'pivotal.explorer.scrollToColumn',
+    (node: ExplorerNode) => {
+      if (node.kind !== 'column') { return; }
+      // First focus the parent dataframe in the viewer, then scroll to the column
+      _getOrCreateViewerPanel(context, true).then(panel => {
+        panel.webview.postMessage({ type: 'focus', name: node.parent });
+        // Small delay so the grid is rendered before we scroll
+        setTimeout(() => {
+          panel.webview.postMessage({ type: 'scroll_col', name: node.parent, col: node.col });
+        }, 50);
+      }).catch(() => {});
+    },
+  );
+
   // --- Command: Quick-open a viewer item by name (keyboard shortcut from editor) ---
   const quickOpen = vscode.commands.registerCommand(
     'pivotal.quickOpen',
@@ -2693,6 +2661,7 @@ export function activate(context: vscode.ExtensionContext): void {
     explorerView,
     explorerDelete,
     explorerSearch,
+    explorerScrollToColumn,
     quickOpen,
     loadDataset,
     savePackage,

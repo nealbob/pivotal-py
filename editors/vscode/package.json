@@ -132,6 +132,10 @@
         "command": "pivotal.quickOpen",
         "title": "Pivotal: Quick Open Data / Chart / Table",
         "icon": "$(search)"
+      },
+      {
+        "command": "pivotal.explorer.scrollToColumn",
+        "title": "Scroll to column in viewer"
       }
     ],
     "keybindings": [
