@@ -98,6 +98,86 @@ with cleaned as summary
 
 ---
 
+## `from` — load from a database
+
+Connect to a database and load one or more tables or query results into named DataFrames.
+
+```pivotal
+from "<database_path_or_uri>"
+    load <sql_table> as <df_name>, ...
+    query "<SQL string>" as <df_name>
+```
+
+### Load tables by name
+
+```pivotal
+from "data/mydb.sqlite"
+    load orders as orders, customers as customers
+```
+
+Each `load` item reads the named SQL table with `SELECT * FROM <table>`. Multiple tables can be listed on a single line, comma-separated.
+
+### Run arbitrary SQL
+
+```pivotal
+from "data/mydb.sqlite"
+    query "SELECT id, name FROM customers WHERE active = 1" as active_customers
+```
+
+### Mix `load` and `query` in one block
+
+```pivotal
+from "data/mydb.sqlite"
+    load orders as orders_raw
+    query "SELECT category, SUM(amount) as total FROM orders GROUP BY category" as summary
+```
+
+The connection is opened once and all reads share it.
+
+### Supported sources
+
+| Source | Example path | Notes |
+|--------|-------------|-------|
+| SQLite | `"data/mydb.sqlite"` | Also `.db`, `.sqlite3` |
+| DuckDB | `"data/warehouse.duckdb"` | Also `.ddb` |
+| Python variable | `:conn_str` | Variable must hold a path or URI |
+| PostgreSQL URI | `"postgresql://user:pass@host/db"` | Requires SQLAlchemy — see below |
+| MySQL URI | `"mysql+pymysql://user:pass@host/db"` | Requires SQLAlchemy + driver |
+| Other SQLAlchemy | any `dialect+driver://...` URI | Requires SQLAlchemy + driver |
+
+### SQLAlchemy support (PostgreSQL, MySQL, and others)
+
+For databases other than SQLite and DuckDB, Pivotal uses [SQLAlchemy](https://www.sqlalchemy.org/) as the connection layer. SQLAlchemy is a Python library that provides a unified interface to many databases via connection URI strings.
+
+**Install SQLAlchemy and a driver:**
+
+```bash
+# PostgreSQL
+pip install sqlalchemy psycopg2-binary
+
+# MySQL
+pip install sqlalchemy pymysql
+
+# Microsoft SQL Server
+pip install sqlalchemy pyodbc
+```
+
+**Usage:**
+
+```pivotal
+from "postgresql://user:password@localhost:5432/mydb"
+    load products as products
+    query "SELECT * FROM orders WHERE status = 'open'" as open_orders
+```
+
+If SQLAlchemy is not installed, Pivotal will raise a clear error with the install command rather than a cryptic import failure.
+
+> **Polars backend**: Uses `connectorx` for URI sources if available (faster), falling back to SQLAlchemy + `pl.from_pandas()`. Install with `pip install connectorx`.
+>
+> **DuckDB backend**: Uses DuckDB's native extensions (`postgres_scanner`, etc.) for URI sources rather than SQLAlchemy.
+
+---
+
 ## `delete` — remove a table
 
 Remove a table from memory:
