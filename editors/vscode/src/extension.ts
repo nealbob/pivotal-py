@@ -515,7 +515,7 @@ function _generateNonce(): string {
   return nonce;
 }
 
-async function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = false): Promise<vscode.WebviewPanel> {
+function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal = false): vscode.WebviewPanel {
   if (_viewerPanel) {
     // reveal=true: user explicitly opened the viewer — show it where it already is, no column move
     if (reveal) { _viewerPanel.reveal(undefined, false); }
@@ -552,8 +552,11 @@ async function _getOrCreateViewerPanel(context: vscode.ExtensionContext, reveal 
   }, undefined, context.subscriptions);
   panel.onDidDispose(() => { _viewerPanel = null; _viewerReady = false; }, undefined, context.subscriptions);
   _viewerPanel = panel;
-  // Move viewer to a horizontal split above, leaving the notebook below
-  await vscode.commands.executeCommand('workbench.action.moveEditorToAboveGroup');
+  // Fire the split move without awaiting — the panel is already set up and
+  // message-handling works regardless of when the move completes.
+  // Awaiting this caused a race where _viewerReady could be checked before
+  // the webview had loaded, dropping the first batch of bridge messages.
+  vscode.commands.executeCommand('workbench.action.moveEditorToAboveGroup').then(undefined, () => {});
   return panel;
 }
 
@@ -2212,7 +2215,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Command: Show Pivotal Viewer panel ---
   const showViewer = vscode.commands.registerCommand('pivotal.showViewer', () => {
-    _getOrCreateViewerPanel(context, true).catch(() => {});
+    _getOrCreateViewerPanel(context, true);
   });
 
   // --- Phase 4: Explorer (single unified view) ---
@@ -2229,9 +2232,8 @@ export function activate(context: vscode.ExtensionContext): void {
     'pivotal.explorer.view',
     (node: ExplorerNode) => {
       if (node.kind !== 'item') { return; }
-      _getOrCreateViewerPanel(context, true).then(panel => {
-        panel.webview.postMessage({ type: 'focus', name: node.name });
-      }).catch(() => {});
+      const panel = _getOrCreateViewerPanel(context, true);
+      panel.webview.postMessage({ type: 'focus', name: node.name });
     },
   );
 
@@ -2241,13 +2243,12 @@ export function activate(context: vscode.ExtensionContext): void {
     (node: ExplorerNode) => {
       if (node.kind !== 'column') { return; }
       // First focus the parent dataframe in the viewer, then scroll to the column
-      _getOrCreateViewerPanel(context, true).then(panel => {
-        panel.webview.postMessage({ type: 'focus', name: node.parent });
-        // Small delay so the grid is rendered before we scroll
-        setTimeout(() => {
-          panel.webview.postMessage({ type: 'scroll_col', name: node.parent, col: node.col });
-        }, 50);
-      }).catch(() => {});
+      const panel = _getOrCreateViewerPanel(context, true);
+      panel.webview.postMessage({ type: 'focus', name: node.parent });
+      // Small delay so the grid is rendered before we scroll
+      setTimeout(() => {
+        panel.webview.postMessage({ type: 'scroll_col', name: node.parent, col: node.col });
+      }, 50);
     },
   );
 
@@ -2276,9 +2277,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const node = { kind: 'item' as const, type: _explorerItems.get(chosen.name)?.type as string, name: chosen.name, payload: _explorerItems.get(chosen.name)! };
       _pivotalTreeView?.reveal(node, { select: true, focus: false, expand: true }).then(undefined, () => {});
       // Show in viewer
-      _getOrCreateViewerPanel(context, true).then(panel => {
-        panel.webview.postMessage({ type: 'focus', name: chosen.name });
-      }).catch(() => {});
+      const panel = _getOrCreateViewerPanel(context, true);
+      panel.webview.postMessage({ type: 'focus', name: chosen.name });
     },
   );
 
@@ -2588,11 +2588,10 @@ export function activate(context: vscode.ExtensionContext): void {
       // Ensure the viewer panel exists.  If the webview has already
       // confirmed 'ready', post immediately; otherwise the item is stored
       // in _explorerItems and will be replayed when 'ready' fires.
-      _getOrCreateViewerPanel(context).then(panel => {
-        if (_viewerReady) {
-          panel.webview.postMessage(msg);
-        }
-      }).catch(() => {});
+      const panel = _getOrCreateViewerPanel(context);
+      if (_viewerReady) {
+        panel.webview.postMessage(msg);
+      }
     } else if (t === 'delete') {
       const existing = _explorerItems.get(msg.name as string);
       _explorerItems.delete(msg.name as string);
