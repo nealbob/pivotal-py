@@ -179,8 +179,8 @@ export class PivotalViewerWidget extends Widget {
       <div class="pv-header">
         <div class="pv-nav">
           <button class="pv-btn pv-back" title="Back (Alt+[)">&#9664;</button>
-          <span class="pv-title">—</span>
           <button class="pv-btn pv-fwd"  title="Forward (Alt+])">&#9654;</button>
+          <span class="pv-title">—</span>
           <span class="pv-counter"></span>
         </div>
         <button class="pv-btn pv-copy"      title="Copy to clipboard">&#128203;</button>
