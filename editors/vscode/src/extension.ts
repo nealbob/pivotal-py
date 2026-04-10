@@ -695,8 +695,8 @@ function _buildViewerHtml(webview: vscode.Webview): string {
 <div class="pv-header">
   <div class="pv-nav">
     <button class="pv-btn" id="btn-back"  title="Back">&#9664;</button>
-    <span class="pv-title" id="pv-title">—</span>
     <button class="pv-btn" id="btn-fwd"   title="Forward">&#9654;</button>
+    <span class="pv-title" id="pv-title">—</span>
     <span class="pv-counter" id="pv-counter"></span>
   </div>
   <button class="pv-btn" id="btn-copy"    title="Copy to clipboard">&#128203;</button>
@@ -1583,7 +1583,7 @@ function _buildPlotGuiHtml(): string {
 </style>
 </head>
 <body>
-<h2>Agg Plot</h2>
+<h2>Pivot Plot</h2>
 <div class="drow">
   <div class="field" style="flex:1.2">
     <label>with (source)</label>
@@ -1853,7 +1853,7 @@ function _buildPivotGuiHtml(): string {
 </style>
 </head>
 <body>
-<h2>Pivot</h2>
+<h2>Pivot Table</h2>
 <div class="drow">
   <div class="field">
     <label>with (source)</label>
