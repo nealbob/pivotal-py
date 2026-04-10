@@ -20,30 +20,29 @@ class PivotalLexer(RegexLexer):
 
     # Primary DSL verbs
     KEYWORDS = (
-        'load', 'df', 'from', 'delete', 'save', 'concat',
+        'with', 'load', 'from', 'delete', 'save', 'concat',
         'filter', 'select', 'drop', 'distinct', 'rename',
-        'sort', 'head', 'group', 'by', 'agg',
+        'sort', 'order', 'group', 'by', 'agg',
         'merge', 'pivot', 'unpivot', 'apply',
-        'python', 'end',
+        'intersect', 'cast', 'python',
         'rank', 'lag', 'lead',
         'cumsum', 'cummean', 'cummin', 'cummax',
         'rolling', 'fillna', 'dropna',
-        'show', 'plot', 'table',
-        'load_all', 'load_package_table',
-        'start',
+        'show', 'plot', 'table', 'all',
     )
 
     # Clause keywords, modifiers, and sub-options
     MODIFIERS = (
-        'as', 'on', 'where', 'order', 'rows', 'cols',
+        'as', 'on', 'where', 'rows', 'cols',
         'left', 'right', 'inner', 'outer',
         'asc', 'desc', 'pct',
+        'head', 'summary',
         'variable', 'value',
         'left_on', 'right_on', 'suffixes',
         'header', 'names', 'path', 'format', 'include', 'exclude',
         'chart_format',
         'title', 'subtitle', 'font', 'size', 'stub', 'spanner', 'auto',
-        'label', 'summary', 'stripe', 'canvas', 'style',
+        'label', 'stripe', 'canvas', 'style',
         'kind', 'colormap', 'legend', 'x', 'y', 'c',
         'number', 'integer', 'currency', 'percent', 'date',
     )
@@ -89,6 +88,10 @@ class PivotalLexer(RegexLexer):
             (words(MODIFIERS, suffix=r'\b'), Keyword.Declaration),
             (words(WORD_OPS,  suffix=r'\b'), Operator.Word),
             (words(BUILTINS,  suffix=r'\b'), Name.Builtin),
+
+            # Boolean / None literals
+            (words(('True', 'False', 'true', 'false', 'None', 'none'), suffix=r'\b'),
+             Keyword.Constant),
 
             # Identifiers (table names, column names, etc.)
             (r'[a-zA-Z_]\w*',         Name),
