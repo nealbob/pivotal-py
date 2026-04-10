@@ -380,6 +380,14 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
             plot_nodes.append(node)
         elif node.get('type') == 'gt_table':
             gt_table_nodes.append(node)
+        elif node.get('type') == 'from_db':
+            # Extract all aliases defined in the from block
+            for body in node.get('bodies', []):
+                if body.get('kind') == 'load':
+                    for item in body.get('items', []):
+                        seen_tables[item['alias']] = True
+                elif body.get('kind') == 'query':
+                    seen_tables[body['alias']] = True
         else:
             name = node.get('table_name')
             if name:
