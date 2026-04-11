@@ -1,6 +1,6 @@
 # Window Functions
 
-Window functions compute values across a sliding window or partition of rows, without collapsing the table. All window functions are written as assignments under the `df` statement.
+Window functions compute values across a sliding window or partition of rows, without collapsing the table. All window functions are written under the `with` statement.
 
 ## `rank` — ranking
 

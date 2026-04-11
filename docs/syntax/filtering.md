@@ -74,9 +74,7 @@ filter score between [0.8, 1.0]
 | `contains "x"` | String contains substring |
 | `not contains "x"` | String does not contain substring |
 | `startswith "x"` | String starts with prefix |
-| `not startswith "x"` | String does not start with prefix |
 | `endswith "x"` | String ends with suffix |
-| `not endswith "x"` | String does not end with suffix |
 
 ```pivotal
 filter product contains "Laptop"
@@ -101,7 +99,7 @@ filter region == :target_region
 
 ## Multiple filter lines
 
-Multiple `filter` lines under the same `df` are applied in sequence (AND logic):
+Multiple `filter` lines under the same `with` block are applied in sequence (AND logic):
 
 ```pivotal
 with sales as result

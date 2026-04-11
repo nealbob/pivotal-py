@@ -11,10 +11,11 @@ In both cases the DSL is compiled to pandas code and executed in the current Pyt
 
 All operations are **in-place on the active DataFrame** — `filter`, `select`, `sort`, column assignments etc. all modify the current table directly rather than returning a new one.
 
-- `df <name>` sets the **active table** for all following statements until the next `df`
-- Statements that operate on a table are **indented 4 spaces** under the `df` line
-- Sub-clauses (window options, pivot args, assign conditions) are indented a further 4 spaces
-- `load` and `save` are standalone — not indented under `df`
+- `with <name>` sets the **active table** for all following statements until the next `with`
+- `with <source> as <name>` creates a derived copy and makes it active
+- Statements that operate on a table are indented under the `with` line
+- Sub-clauses (window options, pivot args, assign conditions) are indented a further level
+- `load`, `save`, and `delete` are standalone — not indented under `with`
 - Column names and table names are bare identifiers (no quotes)
 - Strings use double or single quotes: `"North"`, `'2024-01-01'`
 - **Python runtime variables** are referenced with a `:` prefix: `:my_var` — the value is substituted at execution time
@@ -23,37 +24,37 @@ All operations are **in-place on the active DataFrame** — `filter`, `select`, 
 ## Loading data
 
 ```pivotal
-load sales "data/sales.csv"
-load budget "report.xlsx"
-load events "events.parquet"
+load "data/sales.csv" as sales
+load "report.xlsx" as budget
+load "events.parquet" as events
 
 # With pandas reader options
-load sales "data/sales.csv"
+load "data/sales.csv" as sales
     header 0
     sep ";"
 
 # Path from a Python runtime variable
-load sales :my_path_variable
+load :my_path_variable as sales
 ```
 
 ## Setting the active table
 
 ```pivotal
 # Work with an existing table — all following statements modify 'sales' in place
-df sales
+with sales
     filter amount > 0
 
 # Create a derived copy — 'sales' is left unchanged; all following statements modify 'clean'
-df clean from sales
+with sales as clean
     filter amount > 0
 ```
 
-`df <name> from <source>` creates a new table that is an independent copy of `<source>`. The original table continues to exist unchanged. Use this whenever you want to preserve the original.
+`with <source> as <name>` creates a new table that is an independent copy of `<source>`. The original table continues to exist unchanged. Use this whenever you want to preserve the original.
 
 ## Filtering
 
 ```pivotal
-df sales
+with sales
     filter amount > 100
     filter region == "North" and status == "active"
     filter category in ["A", "B", "C"]
@@ -69,7 +70,7 @@ Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not co
 ## Selecting columns
 
 ```pivotal
-df sales
+with sales
     select region, amount, date
     select customer_id, revenue as rev
 ```
@@ -78,14 +79,14 @@ df sales
 
 Simple expression:
 ```pivotal
-df sales
+with sales
     revenue = price * quantity
     margin = (revenue - cost) / revenue
 ```
 
 Conditional (sets column only where condition is true, NaN elsewhere):
 ```pivotal
-df sales
+with sales
     discount = price * 0.9
         where category == "clearance"
 ```
@@ -94,7 +95,7 @@ df sales
 
 Group-level aggregate in expression:
 ```pivotal
-df sales
+with sales
     pct = amount / sum(amount)            # percent of total
     pct = amount / sum(amount)            # percent of group total
         by region
@@ -105,7 +106,7 @@ Supported agg functions in expressions: `sum  mean  min  max  count  std  median
 
 Multi-case (CASE WHEN equivalent) — the final unguarded value is the `else` branch:
 ```pivotal
-df sales
+with sales
     tier =
         where amount > 1000: "high"
         where amount > 500:  "medium"
@@ -114,7 +115,7 @@ df sales
 
 String functions:
 ```pivotal
-df sales
+with sales
     code = upper(category)
     abbr = left(name, 3)
     full = first_name + " " + last_name
@@ -124,7 +125,7 @@ String functions: `upper  lower  trim  ltrim  rtrim  left(col,n)  right(col,n)  
 
 Date functions:
 ```pivotal
-df sales
+with sales
     yr       = year(order_date)
     mo       = month(order_date)
     label    = date_format(order_date, "%b %Y")
@@ -138,7 +139,7 @@ Date functions: `year  month  day  quarter  dayofweek  hour  minute  date_format
 ## Sorting
 
 ```pivotal
-df sales
+with sales
     sort amount desc
     sort region asc, amount desc
 ```
@@ -146,11 +147,11 @@ df sales
 ## Grouping and aggregation
 
 ```pivotal
-df summary from sales
+with sales as summary
     group by region
         agg sum amount as total, mean amount as avg, count amount as n
 
-df detail from sales
+with sales as detail
     group by region, category
         agg sum amount as total
         agg nunique customer_id as customers
@@ -163,7 +164,7 @@ Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg s
 To aggregate over all rows without grouping, use `agg` without `group by`:
 
 ```pivotal
-df totals from sales
+with sales as totals
     agg sum amount as total, mean amount as avg
 ```
 
@@ -172,7 +173,7 @@ df totals from sales
 All share optional `by` (partition) and `order` sub-clauses:
 
 ```pivotal
-df sales
+with sales
     rank amount desc as sales_rank
         by region
         order date
@@ -196,7 +197,7 @@ df sales
 
 `rank` with `pct` gives percentile ranks (0–1):
 ```pivotal
-df sales
+with sales
     rank amount pct as r
         by region
 ```
@@ -207,7 +208,7 @@ Cumulative: `cumsum  cummean  cummin  cummax`
 ## Merging
 
 ```pivotal
-df result from sales
+with sales as result
     merge customers on customer_id
     left merge products on product_id
     merge other
@@ -220,13 +221,13 @@ Merge types: `merge` (inner)  `left merge`  `right merge`  `outer merge`
 ## Pivot and unpivot
 
 ```pivotal
-df pivot_result from sales
+with sales as pivot_result
     pivot
         rows category
         cols region
         agg sum amount
 
-df long from wide
+with wide as long
     unpivot
         id region
         cols jan, feb, mar
@@ -237,7 +238,7 @@ df long from wide
 ## Type casting
 
 ```pivotal
-df sales
+with sales
     cast price as float            # coerce (bad values → NaN/null)
     cast qty as int
     cast name as string
@@ -250,7 +251,7 @@ Types: `int` / `integer`  `float`  `string` / `str`  `bool` / `boolean`  `dateti
 
 Inline cast in expressions:
 ```pivotal
-df sales
+with sales
     price = float(price)
     label = str(code)
     ts = datetime(ts_col)
@@ -259,7 +260,7 @@ df sales
 ## Data cleaning
 
 ```pivotal
-df clean from raw
+with raw as clean
     drop internal_id, temp_col
     rename cust_nm as customer, val as amount
     fillna 0
@@ -270,20 +271,20 @@ df clean from raw
 ## Concatenate / Set operations
 
 ```pivotal
-df all_sales from q1
+with q1 as all_sales
     concat q2, q3, q4      # union all (stack rows)
 
-df common from a
+with a as common
     intersect b             # rows present in both tables
 
-df new from all_leads
+with all_leads as new
     exclude converted       # rows in all_leads but not in converted
 ```
 
 `fillna` can fill per-column with an indented block:
 
 ```pivotal
-df clean from raw
+with raw as clean
     fillna
         price = 0
         name = "unknown"
@@ -292,7 +293,7 @@ df clean from raw
 ## Plotting
 
 ```pivotal
-df summary
+with summary
     plot bar revenue_chart
         x category
         y total
@@ -303,14 +304,14 @@ df summary
 
 `pivot plot` produces a plot directly from a grouped aggregation without creating a separate summary table. Each `y` entry is a `func col` pair; multiple pairs are comma-separated. An optional `filter` before the statement pre-filters the data:
 ```pivotal
-df sales
+with sales
     pivot plot bar revenue_chart
         x region
         y sum amount, mean price
 ```
 
 ```pivotal
-df sales
+with sales
     filter year > 2020
     pivot plot line trend_chart
         x month
@@ -323,7 +324,7 @@ Chart types: `line  bar  scatter  hist  box  area`
 ## Tables (Great Tables)
 
 ```pivotal
-df results
+with results
     table my_table
         title "Summary"
         stub product
@@ -338,13 +339,13 @@ Python variables in the kernel/runtime namespace are referenced with `:` prefix 
 
 ```pivotal
 # Use a Python variable as a filter value
-df sales
+with sales
     filter region == :target_region
     filter amount > :min_amount
     filter category in :allowed_categories
 
 # Use a Python variable as a file path
-load sales :data_path
+load :data_path as sales
 ```
 
 `:var` supports plain variable names only — subscript indexing (`:mylist[0]`, `:mydict['key']`) is not supported. Extract the value first:
@@ -352,7 +353,7 @@ load sales :data_path
 ```pivotal
 python val = mylist[0]
 
-df sales
+with sales
     newvar = "prefix" + :val
 ```
 
@@ -370,14 +371,14 @@ python
         return df["amount"] > df["amount"].quantile(0.99)
 end
 
-df sales
+with sales
     name = clean(name)
     python sales["outlier"] = flag_outlier(sales)
 ```
 
 Single-line (inline Python, prefixed with `python` on the same line — no `end` needed):
 ```pivotal
-df sales
+with sales
     python sales["flag"] = sales["amount"] > 1000
 ```
 
@@ -386,9 +387,9 @@ df sales
 Display the active table (or a preview of it) without saving:
 
 ```pivotal
-df sales
+with sales
     show                # display the full table
-    show head 10        # display first 10 rows
+    show head           # display the first rows
     show summary        # display descriptive statistics
 ```
 
@@ -397,7 +398,7 @@ df sales
 Call a Python function on the active DataFrame and replace it with the result:
 
 ```pivotal
-df sales
+with sales
     apply my_cleaning_function
 ```
 
@@ -435,11 +436,11 @@ These are patterns that look plausible but are wrong:
 
 | Wrong | Right | Why |
 |---|---|---|
-| `sales.filter(amount > 0)` | `df sales` / `filter amount > 0` | No method chaining — Pivotal is line-by-line |
-| `df sales = load("data.csv")` | `load sales "data.csv"` | `load` is a standalone statement, not an assignment |
+| `sales.filter(amount > 0)` | `with sales` / `filter amount > 0` | No method chaining — Pivotal is line-by-line |
+| `with sales = load("data.csv")` | `load "data.csv" as sales` | `load` is a standalone statement, not an assignment |
 | `select *` | omit `select` entirely, or `show` | There is no wildcard select |
-| `filter amount > 0` (at top level) | `df sales` / `    filter amount > 0` | All row/column ops must be indented under a `df` block |
-| `df clean = df sales` | `df clean from sales` | Copy syntax uses `from`, not `=` |
+| `filter amount > 0` (at top level) | `with sales` / `    filter amount > 0` | All row/column ops must be indented under a `with` block |
+| `with clean from sales` | `with sales as clean` | Copy syntax uses `with <source> as <name>` |
 | `where amount > 0` (as a statement) | `filter amount > 0` | `where` is only valid as a sub-clause inside an assignment |
 | `python` block without `end` | close every multi-line `python` block with `end` | Missing `end` is a syntax error |
 | `:mylist[0]` or `:mydict['key']` | `python val = mylist[0]` then `:val` | Subscript indexing on `:var` is not supported |
@@ -450,7 +451,7 @@ These are patterns that look plausible but are wrong:
 
 | SQL | Pivotal |
 |---|---|
-| `SELECT * FROM sales WHERE amount > 0` | `df sales` / `filter amount > 0` |
+| `SELECT * FROM sales WHERE amount > 0` | `with sales` / `filter amount > 0` |
 | `SELECT a, b FROM sales` | `select a, b` |
 | `SELECT price * qty AS revenue FROM sales` | `revenue = price * qty` |
 | `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1: ...` |
@@ -461,6 +462,6 @@ These are patterns that look plausible but are wrong:
 ## Key differences from pandas
 
 - No index management — Pivotal always works on reset-index DataFrames
-- No method chaining — statements are line-by-line under a `df` block
+- No method chaining — statements are line-by-line under a `with` block
 - `group by` produces a new table (not a GroupBy object to chain from)
 - Window functions add a column in-place; they don't require `.groupby().transform()`

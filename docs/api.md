@@ -222,7 +222,7 @@ notebook_to_pivotal('analysis.ipynb')
 ```
 
 - `%%pivotal` cells are written as-is (DSL source only, magic line stripped)
-- Regular Python cells are wrapped in `python...end` blocks
+- Regular Python cells are wrapped in `python...end` blocks in the exported `.pivotal` file
 - GUI cells are skipped
 
 The resulting `.pivotal` file is fully executable with the Pivotal CLI.

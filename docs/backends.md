@@ -75,7 +75,7 @@ parser.generate_code(results, backend='duckdb')
 
 **Limitations with DuckDB:**
 
-- Python-only operations (`apply`, user-defined `python...end` functions that aren't UDFs) fall back to pandas for that step
+- Python-only operations (`apply`, multi-line `python...end` blocks, or user-defined Python functions that aren't DuckDB UDFs) fall back to pandas for that step
 - SQL dialect is DuckDB SQL — some edge cases may differ from pandas behaviour
 
 ## SQL CTE
@@ -97,7 +97,7 @@ parser.generate_code(results, backend='sql')
 
 **Limitations with SQL CTE:**
 
-- Python operations (`apply`, `plot`, `table`, `show`, `python...end`) are skipped and replaced with a `-- [skipped: ...]` comment
+- Python operations (`apply`, `plot`, `table`, `show`, `python`, `python...end`) are skipped and replaced with a `-- [skipped: ...]` comment
 - `fillna` is not yet supported (skipped)
 - Output targets DuckDB SQL dialect; minor adjustments may be needed for other databases
 

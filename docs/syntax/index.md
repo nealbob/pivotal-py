@@ -46,7 +46,8 @@ categories = ["A", "B"]
 with sales as filtered
     filter amount > :threshold
     filter category in :categories
-    load :my_file_path as data
+
+load :my_file_path as data
 ```
 
 This works in Jupyter (referencing notebook variables) and in the Python API (referencing the namespace passed to `execute()`).
@@ -86,7 +87,7 @@ load "path/to/file.csv" as data
 | [`fillna`](missing-data.md) | Fill missing values |
 | [`dropna`](missing-data.md) | Drop rows with missing values |
 | [`concat`](joining.md) | Stack tables vertically |
-| [`python...end`](python-interop.md) | Embed Python code |
+| [`python`](python-interop.md) | Embed Python code |
 | [`apply`](python-interop.md) | Apply a Python function to a table |
 | [`show`](output.md) | Display inline |
 | [`plot`](output.md) | Create a chart |

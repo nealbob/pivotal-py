@@ -1,6 +1,6 @@
 # Column Expressions
 
-Create new columns or modify existing ones by writing `column_name = expression` indented under the `df` statement.
+Create new columns or modify existing ones by writing `column_name = expression` indented under the `with` statement.
 
 ## Simple expressions
 

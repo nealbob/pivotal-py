@@ -29,7 +29,7 @@ Pivotal source files use the `.pivotal` extension. The extension activates autom
 
 The extension provides syntax highlighting for:
 
-- **Keywords:** `load`, `df`, `filter`, `select`, `assign`, `sort`, `group`, `merge`, `pivot`, `plot`, `drop`, `fillna`, `dropna`, `distinct`, `concat`, `intersect`, `exclude`, `rename`, `apply`, `save`, `delete`, `show`, `python`, `summarise`, `end`
+- **Keywords:** `with`, `load`, `filter`, `select`, `sort`, `order by`, `group`, `agg`, `merge`, `pivot`, `unpivot`, `plot`, `table`, `drop`, `fillna`, `dropna`, `distinct`, `concat`, `intersect`, `exclude`, `cast`, `rename`, `apply`, `save`, `delete`, `show`, `python`, `rank`, `lag`, `lead`, `cumsum`, `cummean`, `cummin`, `cummax`, `rolling`, `end`
 - **Clause keywords:** `from`, `where`, `as`, `on`, `by`, `rows`, `cols`, `head`
 - **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not`, `between`, `contains`, `startswith`, `endswith`, `and`, `or`
 - **Sort modifiers:** `asc`, `desc`
@@ -137,4 +137,4 @@ The extension configures:
 
 - **Comments:** `#` and `--` for line comments; `/* */` for block comments
 - **Auto-closing pairs:** `"..."`, `[...]`
-- **Auto-indent:** increases after block-starting statements (`df`, `load`, `group by`, `pivot`, `python`, etc.)
+- **Auto-indent:** increases after block-starting statements (`with`, `load`, `group by`, `pivot`, `unpivot`, `table`, `python`, etc.)

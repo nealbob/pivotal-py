@@ -36,18 +36,14 @@ save "my_analysis"
 Load all tables from a previously saved package:
 
 ```pivotal
-python
-    import pivotal
-    _pivotal_pkg = pivotal.Package.open("my_analysis")
-end
-
-load_all
+python import pivotal; _pivotal_pkg = pivotal.Package.open("my_analysis")
 ```
 
-Load a specific table:
+Then load tables from Python:
 
-```pivotal
-load_package_table sales
+```python
+tables = _pivotal_pkg.load_all()
+sales = _pivotal_pkg.load_table("sales")
 ```
 
 ---
@@ -58,7 +54,7 @@ Remove a table from the current session to free memory:
 
 ```pivotal
 delete raw_import
-delete temp, scratch
+delete scratch
 ```
 
 In Jupyter, equivalent to `del raw_import` in Python.
