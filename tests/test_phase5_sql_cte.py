@@ -247,6 +247,20 @@ def test_execute_assign_sql(parser, sample_df):
     assert list(result.sort_values('id')['revenue']) == pytest.approx(list(expected))
 
 
+def test_codegen_assign_scalar_max_sql(parser):
+    sql = gen_sql(parser, 'with sales\ncapped = max(price - 150, 0)\n')
+    assert 'GREATEST(price - 150, 0)' in sql
+    assert 'AS capped' in sql
+
+
+def test_execute_assign_scalar_min_nested_with_agg_sql(parser):
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    conn = make_conn('data', df)
+    sql = gen_sql(parser, 'with data\nband = min(max(amount - 150, 0), max(amount) / 2)\n')
+    result = conn.execute(sql).df()
+    assert result['band'].tolist() == pytest.approx([0, 50, 150])
+
+
 # ===========================================================================
 # rank
 # ===========================================================================

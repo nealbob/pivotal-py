@@ -254,6 +254,22 @@ def test_assign_agg_by_code_generation(parser):
     assert "groupby(['region'])['amount'].transform('sum')" in code
 
 
+def test_assign_scalar_max_rowwise(parser):
+    """max(expr, scalar) computes a row-wise cap, not an aggregate."""
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\ncapped = max(amount - 150, 0)\n', ns)
+    assert ns['data']['capped'].tolist() == pytest.approx([0, 50, 150])
+
+
+def test_assign_scalar_min_nested_with_agg(parser):
+    """Nested scalar min/max should coexist with one-arg aggregate max()."""
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\nband = min(max(amount - 150, 0), max(amount) / 2)\n', ns)
+    assert ns['data']['band'].tolist() == pytest.approx([0, 50, 150])
+
+
 # ---------------------------------------------------------------------------
 # nunique and wavg
 # ---------------------------------------------------------------------------
