@@ -1,10 +1,13 @@
 # Pivotal
 
-Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  With comprehensive JupyterLab and VS Code support (syntax highlighting, autocomplete, interactive viewer, GUI controls) Pivotal provides a friendly entry point to the Python data ecosystem.
+Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  With comprehensive JupyterLab and VS Code support (syntax highlighting, autocomplete, interactive viewer and GUI controls) Pivotal provides a friendly entry point to the Python data ecosystem.
 
 === "Pivotal"
 
     ```pivotal
+    load "daily_climate.csv" as climate
+    load "crop_data.csv" as crops
+    
     python grow_min = 8; grow_max = 32; crop_season = [4, 10]
 
     with climate as climate_features
@@ -37,6 +40,7 @@ Pivotal is a data analysis language for Python.  It offers a concise syntax for 
 
 === "Python"
 
+    ```python
     import pandas as pd
     from sklearn.linear_model import LinearRegression
 
@@ -100,7 +104,7 @@ Pivotal is a data analysis language for Python.  It offers a concise syntax for 
     )
 
     plot_data.plot(x="year", y=["yield", "yield_hat"], kind="line", xlabel="Year", ylabel="Wheat yield (t/ha)")
-
+    ```
 ---
 
 A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb) is available via Binder:
