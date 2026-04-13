@@ -591,6 +591,20 @@ def test_assign_agg_mean(parser):
     assert ns['data']['z'].mean() == pytest.approx(0.0, abs=1e-10)
 
 
+def test_assign_scalar_max_rowwise_polars(parser):
+    df = pl.DataFrame({'amount': [100, 200, 300]})
+    ns = {'data': df}
+    run(parser, 'with data\ncapped = max(amount - 150, 0)\n', ns)
+    assert ns['data']['capped'].to_list() == [0, 50, 150]
+
+
+def test_assign_scalar_min_nested_with_agg_polars(parser):
+    df = pl.DataFrame({'amount': [100, 200, 300]})
+    ns = {'data': df}
+    run(parser, 'with data\nband = min(max(amount - 150, 0), max(amount) / 2)\n', ns)
+    assert ns['data']['band'].to_list() == [0, 50, 150]
+
+
 # ---------------------------------------------------------------------------
 # assign: built-in string functions
 # ---------------------------------------------------------------------------

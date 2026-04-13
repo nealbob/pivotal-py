@@ -2385,6 +2385,80 @@ class CodeGenerator:
             args.append(''.join(current).strip())
         return [a for a in args if a]
 
+    def _parse_scalar_minmax_call(self, expr):
+        """Return (func, args) for scalar min/max(expr1, expr2, ...), else None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\s*\((.+)\)\s*', expr.strip(), re.DOTALL)
+        if not m:
+            return None
+        func = m.group(1).lower()
+        if func not in {'min', 'max'}:
+            return None
+        args = self._split_func_args(m.group(2))
+        if len(args) < 2:
+            return None
+        return func, args
+
+    def _try_scalar_minmax_pandas(self, expr, table):
+        """Translate scalar min/max(expr1, expr2, ...) to vectorised numpy code."""
+        parsed = self._parse_scalar_minmax_call(expr)
+        if parsed is None:
+            return None
+
+        func, args = parsed
+        np_func = 'maximum' if func == 'max' else 'minimum'
+
+        def _arg_code(arg):
+            arg = arg.strip()
+            nested = self._try_scalar_minmax_pandas(arg, table)
+            if nested is not None:
+                return nested
+            string_code = self._parse_string_expr(arg, table)
+            if string_code is not None:
+                return string_code
+            if self._is_scalar_expr(arg):
+                return arg
+            return f"{table}.eval({arg!r})"
+
+        code = _arg_code(args[0])
+        for arg in args[1:]:
+            code = f"np.{np_func}({code}, {_arg_code(arg)})"
+        return code
+
+    def _try_sql_scalar_minmax(self, expr):
+        """Translate scalar min/max(expr1, expr2, ...) to LEAST/GREATEST."""
+        parsed = self._parse_scalar_minmax_call(expr)
+        if parsed is None:
+            return None, False
+
+        func, args = parsed
+        sql_func = 'GREATEST' if func == 'max' else 'LEAST'
+        translated = []
+        uses_pyvar = False
+
+        for arg in args:
+            arg = arg.strip()
+            nested_sql, nested_pyvar = self._try_sql_scalar_minmax(arg)
+            if nested_sql is not None:
+                translated.append(nested_sql)
+                uses_pyvar = uses_pyvar or nested_pyvar
+                continue
+
+            sql = self._try_sql_cast_func(arg)
+            if sql is None:
+                sql, upv = self._try_sql_date_func(arg)
+                uses_pyvar = uses_pyvar or upv
+            if sql is None:
+                sql = self._try_sql_string_func(arg)
+            if sql is None:
+                sql = self._try_sql_string_concat(arg)
+            if sql is None:
+                sql, upv = self._translate_assign_expr_to_sql(arg)
+                uses_pyvar = uses_pyvar or upv
+            translated.append(sql)
+
+        return f"{sql_func}({', '.join(translated)})", uses_pyvar
+
     def _try_string_concat(self, expr, table):
         """Parse col + "lit" + col concatenation. Returns pandas code or None."""
         import re
@@ -2545,6 +2619,17 @@ class CodeGenerator:
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
         if preamble:
             lines = preamble
+            scalar_code = self._try_scalar_minmax_pandas(subst_expr, table)
+            if scalar_code is not None:
+                lines.insert(0, "import numpy as np")
+                if conditions:
+                    lines.append(f"_cond = {table}.eval({query_str!r})")
+                    lines.append(
+                        f"{table}.loc[_cond, {target!r}] = ({scalar_code})[_cond]"
+                    )
+                else:
+                    lines.append(f"{table}[{target!r}] = {scalar_code}")
+                return '\n'.join(lines)
             if conditions:
                 lines.append(f"_cond = {table}.eval({query_str!r})")
                 lines.append(
@@ -2561,6 +2646,14 @@ class CodeGenerator:
                 return (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = ({string_code})[condition]")
             return f"{table}['{target}'] = {string_code}"
+
+        scalar_minmax = self._try_scalar_minmax_pandas(expr, table)
+        if scalar_minmax is not None:
+            if conditions:
+                return (f"import numpy as np\n"
+                        f"condition = {table}.eval({query_str!r})\n"
+                        f"{table}.loc[condition, '{target}'] = ({scalar_minmax})[condition]")
+            return f"import numpy as np\n{table}['{target}'] = {scalar_minmax}"
 
         user_call = self._parse_user_func_call(expr)
 
@@ -2837,6 +2930,21 @@ class CodeGenerator:
                     result.append(agg_expr)
                     i = j
                     continue
+
+                if rest.startswith('(') and name in {'min', 'max'}:
+                    paren_pos = expr.index('(', end)
+                    depth, j = 1, paren_pos + 1
+                    while j < n and depth > 0:
+                        depth += (expr[j] == '(') - (expr[j] == ')')
+                        j += 1
+                    inner = expr[paren_pos + 1:j - 1].strip()
+                    parts = self._split_func_args(inner)
+                    if len(parts) >= 2:
+                        horizontal = 'max_horizontal' if name == 'max' else 'min_horizontal'
+                        arg_exprs = [self._expr_to_polars(p, by_cols) for p in parts]
+                        result.append(f"pl.{horizontal}([{', '.join(arg_exprs)}])")
+                        i = j
+                        continue
 
                 if rest.startswith('(') and name in AGG_FUNCS:
                     paren_pos = expr.index('(', end)
@@ -5372,7 +5480,9 @@ class CodeGenerator:
         # ── By-clause agg calls → window functions ─────────────────
         sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
         if sql_expr_with_agg != expr:
-            sql_expr_translated, _ = self._translate_assign_expr_to_sql(sql_expr_with_agg)
+            sql_expr_translated, _ = self._try_sql_scalar_minmax(sql_expr_with_agg)
+            if sql_expr_translated is None:
+                sql_expr_translated, _ = self._translate_assign_expr_to_sql(sql_expr_with_agg)
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
@@ -5384,6 +5494,8 @@ class CodeGenerator:
             sql_str = self._try_sql_string_func(expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(expr)
+        if sql_str is None:
+            sql_str, uses_pyvar_expr = self._try_sql_scalar_minmax(expr)
         if sql_str is None:
             sql_str, uses_pyvar_expr = self._translate_assign_expr_to_sql(expr)
 
@@ -5877,6 +5989,10 @@ class CodeGenerator:
             sql_str = self._try_sql_string_func(sql_expr)
         if sql_str is None:
             sql_str = self._try_sql_string_concat(sql_expr)
+        if sql_str is None:
+            sql_str, upv = self._try_sql_scalar_minmax(sql_expr)
+            if upv:
+                return f"-- [skipped: assign with Python variable in expression]"
         if sql_str is None:
             sql_str, upv = self._translate_assign_expr_to_sql(sql_expr)
             if upv:

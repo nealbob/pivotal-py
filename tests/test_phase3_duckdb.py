@@ -222,6 +222,24 @@ def test_codegen_assign_by_agg_duckdb(parser):
     assert 'PARTITION BY' in code
 
 
+def test_assign_scalar_max_rowwise_duckdb(parser):
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\ncapped = max(amount - 150, 0)\n', ns)
+    result = fetch(ns, 'data')
+    assert result['capped'].tolist() == pytest.approx([0, 50, 150])
+
+
+def test_assign_scalar_min_nested_with_agg_duckdb(parser):
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\nband = min(max(amount - 150, 0), max(amount) / 2)\n', ns)
+    result = fetch(ns, 'data')
+    assert result['band'].tolist() == pytest.approx([0, 50, 150])
+
+
 # ===========================================================================
 # rank
 # ===========================================================================

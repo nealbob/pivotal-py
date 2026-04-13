@@ -6,7 +6,7 @@ Pivotal is a data analysis language for Python.  It offers a concise syntax for 
 
 <br>
 
-<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/ataglance.png" width="600">
+<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/ataglance2.png" width="600">
 
 A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb) is available via Binder:
 
