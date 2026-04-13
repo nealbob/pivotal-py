@@ -97,7 +97,7 @@ plot_data = (
 
 plot_data.plot(x="year", y=["yield", "yield_hat"], kind="line", xlabel="Year", ylabel="Wheat yield (t/ha)")
 
-
+"""
 
 load "invoices.csv" as invoices 
 load "customers.csv" as customers 
@@ -122,9 +122,8 @@ save "my_analysis"
 
 ### ABARES example
 
-# TODO ; for multi-statements on one line, does max(x,0) conflict with agg func max()
 # could we support indexing in :pythonvar
-
+"""
 
         
     
