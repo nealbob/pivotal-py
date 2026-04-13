@@ -17,7 +17,7 @@ with crops as training_data
     filter crop_type == "wheat" and area > 0
     yield = production / area
     inner merge climate_features on year, region
-    select year, area, yield, gdd, grow_rain
+    select year, area, yield, gdd, grow_rain, region
 
 python
     from sklearn.linear_model import LinearRegression
@@ -27,8 +27,8 @@ end
 
 with training_data
     pivot plot line nat_pred_vs_actual
-        x year
-        y wmean yield area, wmean yield_hat area
+        x year "Year"
+        y wmean yield area, wmean yield_hat area "Wheat yield (t/ha)"
 
 load "invoices.csv" as invoices 
 load "customers.csv" as customers 
