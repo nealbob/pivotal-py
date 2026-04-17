@@ -97,7 +97,7 @@ class PivotalLexer(RegexLexer):
             (r'[a-zA-Z_]\w*',         Name),
 
             # Punctuation
-            (r'[\[\](),]',            Punctuation),
+            (r'[\[\](),;]',            Punctuation),
 
             # Whitespace
             (r'\s+',                  Text),

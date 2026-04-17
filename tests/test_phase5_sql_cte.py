@@ -227,8 +227,8 @@ def test_codegen_assign_case_sql(parser):
     dsl = (
         'with sales\n'
         'tier =\n'
-        '    where price > 500: "premium"\n'
-        '    where price > 100: "mid"\n'
+        '    where price > 500; "premium"\n'
+        '    where price > 100; "mid"\n'
         '    else: "budget"\n'
     )
     sql = gen_sql(parser, dsl)

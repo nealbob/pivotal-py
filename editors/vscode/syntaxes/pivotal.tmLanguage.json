@@ -91,7 +91,7 @@
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",
       "name": "keyword.other.pivotal",
-      "match": "\\b(query|where|as|on|by|rows|cols|agg|head|summary|strict|stub|format|id|order|variable|value|left_on|right_on)\\b"
+      "match": "\\b(query|where|else|as|on|by|rows|cols|agg|head|summary|strict|stub|format|id|order|variable|value|left_on|right_on)\\b"
     },
     "keywords-merge-type": {
       "comment": "Merge type modifiers",

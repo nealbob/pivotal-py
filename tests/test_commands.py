@@ -157,9 +157,9 @@ def test_assign_case_basic(parser, sample_df):
     """Multi-case assign produces correct values for each branch."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
     dsl = ('with sales\ntier =\n'
-           '    where price > 300: price * 2\n'
-           '    where price > 100: price\n'
-           '    0\n')
+           '    where price > 300; price * 2\n'
+           '    where price > 100; price\n'
+           '    else 0\n')
     run(parser, dsl, ns)
     df = ns['sales']
     assert df.loc[df['price'] > 300, 'tier'].eq(df.loc[df['price'] > 300, 'price'] * 2).all()
@@ -169,13 +169,30 @@ def test_assign_case_basic(parser, sample_df):
     assert low['tier'].eq(0).all()
 
 
+def test_assign_where_else_default(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = ('with sales\n'
+           'discounted = price * 0.9\n'
+           '    where category == "Electronics"\n'
+           '    else price\n')
+    run(parser, dsl, ns)
+    expected = sample_df.copy()
+    expected['discounted'] = expected['price'].where(
+        expected['category'] == 'Electronics', expected['price']
+    )
+    expected.loc[expected['category'] == 'Electronics', 'discounted'] = (
+        expected.loc[expected['category'] == 'Electronics', 'price'] * 0.9
+    )
+    pd.testing.assert_series_equal(ns['sales']['discounted'], expected['discounted'])
+
+
 def test_assign_case_first_match_wins(parser):
     """When a row satisfies multiple conditions, the first branch wins."""
     df = pd.DataFrame({'x': [10, 5, 1]})
     ns = {'pd': pd, 'data': df}
     dsl = ('with data\nlabel =\n'
-           '    where x > 3: x * 10\n'
-           '    where x > 1: x * 100\n'
+           '    where x > 3; x * 10\n'
+           '    where x > 1; x * 100\n'
            '    0\n')
     run(parser, dsl, ns)
     # x=10 matches both; first branch (x*10=100) should win
@@ -199,7 +216,7 @@ def test_assign_case_no_default(parser):
 
 def test_assign_case_code_generation(parser):
     """Multi-case generates np.select with conditions in branch order."""
-    nodes = parser.parse('with sales\nt =\n    where x > 10: x\n    where x > 5: 1\n    0\n')
+    nodes = parser.parse('with sales\nt =\n    where x > 10; x\n    where x > 5; 1\n    0\n')
     code = '\n'.join(parser.generate_code(nodes))
     assert 'np.select' in code
     # First branch condition appears before second in the conditions list
@@ -1740,6 +1757,15 @@ def test_fillna_per_col(parser):
     df = pd.DataFrame({'price': [1.0, None, 3.0], 'name': ['a', None, 'c']})
     ns = {'pd': pd, 't': df.copy()}
     run(parser, 'with t\n    fillna\n        price = 0\n        name = "unknown"\n', ns)
+    assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
+    assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
+
+
+def test_fillna_per_col_comma_syntax(parser):
+    """fillna with comma-separated col value syntax fills each column independently."""
+    df = pd.DataFrame({'price': [1.0, None, 3.0], 'name': ['a', None, 'c']})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'with t\n    fillna price 0, name "unknown"\n', ns)
     assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
     assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
 

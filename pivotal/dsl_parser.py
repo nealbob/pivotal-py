@@ -220,10 +220,12 @@ grammar_indented = r"""
     assign_opts: assign_opt+
     assign_opt: "where" condition_list _NL? -> assign_where
               | "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> assign_by
+              | "else" expression _NL? -> assign_else
 
     case_list: case_branch+ case_default?
-    case_branch: "where" condition_list ":" CASE_BRANCH_EXPR _NL
-    case_default: CASE_DEFAULT_EXPR _NL
+    case_branch: "where" condition_list ";" CASE_BRANCH_EXPR _NL
+    case_default: "else" expression _NL?
+                | CASE_DEFAULT_EXPR _NL
     CASE_BRANCH_EXPR: /[^\n]+/
     CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
@@ -294,6 +296,10 @@ grammar_indented = r"""
 
     fillna_statement: "fillna" value _NL?
                     | "fillna" _NL _INDENT fillna_col_params _DEDENT
+                    | "fillna" fillna_col_list _NL?
+
+    fillna_col_list: fillna_col_item ("," fillna_col_item)*
+    fillna_col_item: IDENTIFIER value
 
     fillna_col_params: fillna_col_param+
     fillna_col_param: IDENTIFIER "=" value _NL?
@@ -629,6 +635,9 @@ class DSLTransformer(Transformer):
     def assign_by(self, *cols):
         return {'type': 'assign_by', 'cols': [str(c) for c in cols]}
 
+    def assign_else(self, expression):
+        return {'type': 'assign_else', 'expression': str(expression).strip()}
+
     def assign_opts(self, *args):
         return list(args)
 
@@ -645,8 +654,10 @@ class DSLTransformer(Transformer):
 
     def case_default(self, token):
         expr = str(token).strip()
-        # Strip the leading 'else:' keyword that the CASE_DEFAULT_EXPR terminal captures
+        # Strip a leading explicit else keyword, with or without colon
         if expr.lower().startswith('else:'):
+            expr = expr[5:].strip()
+        elif expr.lower().startswith('else '):
             expr = expr[5:].strip()
         return {'type': 'case_default', 'expression': expr}
 
@@ -683,6 +694,7 @@ class DSLTransformer(Transformer):
         query_str = None
         by_cols = []
 
+        default_expr = None
         for opt in (opts or []):
             if opt['type'] == 'assign_where':
                 conditions = opt['conditions']
@@ -690,6 +702,8 @@ class DSLTransformer(Transformer):
                 query_str = opt['query_str']
             elif opt['type'] == 'assign_by':
                 by_cols = opt['cols']
+            elif opt['type'] == 'assign_else':
+                default_expr = opt['expression']
 
         return {
             'type': 'assign',
@@ -700,6 +714,7 @@ class DSLTransformer(Transformer):
             'operators': operators,
             'query_str': query_str,
             'by_cols': by_cols,
+            'default_expr': default_expr,
             'cases': None,
         }
     
@@ -855,12 +870,31 @@ class DSLTransformer(Transformer):
         }
 
     def fillna_statement(self, *args):
-        # Two forms: fillna value  OR  fillna \n indent col_params
-        if len(args) == 1 and not isinstance(args[0], list):
-            return {'type': 'fillna', 'table_name': self.current_table, 'value': args[0], 'per_col': {}}
-        # per-column: args[0] is the list from fillna_col_params
-        col_params = args[0] if args else []
-        return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': dict(col_params)}
+        # Three forms: 
+        # 1. fillna value (fill all columns)
+        # 2. fillna \n indent col=value... (old indented syntax)
+        # 3. fillna col1 val1, col2 val2... (new comma-separated syntax)
+        if len(args) == 1:
+            if not isinstance(args[0], list):
+                # Case 1: fillna value
+                return {'type': 'fillna', 'table_name': self.current_table, 'value': args[0], 'per_col': {}}
+            else:
+                # Case 2: fillna \n indent col_params (args[0] is list from fillna_col_params)
+                col_params = args[0]
+                return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': dict(col_params)}
+        elif len(args) == 2:
+            # Case 3: fillna col_list (args[1] is list from fillna_col_list)
+            col_params = args[1] if len(args) > 1 else []
+            return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': dict(col_params)}
+        else:
+            # Fallback
+            return {'type': 'fillna', 'table_name': self.current_table, 'value': None, 'per_col': {}}
+
+    def fillna_col_list(self, *items):
+        return list(items)
+
+    def fillna_col_item(self, col, val):
+        return (str(col), val)
 
     def fillna_col_params(self, *params):
         return list(params)
@@ -2610,10 +2644,32 @@ class CodeGenerator:
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         query_str = ast_node.get('query_str')
+        default_expr = ast_node.get('default_expr')
 
         # Convert :varname Python variable refs to @varname for df.eval()
         import re as _re_pa
         expr = _re_pa.sub(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'@\1', expr)
+        if default_expr is not None:
+            default_expr = _re_pa.sub(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'@\1', default_expr)
+
+        def _default_rhs(expr_value):
+            if expr_value is None:
+                return None
+            string_code = self._parse_string_expr(expr_value, table)
+            if string_code is not None:
+                return f"({string_code})"
+            scalar_minmax = self._try_scalar_minmax_pandas(expr_value, table)
+            if scalar_minmax is not None:
+                return f"({scalar_minmax})"
+            user_call = self._parse_user_func_call(expr_value)
+            if user_call:
+                func, col = user_call
+                return f"{func}({table}['{col}'])"
+            if self._is_scalar_expr(expr_value):
+                return expr_value
+            return f"{table}.eval('{expr_value}')"
+
+        default_rhs = _default_rhs(default_expr)
 
         # Detect aggregate function calls — substitute before other processing
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
@@ -2625,16 +2681,24 @@ class CodeGenerator:
                 if conditions:
                     lines.append(f"_cond = {table}.eval({query_str!r})")
                     lines.append(
-                        f"{table}.loc[_cond, {target!r}] = ({scalar_code})[_cond]"
+                        f"{table}.loc[_cond, {target!r}] = ({scalar_code})"
                     )
+                    if default_rhs is not None:
+                        lines.append(
+                            f"{table}.loc[~_cond, {target!r}] = {default_rhs}"
+                        )
                 else:
                     lines.append(f"{table}[{target!r}] = {scalar_code}")
                 return '\n'.join(lines)
             if conditions:
                 lines.append(f"_cond = {table}.eval({query_str!r})")
                 lines.append(
-                    f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})[_cond]"
+                    f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})"
                 )
+                if default_rhs is not None:
+                    lines.append(
+                        f"{table}.loc[~_cond, {target!r}] = {default_rhs}"
+                    )
             else:
                 lines.append(f"{table}[{target!r}] = {table}.eval({subst_expr!r})")
             return '\n'.join(lines)
@@ -2643,16 +2707,22 @@ class CodeGenerator:
         string_code = self._parse_string_expr(expr, table)
         if string_code is not None:
             if conditions:
-                return (f"condition = {table}.eval({query_str!r})\n"
-                        f"{table}.loc[condition, '{target}'] = ({string_code})[condition]")
+                code = (f"condition = {table}.eval({query_str!r})\n"
+                        f"{table}.loc[condition, '{target}'] = ({string_code})")
+                if default_rhs is not None:
+                    code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
+                return code
             return f"{table}['{target}'] = {string_code}"
 
         scalar_minmax = self._try_scalar_minmax_pandas(expr, table)
         if scalar_minmax is not None:
             if conditions:
-                return (f"import numpy as np\n"
+                code = (f"import numpy as np\n"
                         f"condition = {table}.eval({query_str!r})\n"
-                        f"{table}.loc[condition, '{target}'] = ({scalar_minmax})[condition]")
+                        f"{table}.loc[condition, '{target}'] = ({scalar_minmax})")
+                if default_rhs is not None:
+                    code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
+                return code
             return f"import numpy as np\n{table}['{target}'] = {scalar_minmax}"
 
         user_call = self._parse_user_func_call(expr)
@@ -2660,15 +2730,19 @@ class CodeGenerator:
         if conditions:
             if user_call:
                 func, col = user_call
-                return (f"condition = {table}.eval({query_str!r})\n"
+                code = (f"condition = {table}.eval({query_str!r})\n"
                         f"{table}.loc[condition, '{target}'] = "
-                        f"{func}({table}['{col}'])[condition]")
-            if self._is_scalar_expr(expr):
-                rhs = expr
+                        f"{func}({table}['{col}'])")
             else:
-                rhs = f"{table}.eval('{expr}')[condition]"
-            return (f"condition = {table}.eval({query_str!r})\n"
-                    f"{table}.loc[condition, '{target}'] = {rhs}")
+                if self._is_scalar_expr(expr):
+                    rhs = expr
+                else:
+                    rhs = f"{table}.eval('{expr}')"
+                code = (f"condition = {table}.eval({query_str!r})\n"
+                        f"{table}.loc[condition, '{target}'] = {rhs}")
+            if default_rhs is not None:
+                code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
+            return code
         else:
             if user_call:
                 func, col = user_call
@@ -3183,12 +3257,29 @@ class CodeGenerator:
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators = ast_node.get('operators') or []
+        default_expr = ast_node.get('default_expr')
+
+        def _polars_default(expr_value):
+            expr_value = expr_value.strip()
+            if self._is_scalar_expr(expr_value):
+                return f"pl.lit({expr_value})"
+            string_code = self._parse_string_expr_polars(expr_value)
+            if string_code is not None:
+                return string_code
+            user_call = self._parse_user_func_call(expr_value)
+            if user_call:
+                func, col = user_call
+                return f"pl.col('{col}').map_batches({func})"
+            return self._expr_to_polars(expr_value, by_cols)
 
         def _conditional_wrap(polars_expr):
             filter_expr = self._build_polars_filter(conditions, operators)
-            otherwise = (
-                f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
-            )
+            if default_expr is not None:
+                otherwise = _polars_default(default_expr)
+            else:
+                otherwise = (
+                    f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
+                )
             return (
                 f"{table} = {table}.with_columns(\n"
                 f"    pl.when({filter_expr})\n"
@@ -5476,6 +5567,7 @@ class CodeGenerator:
         by_cols   = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
+        default_expr = ast_node.get('default_expr')
 
         # ── By-clause agg calls → window functions ─────────────────
         sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
@@ -5502,9 +5594,14 @@ class CodeGenerator:
         # ── Conditional (where clause) → CASE WHEN ─────────────────
         if conditions:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
-            # Simpler: build two versions and choose at runtime
-            case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
-            case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            if default_expr is not None:
+                else_sql, uses_pyvar_expr2 = self._translate_assign_expr_to_sql(default_expr)
+                uses_pyvar_expr = uses_pyvar_expr or uses_pyvar_expr2
+                case_when_else = f"CASE WHEN {where} THEN {sql_str} ELSE {else_sql} END"
+                case_sql_existing = case_sql_new = case_when_else
+            else:
+                case_sql_existing = f"CASE WHEN {where} THEN {sql_str} ELSE {target} END"
+                case_sql_new      = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
             desc_line = f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]"
             sel_line  = f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {target!r})"
             # Use f-strings at runtime if the SQL contains Python variable placeholders
@@ -5979,6 +6076,7 @@ class CodeGenerator:
         by_cols  = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
+        default_expr = ast_node.get('default_expr')
         sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
         sql_str = self._try_sql_cast_func(sql_expr)
         if sql_str is None:
@@ -6001,7 +6099,13 @@ class CodeGenerator:
             where, preamble, use_fstring = self._build_sql_where(conditions, operators)
             if use_fstring or preamble:
                 return f"-- [skipped: assign with Python variable in condition]"
-            case_sql = f"CASE WHEN {where} THEN {sql_str} ELSE NULL END"
+            if default_expr is not None:
+                else_expr, upv = self._translate_assign_expr_to_sql(default_expr)
+                if upv:
+                    return f"-- [skipped: assign with Python variable in expression]"
+            else:
+                else_expr = 'NULL'
+            case_sql = f"CASE WHEN {where} THEN {sql_str} ELSE {else_expr} END"
             return f"SELECT *, {case_sql} AS {target} FROM {from_alias}"
         return f"SELECT *, {sql_str} AS {target} FROM {from_alias}"
 
@@ -6613,12 +6717,13 @@ class DSLParser:
             sql = '\n'.join(comments) + '\n' + sql
         return [sql]
 
-    def export(self, code):
+    def export(self, code, backend='pandas'):
         """Parse DSL code and return generated Python code as a string
-        
+
         Args:
             code: DSL code string to parse
-            
+            backend: Code generation backend — 'pandas' (default), 'duckdb', or 'sql'
+
         Returns:
             String containing all generated Python code, or None if parse error
         """
@@ -6628,10 +6733,19 @@ class DSLParser:
             print(f"Parse error: {results['error']}")
             return None
 
-        code = self.generate_code(results)
-        
+        code = self.generate_code(results, backend=backend)
+
+        # Build preamble based on backend
+        cg = self.code_generator
+        if backend == 'duckdb':
+            preamble = cg.duckdb_preamble()
+        elif backend == 'polars':
+            preamble = cg.polars_preamble()
+        else:
+            preamble = "import pandas as pd"
+
         # Collect all Python code
-        python_lines = ["import pandas as pd", ""]
+        python_lines = [preamble, ""]
         
         for c in code:
             

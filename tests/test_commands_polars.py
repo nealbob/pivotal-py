@@ -526,8 +526,8 @@ def test_assign_where_sequential_preserves_existing(parser, sample_df):
 def test_assign_case_basic(parser, sample_df):
     ns = {'sales': sample_df}
     dsl = ('df sales\ntier =\n'
-           '    where price > 300: price * 2\n'
-           '    where price > 100: price\n'
+           '    where price > 300; price * 2\n'
+           '    where price > 100; price\n'
            '    0\n')
     run(parser, dsl, ns)
     df = ns['sales']
@@ -543,8 +543,8 @@ def test_assign_case_first_match_wins(parser):
     df = pl.DataFrame({'x': [10, 5, 1]})
     ns = {'data': df}
     dsl = ('df data\nlabel =\n'
-           '    where x > 3: x * 10\n'
-           '    where x > 1: x * 100\n'
+           '    where x > 3; x * 10\n'
+           '    where x > 1; x * 100\n'
            '    0\n')
     run(parser, dsl, ns)
     assert ns['data']['label'][0] == 100   # x=10, first branch wins
@@ -556,7 +556,7 @@ def test_assign_case_no_default(parser):
     df = pl.DataFrame({'x': [10, 1]})
     ns = {'data': df}
     dsl = ('df data\nlabel =\n'
-           '    where x > 5: x\n')
+           '    where x > 5; x\n')
     run(parser, dsl, ns)
     assert ns['data']['label'][0] == 10
     assert ns['data']['label'][1] is None

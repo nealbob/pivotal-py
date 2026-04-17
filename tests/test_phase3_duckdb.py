@@ -152,8 +152,8 @@ def test_assign_case_when_duckdb(parser, sample_df):
     dsl = (
         'with sales\n'
         'tier =\n'
-        '    where price > 500: "premium"\n'
-        '    where price > 100: "mid"\n'
+        '    where price > 500; "premium"\n'
+        '    where price > 100; "mid"\n'
         '    else: "budget"\n'
     )
     run_ddb(parser, dsl, ns)
@@ -164,7 +164,7 @@ def test_assign_case_when_duckdb(parser, sample_df):
 
 
 def test_codegen_assign_case_duckdb(parser):
-    dsl = 'with sales\ntier =\n    where price > 500: "hi"\n    else: "lo"\n'
+    dsl = 'with sales\ntier =\n    where price > 500; "hi"\n    else: "lo"\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert 'CASE' in code
     assert 'WHEN' in code

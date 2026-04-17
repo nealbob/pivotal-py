@@ -160,30 +160,30 @@ Rows where the condition is false receive `null` / `NaN`. To provide a fallback,
 
 ## Multi-case assignment
 
-Test multiple conditions in order; the last line is the default (else):
+Test multiple conditions in order; use explicit `else` for the default:
 
 ```pivotal
 with sales
     tier =
-        where amount > 500: "Gold"
-        where amount > 100: "Silver"
-        "Bronze"
+        where amount > 500; "Gold"
+        where amount > 100; "Silver"
+        else "Bronze"
 ```
 
 ```pivotal
 with products
     price_band =
-        where price > 1000: "premium"
-        where price > 200:  "mid"
-        "budget"
+        where price > 1000; "premium"
+        where price > 200;  "mid"
+        else "budget"
 ```
 
 ```pivotal
 with sales
     adjusted =
-        where amount > 500: amount * 2
-        where amount > 100: amount * 1.5
-        amount
+        where amount > 500; amount * 2
+        where amount > 100; amount * 1.5
+        else amount
 ```
 
-The conditions are evaluated in order; the first match wins. The final line (no `where`) is the default value.
+The conditions are evaluated in order; the first match wins. The `else` line is the default value.

@@ -91,6 +91,14 @@ with sales
         where category == "clearance"
 ```
 
+With explicit default (else):
+```pivotal
+with sales
+    discount = price * 0.9
+        where category == "clearance"
+        else price
+```
+
 > **Note:** `where` here is a sub-clause of the assignment — it is indented under the assignment line. This is different from `filter`, which is its own statement. Do not write `filter category == "clearance"` when you mean a conditional assignment.
 
 Group-level aggregate in expression:
@@ -104,13 +112,13 @@ with sales
 
 Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  wavg(col, weight)`
 
-Multi-case (CASE WHEN equivalent) — the final unguarded value is the `else` branch:
+Multi-case (CASE WHEN equivalent) — use explicit `else` for the default branch:
 ```pivotal
 with sales
     tier =
-        where amount > 1000: "high"
-        where amount > 500:  "medium"
-        "low"
+        where amount > 1000; "high"
+        where amount > 500;  "medium"
+        else "low"
 ```
 
 String functions:
@@ -290,6 +298,13 @@ with raw as clean
         name = "unknown"
 ```
 
+Or use comma-separated syntax:
+
+```pivotal
+with raw as clean
+    fillna price 0, name "unknown", region "N/A"
+```
+
 ## Plotting
 
 ```pivotal
@@ -454,7 +469,7 @@ These are patterns that look plausible but are wrong:
 | `SELECT * FROM sales WHERE amount > 0` | `with sales` / `filter amount > 0` |
 | `SELECT a, b FROM sales` | `select a, b` |
 | `SELECT price * qty AS revenue FROM sales` | `revenue = price * qty` |
-| `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1: ...` |
+| `CASE WHEN x > 1 THEN ... END` | `col =` / `where x > 1; ...` |
 | `GROUP BY region` | `group by region` / `agg sum amount as total` |
 | `JOIN` | `merge other on key` |
 | `OVER (PARTITION BY region ORDER BY date)` | `by region` / `order date` sub-clauses |

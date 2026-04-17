@@ -23,7 +23,7 @@ const keywords: Record<string, true> = {
   load: true, with: true, from: true, query: true, filter: true,
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, pivot: true, unpivot: true, apply: true,
-  plot: true, python: true, where: true,
+  plot: true, python: true, where: true, else: true,
   as: true, on: true, rows: true, cols: true,
   agg: true, drop: true, fillna: true, dropna: true, delete: true,
   distinct: true, concat: true, intersect: true, exclude: true, rename: true, save: true,

@@ -28,6 +28,13 @@ with raw as clean
         region = "N/A"
 ```
 
+Or use comma-separated syntax:
+
+```pivotal
+with raw as clean
+    fillna price 0, name "unknown", region "N/A"
+```
+
 Only the listed columns are filled. All other columns are unchanged.
 
 ---

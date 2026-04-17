@@ -1,15 +1,15 @@
 load "daily_climate.csv" as climate
 load "crop_data.csv" as crops
 
-python grow_min = 8; grow_max = 32; crop_season = [4, 10]
+python grow_min = 8; grow_max = 32; crop_season = range(4,11)
 
 with climate as climate_features
     year = year(date)
     month = month(date)
-    filter month between :crop_season
-    grow_degrees = 0
     grow_degrees = (max_temp + min_temp) / 2 - :grow_min
         where max_temp < :grow_max and min_temp >= :grow_min
+        else 0
+    filter month in :crop_season
     group by year, region
         agg sum grow_degrees as gdd, sum rain as grow_rain
 
@@ -26,7 +26,7 @@ python
 end
 
 with training_data
-    pivot plot line nat_pred_vs_actual
+    pivot plot line pred_vs_actual
         x year "Year"
         y wmean yield area, wmean yield_hat area "Wheat yield (t/ha)"
 
