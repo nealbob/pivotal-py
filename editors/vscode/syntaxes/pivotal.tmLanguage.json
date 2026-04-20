@@ -86,7 +86,7 @@
     "keywords-primary": {
       "comment": "Statement-opening commands",
       "name": "keyword.control.pivotal",
-      "match": "\\b(load|with|from|filter|select|assign|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|intersect|exclude|rename|apply|start|save|end|delete|show|unpivot|rolling|rank|lag|lead|cumsum|cummean|cummin|cummax|cast|agg|table)\\b"
+      "match": "\\b(load|with|from|filter|select|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|intersect|exclude|rename|apply|save|end|delete|show|unpivot|rolling|rank|lag|lead|cumsum|cummean|cummin|cummax|cast|agg|table|all)\\b"
     },
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",
@@ -123,7 +123,7 @@
     "agg-functions": {
       "comment": "Aggregation and built-in expression functions",
       "name": "support.function.pivotal",
-      "match": "\\b(mean|min|max|sum|count|avg|median|std|wavg|upper|lower|trim|ltrim|rtrim|left|right|substr|len|replace|year|month|day|quarter|dayofweek|hour|minute|date_format|to_date|date_diff|date_add|int|integer|float|string|str|bool|boolean|datetime)\\b"
+      "match": "\\b(mean|min|max|sum|count|avg|median|std|nunique|wavg|wmean|pct|upper|lower|trim|ltrim|rtrim|left|right|substr|len|replace|year|month|day|quarter|dayofweek|hour|minute|date_format|to_date|date_diff|date_add|int|integer|float|string|str|bool|boolean|datetime)\\b"
     },
     "operators": {
       "comment": "Symbolic comparison and arithmetic operators",

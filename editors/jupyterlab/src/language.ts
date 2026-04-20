@@ -23,8 +23,8 @@ const keywords: Record<string, true> = {
   load: true, with: true, from: true, query: true, filter: true,
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, pivot: true, unpivot: true, apply: true,
-  plot: true, python: true, where: true, else: true,
-  as: true, on: true, rows: true, cols: true,
+  plot: true, python: true, end: true, where: true, else: true,
+  as: true, on: true, rows: true, cols: true, all: true,
   agg: true, drop: true, fillna: true, dropna: true, delete: true,
   distinct: true, concat: true, intersect: true, exclude: true, rename: true, save: true,
   show: true, head: true, summary: true,
@@ -37,7 +37,7 @@ const keywords: Record<string, true> = {
 
 const builtins: Record<string, true> = {
   mean: true, min: true, max: true, sum: true,
-  count: true, avg: true, median: true, std: true, nunique: true, wavg: true,
+  count: true, avg: true, median: true, std: true, nunique: true, wavg: true, wmean: true,
   asc: true, desc: true, pct: true, left: true, right: true,
   inner: true, outer: true,
   // word-operator comparators
