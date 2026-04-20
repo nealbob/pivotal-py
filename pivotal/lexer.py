@@ -24,7 +24,7 @@ class PivotalLexer(RegexLexer):
         'filter', 'select', 'drop', 'distinct', 'rename',
         'sort', 'order', 'group', 'by', 'agg',
         'merge', 'pivot', 'unpivot', 'apply',
-        'intersect', 'cast', 'python',
+        'intersect', 'cast', 'python', 'end', 'query',
         'rank', 'lag', 'lead',
         'cumsum', 'cummean', 'cummin', 'cummax',
         'rolling', 'fillna', 'dropna',
@@ -33,11 +33,11 @@ class PivotalLexer(RegexLexer):
 
     # Clause keywords, modifiers, and sub-options
     MODIFIERS = (
-        'as', 'on', 'where', 'rows', 'cols',
+        'as', 'on', 'where', 'else', 'rows', 'cols',
         'left', 'right', 'inner', 'outer',
         'asc', 'desc', 'pct',
         'head', 'summary',
-        'variable', 'value',
+        'variable', 'value', 'id',
         'left_on', 'right_on', 'suffixes',
         'header', 'names', 'path', 'format', 'include', 'exclude',
         'chart_format',
@@ -45,6 +45,7 @@ class PivotalLexer(RegexLexer):
         'label', 'stripe', 'canvas', 'style',
         'kind', 'colormap', 'legend', 'x', 'y', 'c',
         'number', 'integer', 'currency', 'percent', 'date',
+        'int', 'float', 'string', 'str', 'bool', 'boolean', 'datetime', 'strict',
     )
 
     # Word-form logical and comparison operators
