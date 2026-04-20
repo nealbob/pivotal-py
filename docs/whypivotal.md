@@ -1,6 +1,4 @@
-# Introducing Pivotal: a data analysis language for Python
-
-(or Pivotal: A simpler way to work with data in Python)
+# Pivotal: A better syntax for data analysis in Python
 
 Python has become a standard platform for data analysis, particularly in corporate and government teams. The draw of Python is understandable: it's a great language, well known by all, with an excellent data ecosystem, and its free.  
 
@@ -10,7 +8,7 @@ Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DS
 
 ## Some examples
 
-This first example compares Pivotal to equivalent Python code for basic data manipulation (within a Jupyter Notebook):
+Pivotal has a declarative syntax similar to SQL while incorporating aspects Python (pandas) and R (dplyr) grammar. This first example compares Pivotal to equivalent Python code for some basic data manipulation within a Jupyter Notebook:
 
 === "Pivotal"
 
@@ -113,7 +111,7 @@ This first example compares Pivotal to equivalent Python code for basic data man
     ```
 ---
 
-Pivotal has a declarative syntax similar to SQL while incorporating aspects Python (pandas) and R (dplyr) grammar.  Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, to support fast interactive data work. In this example, Pandas code involves around 60% more characters. Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
+Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, to support fast interactive data work. In this example, Pandas code involves around 60% more characters. Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
 
 |       | Pivotal | Pandas | Polars |
 |---|---|---|---|
