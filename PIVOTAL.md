@@ -110,7 +110,7 @@ with sales
     z = (amount - mean(amount)) / std(amount)
 ```
 
-Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  wavg(col, weight)`
+Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  wmean(col, weight)`
 
 Multi-case (CASE WHEN equivalent) — use explicit `else` for the default branch:
 ```pivotal
@@ -165,7 +165,7 @@ with sales as detail
         agg nunique customer_id as customers
 ```
 
-Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wavg col weight`
+Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wmean weight col`
 
 Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg sum(revenue) as total`.
 

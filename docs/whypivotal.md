@@ -2,13 +2,13 @@
 
 (or Pivotal: A simpler way to work with data in Python)
 
-Python has become a standard platform for data analysis, particularly in corporate and government teams. The draw of Python understandable: it's a great language, well known by all, with an excellent data ecosystem, and its free.  
+Python has become a standard platform for data analysis, particularly in corporate and government teams. The draw of Python is understandable: it's a great language, well known by all, with an excellent data ecosystem, and its free.  
 
 I love Python. But I don't love Pandas. By its creators own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts flock to Python for the powerful analysis tools, they invariably spend a lot of time doing basic data wrangling, which in Pandas is harder than it should be.
 
 Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis, with a concise syntax that compiles into Python code (using either Pandas, Polars or DuckDB dataframe backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier read, while still operating over Python data structures and integrating tightly with Python code.
 
-## Two examples
+## Some examples
 
 This first example compares Pivotal to equivalent Python code for basic data manipulation (within a Jupyter Notebook):
 
@@ -111,137 +111,54 @@ This first example compares Pivotal to equivalent Python code for basic data man
     invoices.write_csv("~/projects/output/invoices.csv")
     summary.write_csv("~/projects/output/my_analysis.csv")
     ```
-
-=== "DuckDB / SQL"
-
-    ```python
-    # Setup cell (once per notebook)
-    %load_ext sql
-    %sql duckdb://
-    ```
-
-    ```sql
-    %%sql
-    create or replace table summary as
-    with enriched as (
-        select *,
-            0.8 as transaction_fees,
-            total - 0.8 as income
-        from read_csv_auto('invoices.csv')
-        where invoice_date >= '1970-01-16'
-    ),
-    filtered as (
-        select * from enriched
-        where income > 1
-    ),
-    grouped as (
-        select
-            customer_id,
-            avg(total) as mean_total,
-            sum(income) as sum_income,
-            count(*) as ct
-        from filtered
-        group by customer_id
-    )
-    select
-        g.customer_id,
-        c.last_name || ', ' || c.first_name as name,
-        g.sum_income
-    from grouped g
-    left join read_csv_auto('customers.csv') c on g.customer_id = c.customer_id
-    order by g.sum_income desc
-    ```
-
-    ```sql
-    %sql copy summary to '~/projects/output/my_analysis.csv' (header)
-    ```
-
-=== "PRQL"
-
-    ```python
-    # Setup cell (once per notebook)
-    %load_ext pyprql.magic
-    %load_ext sql
-    %sql duckdb:///:memory:
-    %sql create view invoices as select * from read_csv_auto('invoices.csv')
-    %sql create view customers as select * from read_csv_auto('customers.csv')
-    ```
-
-    ```
-    %%prql summary <<
-    from invoices
-    filter invoice_date >= @1970-01-16
-    derive {
-      transaction_fees = 0.8,
-      income = total - transaction_fees
-    }
-    filter income > 1
-    group customer_id (
-      aggregate {
-        average total,
-        sum_income = sum income,
-        ct = count total,
-      }
-    )
-    sort {-sum_income}
-    join c=customers (==customer_id)
-    derive name = f"{c.last_name}, {c.first_name}"
-    select {
-      c.customer_id, name, sum_income
-    }
-    ```
-
-    ```python
-    summary.to_csv("~/projects/output/my_analysis.csv", index=False)
-    ```
 ---
 
 Pivotal has a declarative syntax similar to SQL while incorporating aspects Python (pandas) and R (dplyr) grammar.  Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, to support fast interactive data work. In this example, Pandas code involves around 60% more characters. Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
 
-| | Pivotal | Pandas | Polars | DuckDB/SQL | PRQL |
-|---|---|---|---|---|---|
-| Lines | 18 | 23 | 29 | 32 | 27 |
-| Characters | 547 | 866 | 911 | 769 | 685 |
-| Key presses | 542 | 937 | 983 | 753 | 738 |
-| Tokens | 103 | 256 | 299 | 176 | 169 |
+|       | Pivotal | Pandas | Polars |
+|---|---|---|---|
+| Lines | 18 | 23 | 29 |
+| Characters | 547 | 866 | 911 |
+| Key presses | 542 | 937 | 983 |
+| Tokens | 103 | 256 | 299 |
 
-This second example shows a common data science workflow: data loading and feature engineering, then model training, followed by processing results into plots and other outputs.  While highly stylised, this is representative of real workflows in the sense that a high proportion of code is often devoted to data processing relative to actual modelling.
+The second example shows a common data science workflow: data loading and feature engineering, then model training, followed by processing results into plots and other outputs.  While highly stylised, this is representative of real workflows in the sense that a high proportion of code is often devoted to data processing relative to actual modelling.
 
 Because Pivotal compiles to Python it is easy to access Python objects and functions within Pivotal code, and to intersperse Python and Pivotal either in Notebooks (as above) or in Python or Pivotal script files (as below).
 
-    ```pivotal
-    load "daily_climate.csv" as climate                             
-    load "crop_data.csv" as crops
-    
-    python grow_min = 8; grow_max = 32; crop_season = [4, 10]   # In-line python 
+```pivotal
+load "daily_climate.csv" as climate                             
+load "crop_data.csv" as crops
 
-    with climate as climate_features                            # Feature engineering
-        year = year(date)                                           # Built-in date functions
-        month = month(date)
-        filter month between :crop_season                           # Reference Python list
-        grow_degrees = (max_temp + min_temp) / 2 - :grow_min        # Conditional assignment
-            where max_temp < :grow_max and min_temp >= :grow_min
-            else 0
-        group by year, region
-            agg sum grow_degrees as gdd, sum rain as grow_rain
+python grow_min = 8; grow_max = 32; crop_season = [4, 10]   # In-line python 
 
-    with crops as training_data
-        filter crop_type == "wheat" and area > 0
-        yield = production / area
-        inner merge climate_features on year, region
-        select year, area, yield, gdd, grow_rain, region
+with climate as climate_features                            # Feature engineering
+    year = year(date)                                           # Built-in date functions
+    month = month(date)
+    filter month between :crop_season                           # Reference Python list
+    grow_degrees = (max_temp + min_temp) / 2 - :grow_min        # Conditional assignment
+        where max_temp < :grow_max and min_temp >= :grow_min
+        else 0
+    group by year, region
+        agg sum grow_degrees as gdd, sum rain as grow_rain
 
-    python                                                          # Python analysis block
-        from sklearn.linear_model import LinearRegression
-        X = training_data[["year", "area", "gdd", "grow_rain"]]
-        training_data["yield_hat"] = LinearRegression().fit(X, training_data["yield"]).predict(X)
-    end
+with crops as training_data
+    filter crop_type == "wheat" and area > 0
+    yield = production / area
+    inner merge climate_features on year, region
+    select year, area, yield, gdd, grow_rain, region
 
-    with training_data
-        pivot plot line nat_pred_vs_actual                          # Aggregate and plot 
-            x year "Year"
-            y wmean yield area, wmean yield_hat area "Wheat yield (t/ha)"
-    ```
+python                                                          # Python analysis block
+    from sklearn.linear_model import LinearRegression
+    X = training_data[["year", "area", "gdd", "grow_rain"]]
+    training_data["yield_hat"] = LinearRegression().fit(X, training_data["yield"]).predict(X)
+end
+
+with training_data
+    pivot plot line nat_pred_vs_actual                          # Aggregate and plot 
+        x year "Year"
+        y wmean yield area, wmean yield_hat area "Wheat yield (t/ha)"
+```
 
 ## The Pandas problem and the DSL solution
 
@@ -258,9 +175,9 @@ mydata.loc[mydata.columnA > 0, "columnC"] = mydata["columnB"] / mydata["columnA"
 compared with: 
 
 ```pivotal
-    with mydata
-        columnC = columnB / columnA
-            where column A > 0
+with mydata
+    columnC = columnB / columnA
+        where column A > 0
 ```
 
 The longevity of SQL tells us something about the utility of DSLs for data work. In recent years, SQL has become better integrated with Python through libraries like DuckDB, while new piped-SQL syntax including [PRQL](https://prql-lang.org/) offer a more linear Python/R style of working.
