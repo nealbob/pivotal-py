@@ -132,10 +132,10 @@ Because Pivotal compiles to Python it's easy to access Python objects and functi
 
     python grow_min = 8; grow_max = 32; crop_season = [4, 10]   # In-line python 
 
-    with climate as climate_features                            # Feature engineering
-        year = year(date)                                           # Built-in date functions
+    with climate as climate_features                    # Feature engineering
+        year = year(date)                                       # Built-in date functions
         month = month(date)
-        filter month between :crop_season                           # Reference Python list
+        filter month between :crop_season                       # Reference Python list
         grow_degrees = (max_temp + min_temp) / 2 - :grow_min        # Conditional assignment
             where max_temp < :grow_max and min_temp >= :grow_min
             else 0
@@ -148,14 +148,14 @@ Because Pivotal compiles to Python it's easy to access Python objects and functi
         inner merge climate_features on year, region
         select year, area, yield, gdd, grow_rain, region
 
-    python                                                          # Python analysis block
+    python                                                      # Python analysis block
         from sklearn.linear_model import LinearRegression
         X = training_data[["year", "area", "gdd", "grow_rain"]]
         training_data["yield_hat"] = LinearRegression().fit(X, training_data["yield"]).predict(X)
     end
 
     with training_data
-        pivot plot line nat_pred_vs_actual                          # Aggregate and plot 
+        pivot plot line nat_pred_vs_actual                      # Aggregate and plot in one
             x year "Year"
             y wmean yield area, wmean yield_hat area "Wheat yield (t/ha)"
     ```
@@ -235,7 +235,7 @@ Pandas limitations have been well-documented, most notably by its creator [Wes M
 
 There are of course alternatives. Polars offers better performance and has no indexes, but the syntax is even more verbose (see above example). And if we are being honest, the R [tidyverse](https://tidyverse.org/) probably offers a better experience for interactive data work than anything in Python (but its in R).
 
-The one thing all these options suffer from is trying to embed a data processing grammer within a general purpose language.  This leads to things like having to wrap column names in quotations and explicitly referencing dataframes at all times, for example:
+The one thing all these options suffer from is trying to embed a data processing grammer within a general purpose language.  This leads to anoyances like having to wrap column names in quotations and explicitly reference dataframes at all times, for example:
 
 ```python
 mydata.loc[mydata.columnA > 0, "columnC"] = mydata["columnB"] / mydata["columnA"]
@@ -278,7 +278,7 @@ JUPYTER LAB GIF
 
 ## We need your help
 
-It would be misleading to say I've built Pivotal myself, given much of the code has been written by AI which at this point feels more like a collaborator than a servant. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it is easy to define objective tests.
+It would be dishonest to say I've built Pivotal myself, given much of the code has been written by AI, which at this point feels more like a collaborator than a servant. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it is easy to define objective tests.
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 
