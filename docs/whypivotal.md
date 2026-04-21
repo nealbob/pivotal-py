@@ -1,8 +1,8 @@
 # Pivotal: A better syntax for data analysis in Python
 
-Python has become a standard language for data analysis, particularly in corporate and government teams. The appeal is understandable: Python is a great language, well known by all, with an excellent data science ecosystem, and its free.  
+Python has become a standard language for data analysis, particularly in corporate and government teams. The appeal is understandable: Python is a great language, well known by all, with an excellent data ecosystem, and its free.  
 
-I love Python. But I don't love Pandas. By its creators own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python for the powerful machine learning tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
+I love Python. But I don't love Pandas. By its creators own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python to for the powerful data science tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
 
 Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis with a concise syntax that compiles into Python (using either Pandas, Polars or DuckDB backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier read, while still operating over Python data structures and integrating tightly with Python code.
 
@@ -121,7 +121,7 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Tokens | 103 | 256 | 299 |
 
 !!! note
-For a more detailed comparison, see [Pivotal Comparison](https://nealbob.github.io/pivotal-py/comparison/).
+For a more detailed comparison see [Pivotal Comparison](https://nealbob.github.io/pivotal-py/comparison/).
 
 The second example shows a data science workflow: data loading and feature engineering, then model training, followed by processing of results into plots and other outputs.  While highly stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
 
