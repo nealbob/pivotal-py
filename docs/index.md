@@ -14,9 +14,9 @@ Pivotal is a data analysis language for Python.  It offers a concise syntax for 
         year = year(date)
         month = month(date)
         filter month between :crop_season
-        grow_degrees = 0
         grow_degrees = (max_temp + min_temp) / 2 - :grow_min
             where max_temp < :grow_max and min_temp >= :grow_min
+            else 0
         group by year, region
             agg sum grow_degrees as gdd, sum rain as grow_rain
 
@@ -125,7 +125,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 ## Install
 
 ```bash
-pip install pivotal
+pip install pivotal-lang
 ```
 
 This installs the full feature set — Pandas, Polars, DuckDB, Great Tables.
@@ -133,7 +133,7 @@ This installs the full feature set — Pandas, Polars, DuckDB, Great Tables.
 For a minimal Pandas-only install:
 
 ```bash
-pip install --no-deps pivotal
+pip install --no-deps pivotal-lang
 pip install lark pandas matplotlib
 
 ## Quick example
