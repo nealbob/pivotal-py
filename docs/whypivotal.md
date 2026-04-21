@@ -120,6 +120,9 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Key presses | 542 | 937 | 983 |
 | Tokens | 103 | 256 | 299 |
 
+!!! note
+For a more detailed comparison, see [Pivotal Comparison](https://nealbob.github.io/pivotal-py/comparison/).
+
 The second example shows a data science workflow: data loading and feature engineering, then model training, followed by processing of results into plots and other outputs.  While highly stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
 
 Because Pivotal compiles to Python it's easy to access Python objects and functions within Pivotal code, and to intersperse Python and Pivotal either in Notebooks (as above) or in Pivotal script files (as below).
