@@ -45,7 +45,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Why Pivotal: whypivotal.md
+  - Why Pivotal?: whypivotal.md
   - Getting Started: getting-started.md
   - Syntax Reference:
     - syntax/index.md

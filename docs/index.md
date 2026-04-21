@@ -125,7 +125,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 ## Install
 
 ```bash
-pip install pivotal
+pip install pivotal-lang
 ```
 
 This installs the full feature set — Pandas, Polars, DuckDB, Great Tables.
@@ -133,7 +133,7 @@ This installs the full feature set — Pandas, Polars, DuckDB, Great Tables.
 For a minimal Pandas-only install:
 
 ```bash
-pip install --no-deps pivotal
+pip install --no-deps pivotal-lang
 pip install lark pandas matplotlib
 
 ## Quick example
