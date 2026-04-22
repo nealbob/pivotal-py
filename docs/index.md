@@ -115,9 +115,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 - **Readable, Writable syntax** — write data transformations in a simple declarative syntax
 - **Multiple backends** — run the same code as Pandas, Polars or DuckDB/SQL
-
-**JupyterLab and VS Code integration** — syntax highlighting, autocomplete, `%%pivotal` cell magic, interactive object viewer and explorer,  GUI controls
-
+- **JupyterLab and VS Code integration** — syntax highlighting, autocomplete, `%%pivotal` cell magic, interactive object viewer and explorer,  GUI controls
 - **Export to code** — compile any notebook or `.pivotal` file to `.py` or `.sql`
 - **Plotting & tables** — built-in chart and publication-ready table support
 - **Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
