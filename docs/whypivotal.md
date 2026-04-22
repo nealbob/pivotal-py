@@ -122,7 +122,7 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Key presses | 542 | 937 | 983 |
 | Tokens | 103 | 256 | 299 |
 
-The second example shows a data science workflow: data loading, feature engineering, model training and result processing.  While stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
+The second example shows a data science workflow: data loading, feature engineering, model training and result processing.  While stylised, this is representative of real workflows, in that a high proportion of code is devoted to processing data inputs and outputs relative to actual modelling.
 
 Because Pivotal compiles to Python it's easy to access Python objects and functions within Pivotal code, and to intersperse Python and Pivotal either in Notebooks (as above) or in Pivotal script files (as below).
 
@@ -255,7 +255,7 @@ The longevity of SQL tells us something about the utility of DSLs for data work.
 
 In some respects, DuckDB and PRQL address similar problems as Pivotal, just from the opposite direction: trying to modify SQL to bring it closer to Python, rather than building a native Python workflow that is more SQL like.
 
-But there are limits to how far you can bend SQL to suit Python analytical workflows. In practice, the mental (and performance) overhead of moving data between a SQL engine and Python can slow things down (especialy for exploratory work on small datasets).
+Ultimately, there are limits to how far you can bend SQL to suit Python analytical workflows. In practice, the mental (and performance) overhead of moving data between a SQL engine and Python can slow things down (especialy for exploratory work on small datasets).
 
 ## How Pivotal works
 
