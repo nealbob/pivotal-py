@@ -2,7 +2,7 @@
 
 Python has become a standard language for data analysis, particularly in corporate and government teams. The appeal is understandable: Python is a great language, well known by all, with an excellent data ecosystem, and its free.  
 
-I love Python. But I don't love Pandas. By it's creators own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python for the powerful data science tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
+I love Python. But I don't love Pandas. By its creator's own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python for the powerful data science tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
 
 Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis with a concise syntax that compiles into Python (using either Pandas, Polars or DuckDB backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier read, while still operating over Python data structures and integrating tightly with Python code.
 
@@ -274,7 +274,7 @@ mydf = mydf.loc[:, ['columnA', 'columnB']]
 
 While Pivotal is young, the scope is reasonably extensive covering all the common Pandas / SQL data operations, along with a range of more complex tasks like window functions and date and string manipulation  (see the [docs](https://nealhughes.net/pivotal-py/)). Pivotal also includes commands for producing outputs, including plots (via `matplotlib`), tables (via [Great Tables](https://posit-dev.github.io/great-tables/articles/intro.html)) and saving to [Frictionless data packages](https://specs.frictionlessdata.io/data-package/). For any tasks that can't be done in Pivotal there is an easy Python "escape hatch".
 
-Pivotal has been built with Jupyter Notebooks in front of mind. The JupyterLab extension includes ```%%pivotal``` cell magic with syntax highlighting and context aware auto-complete for Pivotal code cells (column and table name completions), along with GUI features including interactive object viewer and explorer (with [AG GRID](https://www.ag-grid.com/) spreadsheets and table and plot previews). The VS Code extension offers much the same functionality.
+Pivotal has been built with Jupyter Notebooks in front of mind. The JupyterLab extension includes ```%%pivotal``` cell magic with syntax highlighting and context aware auto-complete for Pivotal code cells (column and table name completions), along with GUI features including interactive object viewer and explorer (with [AG Grid](https://www.ag-grid.com/) spreadsheets and table and plot previews). The VS Code extension offers much the same functionality.
 
 [![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
