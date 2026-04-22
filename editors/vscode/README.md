@@ -1,11 +1,11 @@
 # Pivotal for VS Code
 
-<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_logo.png" width="80">
+<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_logo.svg" width="80">
 
 Syntax highlighting, autocomplete, interactive execution, and a live data viewer for the [Pivotal](https://nealbob.github.io/pivotal-py) data analysis language — a concise, readable DSL that compiles to Pandas, Polars, or DuckDB.
 
 
-<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_vscode_animation1.png" width="80">
+<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_vscode_animation1.gif" width="600">
 
 > **Full documentation:** [nealbob.github.io/pivotal-py](https://nealbob.github.io/pivotal-py)
 
