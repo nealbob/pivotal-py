@@ -113,7 +113,7 @@ Pivotal has a declarative syntax similar to SQL while incorporating aspects Pyth
 
 Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work. In this example, Pandas code requires around 60% more characters . Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
 
-<figcaption>Pivotal Vs Python syntax, for more detail see <a href="https://nealbob.github.io/pivotal-py/comparison/">here</a>)</figcaption>
+<figcaption>Pivotal Vs Python syntax, for more detail see <a href="https://nealbob.github.io/pivotal-py/comparison/">here</a></figcaption>
 
 |       | Pivotal | Python (Pandas) | Python (Polars) |
 |---|---|---|---|
