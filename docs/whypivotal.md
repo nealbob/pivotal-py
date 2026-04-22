@@ -6,7 +6,7 @@ I love Python. But I don't love Pandas. By its creator's own admission, Pandas s
 
 Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis with a concise syntax that compiles into Python (using either Pandas, Polars or DuckDB backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier read, while still operating over Python data structures and integrating tightly with Python code.
 
-## Some examples
+## Two examples
 
 Pivotal has a declarative syntax similar to SQL while incorporating aspects Python (pandas) and R (dplyr) grammar. The below example compares Pivotal to equivalent Python code for some basic data wrangling in a Jupyter Notebook:
 
@@ -111,7 +111,7 @@ Pivotal has a declarative syntax similar to SQL while incorporating aspects Pyth
     ```
 ---
 
-Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work. In this example, Pandas code requires around 60% more characters . Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
+Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work. In this example, Pandas code requires around 60% more characters. Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
 
 <figcaption>Pivotal Vs Python syntax, for more detail see <a href="https://nealbob.github.io/pivotal-py/comparison/">here</a></figcaption>
 
@@ -122,8 +122,7 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Key presses | 542 | 937 | 983 |
 | Tokens | 103 | 256 | 299 |
 
-
-The second example shows a data science workflow: data loading and feature engineering, then model training, followed by processing of results into plots and other outputs.  While stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
+This second example shows a data science workflow: data loading and feature engineering, then model training, followed by processing of results into plots and other outputs.  While stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
 
 Because Pivotal compiles to Python it's easy to access Python objects and functions within Pivotal code, and to intersperse Python and Pivotal either in Notebooks (as above) or in Pivotal script files (as below).
 
