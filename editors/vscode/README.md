@@ -109,7 +109,7 @@ Both GUIs are also accessible from the editor toolbar and the Pivotal Explorer t
 
 | Action | How |
 |---|---|
-| **Load a dataset** | `Ctrl+Shift+L` or **Load Dataset** button — inserts `load <table> "<path>"` |
+| **Load a dataset** | `Ctrl+Shift+L` or **Load Dataset** button — inserts `load "<path>" as <table>` |
 | **Save a data package** | `Ctrl+Shift+S` or **Save Package** button — writes a Frictionless package to a chosen folder |
 | **Export to Python / SQL** | `Ctrl+Shift+E` or **Compile** button — generates code for the selected backend |
 
@@ -120,15 +120,17 @@ Both GUIs are also accessible from the editor toolbar and the Pivotal Explorer t
 Use `#%%` to split a `.pivotal` file into sections. Each section runs as a separate cell in the Interactive Window:
 
 ```
-load sales "data/sales.csv"
-filter sales
-    revenue > 1000
+load "data/sales.csv" as sales
+
+with sales
+    filter revenue > 1000
 
 #%%
 
-group by region
-    agg sum revenue as total_revenue
-sort total_revenue desc
+with sales
+    group by region
+        agg sum revenue as total_revenue
+    sort total_revenue desc
 ```
 
 ---
@@ -142,9 +144,10 @@ import pivotal
 
 # %%
 %%pivotal
-load df "data.csv"
-filter df
-    value > 0
+load "data.csv" as df
+
+with df
+    filter value > 0
 ```
 
 ---
