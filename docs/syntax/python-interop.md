@@ -146,6 +146,104 @@ This works with:
 
 ---
 
+## Working with `.py` and `.pivotal` files
+
+For larger projects — or when working in an editor like VS Code — it's natural to split Python logic into a separate `.py` file and import it into your `.pivotal` script. Because `python` executes any valid Python statement, standard imports work as-is.
+
+### Importing a Python module
+
+```pivotal
+python import myscript
+
+with sales
+    price = myscript.clean_price(price)
+```
+
+Or use `from ... import *` to bring everything into the shared namespace and call functions directly:
+
+```pivotal
+python from myscript import *
+
+with sales
+    price = clean_price(price)
+```
+
+### VS Code workflow
+
+Keep a `.py` file and a `.pivotal` file side by side. Import the `.py` file at the top of your script to connect them.
+
+```
+project/
+├── transforms.py     # Python functions, full IDE support
+└── pipeline.pivotal  # Data pipeline that imports transforms.py
+```
+
+```python
+# transforms.py
+import pandas as pd
+
+def clean_price(s):
+    return s.str.replace("$", "").astype(float)
+
+def flag_outliers(df, col, threshold=3.0):
+    z = (df[col] - df[col].mean()) / df[col].std()
+    df["is_outlier"] = z.abs() > threshold
+    return df
+```
+
+```pivotal
+# pipeline.pivotal
+python from transforms import *
+
+load "sales.csv" as sales
+
+with sales
+    price = clean_price(price)
+    apply flag_outliers
+```
+
+### Data science pipeline pattern
+
+A common pattern is to alternate between Pivotal and Python: use Pivotal for data loading and wrangling, Python for analysis or modelling, then Pivotal again for result processing.
+
+```
+raw_data.csv
+    └── pipeline.pivotal   (load, clean, filter)
+            └── analysis.py        (model, stats)
+                    └── pipeline.pivotal   (aggregate, format results)
+```
+
+```python
+# analysis.py
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+def fit_model(df):
+    X = df[["price", "quantity"]].values
+    y = df["revenue"].values
+    model = LinearRegression().fit(X, y)
+    df["predicted"] = model.predict(X)
+    df["residual"] = y - df["predicted"]
+    return df
+```
+
+```pivotal
+python from analysis import *
+
+load "sales.csv" as sales
+
+with sales
+    filter region == "North"
+    apply fit_model
+
+with sales as summary
+    group by category
+        agg mean residual as avg_residual
+        agg mean predicted as avg_predicted
+```
+
+---
+
 ## Accessing results in Python
 
 After running Pivotal code, tables are available as Python variables in the same namespace:

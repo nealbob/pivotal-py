@@ -23,15 +23,15 @@ with sales as summary
 | `median` | Median |
 | `std` | Standard deviation |
 | `nunique` | Count of unique values |
-| `wavg` | Weighted average |
+| `wmean` | Weighted average |
 
 Both space and bracket syntax are accepted:
 
 ```pivotal
-agg sum revenue as total       # space syntax
-agg sum(revenue) as total      # bracket syntax — both are equivalent
-agg wavg price quantity as avg # space syntax
-agg wavg(price, quantity) as avg  # bracket syntax
+agg sum revenue as total              # space syntax
+agg sum(revenue) as total             # bracket syntax — both are equivalent
+agg wmean quantity price as avg       # space syntax: wmean weight_col value_col
+agg wmean(price, quantity) as avg     # bracket syntax: wmean(value_col, weight_col)
 ```
 
 ## Basic usage
@@ -93,13 +93,16 @@ agg mean price as avg_price
 
 ## Weighted average
 
-`wavg <value_col> <weight_col>` computes a weighted mean:
+`wmean <weight_col> <value_col>` computes a weighted mean. Note the argument order differs between the two syntaxes: space form takes weight first, bracket form takes value first.
 
 ```pivotal
 with products
     group by category
-        agg wavg price quantity as avg_price
+        agg wmean quantity price as avg_price   # space: weight first
+        agg wmean(price, quantity) as avg_price  # bracket: value first
 ```
+
+`wavg` is accepted as a backward-compatible alias for `wmean`.
 
 ## `nunique` — count distinct values
 

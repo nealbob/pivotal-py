@@ -156,7 +156,14 @@ with sales
         where category == "clearance"
 ```
 
-Rows where the condition is false receive `null` / `NaN`. To provide a fallback, use multi-case syntax.
+`else` is optional. Without it, rows where the condition is false receive `null` / `NaN`. Use `else` to provide a default:
+
+```pivotal
+with sales
+    discounted_price = price * 0.9
+        where category == "clearance"
+        else price
+```
 
 ## Multi-case assignment
 
