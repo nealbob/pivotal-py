@@ -277,11 +277,11 @@ While Pivotal is young, the scope is reasonably extensive covering all the commo
 
 Pivotal has been built with Jupyter Notebooks in front of mind. The JupyterLab extension includes ```%%pivotal``` cell magic with syntax highlighting and context aware auto-complete for Pivotal code cells (column and table name completions), along with GUI features including interactive object viewer and explorer (with [AG GRID](https://www.ag-grid.com/) spreadsheets and table and plot previews). The VS Code extension offers much the same functionality.
 
-JUPYTER LAB GIF
+[![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
 ## We need your help
 
-It's probably dishonest to say I've built Pivotal myself, given the contribution of AI agents (claude and codex), which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it is easy to define objective tests.
+It would be misleading to say I've built Pivotal myself, given the involvement of AI agents (claude and codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have already been trained on so much SQL and Python already, and it is easy to define objective tests of the language.
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 
