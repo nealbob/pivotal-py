@@ -259,7 +259,7 @@ Ultimately, there are limits to how far you can bend SQL to suit Python analytic
 
 ## How Pivotal works
 
-Under the hood, Pivotal is just a code generator which takes strings of Pivotal syntax and outputs strings of Python code. Pivotal is written in Python, and uses the [Lark](https://lark-parser.readthedocs.io/en/stable/) package to parse Pivotal code into an Abstract Syntax Tree or AST (a Python dictionary).  From this AST, Pivotal can then generate code for multiple backends including Python Pandas, Polars or DuckDB/SQL code:
+Under the hood, Pivotal is just a code generator which takes strings of Pivotal syntax and outputs strings of Python code. Pivotal is written in Python, and uses the [Lark](https://lark-parser.readthedocs.io/en/stable/) package to parse Pivotal code into an Abstract Syntax Tree or AST (ie., a Python dictionary).  From this AST, Pivotal can then generate code for multiple backends including Python Pandas, Polars or DuckDB/SQL code:
 
 ```Python
 from pivotal import DSLParser  
