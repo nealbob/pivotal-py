@@ -111,7 +111,7 @@ Pivotal has a declarative syntax similar to SQL while incorporating aspects Pyth
     ```
 ---
 
-Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work. In this example, Pandas code requires around 60% more characters. Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
+Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work. In this example, Pandas code requires around 60% more characters (for more detail see[here](https://nealbob.github.io/pivotal-py/comparison/). Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
 
 |       | Pivotal | Python (Pandas) | Python (Polars) |
 |---|---|---|---|
@@ -120,8 +120,6 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Key presses | 542 | 937 | 983 |
 | Tokens | 103 | 256 | 299 |
 
-!!! note
-For a more detailed comparison see [Pivotal Comparison](https://nealbob.github.io/pivotal-py/comparison/).
 
 The second example shows a data science workflow: data loading and feature engineering, then model training, followed by processing of results into plots and other outputs.  While highly stylised, this is representative of real workflows, in that a high proportion of code is often devoted to data processing relative to actual modelling.
 
@@ -281,7 +279,7 @@ Pivotal has been built with Jupyter Notebooks in front of mind. The JupyterLab e
 
 ## We need your help
 
-It would be misleading to say I've built Pivotal myself, given the involvement of AI agents (claude and codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have already been trained on so much SQL and Python already, and it is easy to define objective tests of the language.
+It would be misleading to say I've built Pivotal myself, given the cointribution of AI agents (claude and codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have already been trained on so much SQL and Python already, and it is easy to define objective tests of the language. There is more to say about the role of AI here both in the development and use of DSLs (i.e., why do we need new programming languages if AI is doing all the coding?) but I'll leave that for another time.
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 
