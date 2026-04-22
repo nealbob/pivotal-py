@@ -1,6 +1,6 @@
 {
   "name": "@pivotal/jupyterlab",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "JupyterLab syntax highlighting for the Pivotal data transformation DSL",
   "keywords": [
     "jupyter",
@@ -63,11 +63,6 @@
   "jupyterlab": {
     "extension": true,
     "outputDir": "pivotal_jupyterlab/labextension",
-    "schemaDir": "schema",
-    "_build": {
-      "load": "static\\remoteEntry.9de10b118327e408c07d.js",
-      "extension": "./extension",
-      "style": "./style"
-    }
+    "schemaDir": "schema"
   }
 }

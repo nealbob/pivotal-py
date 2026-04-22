@@ -75,18 +75,17 @@ from pivotal import DSLParser
 parser = DSLParser()
 
 # Execute directly
-parser.execute("""
+tables = parser.execute("""
 load "data/sales.csv" as sales
 
 with sales as top
     filter revenue > 1000
     sort revenue desc
-""")
+""", globals())
 
 # Access the result
-import pandas as pd
-# tables are available in the parser's namespace
-print(parser.namespace['top'])
+top_df = tables['top']
+print(top_df)
 ```
 
 **Generate code instead of running it:**

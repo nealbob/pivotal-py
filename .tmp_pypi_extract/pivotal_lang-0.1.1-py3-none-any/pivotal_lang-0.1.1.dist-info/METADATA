@@ -1,0 +1,140 @@
+Metadata-Version: 2.4
+Name: pivotal-lang
+Version: 0.1.1
+Summary: A pipeline-oriented data transformation DSL for Python and Jupyter
+Author: Hugh Evans
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/nealbob/pivotal-py
+Project-URL: Repository, https://github.com/nealbob/pivotal-py
+Project-URL: Bug Tracker, https://github.com/nealbob/pivotal-py/issues
+Keywords: data,dataframe,transformation,dsl,pandas,polars,duckdb,sql,jupyter,pipeline
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: lark>=1.1
+Requires-Dist: pandas>=1.5
+Requires-Dist: matplotlib>=3.5
+Requires-Dist: polars>=0.20
+Requires-Dist: duckdb>=0.9
+Requires-Dist: great-tables>=0.5
+Requires-Dist: css_inline>=0.13
+Requires-Dist: ipywidgets>=8.0
+Requires-Dist: ipyfilechooser>=0.6
+Requires-Dist: sqlalchemy>=2.0
+Provides-Extra: polars
+Requires-Dist: polars>=0.20; extra == "polars"
+Provides-Extra: duckdb
+Requires-Dist: duckdb>=0.9; extra == "duckdb"
+Provides-Extra: tables
+Requires-Dist: great-tables>=0.5; extra == "tables"
+Requires-Dist: css_inline>=0.13; extra == "tables"
+Provides-Extra: jupyter
+Requires-Dist: ipywidgets>=8.0; extra == "jupyter"
+Requires-Dist: ipyfilechooser>=0.6; extra == "jupyter"
+Provides-Extra: sql
+Requires-Dist: sqlalchemy>=2.0; extra == "sql"
+Dynamic: license-file
+
+# Pivotal
+
+<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_logo.svg" width="120">
+
+Pivotal is a data analysis language for Python.  It offers a concise syntax for common data operations that compiles to Pandas, Polars or DuckDB code.  Pivotal's  JupyterLab extension adds autocomplete, interactive viewer and GUI controls, making it a user friendly entry point to the Python data ecosystem.
+
+<br>
+
+<img src="https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/ataglance.png" width="600">
+
+A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb) is available via Binder:
+
+[![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/piv2.png)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
+
+## Features
+
+**Readable, Writable syntax** — write data transformations in a simple declarative syntax
+
+**Multiple backends** — compile to Pandas (default), Polars or in-process DuckDB (SQL)
+
+**JupyterLab integration** — `%%pivotal` cell magic, live object viewer, syntax highlighting, autocomplete, GUI controls, export to Python code
+
+**VS Code integration** — syntax highlighting, autocomplete, interactive execution and code export
+
+**Plotting and tables** — simple syntax for charts and publication-ready tables via matplotlib and Great Tables
+
+**Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
+
+---
+
+## Installation
+
+```bash
+pip install pivotal-lang
+```
+
+This installs the full feature set — Pandas, Polars, DuckDB, Great Tables.
+
+For a minimal Pandas-only install:
+
+```bash
+pip install --no-deps pivotal-lang
+pip install lark pandas matplotlib
+```
+
+### JupyterLab extension
+
+```bash
+pip install pivotal-lab
+```
+
+### VS Code extension
+
+Install from the VS Code Marketplace, or build locally from `editors/vscode`.
+
+---
+
+## Documentation
+
+Full documentation including the complete syntax reference, backend guide, and API reference:
+
+**[nealbob.github.io/pivotal-py](https://nealbob.github.io/pivotal-py)**
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request on GitHub.
+
+---
+
+## License
+
+MIT
+
+---
+
+## Authors
+
+Neal Hughes
+
+---
+
+## Version History
+
+- **v0.1.0** — Initial release
+
+---
+
+## Contact & Support
+
+For questions, issues, or feature requests please open an issue on GitHub or contact [hughes.neal@gmail.com](mailto:hughes.neal@gmail.com).

@@ -281,7 +281,7 @@ JUPYTER LAB GIF
 
 ## We need your help
 
-It would be dishonest to say I've built Pivotal myself, given much of the code has been written by AI, which at this point feels more like a collaborator than a servant. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it is easy to define objective tests.
+It's probably dishonest to say I've built Pivotal myself, given the contribution of AI agents (claude and codex), which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it is easy to define objective tests.
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 

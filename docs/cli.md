@@ -1,6 +1,6 @@
 # CLI
 
-The `pivotal` command is installed automatically with `pip install pivotal`.
+The `pivotal` command is installed automatically with `pip install pivotal-lang`.
 
 ## Run a `.pivotal` file
 

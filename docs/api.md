@@ -56,19 +56,19 @@ print(full_code)
 
 ---
 
-### `execute(source, backend='pandas', namespace=None)`
+### `execute(source, globals_dict, backend='pandas', verbose=True)`
 
 Parse and execute Pivotal source in one call.
 
 ```python
-parser.execute("""
+tables = parser.execute("""
 load "data/sales.csv" as sales
 
 with sales as summary
     group by region
         agg sum revenue as total
     sort total desc
-""")
+""", globals())
 ```
 
 **Parameters:**
@@ -76,26 +76,27 @@ with sales as summary
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `source` | str | Pivotal DSL source |
-| `backend` | str | `'pandas'` (default), `'duckdb'`, or `'sql'` |
-| `namespace` | dict | Execution namespace (default: creates a new one) |
+| `globals_dict` | dict | Namespace to execute in — pass `globals()` or a dict |
+| `backend` | str | `'pandas'` (default), `'duckdb'`, or `'polars'` |
+| `verbose` | bool | Print table shape and preview after each step (default: `True`) |
 
-Tables are accessible after execution via `parser.namespace`:
+**Returns:** A dict of `{table_name: DataFrame}` for every table produced.
 
 ```python
-parser.execute(source)
-summary_df = parser.namespace['summary']
+tables = parser.execute(source, globals())
+summary_df = tables['summary']
 ```
 
-Or pass in an existing namespace to share variables:
+Pass a custom dict to share variables or isolate execution:
 
 ```python
 ns = {'threshold': 1000, 'sales': existing_df}
-parser.execute("""
+tables = parser.execute("""
 with sales as filtered
     filter amount > :threshold
-""", namespace=ns)
+""", ns)
 
-filtered = ns['filtered']
+filtered = tables['filtered']
 ```
 
 ---

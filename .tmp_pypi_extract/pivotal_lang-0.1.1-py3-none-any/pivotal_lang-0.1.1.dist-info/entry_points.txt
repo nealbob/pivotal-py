@@ -1,0 +1,5 @@
+[console_scripts]
+pivotal = pivotal.__main__:main
+
+[pygments.lexers]
+pivotal = pivotal.lexer:PivotalLexer

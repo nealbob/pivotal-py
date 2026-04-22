@@ -1,10 +1,35 @@
 # Pivotal DSL — Language Reference
 
-Pivotal is a DSL for data transformation that compiles to pandas Python code. It runs in two contexts:
+Pivotal is a DSL for data transformation that compiles to Python or SQL code. It runs in two contexts:
 - **`%%pivotal` cells** in JupyterLab notebooks (using the Pivotal cell magic)
 - **`.pivotal` files** executed via `python -m pivotal <file.pivotal>` or compiled to `.py` with `python -m pivotal --compile <file.pivotal>`
 
-In both cases the DSL is compiled to pandas code and executed in the current Python runtime. 
+The same DSL source runs unchanged on any of four backends:
+
+| Backend | Description |
+|---------|-------------|
+| `pandas` | Default. Uses pandas DataFrames; best for interactive analysis. |
+| `polars` | Polars DataFrames; faster for larger datasets. |
+| `duckdb` | In-process analytical SQL engine. |
+| `sql` | Generates plain SQL (export/compile only). |
+
+### Setting the backend
+
+In a notebook, set the backend for the whole session with `%pivotal_set`:
+
+```python
+%pivotal_set backend=duckdb
+```
+
+Or override it for a single cell:
+
+```python
+%%pivotal backend=polars
+with sales
+    filter amount > 0
+```
+
+Run `%pivotal_set` with no arguments to display current settings.
 
 
 ## Core conventions
