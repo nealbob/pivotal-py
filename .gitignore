@@ -49,11 +49,16 @@ Thumbs.db
 output/*
 !output/.gitkeep
 
+# Temporary PyPI build/extract folders
+.tmp_pypi/
+.tmp_pypi_extract/
+
 # MkDocs generated site
 site/
 
 # Claude
 .claude/
+CLAUDE.md
 
 # Playwright test output
 tests/jupyter_screenshots/
