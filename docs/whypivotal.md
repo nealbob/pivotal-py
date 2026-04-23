@@ -198,10 +198,6 @@ Because Pivotal compiles to Python it's easy to access Python objects and functi
     )
 
     training_data = crops.copy()
-    training_data = training_data[
-        (training_data["crop_type"] == "wheat") & (training_data["area"] > 0)
-    ].copy()
-    training_data["yield"] = training_data["production"] / training_data["area"]
 
     training_data = (
         training_data
