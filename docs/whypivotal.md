@@ -145,8 +145,6 @@ Because Pivotal compiles to Python it's easy to access Python objects and functi
             agg sum grow_degrees as gdd, sum rain as grow_rain
 
     with crops as training_data
-        filter crop_type == "wheat" and area > 0
-        yield = production / area
         inner merge climate_features on year, region
         select year, area, yield, gdd, grow_rain, region
 

@@ -205,7 +205,6 @@ with sales
 ### Data science pipeline pattern
 
 A common pattern is to alternate between Pivotal and Python: use Pivotal for data loading and wrangling, Python for analysis or modelling, then Pivotal again for result processing.
-
 ```
 raw_data.csv
     └── pipeline.pivotal   (load, clean, filter)
