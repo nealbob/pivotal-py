@@ -1,12 +1,12 @@
 # Pivotal: A better syntax for data analysis in Python
 
-Python has become a standard language for data analysis - particularly in corporate and government teams - and not without good reason. Python is a great language, known by all, with an excellent data ecosystem, and it’s free.  
+Python has become a standard language for data analysis — particularly in corporate and government teams — and not without good reason. Python is a great language, known by all, with an excellent data ecosystem, and it’s free.  
 
 I love Python. But I don't love [Pandas](https://pandas.pydata.org/). By its creator's own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python for the powerful data science tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
 
-Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis with a concise syntax that compiles into Python (using either Pandas, Polars or DuckDB backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier read, while still operating over Python data structures and integrating tightly with Python code.
+Pivotal is my attempt to address this. Pivotal is a Domain Specific Language (DSL) for data analysis with a concise syntax that compiles into Python (using either Pandas, Polars or DuckDB backends). Pivotal is designed to support interactive Python workflows with a language that is faster to type and easier to read, while still operating over Python data structures and integrating tightly with Python code.
 
-## Two examples
+## Let's take a look
 
 Pivotal has a declarative syntax similar to SQL while incorporating aspects Python (pandas) and R (dplyr) grammar. The below example compares Pivotal to equivalent Python code for some basic data wrangling in a Jupyter Notebook:
 
@@ -111,7 +111,7 @@ Pivotal has a declarative syntax similar to SQL while incorporating aspects Pyth
     ```
 ---
 
-Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work.  Pivotal's syntax is also more human readable which is important for collaboration amongst other things.
+Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work.  Pivotal's syntax is also more human-readable which remains important for collaboration, code sharing and reproducibility, [even when using AI coding agents](https://www.ivanturkovic.com/2026/01/23/code-is-for-humans-not-machines-why-ai-wont-make-syntax-obsolete/).
 
 <figcaption>Pivotal Vs Python syntax, for more detail see <a href="https://nealbob.github.io/pivotal-py/comparison/">here</a></figcaption>
 
@@ -122,7 +122,7 @@ Pivotal has been designed to be easy-to-type, with minimal use of punctuation, s
 | Key presses | 542 | 937 | 983 |
 | Tokens | 103 | 256 | 299 |
 
-The second example shows a data science workflow: data loading, feature engineering, model training and result processing.  While stylised, this is representative of real workflows, in that a high proportion of code is devoted to processing data inputs and outputs relative to actual modelling.
+This second example shows a data science workflow: data loading, feature engineering, model training and result processing.  While stylised, this is representative of real workflows, where a high proportion of code is devoted to processing data inputs and outputs relative to actual modelling.
 
 Because Pivotal compiles to Python it's easy to access Python objects and functions within Pivotal code, and to intersperse Python and Pivotal either in Notebooks (as above) or in Pivotal script files (as below).
 
@@ -227,11 +227,11 @@ Because Pivotal compiles to Python it's easy to access Python objects and functi
 
 ## The Pandas problem and the DSL solution
 
-Pandas limitations have been well-documented, most notably by its creator [Wes McKinney](https://wesmckinney.com/blog/apache-arrow-pandas-internals/). Firstly, there are the quirks: including indexes which most people try to avoid, leading to boilerplate like `.reset_index()` or `as_index=False`. Then there are the long standing performance limitations (lessend somewhat by recent updates).
+Pandas limitations have been well-documented, most notably by its creator [Wes McKinney](https://wesmckinney.com/blog/apache-arrow-pandas-internals/). Firstly, there are the quirks: including indexes, that most people try to avoid, leading to boilerplate like `.reset_index()` or `as_index=False`. Then there are the long standing performance limitations (lessened somewhat by recent updates).
 
 There are of course alternatives. Polars offers better performance and has no indexes, but the syntax is even more verbose (see above example). And if we are being honest, the R [tidyverse](https://tidyverse.org/) probably offers a better experience for interactive data work than anything in Python (but its in R).
 
-The one thing all these options suffer from is trying to embed a data processing grammer within a general purpose language.  This leads to anoyances like having to wrap column names in quotations and explicitly reference dataframes at all times, for example:
+The one thing all these options suffer from is trying to embed a data processing grammar within a general purpose language.  This leads to annoyances like having to wrap column names in quotations and explicitly reference data-frames at all times, for example:
 
 ```python
 mydata.loc[mydata.columnA > 0, "columnC"] = mydata["columnB"] / mydata["columnA"]
@@ -249,11 +249,11 @@ The longevity of SQL tells us something about the utility of DSLs for data work.
 
 In some respects, DuckDB and PRQL address similar problems as Pivotal, just from the opposite direction: trying to modify SQL to bring it closer to Python, rather than building a native Python workflow that is more SQL like.
 
-Ultimately, there are limits to how far you can bend SQL to suit Python analytical workflows. In practice, the mental (and performance) overhead of moving data between a SQL engine and Python can slow things down (especialy for exploratory work on small datasets).
+Ultimately, there are limits to how far you can bend SQL to suit Python analytical workflows. In practice, the mental (and performance) overhead of moving data between a SQL engine and Python can slow things down (especially for exploratory work on small datasets).
 
 ## How Pivotal works
 
-Under the hood, Pivotal is just a code generator which takes strings of Pivotal syntax and outputs strings of Python code. Pivotal is written in Python, and uses the [Lark](https://lark-parser.readthedocs.io/en/stable/) package to parse Pivotal code into an Abstract Syntax Tree or AST (ie., a Python dictionary).  From this AST, Pivotal can then generate code for multiple backends including Python Pandas, Polars or DuckDB/SQL code:
+Under the hood, Pivotal is a simple code generator that takes strings of Pivotal syntax and outputs strings of Python code. Pivotal is written in Python, and uses the [Lark](https://lark-parser.readthedocs.io/en/stable/) package to parse Pivotal code into an Abstract Syntax Tree or AST (ie., a Python dictionary).  From this AST, Pivotal can then generate code for multiple backends including Python Pandas, Polars or DuckDB/SQL code:
 
 ```Python
 from pivotal import DSLParser  
@@ -268,13 +268,13 @@ mydf = mydf.loc[:, ['columnA', 'columnB']]
 
 While Pivotal is young, the scope is reasonably extensive covering all the common Pandas / SQL data operations, along with a range of more complex tasks like window functions and date and string manipulation  (see the [docs](https://nealhughes.net/pivotal-py/)). Pivotal also includes commands for producing outputs, including plots (via `matplotlib`), tables (via [Great Tables](https://posit-dev.github.io/great-tables/articles/intro.html)) and saving to [Frictionless data packages](https://specs.frictionlessdata.io/data-package/). For any tasks that can't be done in Pivotal there is an easy Python "escape hatch".
 
-Pivotal has been built with Jupyter Notebooks in front of mind. The JupyterLab extension includes ```%%pivotal``` cell magic with syntax highlighting and context aware auto-complete (column and table name completions), along with GUI features including interactive object viewer and explorer (with [AG Grid](https://www.ag-grid.com/) spreadsheets and table and plot previews). The VS Code extension offers much the same functionality.
+Pivotal has been built with Jupyter Notebooks front of mind. The JupyterLab extension includes ```%%pivotal``` cell magic with syntax highlighting and context aware auto-complete (column and table name completions), along with GUI features including interactive object viewer and explorer (with [AG Grid](https://www.ag-grid.com/) spreadsheets and table and plot previews). The VS Code extension offers much the same functionality.
 
 [![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
 ## We need your help
 
-It would be misleading to say I've built Pivotal myself, given the involvment of AI agents (Claude and Codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it's easy to define objective tests for language parsing and execution. There is a lot more to say about all this, including whether better syntax even matters if AI is doing all the coding (it does), but I'll leave that for another time.
+It would be misleading to say I've built Pivotal myself, given the involvement of AI agents (Claude and Codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it's easy to define objective tests for language parsing and execution. There is a lot more to say about all this, including whether better syntax even matters if AI is doing all the coding (it does), but I'll leave that for another time.
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 
