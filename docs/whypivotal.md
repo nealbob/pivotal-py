@@ -111,7 +111,7 @@ Pivotal has a declarative syntax similar to SQL while incorporating aspects Pyth
     ```
 ---
 
-Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work.  Pivotal's syntax is also more human-readable which remains important for collaboration, code sharing and reproducibility, [even when using AI coding agents](https://www.ivanturkovic.com/2026/01/23/code-is-for-humans-not-machines-why-ai-wont-make-syntax-obsolete/).
+Pivotal has been designed to be easy-to-type, with minimal use of punctuation, symbols or brackets, in order to support fast interactive data work.  Pivotal's syntax is also more human-readable which remains important for collaboration, code sharing and verification.
 
 <figcaption>Pivotal Vs Python syntax, for more detail see <a href="https://nealbob.github.io/pivotal-py/comparison/">here</a></figcaption>
 
@@ -274,7 +274,7 @@ Pivotal has been built with Jupyter Notebooks front of mind. The JupyterLab exte
 
 ## We need your help
 
-It would be misleading to say I've built Pivotal myself, given the involvement of AI agents (Claude and Codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it's easy to define objective tests for language parsing and execution. There is a lot more to say about all this, including whether better syntax even matters if AI is doing all the coding (it does), but I'll leave that for another time.
+It would be misleading to say I've built Pivotal myself, given the involvement of AI agents (Claude and Codex) which at this point feel more like collaborators than servants. This project is well suited to AI given LLMs have been trained on so much SQL and Python already, and it's easy to define objective tests for language parsing and execution. There is a lot more to say about all this, including whether good syntax even matters if AI can write the code for us (it does, but that's for another time).
 
 While AI speeds up development, there's still a strong need for human guidance, given the purpose of the project is to develop a language better suited to human tastes and ways of thinking. The key thing Pivotal needs at this point is more feedback from more humans. So please give Pivotal a go and let me (and Claude) know what you think.
 
