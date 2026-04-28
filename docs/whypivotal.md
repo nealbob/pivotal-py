@@ -1,6 +1,6 @@
 # Pivotal: A better syntax for data analysis in Python
 
-Python has become a standard language for data analysis — particularly in corporate and government teams — and not without good reason. Python is a great language, known by all, with an excellent data ecosystem, and it’s free.  
+Python has become a standard language for data analysis — particularly in corporate and government teams — and with good reason. Python is a great language, known by all, with an excellent data ecosystem, and it’s free.  
 
 I love Python. But I don't love [Pandas](https://pandas.pydata.org/). By its creator's own admission, Pandas syntax has some strange quirks and is rather verbose. While analysts might come to Python for the powerful data science tools, they invariably spend a lot of time doing basic data wrangling — which in Pandas is harder than it should be.
 
