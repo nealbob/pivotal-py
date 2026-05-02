@@ -194,6 +194,12 @@ def test_codegen_groupby_sql(parser):
     assert 'SUM(price) AS total' in sql
 
 
+def test_codegen_groupby_multi_column_agg_sql(parser):
+    sql = gen_sql(parser, 'with sales\ngroup by category\n    agg mean price, quantity\n')
+    assert 'AVG(price) AS price_mean' in sql
+    assert 'AVG(quantity) AS quantity_mean' in sql
+
+
 def test_execute_groupby_sql(parser, sample_df):
     conn = make_conn('sales', sample_df)
     sql = gen_sql(parser, 'with sales\ngroup by category\n    agg sum price as total\n')

@@ -715,6 +715,21 @@ def test_groupby_multi_agg_duckdb(parser, region_df):
     assert n['avg_amt'] == pytest.approx(200.0)
 
 
+def test_groupby_agg_function_applies_to_multiple_columns_duckdb(parser):
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100.0, 300.0, 200.0, 400.0],
+        'weight': [1.0, 3.0, 2.0, 2.0],
+    })
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\ngroup by region\n    agg mean amount, weight\n', ns)
+    result = fetch(ns, 'data')
+    n = result[result['region'] == 'N'].iloc[0]
+    assert n['amount'] == pytest.approx(200.0)
+    assert n['weight'] == pytest.approx(2.0)
+
+
 def test_groupby_multi_column_by_duckdb(parser, region_df):
     conn = make_conn('data', region_df)
     ns = ddb_ns(conn)

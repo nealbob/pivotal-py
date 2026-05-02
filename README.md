@@ -65,6 +65,19 @@ Full documentation including the complete syntax reference, backend guide, and A
 
 Contributions are welcome! Please open an issue or pull request on GitHub.
 
+To install the developer test dependencies:
+
+```bash
+pip install .[test]
+```
+
+The JupyterLab Playwright smoke test is optional. To install its dependency:
+
+```bash
+pip install .[jupyter-test]
+python -m playwright install chromium
+```
+
 ---
 
 ## License

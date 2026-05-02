@@ -392,6 +392,28 @@ def test_wmean_groupby_multi_column(parser):
     assert b['wmean_y'] == pytest.approx(30.0)
 
 
+def test_agg_function_applies_to_multiple_columns(parser):
+    """agg mean colA, colB applies mean to each listed column."""
+    df = pd.DataFrame({'colA': [1.0, 3.0], 'colB': [10.0, 30.0]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\n    agg mean colA, colB\n', ns)
+    assert ns['data']['colA_mean'].iloc[0] == pytest.approx(2.0)
+    assert ns['data']['colB_mean'].iloc[0] == pytest.approx(20.0)
+
+
+def test_groupby_agg_function_applies_to_multiple_columns(parser):
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'colA': [1.0, 3.0, 2.0, 4.0],
+        'colB': [10.0, 30.0, 20.0, 40.0],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\ngroup by grp\n    agg mean colA, colB\n', ns)
+    a = ns['data'][ns['data']['grp'] == 'A'].iloc[0]
+    assert a['colA'] == pytest.approx(2.0)
+    assert a['colB'] == pytest.approx(20.0)
+
+
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------

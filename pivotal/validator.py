@@ -292,14 +292,20 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
         elif t == 'merge':
             right_table = node.get('right_table')
             # The parser stores join keys in 'keys' (a list) and kwargs as a
-            # string, not a dict.  Read keys directly from the node.
+            # dict.  Read inline keys directly from the node and indented
+            # merge options from kwargs.
             keys = node.get('keys') or []
+            kwargs = node.get('kwargs') or {}
+            if not isinstance(kwargs, dict):
+                kwargs = {}
 
             # If current_cols is unknown but the left table is in the namespace,
             # seed it now so we can validate join keys.
             left_table = node.get('table_name')
             if current_cols is None and left_table and left_table in namespace:
                 current_cols = _df_columns(left_table, namespace)
+
+            right_cols = _df_columns(right_table, namespace) if right_table else None
 
             # Check right table exists
             if right_table:
@@ -311,6 +317,25 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
             if keys:
                 on_list = [keys] if isinstance(keys, str) else list(keys)
                 errors.extend(_col_errors(on_list, current_cols, tbl, 'merge on'))
+                errors.extend(_col_errors(on_list, right_cols, right_table, 'merge on'))
+
+            # Indented form:
+            #   merge customers
+            #       on region
+            #       left_on region
+            #       right_on cust_region
+            opt_on = kwargs.get('on')
+            if isinstance(opt_on, str):
+                errors.extend(_col_errors([opt_on], current_cols, tbl, 'merge on'))
+                errors.extend(_col_errors([opt_on], right_cols, right_table, 'merge on'))
+
+            left_on = kwargs.get('left_on')
+            if isinstance(left_on, str):
+                errors.extend(_col_errors([left_on], current_cols, tbl, 'merge left_on'))
+
+            right_on = kwargs.get('right_on')
+            if isinstance(right_on, str):
+                errors.extend(_col_errors([right_on], right_cols, right_table, 'merge right_on'))
 
             current_cols = None   # merged column set is not statically predictable
 

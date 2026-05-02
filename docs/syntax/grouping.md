@@ -64,6 +64,16 @@ with sales as summary
         agg sum revenue as total, mean revenue as avg, count id as deals
 ```
 
+When the same aggregation function applies to several columns, you can write the function once:
+
+```pivotal
+with sales as averages
+    group by region
+        agg mean price, cost, margin
+```
+
+This is equivalent to `agg mean price, mean cost, mean margin`.
+
 ```pivotal
 with sales as detailed
     group by region
@@ -122,6 +132,13 @@ with sales as totals
 ```
 
 This produces a single-row result. The same aggregation functions are supported as with `group by`.
+
+The multi-column shorthand also works here:
+
+```pivotal
+with sales as averages
+    agg mean price, cost, margin
+```
 
 ## Example: full summary table
 

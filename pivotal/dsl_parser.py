@@ -223,7 +223,7 @@ grammar_indented = r"""
               | "else" expression _NL? -> assign_else
 
     case_list: case_branch+ case_default?
-    case_branch: "where" condition_list ";" CASE_BRANCH_EXPR _NL
+    case_branch: "where" condition_list (";" | ":") CASE_BRANCH_EXPR _NL
     case_default: "else" expression _NL?
                 | CASE_DEFAULT_EXPR _NL
     CASE_BRANCH_EXPR: /[^\n]+/
@@ -1917,7 +1917,7 @@ class CodeGenerator:
         else:
             source_str = str(source)
             reader = self._reader_for_source(source_str)
-            load_table = f"{ast_node['table_name']} = {reader}('{source}'{ast_node['kwargs_str']})"
+            load_table = f"{ast_node['table_name']} = {reader}({repr(source_str)}{ast_node['kwargs_str']})"
 
         kw_set = repr(PIVOTAL_KEYWORDS)
         tname = ast_node['table_name']
@@ -6617,6 +6617,37 @@ class DSLParser:
         # Strip single-line comments line-by-line (respects string literals).
         lines = [self._strip_line_comment(ln) for ln in code.split('\n')]
         code = '\n'.join(lines)
+
+        # Allow compact aggregation syntax such as:
+        #     agg mean colA, colB
+        # by expanding it to:
+        #     agg mean colA, mean colB
+        # Existing multi-function syntax like "agg sum x, max y" is left alone.
+        agg_funcs = 'mean|avg|sum|min|max|count|std|median|var|nunique|first|last'
+
+        def _expand_agg_line(m):
+            indent, body = m.group(1), m.group(2)
+            parts = [p.strip() for p in body.split(',')]
+            expanded = []
+            current_func = None
+            for part in parts:
+                if not part:
+                    continue
+                func_match = re.match(rf'^({agg_funcs})\b', part, flags=re.IGNORECASE)
+                special_match = re.match(r'^(wmean|wavg)\b', part, flags=re.IGNORECASE)
+                if func_match:
+                    current_func = func_match.group(1)
+                    expanded.append(part)
+                elif special_match:
+                    current_func = None
+                    expanded.append(part)
+                elif current_func:
+                    expanded.append(f'{current_func} {part}')
+                else:
+                    expanded.append(part)
+            return f"{indent}agg {', '.join(expanded)}"
+
+        code = re.sub(r'^([ \t]*)agg[ \t]+([^\n]+)$', _expand_agg_line, code, flags=re.MULTILINE)
 
         # Strip leading and trailing whitespace
         code = code.strip()

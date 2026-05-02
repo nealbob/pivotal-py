@@ -194,6 +194,9 @@ Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wmean weig
 
 Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg sum(revenue) as total`.
 
+To apply one aggregation function to multiple columns, list the extra columns after commas:
+`agg mean price, cost, margin` is equivalent to `agg mean price, mean cost, mean margin`.
+
 To aggregate over all rows without grouping, use `agg` without `group by`:
 
 ```pivotal

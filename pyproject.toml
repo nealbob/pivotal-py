@@ -54,6 +54,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# pip install pivotal-lang[test]
+test = [
+    "pytest",
+]
+# Optional dependency for the standalone JupyterLab Playwright smoke test
+# pip install pivotal-lang[jupyter-test]
+jupyter-test = [
+    "playwright",
+]
 # Granular extras for environments where only a specific backend is needed
 # pip install pivotal[polars]
 polars = [
@@ -92,3 +101,6 @@ Repository = "https://github.com/nealbob/pivotal-py"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pivotal*"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
