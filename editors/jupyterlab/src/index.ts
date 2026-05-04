@@ -187,6 +187,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
 
   // Row operations
+  { label: 'for', type: 'keyword', apply: snippet('for ${col} in ${col1}, ${col2}\n    ${col} = ${col} / ${denom}'), detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
   { label: 'select', type: 'keyword', detail: 'select <col>, ...' },
   { label: 'drop', type: 'keyword', detail: 'drop <col>, ...' },

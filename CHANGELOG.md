@@ -8,6 +8,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
+- Added column `for` loops for applying assignment statements and column-oriented operations across multiple columns, including Python list variables and generated assignment target names.
 - Added aggregation shorthand support so a single aggregation function can be applied across multiple columns.
 - Added package extras for test dependencies.
 

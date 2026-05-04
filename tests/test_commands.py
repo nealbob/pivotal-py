@@ -129,6 +129,112 @@ def test_assign_new_column(parser, sample_df):
     assert ns['sales'].iloc[0]['revenue'] == pytest.approx(999.99 * 5)
 
 
+def test_for_assign_columns(parser):
+    df = pd.DataFrame({
+        'colA': [100, 200],
+        'colB': [50, 75],
+        'colC': [10, 20],
+        'cpi': [2, 4],
+    })
+    ns = {'pd': pd, 'mydata': df.copy()}
+    run(parser, 'with mydata\nfor col in colA, colB, colC\n    col = col / cpi', ns)
+
+    assert list(ns['mydata']['colA']) == [50, 50]
+    assert list(ns['mydata']['colB']) == [25, 18.75]
+    assert list(ns['mydata']['colC']) == [5, 5]
+
+
+def test_for_assign_expands_to_assign_nodes(parser):
+    nodes = parser.parse('with data\nfor col in a, b\n    col = col / cpi\n')
+    assert [n['type'] for n in nodes] == ['validate_table', 'assign', 'assign']
+    assert [(n['target'], n['expression']) for n in nodes[1:]] == [
+        ('a', 'a / cpi'),
+        ('b', 'b / cpi'),
+    ]
+
+
+def test_for_assign_replaces_only_exact_identifier(parser):
+    df = pd.DataFrame({
+        'x': [10, 20],
+        'y': [30, 40],
+        'colx': [2, 4],
+    })
+    ns = {'pd': pd, 'data': df.copy()}
+    run(parser, 'with data\nfor x in x, y\n    x = x / colx', ns)
+
+    assert list(ns['data']['x']) == [5, 5]
+    assert list(ns['data']['y']) == [15, 10]
+    assert list(ns['data']['colx']) == [2, 4]
+
+
+def test_for_assign_with_where_and_else(parser):
+    df = pd.DataFrame({
+        'a': [10, 20, 30],
+        'b': [100, 200, 300],
+        'cpi': [2, 4, 5],
+        'active': [True, False, True],
+    })
+    ns = {'pd': pd, 'data': df.copy()}
+    run(
+        parser,
+        'with data\nfor col in a, b\n    col = col / cpi\n        where active == True\n        else col',
+        ns,
+    )
+
+    assert list(ns['data']['a']) == [5, 20, 6]
+    assert list(ns['data']['b']) == [50, 200, 60]
+
+
+def test_for_assign_python_list(parser):
+    df = pd.DataFrame({
+        'a': [10, 20],
+        'b': [100, 200],
+        'cpi': [2, 4],
+    })
+    ns = {'pd': pd, 'data': df.copy(), 'cols': ['a', 'b']}
+    run(parser, 'with data\nfor col in :cols\n    col = col / cpi', ns)
+
+    assert list(ns['data']['a']) == [5, 5]
+    assert list(ns['data']['b']) == [50, 50]
+
+
+def test_for_assign_dynamic_target_suffix(parser):
+    df = pd.DataFrame({
+        'a': [10, 20],
+        'b': [100, 200],
+        'cpi': [2, 4],
+    })
+    ns = {'pd': pd, 'data': df.copy()}
+    run(parser, 'with data\nfor x in a, b\n    x + "_real" = x / cpi', ns)
+
+    assert list(ns['data']['a_real']) == [5, 5]
+    assert list(ns['data']['b_real']) == [50, 50]
+
+
+def test_for_loop_cast_and_fillna(parser):
+    df = pd.DataFrame({
+        'a': ['1.5', None],
+        'b': ['2.5', None],
+    })
+    ns = {'pd': pd, 'data': df.copy()}
+    run(parser, 'with data\nfor col in a, b\n    fillna col 0\n    cast col as float', ns)
+
+    assert list(ns['data']['a']) == [1.5, 0.0]
+    assert list(ns['data']['b']) == [2.5, 0.0]
+
+
+def test_for_loop_window_rank(parser):
+    df = pd.DataFrame({
+        'a': [30, 10, 20],
+        'b': [1, 3, 2],
+    })
+    ns = {'pd': pd, 'data': df.copy()}
+    run(parser, 'with data\nfor col in a, b\n    rank col desc as col', ns)
+
+    assert list(ns['data']['a']) == [1, 3, 2]
+    assert list(ns['data']['b']) == [3, 1, 2]
+
+
 def test_assign_where(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
     run(parser, 'with sales\ndiscounted = price * 0.9\n    where category == "Electronics"', ns)

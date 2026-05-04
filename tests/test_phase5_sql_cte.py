@@ -253,6 +253,25 @@ def test_execute_assign_sql(parser, sample_df):
     assert list(result.sort_values('id')['revenue']) == pytest.approx(list(expected))
 
 
+def test_codegen_for_assign_sql(parser):
+    sql = gen_sql(parser, 'with data\nfor col in a, b\n    col = col / cpi\n')
+    assert sql.count('AS (') >= 3
+    assert 'a / cpi AS a' in sql
+    assert 'b / cpi AS b' in sql
+
+
+def test_codegen_for_dynamic_target_sql(parser):
+    sql = gen_sql(parser, 'with data\nfor x in a, b\n    x + "_real" = x / cpi\n')
+    assert 'a / cpi AS a_real' in sql
+    assert 'b / cpi AS b_real' in sql
+
+
+def test_codegen_for_python_list_sql_error(parser):
+    ast = parser.parse('with data\nfor col in :cols\n    col = col / cpi\n')
+    with pytest.raises(ValueError, match='not supported for the SQL backend'):
+        parser.generate_code(ast, backend='sql')
+
+
 def test_codegen_assign_scalar_max_sql(parser):
     sql = gen_sql(parser, 'with sales\ncapped = max(price - 150, 0)\n')
     assert 'GREATEST(price - 150, 0)' in sql

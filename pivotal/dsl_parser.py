@@ -4,6 +4,7 @@ from lark import Tree
 from lark.lexer import Token
 from lark.exceptions import UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError
 import pandas as pd
+import copy
 import json
 import os
 import re
@@ -23,6 +24,7 @@ _WAVG_CALL_RE = re.compile(
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords
     'with', 'load', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
+    'for',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
@@ -96,6 +98,28 @@ grammar_indented = r"""
                | save_statement
                | show_statement
                | delete_statement
+               | for_statement
+
+    for_statement: "for" IDENTIFIER "in" loop_source _NL _INDENT for_body_statement+ _DEDENT
+    loop_source: PYTHON_VAR -> loop_var_source
+               | loop_cols
+    loop_cols: IDENTIFIER ("," IDENTIFIER)*
+    for_body_statement: for_assign_statement
+                      | cast_statement
+                      | fillna_statement
+                      | drop_statement
+                      | dropna_statement
+                      | rank_statement
+                      | shift_statement
+                      | cumulative_statement
+                      | rolling_statement
+    for_assign_statement: for_simple_target "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
+                        | for_simple_target "=" _NL _INDENT case_list _DEDENT
+                        | target_expr "=" expression (_NL | _NL _INDENT assign_opts _DEDENT)?
+                        | target_expr "=" _NL _INDENT case_list _DEDENT
+    for_simple_target: IDENTIFIER
+    target_expr: target_expr_part ("+" target_expr_part)+
+    target_expr_part: IDENTIFIER | STRING
 
     delete_statement: "delete" IDENTIFIER _NL?
 
@@ -624,7 +648,49 @@ class DSLTransformer(Transformer):
             self.current_table = source_table_str
 
         return ast_node
-    
+
+    def loop_cols(self, *cols):
+        return [str(c) for c in cols]
+
+    def loop_var_source(self, var):
+        return var
+
+    def loop_source(self, source):
+        return source
+
+    def for_body_statement(self, stmt):
+        return stmt
+
+    def target(self, target):
+        return str(target)
+
+    def for_simple_target(self, target):
+        return target
+
+    def target_expr_part(self, part):
+        if isinstance(part, Token) and part.type == 'STRING':
+            return {'type': 'literal', 'value': str(part)[1:-1]}
+        return {'type': 'identifier', 'value': str(part)}
+
+    def target_expr(self, *parts):
+        return {'type': 'target_expr', 'parts': list(parts)}
+
+    def for_statement(self, loop_var, columns, *body):
+        """Handle column-loop statements before parser-level lowering."""
+        loop_var_str = str(loop_var)
+
+        if loop_var_str.lower() in PIVOTAL_KEYWORDS:
+            raise ValueError(
+                f"'{loop_var_str}' is a Pivotal reserved keyword and cannot be used as a loop variable."
+            )
+
+        return {
+            'type': 'for',
+            'var': loop_var_str,
+            'columns': list(columns) if isinstance(columns, list) else columns,
+            'body': list(body),
+        }
+
     def assign_where(self, condition_list):
         temp = self._build_conditional_statement(condition_list)
         return {'type': 'assign_where',
@@ -666,9 +732,15 @@ class DSLTransformer(Transformer):
 
     def assign_statement(self, target, *rest):
         """Handle assign statements: simple, conditional, or multi-case."""
-        target_str = str(target)
+        return self._build_assign_node(target, *rest)
 
-        if target_str.lower() in PIVOTAL_KEYWORDS:
+    def for_assign_statement(self, target, *rest):
+        """Handle assignment statements inside column loops."""
+        return self._build_assign_node(target, *rest)
+
+    def _build_assign_node(self, target, *rest):
+        target_str = target if isinstance(target, dict) else str(target)
+        if isinstance(target_str, str) and target_str.lower() in PIVOTAL_KEYWORDS:
             raise ValueError(
                 f"'{target_str}' is a Pivotal reserved keyword and cannot be used as a column name."
             )
@@ -682,6 +754,9 @@ class DSLTransformer(Transformer):
                 'expression': None,
                 'conditions': None,
                 'operators': None,
+                'query_str': None,
+                'by_cols': [],
+                'default_expr': None,
                 'cases': rest[0],
             }
 
@@ -6310,7 +6385,7 @@ _TERMINAL_NAMES = {
 
 # Statement keywords used for "did you mean?" suggestions on unknown words.
 _STATEMENT_KEYWORDS = [
-    'load', 'df', 'filter', 'select', 'drop', 'distinct', 'assign',
+    'load', 'df', 'for', 'filter', 'select', 'drop', 'distinct', 'assign',
     'cast', 'rename', 'sort', 'group', 'agg', 'merge', 'pivot',
     'unpivot', 'rank', 'lag', 'lead', 'cumsum', 'rolling', 'fillna',
     'dropna', 'concat', 'python', 'apply', 'show', 'plot', 'table', 'save',
@@ -6657,13 +6732,183 @@ class DSLParser:
             code += '\n'
 
         return code
-    
+
+    def _replace_loop_identifier(self, text, loop_var, column):
+        """Replace a bare loop variable in expression text, preserving strings."""
+        if not isinstance(text, str) or not text:
+            return text
+
+        result = []
+        i = 0
+        quote = None
+        ident_re = re.compile(r'[a-zA-Z][a-zA-Z0-9_]*')
+
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                result.append(ch)
+                if ch == '\\' and i + 1 < len(text):
+                    i += 1
+                    result.append(text[i])
+                elif ch == quote:
+                    quote = None
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                quote = ch
+                result.append(ch)
+                i += 1
+                continue
+
+            match = ident_re.match(text, i)
+            if match:
+                token = match.group(0)
+                prev = text[i - 1] if i > 0 else ''
+                result.append(column if token == loop_var and prev != ':' else token)
+                i = match.end()
+                continue
+
+            result.append(ch)
+            i += 1
+
+        return ''.join(result)
+
+    def _replace_loop_column_ref(self, value, loop_var, column):
+        return column if isinstance(value, str) and value == loop_var else value
+
+    def _resolve_loop_target(self, target, loop_var, column):
+        if isinstance(target, dict) and target.get('type') == 'target_expr':
+            parts = []
+            for part in target.get('parts', []):
+                if part.get('type') == 'identifier' and part.get('value') == loop_var:
+                    parts.append(column)
+                else:
+                    parts.append(str(part.get('value', '')))
+            resolved = ''.join(parts)
+        else:
+            resolved = self._replace_loop_column_ref(target, loop_var, column)
+
+        if not isinstance(resolved, str) or not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', resolved):
+            raise ValueError(
+                f"Loop assignment target '{resolved}' is not a valid Pivotal column name."
+            )
+        if resolved.lower() in PIVOTAL_KEYWORDS:
+            raise ValueError(
+                f"'{resolved}' is a Pivotal reserved keyword and cannot be used as a column name."
+            )
+        return resolved
+
+    def _replace_loop_columns(self, values, loop_var, column):
+        return [
+            self._replace_loop_column_ref(value, loop_var, column)
+            for value in (values or [])
+        ]
+
+    def _expand_for_assign(self, node, loop_var, column):
+        expanded = copy.deepcopy(node)
+        expanded['target'] = self._resolve_loop_target(expanded.get('target'), loop_var, column)
+
+        for key in ('expression', 'query_str', 'default_expr'):
+            if key in expanded:
+                expanded[key] = self._replace_loop_identifier(expanded.get(key), loop_var, column)
+
+        expanded['by_cols'] = self._replace_loop_columns(expanded.get('by_cols', []), loop_var, column)
+
+        for condition in expanded.get('conditions') or []:
+            if isinstance(condition, dict):
+                condition['column'] = self._replace_loop_column_ref(
+                    condition.get('column'), loop_var, column
+                )
+
+        for case in expanded.get('cases') or []:
+            if not isinstance(case, dict):
+                continue
+            if 'expression' in case:
+                case['expression'] = self._replace_loop_identifier(
+                    case.get('expression'), loop_var, column
+                )
+            if 'query_str' in case:
+                case['query_str'] = self._replace_loop_identifier(
+                    case.get('query_str'), loop_var, column
+                )
+            for condition in case.get('conditions') or []:
+                if isinstance(condition, dict):
+                    condition['column'] = self._replace_loop_column_ref(
+                        condition.get('column'), loop_var, column
+                    )
+
+        return expanded
+
+    def _expand_for_generic_node(self, node, loop_var, column):
+        expanded = copy.deepcopy(node)
+        node_type = expanded.get('type')
+
+        if node_type == 'assign':
+            return self._expand_for_assign(expanded, loop_var, column)
+
+        if node_type in ('cast', 'drop', 'dropna'):
+            expanded['columns'] = self._replace_loop_columns(expanded.get('columns', []), loop_var, column)
+            return expanded
+
+        if node_type == 'fillna':
+            per_col = {}
+            for key, value in expanded.get('per_col', {}).items():
+                per_col[self._replace_loop_column_ref(key, loop_var, column)] = value
+            expanded['per_col'] = per_col
+            return expanded
+
+        if node_type in ('rank', 'shift', 'cumulative', 'rolling'):
+            for key in ('column', 'order_col', 'result_col'):
+                if key in expanded:
+                    expanded[key] = self._replace_loop_column_ref(expanded.get(key), loop_var, column)
+            expanded['partition'] = self._replace_loop_columns(expanded.get('partition', []), loop_var, column)
+            return expanded
+
+        raise ValueError(f"Column for-loops do not currently support '{node_type}' statements.")
+
+    def _resolve_loop_columns(self, source, namespace=None):
+        if isinstance(source, dict) and source.get('type') == 'var':
+            if namespace is None:
+                return None
+            var_name = source.get('name')
+            if var_name not in namespace:
+                raise ValueError(f"Loop column list variable ':{var_name}' was not found.")
+            value = namespace[var_name]
+            if isinstance(value, str) or not hasattr(value, '__iter__'):
+                raise ValueError(f"Loop column list variable ':{var_name}' must be a list or iterable of column names.")
+            return [str(item) for item in value]
+        return list(source or [])
+
+    def _expand_for_loops(self, ast_list, namespace=None):
+        """Lower column for-loops into repeated AST nodes when column names are known."""
+        expanded = []
+        for node in ast_list:
+            if not isinstance(node, dict) or node.get('type') != 'for':
+                expanded.append(node)
+                continue
+
+            loop_var = node.get('var')
+            body = node.get('body', [])
+            columns = self._resolve_loop_columns(node.get('columns'), namespace)
+            if columns is None:
+                expanded.append(node)
+                continue
+
+            for column in columns:
+                for child in body:
+                    if not isinstance(child, dict):
+                        raise ValueError("Column for-loops only support Pivotal statements.")
+                    expanded.append(self._expand_for_generic_node(child, loop_var, column))
+
+        return expanded
+
     def parse(self, code):
         """Parse DSL code and return AST or {'error': PivotalError}."""
         try:
             processed_code = self.preprocess_code(code)
             result = self.parser.parse(processed_code)
-            return result
+            return self._expand_for_loops(result)
         except ValueError as e:
             # Keyword-collision errors raised by the transformer — wrap cleanly.
             return {'error': PivotalError(message=str(e), error_type="Error")}
@@ -6688,6 +6933,17 @@ class DSLParser:
         if backend and backend != self.code_generator.backend:
             # Create new generator if backend changed
             self.code_generator = CodeGenerator(backend)
+
+        if any(isinstance(node, dict) and node.get('type') == 'for' for node in ast_list):
+            if backend == 'sql':
+                raise ValueError(
+                    "Python variable column for-loops are not supported for the SQL backend. "
+                    "Use an explicit column list instead."
+                )
+            raise ValueError(
+                "Python variable column for-loops require runtime execution with a namespace "
+                "and cannot be generated or exported before the list is resolved."
+            )
 
         if backend == 'sql':
             return self._generate_code_sql(ast_list)
@@ -6764,7 +7020,11 @@ class DSLParser:
             print(f"Parse error: {results['error']}")
             return None
 
-        code = self.generate_code(results, backend=backend)
+        try:
+            code = self.generate_code(results, backend=backend)
+        except ValueError as e:
+            print(f"Code generation error: {e}")
+            return None
 
         # Build preamble based on backend
         cg = self.code_generator
@@ -6821,7 +7081,18 @@ class DSLParser:
             print(f"Parse error: {results['error']}")
             return None
 
-        python_code_list = self.generate_code(results, backend=backend)
+        try:
+            if backend != 'sql':
+                results = self._expand_for_loops(results, globals_dict)
+        except ValueError as e:
+            print(f"Loop expansion error: {e}")
+            return None
+
+        try:
+            python_code_list = self.generate_code(results, backend=backend)
+        except ValueError as e:
+            print(f"Code generation error: {e}")
+            return None
 
         # For DuckDB/Polars the first element is the backend preamble — exec it
         # separately so the results[i] index stays aligned with the statements.

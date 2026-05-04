@@ -20,7 +20,7 @@ interface PivotalState {
 }
 
 const keywords: Record<string, true> = {
-  load: true, with: true, from: true, query: true, filter: true,
+  load: true, with: true, from: true, query: true, for: true, filter: true,
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, pivot: true, unpivot: true, apply: true,
   plot: true, python: true, end: true, where: true, else: true,

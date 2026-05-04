@@ -109,6 +109,39 @@ with sales
     margin = (revenue - cost) / revenue
 ```
 
+Apply the same assignment across several columns with a column loop:
+```pivotal
+with sales
+    for col in price, cost, revenue
+        col = col / cpi
+```
+
+The loop variable is a placeholder for each listed column. Only exact bare identifier matches are replaced, so a loop variable named `x` does not alter a column named `colx`.
+
+Column loops can also use a Python list variable at runtime:
+```pivotal
+with sales
+    for col in :money_cols
+        col = col / cpi
+```
+
+Python-list loops are not supported by the plain SQL backend because SQL export needs concrete column names.
+
+Loop assignment targets can build new names with string suffixes or prefixes:
+```pivotal
+with sales
+    for col in price, cost, revenue
+        col + "_real" = col / cpi
+```
+
+Column loops also support simple column operations such as `cast`, `fillna`, `drop`, `dropna`, and window functions:
+```pivotal
+with sales
+    for col in price, cost, revenue
+        fillna col 0
+        cast col as float
+```
+
 Conditional (sets column only where condition is true, NaN elsewhere):
 ```pivotal
 with sales
