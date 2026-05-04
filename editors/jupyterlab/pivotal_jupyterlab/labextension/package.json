@@ -25,7 +25,7 @@
     "build:prod": "jlpm run build:lib:prod && jlpm run build:labextension",
     "build:labextension": "jupyter labextension build . && jlpm copy:assets",
     "build:labextension:dev": "jupyter labextension build --development True . && jlpm copy:assets",
-    "copy:assets": "mkdir -p pivotal_jupyterlab/labextension/style/icons && cp style/icons/pivotal_logo.svg pivotal_jupyterlab/labextension/style/icons/",
+    "copy:assets": "node -e \"const fs=require('fs');fs.mkdirSync('pivotal_jupyterlab/labextension/style/icons',{recursive:true});fs.copyFileSync('style/icons/pivotal_logo.svg','pivotal_jupyterlab/labextension/style/icons/pivotal_logo.svg');\"",
     "build:lib": "tsc --sourceMap",
     "build:lib:prod": "tsc",
     "clean": "jlpm run clean:lib && jlpm run clean:labextension",
@@ -65,7 +65,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static\\remoteEntry.9de10b118327e408c07d.js",
+      "load": "static\\remoteEntry.bba43678ced5305e8ba7.js",
       "extension": "./extension",
       "style": "./style"
     }

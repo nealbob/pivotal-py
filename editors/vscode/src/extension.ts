@@ -81,6 +81,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   { label: 'from',   snippet: 'from ${1:path}\n\tload ${2:table} as ${3:df}', detail: 'from <database>\n    load <table> as <df>\n    query "SELECT..." as <df>' },
 
   // Row operations
+  { label: 'for',      snippet: 'for ${1:col} in ${2:col1}, ${3:col2}\n    ${1:col} = ${1:col} / ${4:denom}', detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter',   detail: 'filter <condition>' },
   { label: 'select',   detail: 'select <col>, ...' },
   { label: 'drop',     detail: 'drop <col>, ...' },
@@ -187,6 +188,13 @@ function detectContext(
 
   if (/^with\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^with\s+\w+\s+as\s+\w*$/.test(trimmed)) return { type: 'table' };
+
+  const forHeaderM = trimmed.match(/^for\s+\w+\s+in\s*(.*)$/);
+  if (forHeaderM && !forHeaderM[1].trimStart().startsWith(':')) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
+
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
@@ -2215,7 +2223,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return buildItems(ctx, ac);
       },
     },
-    ' ', '\t',
+    ' ', '\t', ',',
   );
 
   // --- Command: Show Pivotal Viewer panel ---

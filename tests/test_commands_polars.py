@@ -385,6 +385,45 @@ def test_assign_new_column(parser, sample_df):
     assert ns['sales']['revenue'][0] == pytest.approx(999.99 * 5)
 
 
+def test_for_assign_columns_polars(parser):
+    df = pl.DataFrame({
+        'colA': [100, 200],
+        'colB': [50, 75],
+        'cpi': [2, 4],
+    })
+    ns = {'mydata': df}
+    run(parser, 'with mydata\nfor col in colA, colB\n    col = col / cpi', ns)
+
+    assert ns['mydata']['colA'].to_list() == [50, 50]
+    assert ns['mydata']['colB'].to_list() == [25, 18.75]
+
+
+def test_for_assign_python_list_polars(parser):
+    df = pl.DataFrame({
+        'a': [10, 20],
+        'b': [100, 200],
+        'cpi': [2, 4],
+    })
+    ns = {'mydata': df, 'cols': ['a', 'b']}
+    run(parser, 'with mydata\nfor col in :cols\n    col = col / cpi', ns)
+
+    assert ns['mydata']['a'].to_list() == [5, 5]
+    assert ns['mydata']['b'].to_list() == [50, 50]
+
+
+def test_for_assign_dynamic_target_suffix_polars(parser):
+    df = pl.DataFrame({
+        'a': [10, 20],
+        'b': [100, 200],
+        'cpi': [2, 4],
+    })
+    ns = {'mydata': df}
+    run(parser, 'with mydata\nfor x in a, b\n    x + "_real" = x / cpi', ns)
+
+    assert ns['mydata']['a_real'].to_list() == [5, 5]
+    assert ns['mydata']['b_real'].to_list() == [50, 50]
+
+
 def test_assign_arithmetic_scalar(parser, sample_df):
     ns = {'sales': sample_df}
     run(parser, 'with sales\ndiscounted = price * 0.9', ns)

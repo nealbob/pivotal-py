@@ -72,6 +72,7 @@ load "path/to/file.csv" as data
 | [`drop`](selection.md) | Remove specific columns |
 | [`distinct`](selection.md) | Remove duplicate rows |
 | [`assign`](transformation.md) | Create or modify columns |
+| [`for`](transformation.md) | Apply column operations across multiple columns |
 | [`cast`](transformation.md) | Cast a column to a different type |
 | [`rename`](selection.md) | Rename columns |
 | [`sort`](sorting.md) | Sort rows |

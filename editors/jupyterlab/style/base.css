@@ -31,6 +31,13 @@
   color: var(--jp-brand-color1);
 }
 
+/* Loop placeholder highlighting in column for-loops */
+.pv-loop-var {
+  color: var(--jp-warn-color1, #bf7800);
+  font-style: italic;
+  font-weight: 600;
+}
+
 /* ---------------------------------------------------------------------------
    Object Viewer Panel
    --------------------------------------------------------------------------- */

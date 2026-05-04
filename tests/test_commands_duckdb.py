@@ -589,6 +589,22 @@ def test_codegen_drop_duckdb(parser):
     assert 'EXCLUDE (quantity, id)' in code
 
 
+def test_codegen_for_assign_duckdb(parser):
+    nodes = parser.parse('with data\nfor col in a, b\n    col = col / cpi')
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'a / cpi AS a' in code
+    assert 'b / cpi AS b' in code
+
+
+def test_codegen_for_cast_and_rank_duckdb(parser):
+    nodes = parser.parse('with data\nfor col in a, b\n    cast col as float\n    rank col desc as col')
+    code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
+    assert 'CAST(a AS DOUBLE) AS a' in code
+    assert 'CAST(b AS DOUBLE) AS b' in code
+    assert 'RANK() OVER (ORDER BY a DESC) AS a' in code
+    assert 'RANK() OVER (ORDER BY b DESC) AS b' in code
+
+
 def test_codegen_merge_duckdb(parser):
     nodes = parser.parse('with orders\nmerge labels on id')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))

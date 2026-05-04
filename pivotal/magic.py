@@ -1423,9 +1423,20 @@ class PivotalMagics(Magics):
         # Semantic validation — collect errors but don't block execution.
         # Only surfaced if the cell actually errors at runtime (avoids false
         # positives for columns created earlier in the same cell).
+        try:
+            if s.get('backend', 'pandas') != 'sql':
+                results = self.parser._expand_for_loops(results, self.shell.user_ns)
+        except ValueError as e:
+            display_error(PivotalError(message=str(e), error_type="Error"), cell)
+            return
+
         val_errors = _validate_ast(results, self.shell.user_ns, cell)
 
-        python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
+        try:
+            python_code_list = self.parser.generate_code(results, backend=s.get('backend', 'pandas'))
+        except ValueError as e:
+            display_error(PivotalError(message=str(e), error_type="Error"), cell)
+            return
         combined = '\n\n'.join(python_code_list)
 
         # When viewer mode is on, close chart figures that do NOT have 'show' set,

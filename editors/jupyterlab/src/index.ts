@@ -187,6 +187,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
 
   // Row operations
+  { label: 'for', type: 'keyword', apply: snippet('for ${col} in ${col1}, ${col2}\n    ${col} = ${col} / ${denom}'), detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
   { label: 'select', type: 'keyword', detail: 'select <col>, ...' },
   { label: 'drop', type: 'keyword', detail: 'drop <col>, ...' },
@@ -325,6 +326,65 @@ const colHighlightPlugin = ViewPlugin.fromClass(
   { decorations: v => v.decorations }
 );
 
+const loopVarMark = Decoration.mark({ class: 'pv-loop-var' });
+
+const loopVarHighlightPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) { this.decorations = this._build(view); }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = this._build(u.view);
+    }
+    _build(view: EditorView): DecorationSet {
+      const builder = new RangeSetBuilder<Decoration>();
+      const doc = view.state.doc;
+      const visibleLines = new Set<number>();
+      for (const range of view.visibleRanges) {
+        const start = doc.lineAt(range.from).number;
+        const end = doc.lineAt(range.to).number;
+        for (let n = start; n <= end; n++) visibleLines.add(n);
+      }
+
+      const stack: { indent: number; name: string }[] = [];
+      for (let lineNo = 1; lineNo <= doc.lines; lineNo++) {
+        const line = doc.line(lineNo);
+        const text = line.text;
+        if (MAGIC_RE.test(text)) continue;
+        if (/^\s*$/.test(text)) continue;
+
+        const indent = text.match(/^\s*/)?.[0].length ?? 0;
+        while (stack.length && indent <= stack[stack.length - 1].indent) {
+          stack.pop();
+        }
+
+        const forMatch = text.match(/^(\s*)for\s+([A-Za-z_]\w*)\s+in\b/);
+        if (forMatch) {
+          const name = forMatch[2];
+          const nameStart = forMatch[1].length + 'for '.length;
+          if (visibleLines.has(lineNo)) {
+            builder.add(line.from + nameStart, line.from + nameStart + name.length, loopVarMark);
+          }
+          stack.push({ indent: forMatch[1].length, name });
+          continue;
+        }
+
+        if (visibleLines.has(lineNo) && stack.length) {
+          const names = new Set(stack.map(v => v.name));
+          const wordRe = /\b([A-Za-z_]\w*)\b/g;
+          let m: RegExpExecArray | null;
+          while ((m = wordRe.exec(text)) !== null) {
+            if (names.has(m[1])) {
+              builder.add(line.from + m.index, line.from + m.index + m[1].length, loopVarMark);
+            }
+          }
+        }
+      }
+      return builder.finish();
+    }
+  },
+  { decorations: v => v.decorations }
+);
+
 function getNotebookDir(app: JupyterFrontEnd): string {
   const widget = app.shell.currentWidget;
   if (widget && 'context' in widget) {
@@ -351,6 +411,8 @@ function findActiveTable(
     const t = lines[i].trimStart();
     const dfM = t.match(/^df\s+(\w+)/);
     if (dfM) return dfM[1];
+    const withM = t.match(/^with\s+(\w+)/);
+    if (withM) return withM[1];
     const loadM = t.match(/^load\s+(\w+)/);
     if (loadM) return loadM[1];
   }
@@ -372,6 +434,14 @@ function detectContext(
 
   if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
+  if (/^with\s+\w*$/.test(trimmed)) return { type: 'table' };
+
+  const forHeaderM = trimmed.match(/^for\s+\w+\s+in\s*(.*)$/);
+  if (forHeaderM && !forHeaderM[1].trimStart().startsWith(':')) {
+    const table = findActiveTable(lines, cursorLine, ac);
+    return table ? { type: 'column', table } : { type: 'none' };
+  }
+
   if (/^(left\s+|right\s+|inner\s+|outer\s+)?(merge|concat|intersect|exclude)\s+\w*$/.test(trimmed)) {
     return { type: 'table' };
   }
@@ -548,7 +618,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
       name: 'pivotal',
       mime: 'text/x-pivotal',
       extensions: ['.pivotal'],
-      load: async () => new LanguageSupport(pivotalLanguage, completionExt),
+      load: async () => new LanguageSupport(pivotalLanguage, [
+        completionExt,
+        colHighlightPlugin,
+        loopVarHighlightPlugin,
+      ]),
     });
 
     extensions.addExtension({
@@ -572,6 +646,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                   ? [
                       Prec.highest(new LanguageSupport(pivotalLanguage, completionExt)),
                       colHighlightPlugin,
+                      loopVarHighlightPlugin,
                       EditorView.editorAttributes.of({ class: 'pv-pivotal-cell' }),
                     ]
                   : []
