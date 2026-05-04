@@ -5,6 +5,7 @@
   "fileTypes": ["pivotal"],
   "patterns": [
     { "include": "#block-comments" },
+    { "include": "#python-embedded" },
     { "include": "#line-comments" },
     { "include": "#strings" },
     { "include": "#python-vars" },
@@ -20,6 +21,39 @@
     { "include": "#operators" }
   ],
   "repository": {
+    "python-embedded": {
+      "patterns": [
+        {
+          "comment": "Multi-line Python block: python ... end",
+          "name": "meta.embedded.block.python.pivotal",
+          "begin": "^(\\s*)(python)\\s*$",
+          "beginCaptures": {
+            "2": { "name": "keyword.control.pivotal" }
+          },
+          "end": "^(\\1)(end)\\s*$",
+          "endCaptures": {
+            "2": { "name": "keyword.control.pivotal" }
+          },
+          "contentName": "source.python.embedded.pivotal",
+          "patterns": [
+            { "include": "source.python" }
+          ]
+        },
+        {
+          "comment": "Single-line Python statement: python <code>",
+          "name": "meta.embedded.line.python.pivotal",
+          "begin": "^(\\s*)(python)\\b(?=\\s+\\S)",
+          "beginCaptures": {
+            "2": { "name": "keyword.control.pivotal" }
+          },
+          "end": "$",
+          "contentName": "source.python.embedded.pivotal",
+          "patterns": [
+            { "include": "source.python" }
+          ]
+        }
+      ]
+    },
     "block-comments": {
       "name": "comment.block.pivotal",
       "begin": "/\\*",

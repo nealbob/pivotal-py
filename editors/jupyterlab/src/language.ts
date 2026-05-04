@@ -11,12 +11,14 @@ const tokenTable: Record<string, any> = {
   number:   tags.number,
   operator: tags.operator,
   variable: tags.variableName,
+  loopVariable: tags.variableName,
   meta:     tags.meta,   // :variable substitutions
 };
 
 interface PivotalState {
   inBlockComment: boolean;
   inString: string | false; // the quote character, or false
+  loopVars: { indent: number; name: string }[];
 }
 
 const keywords: Record<string, true> = {
@@ -62,6 +64,15 @@ const atoms: Record<string, true> = {
 };
 
 function tokenize(stream: StringStream, state: PivotalState): string | null {
+  if (stream.sol()) {
+    if (!/^\s*$/.test(stream.string)) {
+      const indent = stream.string.match(/^\s*/)?.[0].length ?? 0;
+      while (state.loopVars.length && indent <= state.loopVars[state.loopVars.length - 1].indent) {
+        state.loopVars.pop();
+      }
+    }
+  }
+
   // --- Block comment continuation ---
   if (state.inBlockComment) {
     if (stream.match(/.*?\*\//)) {
@@ -101,6 +112,19 @@ function tokenize(stream: StringStream, state: PivotalState): string | null {
   // --- Identifiers, keywords, builtins, atoms ---
   if (stream.match(/[a-zA-Z_][a-zA-Z0-9_]*/)) {
     const word = stream.current();
+    const before = stream.string.slice(0, stream.start);
+    const forHeader = stream.string.match(/^(\s*)for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\b/);
+    if (/^\s*for\s+$/.test(before)) {
+      const indent = before.length - before.trimStart().length;
+      if (!state.loopVars.some(v => v.indent === indent && v.name === word)) {
+        state.loopVars.push({ indent, name: word });
+      }
+      return 'loopVariable';
+    }
+    if (forHeader && forHeader[2] === word && state.loopVars.some(v => v.name === word)) {
+      return 'loopVariable';
+    }
+    if (state.loopVars.some(v => v.name === word)) return 'loopVariable';
     if (Object.prototype.hasOwnProperty.call(keywords, word))  return 'keyword';
     if (Object.prototype.hasOwnProperty.call(builtins, word))  return 'builtin';
     if (Object.prototype.hasOwnProperty.call(atoms, word))     return 'atom';
@@ -119,7 +143,7 @@ export const pivotalLanguage = StreamLanguage.define<PivotalState>({
   name: 'pivotal',
 
   startState(): PivotalState {
-    return { inBlockComment: false, inString: false };
+    return { inBlockComment: false, inString: false, loopVars: [] };
   },
 
   token(stream, state) {

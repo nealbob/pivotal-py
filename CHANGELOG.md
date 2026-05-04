@@ -15,6 +15,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 ### Fixed
 
 - Fixed and expanded the test suite around command parsing and backend behavior, including pandas, Polars, DuckDB, and SQL CTE coverage.
+- Fixed JupyterLab autocomplete and highlighting for column `for` loops, including column suggestions in `for <name> in ...` headers and distinct loop-placeholder styling.
+- Fixed the JupyterLab extension asset copy step so local builds and editable installs work on Windows.
+- Added embedded Python syntax highlighting in VS Code for inline `python <code>` statements and multi-line `python`/`end` blocks in Pivotal files.
 
 ## [0.3.0]
 
