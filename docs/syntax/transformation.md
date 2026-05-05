@@ -66,6 +66,9 @@ with sales
 | `substr(col, start, length)` | Substring |
 | `len(col)` | String length |
 | `replace(col, old, new)` | Replace substring |
+| `regex_extract(col, pattern)` | Extract first regex match |
+| `regex_extract(col, pattern, group)` | Extract regex capture group |
+| `regex_replace(col, pattern, replacement)` | Replace regex matches |
 
 ```pivotal
 with products
@@ -75,7 +78,11 @@ with products
     abbr = substr(code, 1, 3)
     n = len(description)
     clean = replace(notes, "N/A", "")
+    postcode = regex_extract(address, "\\b\\d{4}\\b")
+    clean_phone = regex_replace(phone, "[^0-9]", "")
 ```
+
+Regex patterns use normal Pivotal strings. Escape backslashes inside quoted patterns, for example `"\\b\\d{4}\\b"` for a four-digit postcode on a word boundary.
 
 **String concatenation** with `+`:
 

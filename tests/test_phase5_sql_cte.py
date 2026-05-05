@@ -132,6 +132,16 @@ def test_codegen_filter_string_sql(parser):
     assert "category = 'Electronics'" in sql
 
 
+def test_codegen_filter_matches_sql(parser):
+    sql = gen_sql(parser, 'with customers\nfilter email matches ".+@.+\\\\..+"\n')
+    assert "REGEXP_MATCHES(email, '.+@.+\\..+')" in sql
+
+
+def test_codegen_filter_not_matches_sql(parser):
+    sql = gen_sql(parser, 'with customers\nfilter email not matches ".+@.+\\\\..+"\n')
+    assert "NOT REGEXP_MATCHES(email, '.+@.+\\..+')" in sql
+
+
 def test_execute_filter_sql(parser, sample_df):
     """Execute generated SQL against DuckDB and verify result."""
     conn = make_conn('sales', sample_df)
@@ -232,6 +242,32 @@ def test_codegen_assign_simple_sql(parser):
     sql = gen_sql(parser, 'with sales\nrevenue = price * quantity\n')
     assert 'price * quantity' in sql
     assert 'AS revenue' in sql
+
+
+def test_codegen_assign_regex_functions_sql(parser):
+    sql = gen_sql(
+        parser,
+        'with customers\npostcode = regex_extract(address, "\\\\b\\\\d{4}\\\\b")\n'
+        'clean_phone = regex_replace(phone, "[^0-9]", "")\n',
+    )
+    assert "REGEXP_EXTRACT(address, '\\b\\d{4}\\b', 0) AS postcode" in sql
+    assert "REGEXP_REPLACE(phone, '[^0-9]', '', 'g') AS clean_phone" in sql
+
+
+def test_execute_assign_regex_functions_sql(parser):
+    df = pd.DataFrame({
+        'address': ['1 Main St 2000', 'PO Box 3000', 'No postcode'],
+        'phone': ['(02) 1234-5678', '+61 400 123 456', 'n/a'],
+    })
+    conn = make_conn('customers', df)
+    sql = gen_sql(
+        parser,
+        'with customers\npostcode = regex_extract(address, "\\\\b\\\\d{4}\\\\b")\n'
+        'clean_phone = regex_replace(phone, "[^0-9]", "")\n',
+    )
+    result = conn.execute(sql).df()
+    assert list(result['postcode']) == ['2000', '3000', '']
+    assert list(result['clean_phone']) == ['0212345678', '61400123456', '']
 
 
 def test_codegen_assign_case_sql(parser):

@@ -108,12 +108,13 @@ with sales
     filter category in ["A", "B", "C"]
     filter price between [10, 500]
     filter name contains "Ltd"
+    filter email matches ".+@.+\\..+"
     filter code startswith "UK"
     filter note not contains "test"
     filter amount > :min_amount        # runtime variable as filter value
 ```
 
-Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not contains  startswith  endswith`
+Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not contains  matches  not matches  startswith  endswith`
 
 ## Selecting columns
 
@@ -207,10 +208,12 @@ String functions:
 with sales
     code = upper(category)
     abbr = left(name, 3)
+    postcode = regex_extract(address, "\\b\\d{4}\\b")
+    clean_phone = regex_replace(phone, "[^0-9]", "")
     full = first_name + " " + last_name
 ```
 
-String functions: `upper  lower  trim  ltrim  rtrim  left(col,n)  right(col,n)  substr(col,start,n)  len  replace(col,from,to)`
+String functions: `upper  lower  trim  ltrim  rtrim  left(col,n)  right(col,n)  substr(col,start,n)  len  replace(col,from,to)  regex_extract(col,pattern)  regex_extract(col,pattern,group)  regex_replace(col,pattern,replacement)`
 
 Date functions:
 ```pivotal

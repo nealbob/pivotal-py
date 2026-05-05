@@ -339,6 +339,28 @@ def test_filter_endswith_duckdb(parser, sample_df):
     assert len(df) == 2  # Chair, Monitor
 
 
+def test_filter_matches_duckdb(parser):
+    customers = pd.DataFrame({
+        'email': ['alice@example.com', 'missing-at', 'bob@example.org'],
+    })
+    conn = make_conn('customers', customers)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with customers\nfilter email matches ".+@.+\\\\..+"', ns)
+    df = fetch(ns, 'customers')
+    assert list(df['email']) == ['alice@example.com', 'bob@example.org']
+
+
+def test_filter_not_matches_duckdb(parser):
+    customers = pd.DataFrame({
+        'email': ['alice@example.com', 'missing-at', 'bob@example.org'],
+    })
+    conn = make_conn('customers', customers)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with customers\nfilter email not matches ".+@.+\\\\..+"', ns)
+    df = fetch(ns, 'customers')
+    assert list(df['email']) == ['missing-at']
+
+
 def test_filter_in_list_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)

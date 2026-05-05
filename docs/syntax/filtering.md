@@ -73,15 +73,20 @@ filter score between [0.8, 1.0]
 |----------|---------|
 | `contains "x"` | String contains substring |
 | `not contains "x"` | String does not contain substring |
+| `matches "pattern"` | String matches regex pattern anywhere |
+| `not matches "pattern"` | String does not match regex pattern |
 | `startswith "x"` | String starts with prefix |
 | `endswith "x"` | String ends with suffix |
 
 ```pivotal
 filter product contains "Laptop"
 filter name not contains "test"
+filter email matches ".+@.+\\..+"
 filter event startswith "login"
 filter filename endswith ".csv"
 ```
+
+Use `^` and `$` anchors when the whole string must match the pattern.
 
 ## Python variable references
 

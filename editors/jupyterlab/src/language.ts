@@ -44,7 +44,7 @@ const builtins: Record<string, true> = {
   inner: true, outer: true,
   // word-operator comparators
   in: true, not: true, between: true,
-  contains: true, startswith: true, endswith: true,
+  contains: true, matches: true, startswith: true, endswith: true,
   and: true, or: true,
   integer: true, currency: true, percent: true, date: true, number: true,
   // date functions
@@ -53,7 +53,7 @@ const builtins: Record<string, true> = {
   date_diff: true, date_add: true,
   // string functions
   upper: true, lower: true, trim: true, ltrim: true, rtrim: true,
-  substr: true, len: true, replace: true,
+  substr: true, len: true, replace: true, regex_extract: true, regex_replace: true,
   // cast type names (also used as inline cast functions)
   int: true, float: true, string: true, str: true, bool: true, boolean: true, datetime: true,
 };

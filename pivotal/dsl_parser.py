@@ -4,6 +4,7 @@ from lark import Tree
 from lark.lexer import Token
 from lark.exceptions import UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError
 import pandas as pd
+import ast
 import copy
 import json
 import os
@@ -339,7 +340,7 @@ grammar_indented = r"""
 
     condition_list: condition (AOR condition)*
 
-    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "between" | "contains" | "not contains" | "startswith" | "endswith"
+    COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "between" | "contains" | "not contains" | "matches" | "not matches" | "startswith" | "endswith"
 
     drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
 
@@ -2622,6 +2623,7 @@ class CodeGenerator:
     _BUILTIN_FUNCS = frozenset({
         'upper', 'lower', 'trim', 'ltrim', 'rtrim',
         'left', 'right', 'substr', 'len', 'replace',
+        'regex_extract', 'regex_replace',
         # date functions
         'year', 'month', 'day', 'quarter', 'dayofweek',
         'hour', 'minute', 'date_format', 'to_date',
@@ -2711,9 +2713,19 @@ class CodeGenerator:
             s, n = rest
             return f"{base}.str[{s}:{s}+{n}]"
         if func == 'replace' and len(rest) == 2:
-            a = rest[0].strip("'\"")
-            b = rest[1].strip("'\"")
+            a = self._decode_string_arg(rest[0])
+            b = self._decode_string_arg(rest[1])
             return f"{base}.str.replace({repr(a)}, {repr(b)}, regex=False)"
+        if func == 'regex_extract' and len(rest) in (1, 2):
+            pattern = self._decode_string_arg(rest[0])
+            group = int(rest[1]) if len(rest) == 2 else 0
+            if group == 0:
+                return f"{base}.astype('string').str.extract({self._py_literal(f'({pattern})')}, expand=False)"
+            return f"{base}.astype('string').str.extract({self._py_literal(pattern)}, expand=True).iloc[:, {group - 1}]"
+        if func == 'regex_replace' and len(rest) == 2:
+            pattern = self._decode_string_arg(rest[0])
+            repl = self._decode_string_arg(rest[1])
+            return f"{base}.astype('string').str.replace({self._py_literal(pattern)}, {self._py_literal(repl)}, regex=True)"
         return None
 
     def _try_date_func(self, expr, table):
@@ -2802,6 +2814,32 @@ class CodeGenerator:
         if current:
             args.append(''.join(current).strip())
         return [a for a in args if a]
+
+    @staticmethod
+    def _decode_string_arg(arg):
+        """Decode a quoted Pivotal string argument, preserving regex escapes."""
+        if isinstance(arg, _LiteralStr):
+            try:
+                return ast.literal_eval('"' + str(arg).replace('"', '\\"') + '"')
+            except (SyntaxError, ValueError):
+                return str(arg)
+        arg = str(arg).strip()
+        if len(arg) >= 2 and arg[0] == arg[-1] and arg[0] in ('"', "'"):
+            try:
+                return ast.literal_eval(arg)
+            except (SyntaxError, ValueError):
+                return arg[1:-1]
+        return arg
+
+    @staticmethod
+    def _py_literal(value):
+        """Return a Python string literal that is safe inside generated code."""
+        return json.dumps(str(value))
+
+    @staticmethod
+    def _sql_literal(value):
+        """Return a single-quoted SQL string literal."""
+        return "'" + str(value).replace("'", "''") + "'"
 
     def _parse_scalar_minmax_call(self, expr):
         """Return (func, args) for scalar min/max(expr1, expr2, ...), else None."""
@@ -3475,9 +3513,17 @@ class CodeGenerator:
             s, length = rest
             return f"{base}.str.slice({s}, {length})"
         if func == 'replace' and len(rest) == 2:
-            a = rest[0].strip("'\"")
-            b = rest[1].strip("'\"")
+            a = self._decode_string_arg(rest[0])
+            b = self._decode_string_arg(rest[1])
             return f"{base}.str.replace_all({repr(a)}, {repr(b)}, literal=True)"
+        if func == 'regex_extract' and len(rest) in (1, 2):
+            pattern = self._decode_string_arg(rest[0])
+            group = int(rest[1]) if len(rest) == 2 else 0
+            return f"{base}.str.extract({self._py_literal(pattern)}, group_index={group})"
+        if func == 'regex_replace' and len(rest) == 2:
+            pattern = self._decode_string_arg(rest[0])
+            repl = self._decode_string_arg(rest[1])
+            return f"{base}.str.replace_all({self._py_literal(pattern)}, {self._py_literal(repl)})"
         return None
 
     def _try_date_func_polars(self, expr):
@@ -5130,6 +5176,14 @@ class CodeGenerator:
             elif comparator == 'not contains':
                 query_parts.append(f'not {column}.str.contains("{value}")')
                 needs_python_engine = True
+            elif comparator == 'matches':
+                pattern = self._decode_string_arg(value)
+                query_parts.append(f'{column}.str.contains({self._py_literal(pattern)}, regex=True, na=False)')
+                needs_python_engine = True
+            elif comparator == 'not matches':
+                pattern = self._decode_string_arg(value)
+                query_parts.append(f'not {column}.str.contains({self._py_literal(pattern)}, regex=True, na=False)')
+                needs_python_engine = True
             elif comparator == 'startswith':
                 query_parts.append(f'{column}.str.startswith("{value}")')
                 needs_python_engine = True
@@ -5211,6 +5265,12 @@ class CodeGenerator:
                 parts.append(f"pl.col('{column}').str.contains('{value}')")
             elif comparator == 'not contains':
                 parts.append(f"~pl.col('{column}').str.contains('{value}')")
+            elif comparator == 'matches':
+                pattern = self._decode_string_arg(value)
+                parts.append(f"pl.col('{column}').str.contains({self._py_literal(pattern)})")
+            elif comparator == 'not matches':
+                pattern = self._decode_string_arg(value)
+                parts.append(f"~pl.col('{column}').str.contains({self._py_literal(pattern)})")
             elif comparator == 'startswith':
                 parts.append(f"pl.col('{column}').str.starts_with('{value}')")
             elif comparator == 'endswith':
@@ -5279,6 +5339,12 @@ class CodeGenerator:
                 parts.append(f"{sql_col} LIKE '%{val}%'")
             elif comparator == 'not contains':
                 parts.append(f"{sql_col} NOT LIKE '%{val}%'")
+            elif comparator == 'matches':
+                pattern = self._decode_string_arg(val)
+                parts.append(f"REGEXP_MATCHES({sql_col}, {self._sql_literal(pattern)})")
+            elif comparator == 'not matches':
+                pattern = self._decode_string_arg(val)
+                parts.append(f"NOT REGEXP_MATCHES({sql_col}, {self._sql_literal(pattern)})")
             elif comparator == 'startswith':
                 parts.append(f"{sql_col} LIKE '{val}%'")
             elif comparator == 'endswith':
@@ -5411,9 +5477,9 @@ class CodeGenerator:
         sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {where}"
         lines = list(preamble)
         if use_fstring:
-            lines.append(f'_pvt.execute(f"{sql}")')
+            lines.append(f'_pvt.execute(f{sql!r})')
         else:
-            lines.append(f'_pvt.execute("{sql}")')
+            lines.append(f'_pvt.execute({sql!r})')
         return '\n'.join(lines)
 
     def generate_select_duckdb(self, ast_node):
@@ -5983,8 +6049,16 @@ class CodeGenerator:
         if func == 'right'  and len(rest) == 1: return f"RIGHT({first}, {rest[0]})"
         if func == 'substr' and len(rest) == 2: return f"SUBSTR({first}, {rest[0]}, {rest[1]})"
         if func == 'replace' and len(rest) == 2:
-            a = rest[0].strip("'\""); b = rest[1].strip("'\"")
-            return f"REPLACE({first}, '{a}', '{b}')"
+            a = self._decode_string_arg(rest[0]); b = self._decode_string_arg(rest[1])
+            return f"REPLACE({first}, {self._sql_literal(a)}, {self._sql_literal(b)})"
+        if func == 'regex_extract' and len(rest) in (1, 2):
+            pattern = self._decode_string_arg(rest[0])
+            group = int(rest[1]) if len(rest) == 2 else 0
+            return f"REGEXP_EXTRACT({first}, {self._sql_literal(pattern)}, {group})"
+        if func == 'regex_replace' and len(rest) == 2:
+            pattern = self._decode_string_arg(rest[0])
+            repl = self._decode_string_arg(rest[1])
+            return f"REGEXP_REPLACE({first}, {self._sql_literal(pattern)}, {self._sql_literal(repl)}, 'g')"
         return None
 
     def _substitute_agg_calls_sql(self, expr, by_cols):
@@ -6033,8 +6107,9 @@ class CodeGenerator:
             f"_ddb_desc = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
             f"_ddb_sel  = ', '.join(c for c in _ddb_desc if c != {result_col!r})",
         ]
-        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {sql_expr} AS {result_col} FROM {t}"
-        lines.append(f'_pvt.execute(f"{sql}")')
+        sql_expr_template = sql_expr if use_fstring else sql_expr.replace('{', '{{').replace('}', '}}')
+        sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}}, {sql_expr_template} AS {result_col} FROM {t}"
+        lines.append(f'_pvt.execute(f{sql!r})')
         return lines
 
     # ── assign ────────────────────────────────────────────────────────
@@ -6130,7 +6205,7 @@ class CodeGenerator:
             return '\n'.join(lines)
 
         # ── Simple expression ───────────────────────────────────────
-        return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_str))
+        return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_str, uses_pyvar_expr))
 
     # ── rank ──────────────────────────────────────────────────────────
 
