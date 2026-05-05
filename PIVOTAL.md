@@ -230,6 +230,26 @@ Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg s
 To apply one aggregation function to multiple columns, list the extra columns after commas:
 `agg mean price, cost, margin` is equivalent to `agg mean price, mean cost, mean margin`.
 
+For pandas pipelines, custom Python functions can be used as aggregations by prefixing the function name with `:`. Each following column is passed as a Series argument to the Python function:
+
+```pivotal
+python from sklearn.metrics import r2_score
+
+with predictions as model_scores
+    group by year
+        agg :r2_score actual predicted as r2
+```
+
+Bracket syntax supports keyword arguments:
+
+```pivotal
+with predictions as model_scores
+    group by year
+        agg :my_metric(actual, predicted, squared=False, threshold=:cutoff) as score
+```
+
+Polars supports custom Python aggregations by using a pandas fallback for that aggregation step, then converting the result back to Polars. DuckDB and SQL backends raise or emit an unsupported-backend message for custom aggregation functions.
+
 To aggregate over all rows without grouping, use `agg` without `group by`:
 
 ```pivotal

@@ -114,6 +114,37 @@ with products
 
 `wavg` is accepted as a backward-compatible alias for `wmean`.
 
+## Custom Python aggregations
+
+In pandas pipelines, prefix a Python function with `:` to use it in an `agg` statement. Pivotal passes each listed column as a pandas Series to the function.
+
+```pivotal
+python from sklearn.metrics import r2_score
+
+with predictions as model_scores
+    group by year
+        agg :r2_score actual predicted as r2
+```
+
+Custom aggregations also work without `group by`:
+
+```pivotal
+with predictions as overall_score
+    agg :r2_score actual predicted as r2
+```
+
+Bracket syntax supports keyword arguments:
+
+```pivotal
+with predictions as model_scores
+    group by year
+        agg :my_metric(actual, predicted, squared=False, threshold=:cutoff) as score
+```
+
+Use spaces between input columns in the space form. Commas continue to separate aggregation items outside brackets, so custom functions do not use the multi-column shorthand form.
+
+Polars supports custom Python aggregations by using a pandas fallback for that aggregation step, then converting the result back to Polars. DuckDB and SQL backends raise or emit an unsupported-backend message for custom aggregation functions.
+
 ## `nunique` — count distinct values
 
 ```pivotal
