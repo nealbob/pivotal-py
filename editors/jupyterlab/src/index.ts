@@ -185,6 +185,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
   // Table declarations
   { label: 'df', type: 'keyword', detail: 'df <table> [from <source>]' },
   { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
+  { label: 'bulk load', type: 'keyword', apply: snippet('bulk load :${files} as ${table}'), detail: 'bulk load :files as <table> or aliases' },
 
   // Row operations
   { label: 'for', type: 'keyword', apply: snippet('for ${col} in ${col1}, ${col2}\n    ${col} = ${col} / ${denom}'), detail: 'for <name> in <col>, ... or :cols' },

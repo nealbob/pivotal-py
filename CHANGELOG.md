@@ -8,6 +8,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
+- Added `bulk load` for CSV/Parquet file lists, including concat-with-source-column mode and separate-table loading from static aliases or Python alias lists.
 - Added column `for` loops for applying assignment statements and column-oriented operations across multiple columns, including Python list variables and generated assignment target names.
 - Added aggregation shorthand support so a single aggregation function can be applied across multiple columns.
 - Added pandas custom aggregation functions with `agg :function col1 col2 ... as name` syntax for whole-table and grouped aggregations, plus bracket syntax for keyword arguments.

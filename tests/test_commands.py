@@ -89,6 +89,58 @@ def test_load_parquet(parser, tmp_path, sample_df):
     assert len(ns['df']) == len(sample_df)
 
 
+def test_bulk_load_concat_from_python_file_list(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1], 'amount': [10]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2], 'amount': [20]}).to_csv(feb, index=False)
+
+    ns = {'pd': pd, 'files': [str(jan), str(feb)]}
+    run(parser, 'bulk load :files as all_data', ns)
+
+    assert list(ns['all_data']['id']) == [1, 2]
+    assert list(ns['all_data']['source']) == ['jan.csv', 'feb.csv']
+
+
+def test_bulk_load_concat_unions_columns_and_custom_source(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1], 'x': [10]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2], 'y': [20]}).to_csv(feb, index=False)
+
+    ns = {'pd': pd, 'files': [str(jan), str(feb)]}
+    run(parser, 'bulk load :files as all_data\n    source column batch\n    source value stem', ns)
+
+    assert set(ns['all_data'].columns) == {'id', 'x', 'y', 'batch'}
+    assert list(ns['all_data']['batch']) == ['jan', 'feb']
+
+
+def test_bulk_load_separate_from_static_aliases(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2]}).to_csv(feb, index=False)
+
+    ns = {'pd': pd, 'files': [str(jan), str(feb)]}
+    run(parser, 'bulk load :files as jan_data, feb_data', ns)
+
+    assert list(ns['jan_data']['id']) == [1]
+    assert list(ns['feb_data']['id']) == [2]
+
+
+def test_bulk_load_separate_from_alias_list(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2]}).to_csv(feb, index=False)
+
+    ns = {'pd': pd, 'files': [str(jan), str(feb)], 'tables': ['jan_data', 'feb_data']}
+    run(parser, 'bulk load :files as :tables', ns)
+
+    assert list(ns['jan_data']['id']) == [1]
+    assert list(ns['feb_data']['id']) == [2]
+
+
 def test_load_excel(parser, tmp_path, sample_df):
     pytest.importorskip('openpyxl')
     path = tmp_path / "data.xlsx"

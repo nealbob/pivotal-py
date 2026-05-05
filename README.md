@@ -24,6 +24,8 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 **Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
 
+**Bulk file loading** - concatenate generated CSV/Parquet file lists with source provenance, or load them into separate tables
+
 ---
 
 ## Installation

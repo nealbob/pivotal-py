@@ -23,7 +23,7 @@ _WAVG_CALL_RE = re.compile(
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords
-    'with', 'load', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
+    'with', 'load', 'bulk', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
     'for',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
@@ -65,7 +65,8 @@ grammar_indented = r"""
     %declare _INDENT _DEDENT
     start: _NL* (_INDENT? statement _DEDENT?)+ _NL*
 
-    statement: load_statement
+    statement: bulk_load_statement
+               | load_statement
                | from_statement
                | dataframe_statement
                | assign_statement
@@ -230,6 +231,18 @@ grammar_indented = r"""
     load_statement: "load" (STRING | PATH | PYTHON_VAR) "as" table_name (_NL | _NL _INDENT params _DEDENT)?
                   | "load" "all" _NL?
                   | "load" table_name _NL?
+
+    bulk_load_statement: "bulk" "load" bulk_sources "as" bulk_aliases (_NL | _NL _INDENT bulk_load_params _DEDENT)?
+    bulk_sources: PYTHON_VAR -> bulk_source_var
+                | bulk_file_source ("," bulk_file_source)* -> bulk_source_list
+    bulk_file_source: STRING | PATH
+    bulk_aliases: PYTHON_VAR -> bulk_alias_var
+                | table_name ("," table_name)* -> bulk_alias_names
+    bulk_load_params: bulk_load_param+
+    bulk_load_param: "source" "column" IDENTIFIER _NL? -> bulk_source_column
+                   | "source" "value" SOURCE_VALUE _NL? -> bulk_source_value
+                   | param
+    SOURCE_VALUE: "path" | "filename" | "stem"
 
     from_statement: "from" (STRING | PATH | PYTHON_VAR) _NL _INDENT from_body+ _DEDENT
     from_body: from_load_line | from_query_line
@@ -522,6 +535,78 @@ class DSLTransformer(Transformer):
 
         self.current_table = str(table_name)
         return ast_node
+
+    def bulk_file_source(self, source):
+        return str(source)
+
+    def bulk_source_var(self, var):
+        return {'kind': 'var', 'value': var}
+
+    def bulk_source_list(self, *sources):
+        return {'kind': 'list', 'value': [str(s) for s in sources]}
+
+    def bulk_alias_var(self, var):
+        return {'kind': 'var', 'value': var}
+
+    def bulk_alias_names(self, *aliases):
+        return {'kind': 'names', 'value': [str(a) for a in aliases]}
+
+    def bulk_load_params(self, *params):
+        return list(params)
+
+    def bulk_source_column(self, name):
+        return {'bulk_option': 'source_column', 'value': str(name)}
+
+    def bulk_source_value(self, value):
+        return {'bulk_option': 'source_value', 'value': str(value)}
+
+    def SOURCE_VALUE(self, token):
+        return str(token)
+
+    def bulk_load_statement(self, sources, aliases, params=None):
+        params = params or []
+        kwargs = {}
+        source_column = 'source'
+        source_value = 'filename'
+
+        for param in params:
+            if not isinstance(param, dict):
+                continue
+            opt = param.get('bulk_option')
+            if opt == 'source_column':
+                source_column = param['value']
+            elif opt == 'source_value':
+                source_value = param['value']
+            else:
+                kwargs.update(param)
+
+        kwargs_str = ', '.join(
+            [f"{k}='{v}'" if isinstance(v, str) else f"{k}={v}" for k, v in kwargs.items()]
+        )
+        if kwargs_str:
+            kwargs_str = ', ' + kwargs_str
+
+        alias_kind = aliases['kind']
+        alias_value = aliases['value']
+        mode = 'concat' if alias_kind == 'names' and len(alias_value) == 1 else 'separate'
+        table_name = alias_value[0] if mode == 'concat' else (
+            alias_value[-1] if alias_kind == 'names' and alias_value else None
+        )
+
+        if table_name:
+            self.current_table = table_name
+
+        return {
+            'type': 'bulk_load',
+            'mode': mode,
+            'table_name': table_name,
+            'sources': sources,
+            'aliases': aliases,
+            'source_column': source_column,
+            'source_value': source_value,
+            'kwargs': kwargs,
+            'kwargs_str': kwargs_str,
+        }
 
     # ------------------------------------------------------------------
     # from_statement transformer methods
@@ -2031,6 +2116,106 @@ class CodeGenerator:
             return 'pd.read_parquet'
         return 'pd.read_csv'
 
+    def _bulk_sources_code(self, ast_node):
+        sources = ast_node['sources']
+        if sources['kind'] == 'var':
+            return sources['value']['name']
+        return repr(sources['value'])
+
+    def _bulk_aliases_code(self, ast_node):
+        aliases = ast_node['aliases']
+        if aliases['kind'] == 'var':
+            return aliases['value']['name']
+        return repr(aliases['value'])
+
+    def _bulk_source_label_code(self, ast_node):
+        source_value = ast_node.get('source_value', 'filename')
+        if source_value == 'path':
+            return "str(_pvt_src)"
+        if source_value == 'stem':
+            return "os.path.splitext(os.path.basename(str(_pvt_src)))[0]"
+        return "os.path.basename(str(_pvt_src))"
+
+    def _bulk_read_pandas_lines(self, indent=""):
+        kw = getattr(self, '_bulk_current_kwargs_str', '')
+        return [
+            f"{indent}def _pvt_read_file(_pvt_src):",
+            f"{indent}    _pvt_src = str(_pvt_src)",
+            f"{indent}    _pvt_ext = _pvt_src.rsplit('.', 1)[-1].lower() if '.' in _pvt_src else ''",
+            f"{indent}    if _pvt_ext == 'parquet':",
+            f"{indent}        return pd.read_parquet(_pvt_src{kw})",
+            f"{indent}    if _pvt_ext == 'csv':",
+            f"{indent}        return pd.read_csv(_pvt_src{kw})",
+            f"{indent}    raise ValueError(f\"bulk load supports CSV and Parquet files, got '{{_pvt_src}}'\")",
+        ]
+
+    def _bulk_validate_sources_lines(self):
+        return [
+            "_pvt_sources = list(_pvt_sources)",
+            "if not _pvt_sources:",
+            "    raise ValueError('bulk load requires at least one file')",
+        ]
+
+    def _bulk_validate_aliases_lines(self):
+        return [
+            "_pvt_aliases = list(_pvt_aliases)",
+            "if len(_pvt_sources) != len(_pvt_aliases):",
+            "    raise ValueError(f'bulk load source/alias count mismatch: {len(_pvt_sources)} files, {len(_pvt_aliases)} aliases')",
+            "for _pvt_alias in _pvt_aliases:",
+            "    if not isinstance(_pvt_alias, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', _pvt_alias):",
+            "        raise ValueError(f\"Invalid bulk load table alias '{_pvt_alias}'. Use a valid Python identifier.\")",
+        ]
+
+    def generate_bulk_load_pandas(self, ast_node):
+        self._bulk_current_kwargs_str = ast_node.get('kwargs_str', '')
+        t = ast_node.get('table_name')
+        src_expr = self._bulk_sources_code(ast_node)
+        source_col = ast_node.get('source_column', 'source')
+        label_expr = self._bulk_source_label_code(ast_node)
+
+        lines = [
+            "import os",
+            "import re",
+            f"_pvt_sources = {src_expr}",
+            *self._bulk_validate_sources_lines(),
+            *self._bulk_read_pandas_lines(),
+        ]
+
+        if ast_node['mode'] == 'concat':
+            marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+            lines.extend([
+                "_pvt_frames = []",
+                "for _pvt_src in _pvt_sources:",
+                "    _pvt_df = _pvt_read_file(_pvt_src)",
+                f"    _pvt_df[{source_col!r}] = {label_expr}",
+                "    _pvt_frames.append(_pvt_df)",
+                f"{t} = pd.concat(_pvt_frames, ignore_index=True, sort=False)",
+                f"{_SANITISE_HELPER}"
+                f"_pvt_new_cols, _pvt_renamed = _pvt_sanitise({t}.columns.tolist())",
+                f"{t}.columns = _pvt_new_cols",
+                "if _pvt_renamed:",
+                "    import warnings",
+                f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{t}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)",
+                marker,
+            ])
+            return "\n".join(lines)
+
+        alias_expr = self._bulk_aliases_code(ast_node)
+        lines.extend([
+            f"_pvt_aliases = {alias_expr}",
+            *self._bulk_validate_aliases_lines(),
+            f"{_SANITISE_HELPER}"
+            "for _pvt_src, _pvt_alias in zip(_pvt_sources, _pvt_aliases):",
+            "    _pvt_df = _pvt_read_file(_pvt_src)",
+            "    _pvt_new_cols, _pvt_renamed = _pvt_sanitise(_pvt_df.columns.tolist())",
+            "    _pvt_df.columns = _pvt_new_cols",
+            "    if _pvt_renamed:",
+            "        import warnings",
+            "        warnings.warn(f\"[Pivotal] Column(s) renamed in '{_pvt_alias}': {_pvt_renamed}\", UserWarning, stacklevel=2)",
+            "    globals()[_pvt_alias] = _pvt_df",
+        ])
+        return "\n".join(lines)
+
     def generate_load_table_pandas(self, ast_node):
         source = ast_node['source']
         table_name_marker = f"#__pivotal__\n__table_name__ = '{ast_node['table_name']}'\n#__pivotal__"
@@ -2359,6 +2544,69 @@ class CodeGenerator:
             f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{tname}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)\n"
         )
         return f"{load_table}\n{sanitise_code}\n{table_name_marker}"
+
+    def _bulk_read_polars_lines(self):
+        kw = getattr(self, '_bulk_current_kwargs_str', '')
+        return [
+            "def _pvt_read_file(_pvt_src):",
+            "    _pvt_src = str(_pvt_src)",
+            "    _pvt_ext = _pvt_src.rsplit('.', 1)[-1].lower() if '.' in _pvt_src else ''",
+            "    if _pvt_ext == 'parquet':",
+            f"        return pl.read_parquet(_pvt_src{kw})",
+            "    if _pvt_ext == 'csv':",
+            f"        return pl.read_csv(_pvt_src{kw})",
+            "    raise ValueError(f\"bulk load supports CSV and Parquet files, got '{_pvt_src}'\")",
+        ]
+
+    def generate_bulk_load_polars(self, ast_node):
+        self._bulk_current_kwargs_str = ast_node.get('kwargs_str', '')
+        t = ast_node.get('table_name')
+        src_expr = self._bulk_sources_code(ast_node)
+        source_col = ast_node.get('source_column', 'source')
+        label_expr = self._bulk_source_label_code(ast_node)
+
+        lines = [
+            "import os",
+            "import re",
+            f"_pvt_sources = {src_expr}",
+            *self._bulk_validate_sources_lines(),
+            *self._bulk_read_polars_lines(),
+        ]
+
+        if ast_node['mode'] == 'concat':
+            marker = f"#__pivotal__\n__table_name__ = '{t}'\n#__pivotal__"
+            lines.extend([
+                "_pvt_frames = []",
+                "for _pvt_src in _pvt_sources:",
+                "    _pvt_df = _pvt_read_file(_pvt_src)",
+                f"    _pvt_df = _pvt_df.with_columns(pl.lit({label_expr}).alias({source_col!r}))",
+                "    _pvt_frames.append(_pvt_df)",
+                f"{t} = pl.concat(_pvt_frames, how='diagonal')",
+                f"{_SANITISE_HELPER}"
+                f"_, _pvt_renamed = _pvt_sanitise({t}.columns)",
+                "if _pvt_renamed:",
+                f"    {t} = {t}.rename(_pvt_renamed)",
+                "    import warnings",
+                f"    warnings.warn(f\"[Pivotal] Column(s) renamed in '{t}': {{_pvt_renamed}}\", UserWarning, stacklevel=2)",
+                marker,
+            ])
+            return "\n".join(lines)
+
+        alias_expr = self._bulk_aliases_code(ast_node)
+        lines.extend([
+            f"_pvt_aliases = {alias_expr}",
+            *self._bulk_validate_aliases_lines(),
+            f"{_SANITISE_HELPER}"
+            "for _pvt_src, _pvt_alias in zip(_pvt_sources, _pvt_aliases):",
+            "    _pvt_df = _pvt_read_file(_pvt_src)",
+            "    _, _pvt_renamed = _pvt_sanitise(_pvt_df.columns)",
+            "    if _pvt_renamed:",
+            "        _pvt_df = _pvt_df.rename(_pvt_renamed)",
+            "        import warnings",
+            "        warnings.warn(f\"[Pivotal] Column(s) renamed in '{_pvt_alias}': {_pvt_renamed}\", UserWarning, stacklevel=2)",
+            "    globals()[_pvt_alias] = _pvt_df",
+        ])
+        return "\n".join(lines)
 
     def generate_copy_table_pandas(self, ast_node):
         copy_code = f"{ast_node['table_name']} = {ast_node['copy_from']}.copy()"
@@ -5134,6 +5382,27 @@ class CodeGenerator:
         )
         return f"{load_code}\n{sanitise_code}\n{marker}"
 
+    def generate_bulk_load_duckdb(self, ast_node):
+        pandas_code = self.generate_bulk_load_pandas(ast_node)
+        lines = [pandas_code]
+
+        if ast_node['mode'] == 'concat':
+            t = ast_node['table_name']
+            lines.extend([
+                f"_pvt.register('_bulk_tmp', {t})",
+                f"_pvt.execute('CREATE OR REPLACE TABLE {t} AS SELECT * FROM _bulk_tmp')",
+            ])
+            return "\n".join(lines)
+
+        alias_expr = self._bulk_aliases_code(ast_node)
+        lines.extend([
+            f"_pvt_aliases = list({alias_expr})",
+            "for _pvt_alias in _pvt_aliases:",
+            "    _pvt.register('_bulk_tmp', globals()[_pvt_alias])",
+            "    _pvt.execute(f'CREATE OR REPLACE TABLE {_pvt_alias} AS SELECT * FROM _bulk_tmp')",
+        ])
+        return "\n".join(lines)
+
     def generate_filter_duckdb(self, ast_node):
         t = ast_node['table_name']
         where, preamble, use_fstring = self._build_sql_where(
@@ -6094,6 +6363,9 @@ class CodeGenerator:
         if ext in ('xlsx', 'xls'):
             return f"-- [skipped: Excel load requires Python runtime]"
         return f"SELECT * FROM read_csv('{source_str}')"
+
+    def generate_bulk_load_sql(self, ast_node):
+        return "-- [skipped: bulk load requires pandas, polars, or duckdb backend]"
 
     def generate_filter_sql(self, ast_node):
         t = ast_node['table_name']

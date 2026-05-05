@@ -55,6 +55,7 @@ If Pivotal syntax changes, check whether each surface below needs updating.
 - User docs: relevant files under `docs/syntax/`, plus `docs/jupyter.md` when notebook behavior changes.
 - README examples: `README.md`.
 - Release notes: `CHANGELOG.md` under `Unreleased`.
+- Editor extension builds: rebuild VS Code and JupyterLab extension artifacts after updating syntax highlighting, autocomplete, or grammar-adjacent editor behavior, then test the rebuilt extensions rather than only the source files.
 - Binder/Jupyter demo repo: sibling checkout such as `C:\Code_win\pivotal-demo`.
 
 ## Testing Expectations

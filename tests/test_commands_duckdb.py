@@ -107,6 +107,33 @@ def test_preamble_creates_connection(parser, sample_df):
         os.unlink(path)
 
 
+def test_bulk_load_concat_from_python_file_list(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1], 'amount': [10]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2], 'amount': [20]}).to_csv(feb, index=False)
+
+    ns = ddb_ns(make_conn(), {'files': [str(jan), str(feb)]})
+    run_ddb(parser, 'bulk load :files as all_data', ns)
+
+    df = fetch(ns, 'all_data').sort_values('id').reset_index(drop=True)
+    assert list(df['id']) == [1, 2]
+    assert list(df['source']) == ['jan.csv', 'feb.csv']
+
+
+def test_bulk_load_separate_from_static_aliases(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pd.DataFrame({'id': [1]}).to_csv(jan, index=False)
+    pd.DataFrame({'id': [2]}).to_csv(feb, index=False)
+
+    ns = ddb_ns(make_conn(), {'files': [str(jan), str(feb)]})
+    run_ddb(parser, 'bulk load :files as jan_data, feb_data', ns)
+
+    assert list(fetch(ns, 'jan_data')['id']) == [1]
+    assert list(fetch(ns, 'feb_data')['id']) == [2]
+
+
 # ---------------------------------------------------------------------------
 # load_table
 # ---------------------------------------------------------------------------

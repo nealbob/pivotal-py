@@ -90,7 +90,7 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
     # don't flag them as missing when they're referenced in later statements.
     cell_defined: set = set()
     for node in ast:
-        if isinstance(node, dict) and node.get('type') in ('load_table', 'copy_table'):
+        if isinstance(node, dict) and node.get('type') in ('load_table', 'bulk_load', 'copy_table'):
             name = node.get('table_name')
             if name:
                 cell_defined.add(name)
@@ -113,6 +113,11 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
         if t == 'load_table':
             # load sales "file.csv" — columns unknown until the file is read
             current_table = node['table_name']
+            current_cols = None
+
+        elif t == 'bulk_load':
+            # bulk load reads file lists; columns are unknown until runtime.
+            current_table = node.get('table_name')
             current_cols = None
 
         elif t == 'copy_table':

@@ -20,6 +20,52 @@ Use a Python variable for the path:
 load :my_file_path as data
 ```
 
+## `bulk load` - load generated file lists
+
+Load many CSV or Parquet files from a Python list. With one alias, Pivotal
+concatenates the files into one table and adds a `source` column containing the
+input filename.
+
+```python
+files = ["data/jan.csv", "data/feb.csv", "data/mar.csv"]
+```
+
+```pivotal
+bulk load :files as sales
+```
+
+The concat mode unions columns by name, so files with extra or missing columns
+are combined with missing values where needed.
+
+Customize the provenance column:
+
+```pivotal
+bulk load :files as sales
+    source column file
+    source value stem
+```
+
+`source value` can be `filename`, `path`, or `stem`.
+
+Use multiple aliases to load each file separately:
+
+```pivotal
+bulk load :files as jan_sales, feb_sales, mar_sales
+```
+
+Or provide aliases from a Python list:
+
+```python
+tables = ["jan_sales", "feb_sales", "mar_sales"]
+```
+
+```pivotal
+bulk load :files as :tables
+```
+
+The file list and alias list must have the same length. Aliases must be valid
+Pivotal table identifiers.
+
 ### Options
 
 Indent options beneath the `load` statement:

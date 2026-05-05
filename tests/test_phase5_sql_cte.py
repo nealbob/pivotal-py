@@ -73,6 +73,11 @@ def test_cte_structure_single_op(parser, sample_df):
     assert 'SELECT * FROM' in sql
 
 
+def test_bulk_load_sql_backend_is_skipped(parser):
+    sql = gen_sql(parser, 'bulk load :files as all_data\n')
+    assert 'bulk load requires pandas, polars, or duckdb backend' in sql
+
+
 def test_cte_chain_multiple_ops(parser, sample_df):
     """Multiple ops produce multiple CTE entries."""
     sql = gen_sql(parser, 'with sales\nfilter price > 100\nsort price asc\n')

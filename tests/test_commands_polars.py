@@ -90,6 +90,32 @@ def test_copy_table_is_independent(parser, sample_df):
     assert backup_len == len(sample_df)
 
 
+def test_bulk_load_concat_from_python_file_list(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pl.DataFrame({'id': [1], 'amount': [10]}).write_csv(jan)
+    pl.DataFrame({'id': [2], 'amount': [20]}).write_csv(feb)
+
+    ns = {'files': [str(jan), str(feb)]}
+    run(parser, 'bulk load :files as all_data', ns)
+
+    assert ns['all_data']['id'].to_list() == [1, 2]
+    assert ns['all_data']['source'].to_list() == ['jan.csv', 'feb.csv']
+
+
+def test_bulk_load_separate_from_alias_list(parser, tmp_path):
+    jan = tmp_path / "jan.csv"
+    feb = tmp_path / "feb.csv"
+    pl.DataFrame({'id': [1]}).write_csv(jan)
+    pl.DataFrame({'id': [2]}).write_csv(feb)
+
+    ns = {'files': [str(jan), str(feb)], 'tables': ['jan_data', 'feb_data']}
+    run(parser, 'bulk load :files as :tables', ns)
+
+    assert ns['jan_data']['id'].to_list() == [1]
+    assert ns['feb_data']['id'].to_list() == [2]
+
+
 # ---------------------------------------------------------------------------
 # filter
 # ---------------------------------------------------------------------------
