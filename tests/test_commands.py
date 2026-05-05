@@ -862,6 +862,24 @@ def test_filter_endswith(parser, sample_df):
     assert len(ns['sales']) == 2  # Chair, Monitor
 
 
+def test_filter_matches(parser):
+    customers = pd.DataFrame({
+        'email': ['alice@example.com', 'missing-at', 'bob@example.org'],
+    })
+    ns = {'pd': pd, 'customers': customers}
+    run(parser, 'with customers\nfilter email matches ".+@.+\\\\..+"', ns)
+    assert list(ns['customers']['email']) == ['alice@example.com', 'bob@example.org']
+
+
+def test_filter_not_matches(parser):
+    customers = pd.DataFrame({
+        'email': ['alice@example.com', 'missing-at', 'bob@example.org'],
+    })
+    ns = {'pd': pd, 'customers': customers}
+    run(parser, 'with customers\nfilter email not matches ".+@.+\\\\..+"', ns)
+    assert list(ns['customers']['email']) == ['missing-at']
+
+
 def test_filter_in_literal_list(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
     run(parser, 'with sales\nfilter category in ["Electronics"]', ns)
@@ -1038,6 +1056,8 @@ def str_df():
         'code':   ['AB123', 'CD456', 'EF789'],
         'notes':  ['N/A', 'ok', 'N/A'],
         'padded': ['  hello  ', ' world ', 'foo'],
+        'address': ['1 Main St 2000', 'PO Box 3000', 'No postcode'],
+        'phone': ['(02) 1234-5678', '+61 400 123 456', 'n/a'],
     })
 
 
@@ -1099,6 +1119,25 @@ def test_assign_replace(parser, str_df):
     ns = {'pd': pd, 'df': str_df.copy()}
     run(parser, 'with df\nclean = replace(notes, "N/A", "")', ns)
     assert list(ns['df']['clean']) == ['', 'ok', '']
+
+
+def test_assign_regex_extract(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'with df\npostcode = regex_extract(address, "\\\\b\\\\d{4}\\\\b")', ns)
+    assert list(ns['df']['postcode'])[:2] == ['2000', '3000']
+    assert pd.isna(ns['df']['postcode'].iloc[2])
+
+
+def test_assign_regex_extract_capture_group(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'with df\nletters = regex_extract(code, "([A-Z]+)([0-9]+)", 1)', ns)
+    assert list(ns['df']['letters']) == ['AB', 'CD', 'EF']
+
+
+def test_assign_regex_replace(parser, str_df):
+    ns = {'pd': pd, 'df': str_df.copy()}
+    run(parser, 'with df\nclean_phone = regex_replace(phone, "[^0-9]", "")', ns)
+    assert list(ns['df']['clean_phone']) == ['0212345678', '61400123456', '']
 
 
 def test_assign_nested_string_func(parser, str_df):

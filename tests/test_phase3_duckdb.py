@@ -135,6 +135,33 @@ def test_assign_string_upper_duckdb(parser):
     assert list(result['name_up']) == ['ALICE', 'BOB']
 
 
+def test_assign_regex_extract_duckdb(parser):
+    df = pd.DataFrame({'address': ['1 Main St 2000', 'PO Box 3000', 'No postcode']})
+    conn = make_conn('people', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with people\npostcode = regex_extract(address, "\\\\b\\\\d{4}\\\\b")\n', ns)
+    result = fetch(ns, 'people')
+    assert list(result['postcode']) == ['2000', '3000', '']
+
+
+def test_assign_regex_extract_capture_group_duckdb(parser):
+    df = pd.DataFrame({'code': ['AB123', 'CD456', 'EF789']})
+    conn = make_conn('items', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with items\nletters = regex_extract(code, "([A-Z]+)([0-9]+)", 1)\n', ns)
+    result = fetch(ns, 'items')
+    assert list(result['letters']) == ['AB', 'CD', 'EF']
+
+
+def test_assign_regex_replace_duckdb(parser):
+    df = pd.DataFrame({'phone': ['(02) 1234-5678', '+61 400 123 456', 'n/a']})
+    conn = make_conn('people', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with people\nclean_phone = regex_replace(phone, "[^0-9]", "")\n', ns)
+    result = fetch(ns, 'people')
+    assert list(result['clean_phone']) == ['0212345678', '61400123456', '']
+
+
 def test_assign_conditional_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
