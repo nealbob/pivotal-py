@@ -205,9 +205,21 @@ grammar_indented = r"""
 
     agg_item: AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
             | AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+            | PYTHON_VAR "(" custom_agg_args? ")" "as" IDENTIFIER -> custom_agg_bracket_alias_item
+            | PYTHON_VAR "(" custom_agg_args? ")" -> custom_agg_bracket_item
+            | PYTHON_VAR custom_agg_cols "as" IDENTIFIER -> custom_agg_alias_item
+            | PYTHON_VAR custom_agg_cols -> custom_agg_item
             | ("wmean" | "wavg") "(" (IDENTIFIER | PYTHON_VAR) "," (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)? -> wmean_bracket_item
             | ("wmean" | "wavg") (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR) "as" IDENTIFIER -> wmean_alias_item
             | ("wmean" | "wavg") (IDENTIFIER | PYTHON_VAR) (IDENTIFIER | PYTHON_VAR)+ -> wmean_cols_item
+
+    custom_agg_cols: (IDENTIFIER | PYTHON_VAR)+
+    custom_agg_args: custom_agg_arg ("," custom_agg_arg)*
+    custom_agg_arg: custom_agg_kw_arg
+                  | IDENTIFIER -> custom_agg_col_arg
+                  | PYTHON_VAR -> custom_agg_col_arg
+    custom_agg_kw_arg.2: IDENTIFIER "=" custom_agg_value
+    custom_agg_value: value | "[" [value ("," value)*] "]" -> custom_agg_list_value
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -1417,6 +1429,55 @@ class DSLTransformer(Transformer):
         items = args[0] if (len(args) == 1 and isinstance(args[0], list)) else list(args)
         weight = str(items[0])
         return [{'func': 'wmean', 'column': str(c), 'weight': weight} for c in items[1:]]
+
+    def custom_agg_cols(self, *columns):
+        return list(columns)
+
+    def custom_agg_item(self, func, columns):
+        """Custom Python aggregation: agg :func col1 col2 ..."""
+        func_name = func['name'] if isinstance(func, dict) and func.get('type') == 'var' else str(func)
+        res = {'func': func_name, 'columns': columns, 'custom': True}
+        return res
+
+    def custom_agg_alias_item(self, func, columns, alias):
+        res = self.custom_agg_item(func, columns)
+        if alias:
+            res['alias'] = str(alias)
+        return res
+
+    def custom_agg_col_arg(self, col):
+        return {'kind': 'column', 'value': col}
+
+    def custom_agg_kw_arg(self, name, value):
+        return {'kind': 'kw', 'name': str(name), 'value': self._convert_value(value)}
+
+    def custom_agg_arg(self, arg):
+        return arg
+
+    def custom_agg_value(self, value):
+        return self._convert_value(value)
+
+    def custom_agg_list_value(self, *items):
+        return [self._convert_value(item) for item in items] if items else []
+
+    def custom_agg_args(self, *args):
+        return list(args)
+
+    def custom_agg_bracket_item(self, func, args=None):
+        """Custom Python aggregation: agg :func(col1, col2, key=value)."""
+        args = args or []
+        columns = [arg['value'] for arg in args if arg.get('kind') == 'column']
+        kwargs = {arg['name']: arg['value'] for arg in args if arg.get('kind') == 'kw'}
+        res = self.custom_agg_item(func, columns)
+        if kwargs:
+            res['kwargs'] = kwargs
+        return res
+
+    def custom_agg_bracket_alias_item(self, func, args, alias):
+        res = self.custom_agg_bracket_item(func, args)
+        if alias:
+            res['alias'] = str(alias)
+        return res
 
     # Keep wavg_item as an alias so old parsed ASTs / direct calls still work
     def wavg_item(self, col, weight, alias=None):
@@ -3486,6 +3547,16 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            pandas_ast = dict(ast_node)
+            pandas_ast['table_name'] = '_pivotal_polars_custom_pdf'
+            pandas_code = self.generate_groupby_pandas(pandas_ast)
+            return '\n'.join([
+                "# Pivotal: custom Python aggregations on Polars use a pandas fallback.",
+                f"_pivotal_polars_custom_pdf = {tbl}.to_pandas()",
+                pandas_code,
+                f"{tbl} = pl.from_pandas(_pivotal_polars_custom_pdf)",
+            ])
 
         # Whole-table aggregation (no group-by columns)
         if by == []:
@@ -3584,6 +3655,8 @@ class CodeGenerator:
         index = ast_node['index']
         columns = ast_node['columns']
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            return "raise NotImplementedError('Custom aggregation functions are currently supported for whole-table and group by aggregations only')"
 
         def _process_arg(arg):
             if not arg:
@@ -4030,13 +4103,52 @@ class CodeGenerator:
     def generate_groupby_pandas(self, ast_node):
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+        custom_items = [i for i in agg_list if i.get('custom')]
+        regular_items = [i for i in agg_list if not i.get('custom')]
+
+        def _custom_alias(item):
+            if item.get('alias'):
+                return item['alias']
+            cols = []
+            for col in item.get('columns', []):
+                cols.append(col['name'] if isinstance(col, dict) and col.get('type') == 'var' else str(col))
+            return f"{item['func']}_{'_'.join(cols)}" if cols else item['func']
+
+        def _custom_arg(table, col):
+            if isinstance(col, dict) and col.get('type') == 'var':
+                return f"{table}[{col['name']}]"
+            return f"{table}[{str(col)!r}]"
+
+        def _custom_value_code(value):
+            if isinstance(value, dict) and value.get('type') == 'var':
+                return value['name']
+            if isinstance(value, list):
+                return '[' + ', '.join(_custom_value_code(v) for v in value) + ']'
+            return repr(value)
+
+        def _custom_call(func, args, kwargs):
+            parts = list(args)
+            parts.extend(f"{name}={_custom_value_code(value)}" for name, value in (kwargs or {}).items())
+            return f"{func}({', '.join(parts)})"
+
+        def _custom_scalar_helper():
+            return (
+                "def _pivotal_custom_scalar(_value, _func_name):\n"
+                "    import pandas as _pd\n"
+                "    if not _pd.api.types.is_scalar(_value):\n"
+                "        raise ValueError(\n"
+                "            f\"Custom aggregation function '{_func_name}' must return a scalar value; \"\n"
+                "            f\"got {type(_value).__name__}. Use assignment syntax for row-wise transforms.\"\n"
+                "        )\n"
+                "    return _value"
+            )
 
         # Whole-table aggregation (no group-by columns)
         if by == []:
             table = ast_node['table_name']
             if agg_list:
                 parts = []
-                for item in agg_list:
+                for item in regular_items:
                     col = item['column']
                     func = item['func']
                     alias = item.get('alias') or (f"wmean_{col}" if func in ('wavg', 'wmean') else f"{col}_{func}")
@@ -4050,7 +4162,17 @@ class CodeGenerator:
                     else:
                         pandas_func = 'mean' if func == 'avg' else func
                         parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
-                return f"{table} = __import__('pandas').DataFrame({{{', '.join(parts)}}})"
+                for item in custom_items:
+                    alias = _custom_alias(item)
+                    args = ', '.join(_custom_arg(table, col) for col in item['columns'])
+                    call = _custom_call(item['func'], [args] if args else [], item.get('kwargs'))
+                    parts.append(
+                        f"'{alias}': [_pivotal_custom_scalar({call}, {item['func']!r})]"
+                    )
+                code = f"{table} = __import__('pandas').DataFrame({{{', '.join(parts)}}})"
+                if custom_items:
+                    return '\n'.join([_custom_scalar_helper(), code])
+                return code
             else:
                 return f"{table} = {table}.agg('sum').to_frame().T.reset_index(drop=True)"
 
@@ -4071,6 +4193,44 @@ class CodeGenerator:
                 by_code = str(by)
         else:
             by_code = f"'{by}'"
+
+        if custom_items:
+            table = ast_node['table_name']
+            lines = [
+                f"_pivotal_custom_source = {table}.copy()",
+                f"_pivotal_custom_by = {by_code} if isinstance({by_code}, list) else [{by_code}]",
+            ]
+            if regular_items:
+                regular_ast = dict(ast_node)
+                regular_ast['agg_list'] = regular_items
+                lines.append(self.generate_groupby_pandas(regular_ast))
+            else:
+                lines.append(
+                    f"{table} = _pivotal_custom_source.groupby(_pivotal_custom_by, dropna=False)"
+                    ".size().reset_index(name='_pivotal_size').drop(columns=['_pivotal_size'])"
+                )
+            for idx, item in enumerate(custom_items):
+                alias = _custom_alias(item)
+                arg_list = [_custom_arg('_g', col) for col in item['columns']]
+                call = _custom_call(item['func'], arg_list, item.get('kwargs'))
+                cols_code = "[]"
+                for col in item['columns']:
+                    if isinstance(col, dict) and col.get('type') == 'var':
+                        var_name = col['name']
+                        cols_code += f" + ({var_name} if isinstance({var_name}, list) else [{var_name}])"
+                    else:
+                        cols_code += f" + [{str(col)!r}]"
+                lines.append(f"_pivotal_custom_cols_{idx} = {cols_code}")
+                lines.append(
+                    f"_pivotal_custom_{idx} = _pivotal_custom_source.groupby(_pivotal_custom_by, dropna=False)"
+                    f"[_pivotal_custom_cols_{idx}].apply("
+                    f"lambda _g: _pivotal_custom_scalar({call}, {item['func']!r})"
+                    f").reset_index(name={alias!r})"
+                )
+                lines.append(
+                    f"{table} = {table}.merge(_pivotal_custom_{idx}, on=_pivotal_custom_by, how='left')"
+                )
+            return '\n'.join([_custom_scalar_helper()] + lines)
 
         if agg_list:
             table = ast_node['table_name']
@@ -5192,6 +5352,8 @@ class CodeGenerator:
         t = ast_node['table_name']
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            return "raise NotImplementedError('Custom aggregation functions are currently supported only by the pandas backend')"
 
         # Whole-table aggregation (no group-by columns)
         if by == []:
@@ -5295,6 +5457,8 @@ class CodeGenerator:
         index = ast_node['index']    # rows → GROUP BY
         columns = ast_node['columns']  # pivot column → ON
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            return "raise NotImplementedError('Custom aggregation functions are currently supported for whole-table and group by aggregations only')"
 
         def _static_cols(arg):
             """Return list of strings if arg is fully static, else None."""
@@ -6035,6 +6199,8 @@ class CodeGenerator:
         from_alias = self._sql_current(t)
         by = ast_node['by']
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            return f"-- [skipped: custom aggregation functions are supported only by the pandas backend]"
 
         # Whole-table aggregation (no group-by columns)
         if by == []:
@@ -6074,6 +6240,8 @@ class CodeGenerator:
         index = ast_node['index']
         columns = ast_node['columns']
         agg_list = ast_node.get('agg_list', [])
+        if any(item.get('custom') for item in agg_list):
+            return f"-- [skipped: custom aggregation functions are supported only by pandas group by/whole-table agg]"
         # Only handle static (non-variable) args
         def _as_str_list(arg):
             if not arg:
@@ -6700,9 +6868,38 @@ class DSLParser:
         # Existing multi-function syntax like "agg sum x, max y" is left alone.
         agg_funcs = 'mean|avg|sum|min|max|count|std|median|var|nunique|first|last'
 
+        def _split_agg_parts(body):
+            parts = []
+            start = 0
+            depth = 0
+            quote = None
+            i = 0
+            while i < len(body):
+                ch = body[i]
+                if quote:
+                    if ch == '\\':
+                        i += 2
+                        continue
+                    if ch == quote:
+                        quote = None
+                    i += 1
+                    continue
+                if ch in ("'", '"'):
+                    quote = ch
+                elif ch in "([{":
+                    depth += 1
+                elif ch in ")]}":
+                    depth = max(0, depth - 1)
+                elif ch == ',' and depth == 0:
+                    parts.append(body[start:i].strip())
+                    start = i + 1
+                i += 1
+            parts.append(body[start:].strip())
+            return parts
+
         def _expand_agg_line(m):
             indent, body = m.group(1), m.group(2)
-            parts = [p.strip() for p in body.split(',')]
+            parts = _split_agg_parts(body)
             expanded = []
             current_func = None
             for part in parts:
@@ -6710,10 +6907,11 @@ class DSLParser:
                     continue
                 func_match = re.match(rf'^({agg_funcs})\b', part, flags=re.IGNORECASE)
                 special_match = re.match(r'^(wmean|wavg)\b', part, flags=re.IGNORECASE)
+                custom_match = re.match(r'^:[a-zA-Z_][a-zA-Z0-9_]*\b', part)
                 if func_match:
                     current_func = func_match.group(1)
                     expanded.append(part)
-                elif special_match:
+                elif special_match or custom_match:
                     current_func = None
                     expanded.append(part)
                 elif current_func:

@@ -520,6 +520,130 @@ def test_groupby_agg_function_applies_to_multiple_columns(parser):
     assert a['colB'] == pytest.approx(20.0)
 
 
+def test_custom_agg_whole_table(parser):
+    """agg :func col1 col2 calls a Python function with whole-column Series."""
+    def error_sum(actual, predicted):
+        return (actual - predicted).sum()
+
+    df = pd.DataFrame({
+        'actual': [10.0, 20.0, 30.0],
+        'predicted': [8.0, 18.0, 33.0],
+    })
+    ns = {'pd': pd, 'data': df, 'error_sum': error_sum}
+    run(parser, 'with data\n    agg :error_sum actual predicted as total_error\n', ns)
+    assert ns['data']['total_error'].iloc[0] == pytest.approx(1.0)
+
+
+def test_custom_agg_groupby(parser):
+    """Custom agg functions receive one Series per input column within each group."""
+    def error_sum(actual, predicted):
+        return (actual - predicted).sum()
+
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'actual': [10.0, 20.0, 30.0, 40.0],
+        'predicted': [8.0, 18.0, 33.0, 35.0],
+    })
+    ns = {'pd': pd, 'data': df, 'error_sum': error_sum}
+    run(parser, 'with data\ngroup by grp\n    agg :error_sum actual predicted as total_error\n', ns)
+    a = ns['data'][ns['data']['grp'] == 'A'].iloc[0]
+    b = ns['data'][ns['data']['grp'] == 'B'].iloc[0]
+    assert a['total_error'] == pytest.approx(4.0)
+    assert b['total_error'] == pytest.approx(2.0)
+
+
+def test_custom_agg_mixed_with_regular_groupby(parser):
+    """A custom agg can be mixed with standard agg items in one group by block."""
+    def error_sum(actual, predicted):
+        return (actual - predicted).sum()
+
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'amount': [1.0, 3.0, 2.0, 6.0],
+        'actual': [10.0, 20.0, 30.0, 40.0],
+        'predicted': [8.0, 18.0, 33.0, 35.0],
+    })
+    ns = {'pd': pd, 'data': df, 'error_sum': error_sum}
+    run(
+        parser,
+        'with data\ngroup by grp\n    agg mean amount as avg_amount, :error_sum actual predicted as total_error\n',
+        ns,
+    )
+    a = ns['data'][ns['data']['grp'] == 'A'].iloc[0]
+    assert a['avg_amount'] == pytest.approx(2.0)
+    assert a['total_error'] == pytest.approx(4.0)
+
+
+def test_custom_agg_bracket_keyword_args(parser):
+    """Bracket custom aggs support scalar keyword arguments."""
+    def shifted_mean(values, offset=0, scale=1):
+        return values.mean() * scale + offset
+
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'wins': [2.0, 4.0, 6.0, 8.0],
+    })
+    ns = {'pd': pd, 'data': df, 'shifted_mean': shifted_mean}
+    run(
+        parser,
+        'with data\ngroup by grp\n    agg :shifted_mean(wins, offset=10, scale=2) as score\n',
+        ns,
+    )
+    a = ns['data'][ns['data']['grp'] == 'A'].iloc[0]
+    b = ns['data'][ns['data']['grp'] == 'B'].iloc[0]
+    assert a['score'] == pytest.approx(16.0)
+    assert b['score'] == pytest.approx(24.0)
+
+
+def test_custom_agg_bracket_keyword_python_var(parser):
+    """Keyword arguments can reference Python variables with :name."""
+    def shifted_mean(values, offset=0):
+        return values.mean() + offset
+
+    df = pd.DataFrame({'wins': [2.0, 4.0, 6.0]})
+    ns = {'pd': pd, 'data': df, 'shifted_mean': shifted_mean, 'bonus': 5}
+    run(parser, 'with data\n    agg :shifted_mean(wins, offset=:bonus) as score\n', ns)
+    assert ns['data']['score'].iloc[0] == pytest.approx(9.0)
+
+
+def test_custom_agg_bracket_keeps_top_level_comma_split(parser):
+    """Commas inside custom agg brackets do not trigger agg shorthand expansion."""
+    def error_sum(actual, predicted, offset=0):
+        return (actual - predicted).sum() + offset
+
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B', 'B'],
+        'amount': [1.0, 3.0, 2.0, 6.0],
+        'actual': [10.0, 20.0, 30.0, 40.0],
+        'predicted': [8.0, 18.0, 33.0, 35.0],
+    })
+    ns = {'pd': pd, 'data': df, 'error_sum': error_sum}
+    run(
+        parser,
+        'with data\ngroup by grp\n    agg :error_sum(actual, predicted, offset=1) as total_error, mean amount as avg_amount\n',
+        ns,
+    )
+    a = ns['data'][ns['data']['grp'] == 'A'].iloc[0]
+    assert a['total_error'] == pytest.approx(5.0)
+    assert a['avg_amount'] == pytest.approx(2.0)
+
+
+def test_custom_agg_rejects_series_result(parser):
+    """Custom agg functions must reduce each group to a scalar."""
+    def square(values):
+        return values ** 2
+
+    df = pd.DataFrame({
+        'grp': ['A', 'A', 'B'],
+        'wins': [2.0, 3.0, 4.0],
+    })
+    ns = {'pd': pd, 'data': df, 'square': square}
+    nodes = parser.parse('with data\ngroup by grp\n    agg :square wins as wins\n')
+    code = '\n'.join(parser.generate_code(nodes, backend='pandas'))
+    with pytest.raises(ValueError, match='must return a scalar value'):
+        exec(code, ns)
+
+
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------

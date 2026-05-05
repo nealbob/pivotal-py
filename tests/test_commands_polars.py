@@ -870,6 +870,50 @@ def test_groupby_multi_agg(parser):
     assert result['my'][1] == 3     # B: max(3)
 
 
+def test_custom_agg_polars_uses_pandas_fallback(parser):
+    def error_sum(actual, predicted):
+        return (actual - predicted).sum()
+
+    df = pl.DataFrame({
+        'cat': ['A', 'A', 'B'],
+        'actual': [10.0, 20.0, 30.0],
+        'predicted': [8.0, 18.0, 33.0],
+    })
+    ns = {'data': df, 'error_sum': error_sum}
+    run(parser, 'with data\ngroup by cat\n    agg :error_sum(actual, predicted) as total_error\n', ns)
+    result = ns['data'].sort('cat')
+    assert isinstance(result, pl.DataFrame)
+    assert result.filter(pl.col('cat') == 'A')['total_error'][0] == pytest.approx(4.0)
+    assert result.filter(pl.col('cat') == 'B')['total_error'][0] == pytest.approx(-3.0)
+
+
+def test_custom_agg_polars_bracket_keyword_args(parser):
+    def shifted_mean(values, offset=0):
+        return values.mean() + offset
+
+    df = pl.DataFrame({'cat': ['A', 'A', 'B'], 'x': [10, 20, 30]})
+    ns = {'data': df, 'shifted_mean': shifted_mean, 'bonus': 5}
+    run(parser, 'with data\ngroup by cat\n    agg :shifted_mean(x, offset=:bonus) as score\n', ns)
+    result = ns['data'].sort('cat')
+    assert isinstance(result, pl.DataFrame)
+    assert result.filter(pl.col('cat') == 'A')['score'][0] == pytest.approx(20.0)
+    assert result.filter(pl.col('cat') == 'B')['score'][0] == pytest.approx(35.0)
+
+
+def test_custom_agg_polars_codegen_mentions_pandas_fallback(parser):
+    df = pl.DataFrame({'cat': ['A', 'A', 'B'], 'x': [10, 20, 30]})
+    ns = {'data': df, 'my_metric': lambda values: values.mean()}
+    code = '\n'.join(
+        parser.generate_code(
+            parser.parse('with data\ngroup by cat\n    agg :my_metric(x) as score\n'),
+            backend='polars',
+        )
+    )
+    assert 'pandas fallback' in code
+    exec(code, ns)
+    assert isinstance(ns['data'], pl.DataFrame)
+
+
 def test_groupby_agg_function_applies_to_multiple_columns(parser):
     df = pl.DataFrame({
         'cat': ['A', 'A', 'B', 'B'],
