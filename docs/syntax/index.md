@@ -68,6 +68,7 @@ load "path/to/file.csv" as data
 | [`load`](data-sources.md) | Load a file into a table |
 | [`with`](data-sources.md) | Set or create a table |
 | [`filter`](filtering.md) | Filter rows |
+| [`assert` / `check`](data-quality.md) | Validate data quality |
 | [`select`](selection.md) | Keep specific columns |
 | [`drop`](selection.md) | Remove specific columns |
 | [`distinct`](selection.md) | Remove duplicate rows |

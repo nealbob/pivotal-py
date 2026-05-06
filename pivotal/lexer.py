@@ -21,7 +21,7 @@ class PivotalLexer(RegexLexer):
     # Primary DSL verbs
     KEYWORDS = (
         'with', 'load', 'from', 'delete', 'save', 'concat',
-        'filter', 'select', 'drop', 'distinct', 'rename',
+        'filter', 'assert', 'check', 'select', 'drop', 'distinct', 'rename',
         'sort', 'order', 'group', 'by', 'agg',
         'merge', 'pivot', 'unpivot', 'apply',
         'intersect', 'cast', 'python', 'end', 'query',
@@ -50,7 +50,7 @@ class PivotalLexer(RegexLexer):
 
     # Word-form logical and comparison operators
     WORD_OPS = (
-        'and', 'or', 'not', 'in', 'between',
+        'and', 'or', 'not', 'in', 'unique', 'null', 'between',
         'contains', 'startswith', 'endswith',
     )
 

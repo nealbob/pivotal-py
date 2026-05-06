@@ -80,6 +80,21 @@ def run_ddb(parser, code, ns):
     return ns
 
 
+def test_data_quality_check_warns_duckdb(parser):
+    conn = make_conn('orders', pd.DataFrame({'order_id': [1, 2], 'amount': [5, -1]}))
+    ns = ddb_ns(conn)
+    with pytest.warns(UserWarning, match='expected amount >= 0'):
+        run_ddb(parser, 'with orders\ncheck amount >= 0\n', ns)
+    assert conn.execute('SELECT count(*) FROM orders').fetchone()[0] == 2
+
+
+def test_data_quality_assert_not_null_fails_duckdb(parser):
+    conn = make_conn('orders', pd.DataFrame({'order_id': [1, None]}))
+    ns = ddb_ns(conn)
+    with pytest.raises(AssertionError, match='order_id must not be null'):
+        run_ddb(parser, 'with orders\nassert order_id not null\n', ns)
+
+
 def fetch(ns, table):
     """Materialise a DuckDB table into a pandas DataFrame."""
     return ns['_pivotal_ddb'].execute(f"SELECT * FROM {table}").df()

@@ -116,6 +116,32 @@ with sales
 
 Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not contains  matches  not matches  startswith  endswith`
 
+## Data quality
+
+Use `assert` when bad data should stop the pipeline. Use `check` when bad data
+should produce a warning and let later statements continue.
+
+```pivotal
+with orders
+    assert order_id unique
+    assert customer_id not null
+    assert status in ["open", "closed", "cancelled"]
+    check amount >= 0
+```
+
+`assert` and `check` accept the same condition syntax as `filter`. They also
+support `unique` and `not null` shorthand rules for one or more columns:
+
+```pivotal
+with orders
+    assert order_id, line_id unique
+    check shipped_at not null
+```
+
+The pandas, Polars, and DuckDB backends evaluate these rules at runtime. The
+plain SQL backend leaves data-quality commands as skipped comments because SQL
+export cannot emit Python warnings or exceptions.
+
 ## Selecting columns
 
 ```pivotal

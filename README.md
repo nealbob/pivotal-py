@@ -26,6 +26,8 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 **Bulk file loading** - concatenate generated CSV/Parquet file lists with source provenance, or load them into separate tables
 
+**Data quality checks** - use `assert` to fail on invalid data, or `check` to warn and continue
+
 ---
 
 ## Installation

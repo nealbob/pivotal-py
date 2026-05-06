@@ -24,7 +24,7 @@ _WAVG_CALL_RE = re.compile(
 # All reserved words in the Pivotal grammar.  Used for collision validation.
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords
-    'with', 'load', 'bulk', 'filter', 'select', 'sort', 'order', 'save', 'all', 'delete',
+    'with', 'load', 'bulk', 'filter', 'assert', 'check', 'select', 'sort', 'order', 'save', 'all', 'delete',
     'for',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
@@ -71,6 +71,8 @@ grammar_indented = r"""
                | from_statement
                | dataframe_statement
                | assign_statement
+               | assert_statement
+               | check_statement
                | filter_statement
                | select_statement
                | sort_statement
@@ -280,6 +282,15 @@ grammar_indented = r"""
     CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
+
+    assert_statement: "assert" quality_rule _NL?
+    check_statement: "check" quality_rule _NL?
+    quality_rule: quality_not_null
+                | quality_unique
+                | condition_list         -> quality_condition
+    quality_unique.2: dq_cols "unique"
+    quality_not_null.2: dq_cols NOT_NULL
+    dq_cols: IDENTIFIER ("," IDENTIFIER)*
     
     select_statement: "select" select_item ("," select_item)* _NL?
                     | "select" "matches" STRING _NL? -> select_matches_statement
@@ -392,6 +403,7 @@ grammar_indented = r"""
     BOOLEAN.2: "True" | "False" | "true" | "false"
     NONE.2: "None" | "none"
     AOR.2: /and/i | /or/i
+    NOT_NULL.3: /not[ \t]+null/i
     PYTHON_VAR: ":" IDENTIFIER
     IDENTIFIER: /[a-zA-Z][a-zA-Z0-9_]*/
     IDENT_LIST.2: IDENTIFIER ("," IDENTIFIER)*
@@ -984,6 +996,41 @@ class DSLTransformer(Transformer):
         python_code = f"{self.current_table} = {self.current_table}.query('{query_str}')"
         
         return ast_node
+
+    def dq_cols(self, *cols):
+        return [str(col) for col in cols]
+
+    def quality_condition(self, condition_list):
+        temp = self._build_conditional_statement(condition_list)
+        return {
+            'rule': 'condition',
+            'conditions': temp['ast']['conditions'],
+            'operators': temp['ast']['operators'],
+            'query_str': temp['query_str'],
+        }
+
+    def quality_rule(self, quality):
+        return quality
+
+    def quality_unique(self, cols):
+        return {'rule': 'unique', 'columns': cols}
+
+    def quality_not_null(self, cols, *_):
+        return {'rule': 'not_null', 'columns': cols}
+
+    def _data_quality_statement(self, mode, quality):
+        return {
+            'type': 'data_quality',
+            'table_name': self.current_table,
+            'mode': mode,
+            **quality,
+        }
+
+    def assert_statement(self, quality):
+        return self._data_quality_statement('assert', quality)
+
+    def check_statement(self, quality):
+        return self._data_quality_statement('check', quality)
     
     def select_statement(self, *items):
         """Handle select statements to select specific columns"""
@@ -3223,6 +3270,23 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.filter({expr})"
 
+    def generate_data_quality_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        rule = ast_node.get('rule')
+        if rule == 'condition':
+            expr = self._build_polars_filter(ast_node['conditions'], ast_node['operators'])
+            lines = [f"_pvt_dq_bad = {tbl}.filter(~({expr})).height"]
+        elif rule == 'unique':
+            cols = ast_node['columns']
+            lines = [f"_pvt_dq_bad = int({tbl}.select({cols!r}).is_duplicated().sum())"]
+        elif rule == 'not_null':
+            null_exprs = ', '.join(f"pl.col({col!r}).is_null()" for col in ast_node['columns'])
+            lines = [f"_pvt_dq_bad = {tbl}.filter(pl.any_horizontal([{null_exprs}])).height"]
+        else:
+            raise ValueError(f"Unknown data quality rule: {rule}")
+        lines.append(self._dq_action_code(ast_node))
+        return "\n".join(lines)
+
     def generate_select_polars(self, ast_node):
         columns = ast_node['columns']
         renames = ast_node.get('renames', {})
@@ -4214,6 +4278,48 @@ class CodeGenerator:
         query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
         engine = ", engine='python'" if needs_python_engine else ""
         return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}'{engine})"
+
+    def _dq_message(self, ast_node):
+        mode = ast_node.get('mode', 'assert')
+        table = ast_node['table_name']
+        rule = ast_node.get('rule')
+        if rule == 'unique':
+            cols = ', '.join(ast_node.get('columns', []))
+            return f"[Pivotal] {mode} failed on {table}: {cols} must be unique"
+        if rule == 'not_null':
+            cols = ', '.join(ast_node.get('columns', []))
+            return f"[Pivotal] {mode} failed on {table}: {cols} must not be null"
+        query = ast_node.get('query_str') or ''
+        return f"[Pivotal] {mode} failed on {table}: expected {query}"
+
+    def _dq_action_code(self, ast_node, count_var='_pvt_dq_bad'):
+        message = self._dq_message(ast_node)
+        if ast_node.get('mode') == 'check':
+            return (
+                f"if {count_var}:\n"
+                f"    import warnings\n"
+                f"    warnings.warn(f\"{message}: {{{count_var}}} row(s)\", UserWarning, stacklevel=2)"
+            )
+        return f"if {count_var}: raise AssertionError(f\"{message}: {{{count_var}}} row(s)\")"
+
+    def generate_data_quality_pandas(self, ast_node):
+        table = ast_node['table_name']
+        rule = ast_node.get('rule')
+        if rule == 'condition':
+            query_str, needs_python_engine = self._build_query_string(
+                ast_node['conditions'], ast_node['operators'])
+            engine = ", engine='python'" if needs_python_engine else ""
+            lines = [f"_pvt_dq_bad = len({table}.query('not ({query_str})'{engine}))"]
+        elif rule == 'unique':
+            cols = ast_node['columns']
+            lines = [f"_pvt_dq_bad = int({table}.duplicated(subset={cols!r}).sum())"]
+        elif rule == 'not_null':
+            cols = ast_node['columns']
+            lines = [f"_pvt_dq_bad = int({table}[{cols!r}].isna().any(axis=1).sum())"]
+        else:
+            raise ValueError(f"Unknown data quality rule: {rule}")
+        lines.append(self._dq_action_code(ast_node))
+        return "\n".join(lines)
     
     def generate_select_pandas(self, ast_node):
         table = ast_node['table_name']
@@ -5528,6 +5634,39 @@ class CodeGenerator:
             lines.append(f'_pvt.execute({sql!r})')
         return '\n'.join(lines)
 
+    def generate_data_quality_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        rule = ast_node.get('rule')
+        preamble = []
+        use_fstring = False
+
+        if rule == 'condition':
+            where, preamble, use_fstring = self._build_sql_where(
+                ast_node['conditions'], ast_node['operators']
+            )
+            sql = f"SELECT count(*) FROM {t} WHERE NOT ({where})"
+        elif rule == 'unique':
+            cols = ast_node['columns']
+            partition = ', '.join(cols)
+            sql = (
+                f"SELECT count(*) FROM ("
+                f"SELECT row_number() OVER (PARTITION BY {partition}) AS _pvt_rn FROM {t}"
+                f") WHERE _pvt_rn > 1"
+            )
+        elif rule == 'not_null':
+            where = ' OR '.join(f"{col} IS NULL" for col in ast_node['columns'])
+            sql = f"SELECT count(*) FROM {t} WHERE {where}"
+        else:
+            raise ValueError(f"Unknown data quality rule: {rule}")
+
+        lines = list(preamble)
+        if use_fstring:
+            lines.append(f"_pvt_dq_bad = _pvt.execute(f{sql!r}).fetchone()[0]")
+        else:
+            lines.append(f"_pvt_dq_bad = _pvt.execute({sql!r}).fetchone()[0]")
+        lines.append(self._dq_action_code(ast_node))
+        return '\n'.join(lines)
+
     def generate_select_duckdb(self, ast_node):
         t = ast_node['table_name']
         columns = ast_node['columns']
@@ -6516,6 +6655,24 @@ class CodeGenerator:
             return f"-- [skipped: filter with Python variable reference]"
         return f"SELECT * FROM {from_alias} WHERE {where}"
 
+    def generate_data_quality_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        mode = ast_node.get('mode', 'assert')
+        rule = ast_node.get('rule')
+        if rule == 'condition':
+            where, preamble, use_fstring = self._build_sql_where(
+                ast_node['conditions'], ast_node['operators'])
+            if use_fstring or preamble:
+                detail = 'condition with Python variable reference'
+            else:
+                detail = f"{where}"
+        elif rule in ('unique', 'not_null'):
+            detail = ', '.join(ast_node.get('columns', []))
+        else:
+            detail = rule or 'unknown'
+        return f"-- [skipped: {mode} {rule} on {from_alias}: {detail}]"
+
     def generate_select_sql(self, ast_node):
         t = ast_node['table_name']
         from_alias = self._sql_current(t)
@@ -6971,7 +7128,7 @@ _TERMINAL_NAMES = {
 
 # Statement keywords used for "did you mean?" suggestions on unknown words.
 _STATEMENT_KEYWORDS = [
-    'load', 'df', 'for', 'filter', 'select', 'drop', 'distinct', 'assign',
+    'load', 'df', 'for', 'filter', 'assert', 'check', 'select', 'drop', 'distinct', 'assign',
     'cast', 'rename', 'sort', 'group', 'agg', 'merge', 'pivot',
     'unpivot', 'rank', 'lag', 'lead', 'cumsum', 'rolling', 'fillna',
     'dropna', 'concat', 'python', 'apply', 'show', 'plot', 'table', 'save',
@@ -7731,6 +7888,8 @@ class DSLParser:
                     print(f"Shape: {df.shape}\n")
                     print(df.head())
             except Exception as e:
+                if isinstance(e, AssertionError):
+                    raise
                 print(f"Execution error: {e}")
         
         # Update autocomplete info after execution

@@ -72,6 +72,19 @@ def test_validate_table(parser, sample_df):
     assert isinstance(ns['sales'], pl.DataFrame)
 
 
+def test_data_quality_check_warns_polars(parser):
+    ns = {'orders': pl.DataFrame({'order_id': [1, 2], 'amount': [5, -1]})}
+    with pytest.warns(UserWarning, match='expected amount >= 0'):
+        run(parser, 'with orders\ncheck amount >= 0\n', ns)
+    assert ns['orders'].height == 2
+
+
+def test_data_quality_assert_unique_fails_polars(parser):
+    ns = {'orders': pl.DataFrame({'order_id': [1, 1]})}
+    with pytest.raises(AssertionError, match='order_id must be unique'):
+        run(parser, 'with orders\nassert order_id unique\n', ns)
+
+
 
 def test_copy_table(parser, sample_df):
     ns = {'sales': sample_df}

@@ -1111,13 +1111,14 @@ class PivotalMagics(Magics):
         """Custom completer for Pivotal DSL"""
         # Basic keywords list
         keywords = [
-            'load', 'df', 'filter', 'select', 'sort',
+            'load', 'df', 'filter', 'assert', 'check', 'select', 'sort',
             'group by', 'merge', 'pivot', 'plot', 'python', 'apply',
             'drop', 'dropna', 'fillna', 'distinct', 'concat', 'rename',
             'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std',
             'asc', 'desc', 'left', 'right', 'inner', 'outer',
             'from', 'as', 'on', 'rows', 'cols',
             'between', 'contains', 'not contains', 'startswith', 'endswith',
+            'unique', 'not null',
         ]
 
         # Add table names and columns from parser state
