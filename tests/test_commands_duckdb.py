@@ -410,6 +410,19 @@ def test_select_duckdb(parser, sample_df):
     assert list(df.columns) == ['product', 'price']
 
 
+def test_select_matches_duckdb(parser):
+    df = pd.DataFrame({
+        'abc_one': [1],
+        'abc_two': [2],
+        'def_one': [3],
+    })
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\nselect matches "^abc_"', ns)
+    result = fetch(ns, 'data')
+    assert list(result.columns) == ['abc_one', 'abc_two']
+
+
 def test_select_with_rename_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     ns = ddb_ns(conn)
@@ -503,6 +516,19 @@ def test_drop_multiple_duckdb(parser, sample_df):
     assert 'quantity' not in df.columns
     assert 'id' not in df.columns
     assert 'product' in df.columns
+
+
+def test_drop_matches_duckdb(parser):
+    df = pd.DataFrame({
+        'abc_one': [1],
+        'def_one': [2],
+        'def_two': [3],
+    })
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\ndrop matches "^def_"', ns)
+    result = fetch(ns, 'data')
+    assert list(result.columns) == ['abc_one']
 
 
 # ---------------------------------------------------------------------------

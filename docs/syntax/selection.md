@@ -14,6 +14,13 @@ with sales as report
     select product, region, revenue, date
 ```
 
+Keep columns whose names match a regex pattern:
+
+```pivotal
+with metrics as rates
+    select matches "_rate$"
+```
+
 ## `drop` — remove columns
 
 Remove specific columns, keep everything else:
@@ -21,6 +28,13 @@ Remove specific columns, keep everything else:
 ```pivotal
 with raw as clean
     drop internal_id, debug_flag, temp_col
+```
+
+Remove columns whose names match a regex pattern:
+
+```pivotal
+with raw as clean
+    drop matches "^temp_"
 ```
 
 ## `distinct` — remove duplicate rows

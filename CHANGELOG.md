@@ -14,6 +14,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added pandas custom aggregation functions with `agg :function col1 col2 ... as name` syntax for whole-table and grouped aggregations, plus bracket syntax for keyword arguments.
 - Added Polars support for custom aggregation functions via a pandas fallback.
 - Added regex string operations with `regex_extract`, `regex_replace`, and `matches` / `not matches` filters across pandas, Polars, DuckDB, and SQL CTE backends.
+- Added `select matches "pattern"` and `drop matches "pattern"` for regex-based column selection and removal.
 - Added package extras for test dependencies.
 
 ### Fixed

@@ -190,8 +190,8 @@ const COMMAND_COMPLETIONS: Completion[] = [
   // Row operations
   { label: 'for', type: 'keyword', apply: snippet('for ${col} in ${col1}, ${col2}\n    ${col} = ${col} / ${denom}'), detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter', type: 'keyword', detail: 'filter <condition>' },
-  { label: 'select', type: 'keyword', detail: 'select <col>, ...' },
-  { label: 'drop', type: 'keyword', detail: 'drop <col>, ...' },
+  { label: 'select', type: 'keyword', detail: 'select <col>, ... | select matches "<regex>"' },
+  { label: 'drop', type: 'keyword', detail: 'drop <col>, ... | drop matches "<regex>"' },
   { label: 'distinct', type: 'keyword', detail: 'distinct [<col>, ...]' },
   { label: 'sort', type: 'keyword', detail: 'sort <col> [asc|desc]' },
 

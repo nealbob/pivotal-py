@@ -256,6 +256,17 @@ def test_select_single_column(parser, sample_df):
     assert len(ns['sales']) == len(sample_df)
 
 
+def test_select_matches(parser):
+    df = pl.DataFrame({
+        'abc_one': [1],
+        'abc_two': [2],
+        'def_one': [3],
+    })
+    ns = {'df': df}
+    run(parser, 'with df\nselect matches "^abc_"', ns)
+    assert ns['df'].columns == ['abc_one', 'abc_two']
+
+
 def test_select_with_rename(parser, sample_df):
     ns = {'sales': sample_df}
     run(parser, 'with sales\nselect product, price as cost', ns)
@@ -301,6 +312,17 @@ def test_drop_multiple_columns(parser, sample_df):
     assert 'quantity' not in ns['sales'].columns
     assert 'id' not in ns['sales'].columns
     assert 'product' in ns['sales'].columns
+
+
+def test_drop_matches(parser):
+    df = pl.DataFrame({
+        'abc_one': [1],
+        'def_one': [2],
+        'def_two': [3],
+    })
+    ns = {'df': df}
+    run(parser, 'with df\ndrop matches "^def_"', ns)
+    assert ns['df'].columns == ['abc_one']
 
 
 # ---------------------------------------------------------------------------
