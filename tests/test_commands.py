@@ -163,6 +163,17 @@ def test_select(parser, sample_df):
     assert list(ns['sales'].columns) == ['product', 'price']
 
 
+def test_select_matches(parser):
+    df = pd.DataFrame({
+        'abc_one': [1],
+        'abc_two': [2],
+        'def_one': [3],
+    })
+    ns = {'pd': pd, 'df': df}
+    run(parser, 'with df\nselect matches "^abc_"', ns)
+    assert list(ns['df'].columns) == ['abc_one', 'abc_two']
+
+
 def test_sort(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
     run(parser, 'with sales\nsort price desc', ns)
@@ -713,6 +724,17 @@ def test_drop_multiple_columns(parser, sample_df):
     assert 'quantity' not in ns['sales'].columns
     assert 'id' not in ns['sales'].columns
     assert 'product' in ns['sales'].columns
+
+
+def test_drop_matches(parser):
+    df = pd.DataFrame({
+        'abc_one': [1],
+        'def_one': [2],
+        'def_two': [3],
+    })
+    ns = {'pd': pd, 'df': df}
+    run(parser, 'with df\ndrop matches "^def_"', ns)
+    assert list(ns['df'].columns) == ['abc_one']
 
 
 # ---------------------------------------------------------------------------

@@ -122,6 +122,8 @@ Operators: `==  !=  >  <  >=  <=  and  or  in  not in  between  contains  not co
 with sales
     select region, amount, date
     select customer_id, revenue as rev
+    select matches "^revenue_|_rate$"      # keep columns whose names match regex
+    drop matches "^temp_"                  # remove columns whose names match regex
 ```
 
 ## Column assignment

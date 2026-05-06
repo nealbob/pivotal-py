@@ -282,6 +282,7 @@ grammar_indented = r"""
     filter_statement: "filter" condition_list  _NL?
     
     select_statement: "select" select_item ("," select_item)* _NL?
+                    | "select" "matches" STRING _NL? -> select_matches_statement
 
     select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
 
@@ -343,6 +344,7 @@ grammar_indented = r"""
     COMPARATOR: "==" | "!=" | ">" | "<" | ">=" | "<=" | "between" | "contains" | "not contains" | "matches" | "not matches" | "startswith" | "endswith"
 
     drop_statement: "drop" IDENTIFIER ("," IDENTIFIER)* _NL?
+                  | "drop" "matches" STRING _NL? -> drop_matches_statement
 
     fillna_statement: "fillna" value _NL?
                     | "fillna" _NL _INDENT fillna_col_params _DEDENT
@@ -1007,6 +1009,15 @@ class DSLTransformer(Transformer):
             'renames': renames,
         }
 
+    def select_matches_statement(self, pattern):
+        return {
+            'type': 'select',
+            'table_name': self.current_table,
+            'columns': [],
+            'renames': {},
+            'column_match': pattern,
+        }
+
     def agg_statement(self, *items):
         """Whole-table aggregation with no group-by columns (standalone agg)."""
         agg_list = []
@@ -1040,6 +1051,14 @@ class DSLTransformer(Transformer):
             'type': 'drop',
             'table_name': self.current_table,
             'columns': [str(c) for c in cols]
+        }
+
+    def drop_matches_statement(self, pattern):
+        return {
+            'type': 'drop',
+            'table_name': self.current_table,
+            'columns': [],
+            'column_match': pattern,
         }
 
     def fillna_statement(self, *args):
@@ -3209,6 +3228,14 @@ class CodeGenerator:
         renames = ast_node.get('renames', {})
         tbl = ast_node['table_name']
 
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return (
+                f"_pvt_re = __import__('re')\n"
+                f"_pvt_cols = [c for c in {tbl}.columns if _pvt_re.search({self._py_literal(pattern)}, str(c))]\n"
+                f"{tbl} = {tbl}.select(_pvt_cols)"
+            )
+
         has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
 
         if has_vars:
@@ -3244,6 +3271,13 @@ class CodeGenerator:
 
     def generate_drop_polars(self, ast_node):
         tbl = ast_node['table_name']
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return (
+                f"_pvt_re = __import__('re')\n"
+                f"_pvt_cols = [c for c in {tbl}.columns if _pvt_re.search({self._py_literal(pattern)}, str(c))]\n"
+                f"{tbl} = {tbl}.drop(_pvt_cols)"
+            )
         return f"{tbl} = {tbl}.drop({ast_node['columns']})"
 
     def generate_cast_polars(self, ast_node):
@@ -4182,6 +4216,14 @@ class CodeGenerator:
         return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}'{engine})"
     
     def generate_select_pandas(self, ast_node):
+        table = ast_node['table_name']
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return (
+                f"{table} = {table}.loc[:, "
+                f"{table}.columns.to_series().astype(str).str.contains({self._py_literal(pattern)}, regex=True).to_numpy()]"
+            )
+
         columns = ast_node['columns']
         renames = ast_node.get('renames', {})
         
@@ -4199,9 +4241,9 @@ class CodeGenerator:
                 else:
                     col_list_code += f" + ['{col}']"
             
-            code = f"{ast_node['table_name']} = {ast_node['table_name']}.loc[:, {col_list_code}]"
+            code = f"{table} = {table}.loc[:, {col_list_code}]"
         else:
-            code = f"{ast_node['table_name']} = {ast_node['table_name']}.loc[:, {columns}]"
+            code = f"{table} = {table}.loc[:, {columns}]"
             
         if renames:
             code += f".rename(columns={renames})"
@@ -4604,6 +4646,10 @@ class CodeGenerator:
             return f"{ast_node['table_name']} = {ast_node['table_name']}.groupby({by_code}).sum().reset_index()"
     
     def generate_drop_pandas(self, ast_node):
+        if ast_node.get('column_match'):
+            table = ast_node['table_name']
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return f"{table} = {table}.drop(columns={table}.filter(regex={self._py_literal(pattern)}).columns)"
         return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
 
     def generate_cast_pandas(self, ast_node):
@@ -5486,6 +5532,17 @@ class CodeGenerator:
         t = ast_node['table_name']
         columns = ast_node['columns']
         renames = ast_node.get('renames', {})
+
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return "\n".join([
+                "_pvt_re = __import__('re')",
+                f"_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall() if _pvt_re.search({self._py_literal(pattern)}, str(r[0]))]",
+                "if not _cols: raise ValueError('select matches did not match any columns')",
+                "_sel = ', '.join(_cols)",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_sel}} FROM {t}")',
+            ])
+
         has_vars = any(isinstance(col, dict) and col.get('type') == 'var' for col in columns)
 
         if has_vars:
@@ -5562,6 +5619,14 @@ class CodeGenerator:
 
     def generate_drop_duckdb(self, ast_node):
         t = ast_node['table_name']
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return "\n".join([
+                "_pvt_re = __import__('re')",
+                f"_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall() if _pvt_re.search({self._py_literal(pattern)}, str(r[0]))]",
+                "_excl = ', '.join(_cols)",
+                f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({{_excl}}) FROM {t}" if _cols else "CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t}")',
+            ])
         excl = ', '.join(ast_node['columns'])
         return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}) FROM {t}")'
 
@@ -6456,6 +6521,9 @@ class CodeGenerator:
         from_alias = self._sql_current(t)
         columns = ast_node['columns']
         renames = ast_node.get('renames', {})
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return f"SELECT COLUMNS({self._sql_literal(pattern)}) FROM {from_alias}"
         has_vars = any(isinstance(c, dict) and c.get('type') == 'var' for c in columns)
         if has_vars:
             return f"-- [skipped: select with Python variable column list]"
@@ -6490,6 +6558,9 @@ class CodeGenerator:
     def generate_drop_sql(self, ast_node):
         t = ast_node['table_name']
         from_alias = self._sql_current(t)
+        if ast_node.get('column_match'):
+            pattern = self._decode_string_arg(ast_node['column_match'])
+            return f"SELECT COLUMNS(c -> NOT REGEXP_MATCHES(c, {self._sql_literal(pattern)})) FROM {from_alias}"
         excl = ', '.join(ast_node['columns'])
         return f"SELECT * EXCLUDE ({excl}) FROM {from_alias}"
 

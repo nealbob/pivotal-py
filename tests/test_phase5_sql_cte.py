@@ -160,9 +160,19 @@ def test_codegen_select_sql(parser):
     assert 'SELECT product, price' in sql
 
 
+def test_codegen_select_matches_sql(parser):
+    sql = gen_sql(parser, 'with sales\nselect matches "^prod|price$"\n')
+    assert "SELECT COLUMNS('^prod|price$')" in sql
+
+
 def test_codegen_drop_sql(parser):
     sql = gen_sql(parser, 'with sales\ndrop quantity\n')
     assert 'EXCLUDE (quantity)' in sql
+
+
+def test_codegen_drop_matches_sql(parser):
+    sql = gen_sql(parser, 'with sales\ndrop matches "^q"\n')
+    assert "COLUMNS(c -> NOT REGEXP_MATCHES(c, '^q'))" in sql
 
 
 def test_codegen_distinct_sql(parser):
@@ -175,6 +185,18 @@ def test_execute_select_sql(parser, sample_df):
     sql = gen_sql(parser, 'with sales\nselect product, price\n')
     result = conn.execute(sql).df()
     assert list(result.columns) == ['product', 'price']
+
+
+def test_execute_select_drop_matches_sql(parser):
+    df = pd.DataFrame({
+        'abc_one': [1],
+        'abc_two': [2],
+        'def_one': [3],
+    })
+    conn = make_conn('data', df)
+    sql = gen_sql(parser, 'with data\nselect matches "^abc_"\ndrop matches "two$"\n')
+    result = conn.execute(sql).df()
+    assert list(result.columns) == ['abc_one']
 
 
 # ===========================================================================

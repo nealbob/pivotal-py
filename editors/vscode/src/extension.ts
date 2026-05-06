@@ -83,8 +83,8 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   // Row operations
   { label: 'for',      snippet: 'for ${1:col} in ${2:col1}, ${3:col2}\n    ${1:col} = ${1:col} / ${4:denom}', detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter',   detail: 'filter <condition>' },
-  { label: 'select',   detail: 'select <col>, ...' },
-  { label: 'drop',     detail: 'drop <col>, ...' },
+  { label: 'select',   detail: 'select <col>, ... | select matches "<regex>"' },
+  { label: 'drop',     detail: 'drop <col>, ... | drop matches "<regex>"' },
   { label: 'distinct', detail: 'distinct [<col>, ...]' },
   { label: 'sort',     detail: 'sort <col> [asc|desc]' },
 

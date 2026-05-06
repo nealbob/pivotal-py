@@ -7,6 +7,8 @@ tracking how each statement transforms the column set through the pipeline.
 """
 from __future__ import annotations
 
+import ast
+import re
 from typing import Optional
 from .errors import PivotalError, _make_suggestion
 
@@ -69,6 +71,15 @@ def _col_errors(col_refs: list, current_cols: Optional[set],
                 suggestion=suggestion,
             ))
     return errors
+
+
+def _decode_pattern(pattern) -> str:
+    """Decode a parser string literal enough for regex validation."""
+    raw = str(pattern)
+    try:
+        return ast.literal_eval('"' + raw.replace('"', '\\"') + '"')
+    except (SyntaxError, ValueError):
+        return raw
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +172,9 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
 
         elif t == 'select':
             cols = node.get('columns', [])
+            if node.get('column_match') and current_cols is not None:
+                pattern = _decode_pattern(node.get('column_match'))
+                cols = [c for c in current_cols if re.search(pattern, c)]
             errors.extend(_col_errors(cols, current_cols, tbl, 'select'))
             if current_cols is not None:
                 renames = node.get('renames', {})
@@ -168,6 +182,9 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
 
         elif t == 'drop':
             cols = node.get('columns', [])
+            if node.get('column_match') and current_cols is not None:
+                pattern = _decode_pattern(node.get('column_match'))
+                cols = [c for c in current_cols if re.search(pattern, c)]
             errors.extend(_col_errors(cols, current_cols, tbl, 'drop'))
             if current_cols is not None:
                 current_cols = current_cols - set(cols)
