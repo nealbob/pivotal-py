@@ -51,6 +51,7 @@ nav:
     - syntax/index.md
     - Data Sources: syntax/data-sources.md
     - Filtering: syntax/filtering.md
+    - Data Quality: syntax/data-quality.md
     - Selection: syntax/selection.md
     - Column Expressions: syntax/transformation.md
     - Sorting: syntax/sorting.md

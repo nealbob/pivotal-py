@@ -83,6 +83,8 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   // Row operations
   { label: 'for',      snippet: 'for ${1:col} in ${2:col1}, ${3:col2}\n    ${1:col} = ${1:col} / ${4:denom}', detail: 'for <name> in <col>, ... or :cols' },
   { label: 'filter',   detail: 'filter <condition>' },
+  { label: 'assert',   snippet: 'assert ${1:col} ${2|unique,not null,>= 0|}', detail: 'assert <condition> | assert <col> unique | assert <col> not null' },
+  { label: 'check',    snippet: 'check ${1:col} ${2|unique,not null,>= 0|}',  detail: 'check <condition> | check <col> unique | check <col> not null' },
   { label: 'select',   detail: 'select <col>, ... | select matches "<regex>"' },
   { label: 'drop',     detail: 'drop <col>, ... | drop matches "<regex>"' },
   { label: 'distinct', detail: 'distinct [<col>, ...]' },
@@ -219,7 +221,7 @@ function detectContext(
 
   const table = findActiveTable(lines, cursorLine, ac);
   if (table) {
-    if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
+    if (/^(filter|assert|check|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^\w+\s*=/.test(trimmed)) {

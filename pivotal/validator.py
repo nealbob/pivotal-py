@@ -170,6 +170,16 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
             errors.extend(_col_errors(cols, current_cols, tbl, 'filter'))
             # column set unchanged
 
+        elif t == 'data_quality':
+            if node.get('rule') == 'condition':
+                conditions = node.get('conditions', [])
+                cols = [c['column'] for c in conditions
+                        if isinstance(c, dict) and isinstance(c.get('column'), str)]
+            else:
+                cols = node.get('columns', [])
+            errors.extend(_col_errors(cols, current_cols, tbl, node.get('mode', 'data quality')))
+            # column set unchanged
+
         elif t == 'select':
             cols = node.get('columns', [])
             if node.get('column_match') and current_cols is not None:

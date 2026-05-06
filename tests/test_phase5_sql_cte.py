@@ -87,6 +87,13 @@ def test_cte_chain_multiple_ops(parser, sample_df):
     assert 'WHERE price > 100' in sql
 
 
+def test_data_quality_sql_backend_is_skipped(parser):
+    sql = gen_sql(parser, 'with sales\nassert id unique\ncheck price > 0\n')
+    assert 'skipped: assert unique' in sql
+    assert 'skipped: check condition' in sql
+    assert 'SELECT * FROM _cte_' in sql
+
+
 def test_final_select_from_last_cte(parser, sample_df):
     """Final SELECT references the last CTE alias."""
     sql = gen_sql(parser, 'with sales\nfilter price > 100\n')

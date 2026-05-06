@@ -470,7 +470,7 @@ function detectContext(
 
   const table = findActiveTable(lines, cursorLine, ac);
   if (table) {
-    if (/^(filter|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
+    if (/^(filter|assert|check|select|drop|distinct|sort|rename)\b/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^\w+\s*=/.test(trimmed)) {

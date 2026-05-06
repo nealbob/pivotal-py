@@ -15,6 +15,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added Polars support for custom aggregation functions via a pandas fallback.
 - Added regex string operations with `regex_extract`, `regex_replace`, and `matches` / `not matches` filters across pandas, Polars, DuckDB, and SQL CTE backends.
 - Added `select matches "pattern"` and `drop matches "pattern"` for regex-based column selection and removal.
+- Added `assert` and `check` data-quality commands with `unique`, `not null`, and condition-based rules.
 - Added package extras for test dependencies.
 
 ### Fixed

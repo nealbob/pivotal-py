@@ -157,6 +157,50 @@ def test_filter(parser, sample_df):
     assert all(ns['sales']['price'] > 200)
 
 
+def test_data_quality_assert_passes(parser):
+    ns = {
+        'pd': pd,
+        'orders': pd.DataFrame({
+            'order_id': [1, 2, 3],
+            'customer_id': [10, 11, 12],
+            'status': ['open', 'closed', 'cancelled'],
+            'amount': [5, 0, 10],
+        }),
+    }
+
+    run(parser, '''
+with orders
+    assert order_id unique
+    assert customer_id not null
+    assert status in ["open", "closed", "cancelled"]
+    check amount >= 0
+''', ns)
+
+    assert len(ns['orders']) == 3
+
+
+def test_data_quality_assert_unique_fails(parser):
+    ns = {
+        'pd': pd,
+        'orders': pd.DataFrame({'order_id': [1, 1], 'amount': [5, 6]}),
+    }
+
+    with pytest.raises(AssertionError, match='order_id must be unique'):
+        run(parser, 'with orders\nassert order_id unique\n', ns)
+
+
+def test_data_quality_check_warns_and_continues(parser):
+    ns = {
+        'pd': pd,
+        'orders': pd.DataFrame({'order_id': [1, 2], 'amount': [5, -1]}),
+    }
+
+    with pytest.warns(UserWarning, match='expected amount >= 0'):
+        run(parser, 'with orders\ncheck amount >= 0\n', ns)
+
+    assert list(ns['orders']['amount']) == [5, -1]
+
+
 def test_select(parser, sample_df):
     ns = {'pd': pd, 'sales': sample_df.copy()}
     run(parser, 'with sales\nselect product, price', ns)

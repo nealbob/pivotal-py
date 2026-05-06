@@ -23,6 +23,7 @@ interface PivotalState {
 
 const keywords: Record<string, true> = {
   load: true, bulk: true, with: true, from: true, query: true, for: true, filter: true,
+  assert: true, check: true,
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, pivot: true, unpivot: true, apply: true,
   plot: true, python: true, end: true, where: true, else: true,
@@ -43,7 +44,7 @@ const builtins: Record<string, true> = {
   asc: true, desc: true, pct: true, left: true, right: true,
   inner: true, outer: true,
   // word-operator comparators
-  in: true, not: true, between: true,
+  in: true, not: true, unique: true, null: true, between: true,
   contains: true, matches: true, startswith: true, endswith: true,
   and: true, or: true,
   integer: true, currency: true, percent: true, date: true, number: true,
