@@ -16,6 +16,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added regex string operations with `regex_extract`, `regex_replace`, and `matches` / `not matches` filters across pandas, Polars, DuckDB, and SQL CTE backends.
 - Added `select matches "pattern"` and `drop matches "pattern"` for regex-based column selection and removal.
 - Added `assert` and `check` data-quality commands with `unique`, `not null`, and condition-based rules.
+- Added `pivotal.run_pivotal()` as a structured execution API for AI tools and automation, returning JSON-friendly parse, codegen, runtime, warning, and table-preview results.
+- Added `pivotal.run_pivotal_isolated()` to execute structured Pivotal verifier calls in a clean subprocess with timeout handling.
+- Added `python -m pivotal --verify --json` for CLI-based structured verification, including CSV/Parquet input loading and table preview output.
+- Added pandas-to-Pivotal comparison APIs and `python -m pivotal --compare --json` for AI conversion verification.
+- Added an optional local MCP server (`python -m pivotal.mcp_server`) with syntax, run, compile, and pandas-to-Pivotal comparison tools.
 - Added package extras for test dependencies.
 
 ### Fixed
