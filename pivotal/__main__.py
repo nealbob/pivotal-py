@@ -11,6 +11,234 @@ import json
 import re
 
 
+def _usage_verify():
+    return (
+        "Usage: python -m pivotal --verify [--json] [--backend <backend>] "
+        "[--input <name=path>] [--return <table>] [--max-rows <n>] "
+        "[--timeout <seconds>] <file.pivotal>"
+    )
+
+
+def _usage_compare():
+    return (
+        "Usage: python -m pivotal --compare --pandas <original.py> "
+        "--pivotal <converted.pivotal> --output <table> [--json] "
+        "[--backend <backend>] [--input <name=path>] [--max-rows <n>] "
+        "[--timeout <seconds>] [--atol <n>] [--rtol <n>] "
+        "[--max-differences <n>] [--check-dtype]"
+    )
+
+
+def _parse_verify_args(args):
+    options = {
+        "backend": "pandas",
+        "inputs": [],
+        "return_tables": [],
+        "max_rows": 20,
+        "timeout_seconds": 10.0,
+        "json": False,
+        "path": None,
+    }
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--json":
+            options["json"] = True
+            i += 1
+            continue
+        if arg in ("--backend", "--input", "--return", "--max-rows", "--timeout"):
+            if i + 1 >= len(args):
+                raise ValueError(f"{arg} requires a value")
+            value = args[i + 1]
+            if arg == "--backend":
+                options["backend"] = value
+            elif arg == "--input":
+                options["inputs"].append(value)
+            elif arg == "--return":
+                options["return_tables"].append(value)
+            elif arg == "--max-rows":
+                try:
+                    options["max_rows"] = int(value)
+                except ValueError as exc:
+                    raise ValueError("--max-rows must be an integer") from exc
+            elif arg == "--timeout":
+                try:
+                    options["timeout_seconds"] = float(value)
+                except ValueError as exc:
+                    raise ValueError("--timeout must be a number") from exc
+            i += 2
+            continue
+        if arg.startswith("--"):
+            raise ValueError(f"Unknown option: {arg}")
+        if options["path"] is not None:
+            raise ValueError(f"Unexpected extra argument: {arg}")
+        options["path"] = arg
+        i += 1
+
+    if options["path"] is None:
+        raise ValueError("Missing .pivotal file")
+    return options
+
+
+def _parse_compare_args(args):
+    options = {
+        "backend": "pandas",
+        "inputs": [],
+        "max_rows": 20,
+        "timeout_seconds": 10.0,
+        "json": False,
+        "pandas_path": None,
+        "pivotal_path": None,
+        "output_table": None,
+        "atol": 1e-9,
+        "rtol": 1e-9,
+        "check_dtype": False,
+        "max_differences": 20,
+    }
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--json":
+            options["json"] = True
+            i += 1
+            continue
+        if arg == "--check-dtype":
+            options["check_dtype"] = True
+            i += 1
+            continue
+        if arg in (
+            "--backend",
+            "--input",
+            "--max-rows",
+            "--timeout",
+            "--pandas",
+            "--pivotal",
+            "--output",
+            "--atol",
+            "--rtol",
+            "--max-differences",
+        ):
+            if i + 1 >= len(args):
+                raise ValueError(f"{arg} requires a value")
+            value = args[i + 1]
+            if arg == "--backend":
+                options["backend"] = value
+            elif arg == "--input":
+                options["inputs"].append(value)
+            elif arg == "--max-rows":
+                try:
+                    options["max_rows"] = int(value)
+                except ValueError as exc:
+                    raise ValueError("--max-rows must be an integer") from exc
+            elif arg == "--timeout":
+                try:
+                    options["timeout_seconds"] = float(value)
+                except ValueError as exc:
+                    raise ValueError("--timeout must be a number") from exc
+            elif arg == "--pandas":
+                options["pandas_path"] = value
+            elif arg == "--pivotal":
+                options["pivotal_path"] = value
+            elif arg == "--output":
+                options["output_table"] = value
+            elif arg == "--atol":
+                try:
+                    options["atol"] = float(value)
+                except ValueError as exc:
+                    raise ValueError("--atol must be a number") from exc
+            elif arg == "--rtol":
+                try:
+                    options["rtol"] = float(value)
+                except ValueError as exc:
+                    raise ValueError("--rtol must be a number") from exc
+            elif arg == "--max-differences":
+                try:
+                    options["max_differences"] = int(value)
+                except ValueError as exc:
+                    raise ValueError("--max-differences must be an integer") from exc
+            i += 2
+            continue
+        raise ValueError(f"Unknown option: {arg}")
+
+    if options["pandas_path"] is None:
+        raise ValueError("Missing --pandas <original.py>")
+    if options["pivotal_path"] is None:
+        raise ValueError("Missing --pivotal <converted.pivotal>")
+    if options["output_table"] is None:
+        raise ValueError("Missing --output <table>")
+    return options
+
+
+def _load_verify_inputs(input_specs):
+    import pandas as pd
+
+    inputs = {}
+    for spec in input_specs:
+        if "=" not in spec:
+            raise ValueError("--input must be in the form <name=path>")
+        name, path = spec.split("=", 1)
+        if not name.isidentifier():
+            raise ValueError(f"Invalid input table name: {name}")
+        if not os.path.isfile(path):
+            raise ValueError(f"Input file not found: {path}")
+
+        lower = path.lower()
+        if lower.endswith(".csv"):
+            inputs[name] = pd.read_csv(path)
+        elif lower.endswith(".parquet"):
+            inputs[name] = pd.read_parquet(path)
+        else:
+            raise ValueError(f"Unsupported input file type for {path}; use CSV or Parquet")
+    return inputs
+
+
+def verify_file(path, *, backend="pandas", inputs=None, return_tables=None,
+                max_rows=20, timeout_seconds=10.0):
+    """Verify a .pivotal file and return a structured result dictionary."""
+    from .runner import run_pivotal_isolated
+
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+
+    return run_pivotal_isolated(
+        source,
+        backend=backend,
+        inputs=inputs,
+        return_tables=return_tables,
+        max_rows=max_rows,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def compare_files(pandas_path, pivotal_path, *, output_table, backend="pandas",
+                  inputs=None, max_rows=20, timeout_seconds=10.0,
+                  atol=1e-9, rtol=1e-9, check_dtype=False,
+                  max_differences=20):
+    """Compare a pandas script and a Pivotal file using structured results."""
+    from .runner import compare_pandas_to_pivotal_isolated
+
+    with open(pandas_path, "r", encoding="utf-8") as f:
+        pandas_source = f.read()
+    with open(pivotal_path, "r", encoding="utf-8") as f:
+        pivotal_source = f.read()
+
+    return compare_pandas_to_pivotal_isolated(
+        pandas_source,
+        pivotal_source,
+        output_table=output_table,
+        backend=backend,
+        inputs=inputs,
+        max_rows=max_rows,
+        timeout_seconds=timeout_seconds,
+        atol=atol,
+        rtol=rtol,
+        check_dtype=check_dtype,
+        max_differences=max_differences,
+    )
+
+
 def _load_and_parse(path):
     from .dsl_parser import DSLParser
     with open(path, "r", encoding="utf-8") as f:
@@ -193,8 +421,80 @@ def notebook_to_pivotal(path):
 def main():
     if len(sys.argv) < 2:
         print("Usage: python -m pivotal <file.pivotal>", file=sys.stderr)
+        print("       python -m pivotal --verify [--json] <file.pivotal>", file=sys.stderr)
+        print("       python -m pivotal --compare --pandas <original.py> --pivotal <converted.pivotal> --output <table>", file=sys.stderr)
         print("       python -m pivotal --compile <file.pivotal>", file=sys.stderr)
         sys.exit(1)
+
+    if sys.argv[1] == '--compare':
+        try:
+            options = _parse_compare_args(sys.argv[2:])
+            if not os.path.isfile(options["pandas_path"]):
+                raise ValueError(f"file not found: {options['pandas_path']}")
+            if not os.path.isfile(options["pivotal_path"]):
+                raise ValueError(f"file not found: {options['pivotal_path']}")
+            inputs = _load_verify_inputs(options["inputs"])
+            result = compare_files(
+                options["pandas_path"],
+                options["pivotal_path"],
+                output_table=options["output_table"],
+                backend=options["backend"],
+                inputs=inputs,
+                max_rows=options["max_rows"],
+                timeout_seconds=options["timeout_seconds"],
+                atol=options["atol"],
+                rtol=options["rtol"],
+                check_dtype=options["check_dtype"],
+                max_differences=options["max_differences"],
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            print(_usage_compare(), file=sys.stderr)
+            sys.exit(2)
+
+        if options["json"]:
+            print(json.dumps(result, indent=2))
+        elif result.get("match"):
+            print(f"Pivotal comparison passed for '{options['output_table']}'")
+            table = result.get("pivotal_table", {})
+            shape = table.get("shape", ["?", "?"])
+            print(f"  {shape[0]} row(s), {shape[1]} column(s)")
+        else:
+            print(f"Pivotal comparison failed at {result.get('stage')}: {result.get('message', 'outputs differ')}", file=sys.stderr)
+            for diff in result.get("differences", [])[:5]:
+                print(f"  {diff}", file=sys.stderr)
+        sys.exit(0 if result.get("match") else 1)
+
+    if sys.argv[1] == '--verify':
+        try:
+            options = _parse_verify_args(sys.argv[2:])
+            path = options["path"]
+            if not os.path.isfile(path):
+                raise ValueError(f"file not found: {path}")
+            inputs = _load_verify_inputs(options["inputs"])
+            result = verify_file(
+                path,
+                backend=options["backend"],
+                inputs=inputs,
+                return_tables=options["return_tables"] or None,
+                max_rows=options["max_rows"],
+                timeout_seconds=options["timeout_seconds"],
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            print(_usage_verify(), file=sys.stderr)
+            sys.exit(2)
+
+        if options["json"]:
+            print(json.dumps(result, indent=2))
+        elif result.get("ok"):
+            print(f"Pivotal verification passed ({result.get('backend', options['backend'])})")
+            for name, table in result.get("tables", {}).items():
+                shape = table.get("shape", ["?", "?"])
+                print(f"  {name}: {shape[0]} row(s), {shape[1]} column(s)")
+        else:
+            print(f"Pivotal verification failed at {result.get('stage')}: {result.get('message')}", file=sys.stderr)
+        sys.exit(0 if result.get("ok") else 1)
 
     if sys.argv[1] == '--compile':
         args = sys.argv[2:]

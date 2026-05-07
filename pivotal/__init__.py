@@ -2,6 +2,12 @@ from .dsl_parser import DSLParser
 from .package import Package
 from .magic import update, delete, plot_gui, pivot_gui, load_gui, save_gui, settings_gui
 from .errors import PivotalError, display_error, format_error_text, format_error_html, _translate_runtime_error
+from .runner import (
+    compare_pandas_to_pivotal,
+    compare_pandas_to_pivotal_isolated,
+    run_pivotal,
+    run_pivotal_isolated,
+)
 
 def load_ipython_extension(ipython):
     from .magic import load_ipython_extension as magic_load
@@ -23,4 +29,6 @@ except NameError:
 
 __all__ = ['DSLParser', 'Package', 'load_ipython_extension', 'update', 'delete',
            'plot_gui', 'pivot_gui', 'load_gui', 'save_gui', 'settings_gui',
-           'PivotalError', 'display_error', 'format_error_text', 'format_error_html']
+           'PivotalError', 'display_error', 'format_error_text', 'format_error_html',
+           'run_pivotal', 'run_pivotal_isolated', 'compare_pandas_to_pivotal',
+           'compare_pandas_to_pivotal_isolated']

@@ -86,6 +86,10 @@ jupyter = [
 sql = [
     "sqlalchemy>=2.0",
 ]
+# pip install pivotal-lang[mcp]
+mcp = [
+    "mcp>=1.0; python_version >= '3.10'",
+]
 
 [project.scripts]
 pivotal = "pivotal.__main__:main"
