@@ -2139,6 +2139,64 @@ def test_rolling_code_generation(parser):
     assert "groupby(['region'])" in code
 
 
+def test_rolling_min_periods(parser, window_df):
+    """rolling min_periods allows early window values."""
+    ns = {'pd': pd, 'sales': window_df}
+    run(parser, 'with sales\nrolling mean amount 3 as roll\n    order date\n    min_periods 1\n', ns)
+    result = ns['sales'].sort_values('date')
+    assert result['roll'].iloc[0] == 100.0
+
+
+def test_rolling_min_periods_equals_code_generation(parser):
+    """Generated rolling code passes min_periods through to pandas."""
+    code = '\n'.join(parser.generate_code(parser.parse(
+        'with sales\nrolling mean amount 3 as roll\n    by region\n    order date\n    min_periods=1\n'
+    )))
+    assert "rolling(3, min_periods=1).mean()" in code
+
+
+# round ----------------------------------------------------------------------
+
+def test_round_in_place(parser):
+    df = pd.DataFrame({'amount': [1.234, 5.678]})
+    ns = {'pd': pd, 'sales': df.copy()}
+    run(parser, 'with sales\n    round amount 2\n', ns)
+    assert ns['sales']['amount'].tolist() == [1.23, 5.68]
+
+
+def test_round_as_new_column(parser):
+    df = pd.DataFrame({'amount': [1.234, 5.678]})
+    ns = {'pd': pd, 'sales': df.copy()}
+    run(parser, 'with sales\n    round amount 1 as amount_rounded\n', ns)
+    assert ns['sales']['amount'].tolist() == [1.234, 5.678]
+    assert ns['sales']['amount_rounded'].tolist() == [1.2, 5.7]
+
+
+def test_round_multiple_columns(parser):
+    df = pd.DataFrame({'amount': [1.234], 'price': [9.876]})
+    ns = {'pd': pd, 'sales': df.copy()}
+    run(parser, 'with sales\n    round amount, price 2\n', ns)
+    assert ns['sales']['amount'].iloc[0] == 1.23
+    assert ns['sales']['price'].iloc[0] == 9.88
+
+
+def test_round_backend_code_generation(parser):
+    dsl = 'with sales\n    round revenue 2 as revenue_rounded\n    round price, cost 3\n'
+    ast = parser.parse(dsl)
+
+    polars = '\n'.join(parser.generate_code(ast, backend='polars'))
+    assert "pl.col('revenue').round(2).alias('revenue_rounded')" in polars
+    assert "pl.col('price').round(3).alias('price')" in polars
+
+    duckdb = '\n'.join(parser.generate_code(ast, backend='duckdb'))
+    assert 'ROUND(revenue, 2) AS revenue_rounded' in duckdb
+    assert 'ROUND(price, 3) AS price' in duckdb
+
+    sql = '\n'.join(parser.generate_code(ast, backend='sql'))
+    assert 'ROUND(revenue, 2) AS revenue_rounded' in sql
+    assert 'ROUND(price, 3) AS price' in sql
+
+
 # intersect / exclude --------------------------------------------------------
 
 def test_intersect_basic(parser):

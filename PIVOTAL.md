@@ -336,6 +336,7 @@ with sales
     rolling mean amount 7 as rolling_avg
         by region
         order date
+        min_periods 1
 ```
 
 `rank` with `pct` gives percentile ranks (0–1):
@@ -346,6 +347,7 @@ with sales
 ```
 
 Rolling functions: `mean  sum  min  max  std`
+Use `min_periods <n>` when early rows should produce values before a full window is available. `min_periods=<n>` is also accepted.
 Cumulative: `cumsum  cummean  cummin  cummax`
 
 ## Merging
@@ -399,6 +401,17 @@ with sales
     label = str(code)
     ts = datetime(ts_col)
 ```
+
+## Rounding
+
+```pivotal
+with sales
+    round revenue 2 as revenue_rounded
+    round price, cost, margin 3
+```
+
+`round <col> <digits> as <new_col>` creates a rounded copy of one column.
+`round <colA>, <colB> <digits>` rounds multiple columns in place.
 
 ## Data cleaning
 

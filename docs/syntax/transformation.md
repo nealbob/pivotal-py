@@ -162,6 +162,19 @@ with sales
     ts    = datetime(ts_col)
 ```
 
+## Rounding
+
+Round numeric columns with `round`:
+
+```pivotal
+with sales
+    round revenue 2 as revenue_rounded
+    round price, cost, margin 3
+```
+
+Use `as` with one source column to create a new rounded column. Omit `as` to
+round one or more columns in place.
+
 ## Aggregate functions in expressions
 
 Use aggregate functions to compute values relative to the whole table:

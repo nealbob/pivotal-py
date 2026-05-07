@@ -22,6 +22,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added pandas-to-Pivotal comparison APIs and `python -m pivotal --compare --json` for AI conversion verification.
 - Added an optional local MCP server (`python -m pivotal.mcp_server`) with syntax, run, compile, and pandas-to-Pivotal comparison tools.
 - Added package extras for test dependencies.
+- Added `round` column syntax and `min_periods=<n>` for rolling window commands.
 
 ### Fixed
 

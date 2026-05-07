@@ -27,7 +27,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'with', 'load', 'bulk', 'filter', 'assert', 'check', 'select', 'sort', 'order', 'save', 'all', 'delete',
     'for',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
-    'dropna', 'distinct', 'concat', 'rename', 'apply', 'table',
+    'dropna', 'distinct', 'concat', 'rename', 'round', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
     'intersect', 'exclude', 'cast',
     # Clause keywords
@@ -96,6 +96,7 @@ grammar_indented = r"""
                | intersect_statement
                | exclude_statement
                | cast_statement
+               | round_statement
                | rename_statement
                | apply_statement
                | table_statement
@@ -113,6 +114,7 @@ grammar_indented = r"""
                       | fillna_statement
                       | drop_statement
                       | dropna_statement
+                      | round_statement
                       | rank_statement
                       | shift_statement
                       | cumulative_statement
@@ -330,6 +332,7 @@ grammar_indented = r"""
     window_opts: window_opt+
     window_opt: "by"    IDENTIFIER ("," IDENTIFIER)* _NL? -> window_by
               | "order" IDENTIFIER                  _NL? -> window_order
+              | "min_periods" "="? NUMBER           _NL? -> window_min_periods
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
@@ -380,6 +383,8 @@ grammar_indented = r"""
     cast_statement: "cast" IDENTIFIER ("," IDENTIFIER)* "as" CAST_TYPE CAST_STRICT? _NL?
     CAST_TYPE.2: "int" | "integer" | "float" | "string" | "str" | "bool" | "boolean" | "datetime"
     CAST_STRICT.2: "strict"
+
+    round_statement: "round" IDENTIFIER ("," IDENTIFIER)* NUMBER ("as" IDENTIFIER)? _NL?
 
     rename_statement: "rename" rename_item ("," rename_item)* _NL?
     rename_item: IDENTIFIER "as" IDENTIFIER
@@ -1172,6 +1177,27 @@ class DSLTransformer(Transformer):
     def exclude_statement(self, *tables):
         return {'type': 'exclude', 'table_name': self.current_table, 'tables': [str(t) for t in tables]}
 
+    def round_statement(self, *args):
+        cols = []
+        decimals = None
+        alias = None
+        for a in args:
+            if isinstance(a, (int, float)):
+                decimals = int(a)
+            elif decimals is None:
+                cols.append(str(a))
+            else:
+                alias = str(a)
+        if alias and len(cols) != 1:
+            raise ValueError("'round ... as ...' can only be used with a single source column.")
+        return {
+            'type': 'round',
+            'table_name': self.current_table,
+            'columns': cols,
+            'decimals': decimals,
+            'alias': alias,
+        }
+
     def cast_statement(self, *args):
         # args: IDENTIFIER... CAST_TYPE [CAST_STRICT]
         cols = []
@@ -1394,6 +1420,9 @@ class DSLTransformer(Transformer):
     def window_order(self, col):
         return {'type': 'window_order', 'col': str(col)}
 
+    def window_min_periods(self, value):
+        return {'type': 'window_min_periods', 'value': int(value)}
+
     def window_opts(self, *args):
         return list(args)
 
@@ -1407,12 +1436,15 @@ class DSLTransformer(Transformer):
         """Extract partition cols and order col from a window_opts list."""
         partition = []
         order_col = None
+        min_periods = None
         for item in opts:
             if isinstance(item, dict) and item.get('type') == 'window_by':
                 partition = item['cols']
             elif isinstance(item, dict) and item.get('type') == 'window_order':
                 order_col = item['col']
-        return partition, order_col
+            elif isinstance(item, dict) and item.get('type') == 'window_min_periods':
+                min_periods = item['value']
+        return partition, order_col, min_periods
 
     # -------------------------------------------------------------------------
     # rank
@@ -1430,7 +1462,7 @@ class DSLTransformer(Transformer):
             pct = True
             remaining = list(remaining[1:])
         result_col = str(remaining[0])
-        partition, _ = self._parse_window_common(opts)
+        partition, _, _ = self._parse_window_common(opts)
         return {
             'type': 'rank',
             'table_name': self.current_table,
@@ -1451,7 +1483,7 @@ class DSLTransformer(Transformer):
         periods = int(args[2])
         remaining, opts = self._extract_window_opts(args[3:])
         result_col = str(remaining[0])
-        partition, order_col = self._parse_window_common(opts)
+        partition, order_col, _ = self._parse_window_common(opts)
         return {
             'type': 'shift',
             'table_name': self.current_table,
@@ -1472,7 +1504,7 @@ class DSLTransformer(Transformer):
         col = str(args[1])
         remaining, opts = self._extract_window_opts(args[2:])
         result_col = str(remaining[0])
-        partition, order_col = self._parse_window_common(opts)
+        partition, order_col, _ = self._parse_window_common(opts)
         return {
             'type': 'cumulative',
             'table_name': self.current_table,
@@ -1493,13 +1525,16 @@ class DSLTransformer(Transformer):
         window = int(args[2])
         remaining, opts = self._extract_window_opts(args[3:])
         result_col = str(remaining[0])
-        partition, order_col = self._parse_window_common(opts)
+        partition, order_col, min_periods = self._parse_window_common(opts)
+        if min_periods is not None and (min_periods < 0 or min_periods > window):
+            raise ValueError("rolling min_periods must be between 0 and the rolling window size.")
         return {
             'type': 'rolling',
             'table_name': self.current_table,
             'func': func,
             'column': col,
             'window': window,
+            'min_periods': min_periods,
             'partition': partition,
             'order_col': order_col,
             'result_col': result_col,
@@ -3333,6 +3368,16 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.rename({ast_node['renames']})"
 
+    def generate_round_polars(self, ast_node):
+        tbl = ast_node['table_name']
+        decimals = ast_node['decimals']
+        alias = ast_node.get('alias')
+        exprs = []
+        for col in ast_node['columns']:
+            target = alias or col
+            exprs.append(f"pl.col({col!r}).round({decimals}).alias({target!r})")
+        return f"{tbl} = {tbl}.with_columns([{', '.join(exprs)}])"
+
     def generate_drop_polars(self, ast_node):
         tbl = ast_node['table_name']
         if ast_node.get('column_match'):
@@ -4206,6 +4251,7 @@ class CodeGenerator:
         func = ast_node['func']
         col = ast_node['column']
         window = ast_node['window']
+        min_periods = ast_node.get('min_periods')
         partition = ast_node['partition']
         order_col = ast_node['order_col']
         result_col = ast_node['result_col']
@@ -4223,13 +4269,14 @@ class CodeGenerator:
         if order_col:
             lines.append(f"{tbl} = {tbl}.sort({order_col!r})")
 
-        roll_expr = f"pl.col({col!r}).{polars_method}({window})"
+        min_arg = "" if min_periods is None else f", min_samples={min_periods}"
+        roll_expr = f"pl.col({col!r}).{polars_method}({window}{min_arg})"
         if partition:
             if isinstance(partition, list):
                 part_str = repr(partition)
             else:
                 part_str = repr([partition])
-            roll_expr = f"pl.col({col!r}).{polars_method}({window}).over({part_str})"
+            roll_expr = f"pl.col({col!r}).{polars_method}({window}{min_arg}).over({part_str})"
 
         lines.append(f"{tbl} = {tbl}.with_columns({roll_expr}.alias({result_col!r}))")
         return '\n'.join(lines)
@@ -4530,16 +4577,20 @@ class CodeGenerator:
         func = ast_node['func']
         col = ast_node['column']
         window = ast_node['window']
+        min_periods = ast_node.get('min_periods')
         partition = ast_node['partition']
         order_col = ast_node['order_col']
         result_col = ast_node['result_col']
         lines = []
         if order_col:
             lines.append(f"{table} = {table}.sort_values({order_col!r})")
+        rolling_args = str(window)
+        if min_periods is not None:
+            rolling_args += f", min_periods={min_periods}"
         if partition:
-            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.rolling({window}).{func}())")
+            lines.append(f"{table}[{result_col!r}] = {table}.groupby({partition!r})[{col!r}].transform(lambda x: x.rolling({rolling_args}).{func}())")
         else:
-            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].rolling({window}).{func}()")
+            lines.append(f"{table}[{result_col!r}] = {table}[{col!r}].rolling({rolling_args}).{func}()")
         return '\n'.join(lines)
 
     def generate_groupby_pandas(self, ast_node):
@@ -4757,6 +4808,16 @@ class CodeGenerator:
             pattern = self._decode_string_arg(ast_node['column_match'])
             return f"{table} = {table}.drop(columns={table}.filter(regex={self._py_literal(pattern)}).columns)"
         return f"{ast_node['table_name']} = {ast_node['table_name']}.drop(columns={ast_node['columns']})"
+
+    def generate_round_pandas(self, ast_node):
+        table = ast_node['table_name']
+        decimals = ast_node['decimals']
+        alias = ast_node.get('alias')
+        lines = []
+        for col in ast_node['columns']:
+            target = alias or col
+            lines.append(f"{table}[{target!r}] = {table}[{col!r}].round({decimals})")
+        return '\n'.join(lines)
 
     def generate_cast_pandas(self, ast_node):
         table = ast_node['table_name']
@@ -5726,6 +5787,19 @@ class CodeGenerator:
         ]
         return '\n'.join(lines)
 
+    def generate_round_duckdb(self, ast_node):
+        t = ast_node['table_name']
+        decimals = ast_node['decimals']
+        alias = ast_node.get('alias')
+        exprs = [
+            f"ROUND({col}, {decimals}) AS {alias or col}"
+            for col in ast_node['columns']
+        ]
+        if alias:
+            return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT *, {", ".join(exprs)} FROM {t}")'
+        excl = ', '.join(ast_node['columns'])
+        return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT * EXCLUDE ({excl}), {", ".join(exprs)} FROM {t}")'
+
     def generate_sort_duckdb(self, ast_node):
         t = ast_node['table_name']
         columns = ast_node['columns']
@@ -6467,6 +6541,7 @@ class CodeGenerator:
         func       = ast_node['func']
         col        = ast_node['column']
         window     = ast_node['window']
+        min_periods = ast_node.get('min_periods')
         partition  = ast_node['partition']
         order_col  = ast_node['order_col']
         result_col = ast_node['result_col']
@@ -6477,6 +6552,9 @@ class CodeGenerator:
         frame     = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
         win = self._ddb_window(partition, order_col, frame)
         sql_expr = f"{sql_func}({col}) OVER ({win})"
+        if min_periods is not None:
+            count_expr = f"COUNT({col}) OVER ({win})"
+            sql_expr = f"CASE WHEN {count_expr} >= {min_periods} THEN {sql_expr} ELSE NULL END"
         return '\n'.join(self._ddb_upsert_col_lines(t, result_col, sql_expr))
 
     # ── fillna ────────────────────────────────────────────────────────
@@ -6697,6 +6775,19 @@ class CodeGenerator:
         excl = ', '.join(renames.keys())
         new_cols = ', '.join(f"{old} AS {new}" for old, new in renames.items())
         return f"SELECT * EXCLUDE ({excl}), {new_cols} FROM {from_alias}"
+
+    def generate_round_sql(self, ast_node):
+        t = ast_node['table_name']
+        from_alias = self._sql_current(t)
+        decimals = ast_node['decimals']
+        alias = ast_node.get('alias')
+        exprs = [
+            f"ROUND({col}, {decimals}) AS {alias or col}"
+            for col in ast_node['columns']
+        ]
+        if alias:
+            return f"SELECT *, {', '.join(exprs)} FROM {from_alias}"
+        return f"SELECT * EXCLUDE ({', '.join(ast_node['columns'])}), {', '.join(exprs)} FROM {from_alias}"
 
     def generate_sort_sql(self, ast_node):
         t = ast_node['table_name']
@@ -6973,6 +7064,7 @@ class CodeGenerator:
         func       = ast_node['func']
         col        = ast_node['column']
         window     = ast_node['window']
+        min_periods = ast_node.get('min_periods')
         partition  = ast_node['partition']
         order_col  = ast_node['order_col']
         result_col = ast_node['result_col']
@@ -6981,7 +7073,11 @@ class CodeGenerator:
         sql_func   = _roll_map.get(func, func.upper())
         frame      = f'ROWS BETWEEN {window - 1} PRECEDING AND CURRENT ROW'
         win = self._ddb_window(partition, order_col, frame)
-        return f"SELECT *, {sql_func}({col}) OVER ({win}) AS {result_col} FROM {from_alias}"
+        sql_expr = f"{sql_func}({col}) OVER ({win})"
+        if min_periods is not None:
+            count_expr = f"COUNT({col}) OVER ({win})"
+            sql_expr = f"CASE WHEN {count_expr} >= {min_periods} THEN {sql_expr} ELSE NULL END"
+        return f"SELECT *, {sql_expr} AS {result_col} FROM {from_alias}"
 
     def generate_fillna_sql(self, ast_node):
         t = ast_node['table_name']
@@ -7620,8 +7716,10 @@ class DSLParser:
         if node_type == 'assign':
             return self._expand_for_assign(expanded, loop_var, column)
 
-        if node_type in ('cast', 'drop', 'dropna'):
+        if node_type in ('cast', 'drop', 'dropna', 'round'):
             expanded['columns'] = self._replace_loop_columns(expanded.get('columns', []), loop_var, column)
+            if expanded.get('alias'):
+                expanded['alias'] = self._replace_loop_column_ref(expanded.get('alias'), loop_var, column)
             return expanded
 
         if node_type == 'fillna':

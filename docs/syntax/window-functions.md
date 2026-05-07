@@ -159,6 +159,7 @@ with sales
     rolling mean amount 4 as rolling_avg
         by region     # compute within groups
         order date    # required: defines row order
+        min_periods 1 # optional: allow early rows before a full window
 ```
 
 ### Examples

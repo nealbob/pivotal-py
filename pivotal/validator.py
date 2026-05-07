@@ -313,6 +313,14 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
             if per_col:
                 errors.extend(_col_errors(list(per_col.keys()), current_cols, tbl, 'fillna'))
 
+        elif t == 'round':
+            cols = node.get('columns', [])
+            errors.extend(_col_errors(cols, current_cols, tbl, 'round'))
+            if current_cols is not None:
+                alias = node.get('alias')
+                if isinstance(alias, str):
+                    current_cols = current_cols | {alias}
+
         elif t == 'pivot':
             index_cols = _extract_col_names(node.get('index', []))
             col_cols = _extract_col_names(node.get('columns', []))
