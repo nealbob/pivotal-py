@@ -1,0 +1,20 @@
+app = "pivotal-mcp-readonly"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile.mcp-readonly"
+
+[env]
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
