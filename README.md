@@ -28,6 +28,8 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 **Data quality checks** - use `assert` to fail on invalid data, or `check` to warn and continue
 
+**Reusable pipelines** - define compile-time `list` values and non-recursive `function` pipelines for repeated transformations
+
 ---
 
 ## Installation

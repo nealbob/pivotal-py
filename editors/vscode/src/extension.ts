@@ -79,6 +79,9 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   { label: 'with',   snippet: 'with ${1:source} as ${2:output}', detail: 'with <source> [as <output>]' },
   { label: 'load',   snippet: 'load ${1:path} as ${2:tbl}',   detail: 'load <path> as <table>' },
   { label: 'from',   snippet: 'from ${1:path}\n\tload ${2:table} as ${3:df}', detail: 'from <database>\n    load <table> as <df>\n    query "SELECT..." as <df>' },
+  { label: 'list',   snippet: 'list ${1:name} = ${2:item1}, ${3:item2}', detail: 'list <name> = <item>, ...' },
+  { label: 'function', snippet: 'function ${1:name}(${2:input}, ${3:output})\n    with ${2:input} as ${3:output}\n        ${4:statement}\n    return ${3:output}', detail: 'function <name>(...)' },
+  { label: 'return', snippet: 'return ${1:output}', detail: 'return <table>[, ...]' },
 
   // Row operations
   { label: 'for',      snippet: 'for ${1:col} in ${2:col1}, ${3:col2}\n    ${1:col} = ${1:col} / ${4:denom}', detail: 'for <name> in <col>, ... or :cols' },
@@ -120,6 +123,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
 
   // Type casting
   { label: 'cast', snippet: 'cast ${1:cast_col} as ${2:type}', detail: 'cast <col> as <type> [strict]' },
+  { label: 'round', snippet: 'round ${1:col} ${2:digits}', detail: 'round <col>, ... <digits> [as <name>]' },
 
   // Filling / cleaning
   { label: 'fillna',  detail: 'fillna <value>' },

@@ -11,6 +11,7 @@ import os
 import re
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from .errors import PivotalError, _make_suggestion
 
 _AGG_CALL_RE = re.compile(
@@ -25,7 +26,7 @@ _WAVG_CALL_RE = re.compile(
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords
     'with', 'load', 'bulk', 'filter', 'assert', 'check', 'select', 'sort', 'order', 'save', 'all', 'delete',
-    'for',
+    'for', 'function', 'return', 'list',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'round', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
@@ -67,6 +68,9 @@ grammar_indented = r"""
     start: _NL* (_INDENT? statement _DEDENT?)+ _NL*
 
     statement: bulk_load_statement
+               | function_definition
+               | return_statement
+               | list_statement
                | load_statement
                | from_statement
                | dataframe_statement
@@ -104,6 +108,27 @@ grammar_indented = r"""
                | show_statement
                | delete_statement
                | for_statement
+               | function_call_statement
+
+    function_definition: "function" IDENTIFIER "(" function_params? ")" _NL _INDENT function_body_statement+ _DEDENT
+    function_params: function_param ("," function_param)*
+    function_param: IDENTIFIER -> function_param_required
+                  | IDENTIFIER "=" function_arg_value -> function_param_default
+    function_body_statement: _INDENT? statement
+    return_statement: "return" IDENTIFIER ("," IDENTIFIER)* _NL?
+
+    list_statement: "list" IDENTIFIER "=" list_items _NL?
+    list_items: function_arg_value ("," function_arg_value)*
+
+    function_call_statement: FUNCTION_CALL_NAME "(" function_args? ")" _NL?
+    function_args: function_arg ("," function_arg)*
+    function_arg: function_kw_arg
+                | function_arg_value
+    function_kw_arg.2: IDENTIFIER "=" function_arg_value
+    function_arg_value: function_inline_list
+                      | value
+    function_inline_list: "(" function_inline_items ")"
+    function_inline_items: value ("," value)+
 
     for_statement: "for" IDENTIFIER "in" loop_source _NL _INDENT for_body_statement+ _DEDENT
     loop_source: PYTHON_VAR -> loop_var_source
@@ -316,16 +341,16 @@ grammar_indented = r"""
                | "variable" STRING _NL?                                                     -> unpivot_name
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
-    AGG_FUNCTION: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std" | "nunique"
+    AGG_FUNCTION.2: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std" | "nunique"
 
     rank_statement: "rank" IDENTIFIER SORT_TYPE? RANK_PCT? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     RANK_PCT: "pct"
 
     shift_statement: SHIFT_FUNC IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
-    SHIFT_FUNC: "lag" | "lead"
+    SHIFT_FUNC.2: "lag" | "lead"
 
     cumulative_statement: CUM_FUNC IDENTIFIER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
-    CUM_FUNC: "cumsum" | "cummean" | "cummin" | "cummax"
+    CUM_FUNC.2: "cumsum" | "cummean" | "cummin" | "cummax"
 
     rolling_statement: "rolling" AGG_FUNCTION IDENTIFIER NUMBER "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
 
@@ -336,7 +361,7 @@ grammar_indented = r"""
 
     sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
 
-    SORT_TYPE: "asc" | "desc"
+    SORT_TYPE.2: "asc" | "desc"
 
     // Lower priority (-1) ensures keywords always win over assign target
     ASSIGN_TARGET.-1: /[a-zA-Z][a-zA-Z0-9_]*/
@@ -350,8 +375,10 @@ grammar_indented = r"""
     condition: IDENTIFIER COMPARATOR (value | list_value)
              | IDENTIFIER "in" list_value       -> condition_in_list
              | IDENTIFIER "in" PYTHON_VAR       -> condition_in_var
+             | IDENTIFIER "in" IDENTIFIER       -> condition_in_name
              | IDENTIFIER "not" "in" list_value -> condition_not_in_list
              | IDENTIFIER "not" "in" PYTHON_VAR -> condition_not_in_var
+             | IDENTIFIER "not" "in" IDENTIFIER -> condition_not_in_name
 
     condition_list: condition (AOR condition)*
 
@@ -410,6 +437,7 @@ grammar_indented = r"""
     AOR.2: /and/i | /or/i
     NOT_NULL.3: /not[ \t]+null/i
     PYTHON_VAR: ":" IDENTIFIER
+    FUNCTION_CALL_NAME.3: /[a-zA-Z][a-zA-Z0-9_]*(?=\()/
     IDENTIFIER: /[a-zA-Z][a-zA-Z0-9_]*/
     IDENT_LIST.2: IDENTIFIER ("," IDENTIFIER)*
     STRING: /"[^"]*"/ | /'[^']*'/
@@ -458,6 +486,57 @@ class DSLTransformer(Transformer):
 
     def statement(self, stmt):
         return stmt
+
+    def function_definition(self, name, params=None, *body):
+        self.current_table = None
+        return {
+            'type': 'function_def',
+            'name': str(name),
+            'params': params or [],
+            'body': list(body),
+        }
+
+    def function_params(self, *params):
+        return list(params)
+
+    def function_param_required(self, name):
+        return {'name': str(name), 'default': None, 'has_default': False}
+
+    def function_param_default(self, name, default):
+        return {'name': str(name), 'default': default, 'has_default': True}
+
+    def function_body_statement(self, stmt):
+        return stmt
+
+    def return_statement(self, *names):
+        return {'type': 'return', 'names': [str(name) for name in names]}
+
+    def list_statement(self, name, items):
+        return {'type': 'list_def', 'name': str(name), 'items': items}
+
+    def list_items(self, *items):
+        return list(items)
+
+    def function_call_statement(self, name, args=None):
+        return {'type': 'function_call', 'name': str(name), 'args': args or []}
+
+    def function_args(self, *args):
+        return list(args)
+
+    def function_kw_arg(self, name, value):
+        return {'kind': 'kwarg', 'name': str(name), 'value': value}
+
+    def function_arg(self, value):
+        return value
+
+    def function_arg_value(self, value):
+        return value if isinstance(value, list) else self._convert_value(value)
+
+    def function_inline_list(self, items):
+        return items
+
+    def function_inline_items(self, *items):
+        return [self._convert_value(item) for item in items]
     
     def sort_statement(self, *args):
         """Handle sort statements to sort DataFrame by columns"""
@@ -2082,11 +2161,17 @@ class DSLTransformer(Transformer):
     def condition_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'in', 'value': var}
 
+    def condition_in_name(self, column, name):
+        return {'column': str(column), 'comparator': 'in', 'value': {'type': 'list_ref', 'name': str(name)}}
+
     def condition_not_in_list(self, column, lst):
         return {'column': str(column), 'comparator': 'not in', 'value': lst}
 
     def condition_not_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'not in', 'value': var}
+
+    def condition_not_in_name(self, column, name):
+        return {'column': str(column), 'comparator': 'not in', 'value': {'type': 'list_ref', 'name': str(name)}}
     
     def AOR(self, token):
         return str(token)
@@ -7646,6 +7731,211 @@ class DSLParser:
     def _replace_loop_column_ref(self, value, loop_var, column):
         return column if isinstance(value, str) and value == loop_var else value
 
+    def _replace_bound_identifier(self, text, bindings):
+        """Replace bound identifiers inside expression text, preserving strings."""
+        if not isinstance(text, str) or not text:
+            return text
+
+        result = []
+        i = 0
+        quote = None
+        ident_re = re.compile(r'[a-zA-Z][a-zA-Z0-9_]*')
+
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                result.append(ch)
+                if ch == '\\' and i + 1 < len(text):
+                    i += 1
+                    result.append(text[i])
+                elif ch == quote:
+                    quote = None
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                quote = ch
+                result.append(ch)
+                i += 1
+                continue
+
+            match = ident_re.match(text, i)
+            if match:
+                token = match.group(0)
+                prev = text[i - 1] if i > 0 else ''
+                has_bound = token in bindings
+                bound = bindings.get(token)
+                if has_bound and prev != ':' and not isinstance(bound, list):
+                    if isinstance(bound, _LiteralStr):
+                        result.append(repr(str(bound)))
+                    else:
+                        result.append(str(bound))
+                else:
+                    result.append(token)
+                i = match.end()
+                continue
+
+            result.append(ch)
+            i += 1
+
+        return ''.join(result)
+
+    def _resolve_compile_value(self, value, lists):
+        if isinstance(value, dict) and value.get('type') == 'list_ref':
+            name = value.get('name')
+            if name not in lists:
+                raise ValueError(f"List '{name}' was not defined.")
+            return copy.deepcopy(lists[name])
+        if isinstance(value, str) and value in lists:
+            return copy.deepcopy(lists[value])
+        return value
+
+    def _substitute_compile_values(self, value, bindings, lists, field=None):
+        if isinstance(value, dict):
+            if value.get('type') == 'var':
+                return copy.deepcopy(value)
+            if value.get('type') == 'list_ref':
+                return self._resolve_compile_value(value, lists)
+            result = {}
+            for key, child in value.items():
+                if key == 'type':
+                    result[key] = child
+                elif key in ('expression', 'query_str') and isinstance(child, str):
+                    exact = bindings.get(child)
+                    result[key] = copy.deepcopy(exact) if exact is not None else self._replace_bound_identifier(child, bindings)
+                else:
+                    result[key] = self._substitute_compile_values(child, bindings, lists, field=key)
+            return result
+
+        if isinstance(value, list):
+            expanded = []
+            for item in value:
+                resolved = self._substitute_compile_values(item, bindings, lists, field=field)
+                if isinstance(resolved, list):
+                    expanded.extend(resolved)
+                else:
+                    expanded.append(resolved)
+            return expanded
+
+        if isinstance(value, str):
+            if value in bindings:
+                return copy.deepcopy(bindings[value])
+            return self._resolve_compile_value(value, lists)
+
+        return copy.deepcopy(value)
+
+    def _collect_compile_defs(self, ast_list):
+        functions = {}
+        lists = {}
+        executable = []
+        last_function = None
+
+        for node in ast_list:
+            if not isinstance(node, dict):
+                executable.append(node)
+                continue
+            node_type = node.get('type')
+            if node_type == 'list_def':
+                lists[node['name']] = self._substitute_compile_values(node.get('items', []), {}, lists)
+            elif node_type == 'function_def':
+                name = node['name']
+                if name in PIVOTAL_KEYWORDS:
+                    raise ValueError(f"'{name}' is a Pivotal reserved keyword and cannot be used as a function name.")
+                if name in functions:
+                    raise ValueError(f"Function '{name}' is already defined.")
+                functions[name] = node
+                last_function = node
+            elif node_type == 'return':
+                if last_function is not None:
+                    last_function.setdefault('body', []).append(node)
+                continue
+            else:
+                last_function = None
+                executable.append(node)
+
+        return executable, functions, lists
+
+    def _bind_function_args(self, fn, call, lists):
+        params = fn.get('params', [])
+        args = call.get('args', [])
+        positional = []
+        keywords = {}
+
+        for arg in args:
+            if isinstance(arg, dict) and arg.get('kind') == 'kwarg':
+                name = arg['name']
+                if name in keywords:
+                    raise ValueError(f"Function '{fn['name']}' received keyword argument '{name}' more than once.")
+                keywords[name] = self._resolve_compile_value(arg['value'], lists)
+            else:
+                positional.append(self._resolve_compile_value(arg, lists))
+
+        if len(positional) > len(params):
+            raise ValueError(f"Function '{fn['name']}' expected at most {len(params)} arguments, got {len(positional)}.")
+
+        bindings = {}
+        for param, arg in zip(params, positional):
+            bindings[param['name']] = arg
+
+        param_names = {param['name'] for param in params}
+        for name, value in keywords.items():
+            if name not in param_names:
+                raise ValueError(f"Function '{fn['name']}' has no parameter named '{name}'.")
+            if name in bindings:
+                raise ValueError(f"Function '{fn['name']}' received multiple values for parameter '{name}'.")
+            bindings[name] = value
+
+        for param in params:
+            name = param['name']
+            if name not in bindings:
+                if param.get('has_default'):
+                    bindings[name] = self._resolve_compile_value(param.get('default'), lists)
+                else:
+                    raise ValueError(f"Function '{fn['name']}' missing required argument '{name}'.")
+
+        return bindings
+
+    def _expand_function_calls(self, ast_list, functions, lists, stack=None):
+        stack = stack or []
+        expanded = []
+
+        for node in ast_list:
+            if not isinstance(node, dict):
+                expanded.append(node)
+                continue
+
+            node_type = node.get('type')
+            if node_type in ('function_def', 'list_def', 'return'):
+                continue
+
+            if node_type != 'function_call':
+                expanded.append(self._substitute_compile_values(node, {}, lists))
+                continue
+
+            name = node.get('name')
+            if name not in functions:
+                raise ValueError(f"Function '{name}' was not defined.")
+            if name in stack:
+                chain = ' -> '.join(stack + [name])
+                raise ValueError(f"Recursive function calls are not supported: {chain}.")
+
+            fn = functions[name]
+            bindings = self._bind_function_args(fn, node, lists)
+            body = []
+            for child in fn.get('body', []):
+                if isinstance(child, dict) and child.get('type') == 'return':
+                    continue
+                if isinstance(child, dict) and child.get('type') == 'function_def':
+                    raise ValueError("Nested function definitions are not supported.")
+                body.append(self._substitute_compile_values(child, bindings, lists))
+            expanded.extend(self._expand_function_calls(body, functions, lists, stack + [name]))
+
+        return expanded
+
+    def _expand_compile_time_features(self, ast_list):
+        executable, functions, lists = self._collect_compile_defs(ast_list)
+        return self._expand_function_calls(executable, functions, lists)
+
     def _resolve_loop_target(self, target, loop_var, column):
         if isinstance(target, dict) and target.get('type') == 'target_expr':
             parts = []
@@ -7779,6 +8069,7 @@ class DSLParser:
         try:
             processed_code = self.preprocess_code(code)
             result = self.parser.parse(processed_code)
+            result = self._expand_compile_time_features(result)
             return self._expand_for_loops(result)
         except ValueError as e:
             # Keyword-collision errors raised by the transformer — wrap cleanly.
@@ -7798,6 +8089,20 @@ class DSLParser:
             return {'error': f"File not found: {filepath}"}
         except Exception as e:
             return {'error': f"Error reading file {filepath}: {str(e)}"}
+
+    def parse_definitions(self, code):
+        """Parse compile-time list/function definitions without expanding them."""
+        try:
+            processed_code = self.preprocess_code(code)
+            result = self.parser.parse(processed_code)
+            executable, functions, lists = self._collect_compile_defs(result)
+            return {'executable': executable, 'functions': functions, 'lists': lists}
+        except ValueError as e:
+            return {'error': PivotalError(message=str(e), error_type="Error")}
+        except (UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError) as e:
+            return {'error': _friendly_parse_error(e, code)}
+        except Exception as e:
+            return {'error': PivotalError(message=str(e), error_type="Error")}
 
     def generate_code(self, ast_list, backend="pandas"):
         """Generate code for a list of AST nodes"""
@@ -7976,7 +8281,8 @@ class DSLParser:
                 print(f"{backend} preamble error: {e}")
 
         for i, python_code in enumerate(python_code_list):
-            print(f"Executing: {python_code}")
+            if verbose:
+                print(f"Executing: {python_code}")
             try:
                 exec(python_code, globals_dict)
                 table_name = results[i].get('table_name')
@@ -8001,6 +8307,125 @@ class DSLParser:
                 if name in globals_dict:
                     tables[name] = globals_dict[name]
         return tables
+
+
+class _PivotalFunction:
+    def __init__(self, name, definition, functions, lists, backend="pandas"):
+        self.name = name
+        self.definition = definition
+        self.functions = functions
+        self.lists = lists
+        self.backend = backend
+        self.parser = DSLParser(backend=backend)
+
+    def _return_names(self):
+        for node in self.definition.get('body', []):
+            if isinstance(node, dict) and node.get('type') == 'return':
+                return node.get('names', [])
+        return []
+
+    @staticmethod
+    def _is_dataframe(value):
+        return hasattr(value, 'columns')
+
+    @staticmethod
+    def _is_list_like(value):
+        return isinstance(value, (list, tuple))
+
+    def _bind_python_value(self, param_name, value, namespace):
+        if self._is_dataframe(value):
+            table_name = f"_pvt_arg_{self.name}_{param_name}"
+            namespace[table_name] = value
+            return table_name
+        if self._is_list_like(value):
+            return [str(item) if not isinstance(item, (int, float, bool, _LiteralStr)) else item for item in value]
+        return value
+
+    def _build_call_args(self, args, kwargs, namespace):
+        params = self.definition.get('params', [])
+        param_names = [param['name'] for param in params]
+        return_params = set(self._return_names()) & set(param_names)
+        call_values = {}
+
+        target_params = [p for p in param_names if p not in return_params]
+        if len(args) > len(target_params):
+            target_params = param_names
+        if len(args) > len(target_params):
+            raise TypeError(f"{self.name}() expected at most {len(target_params)} positional arguments, got {len(args)}")
+
+        for param_name, value in zip(target_params, args):
+            call_values[param_name] = self._bind_python_value(param_name, value, namespace)
+
+        for key, value in kwargs.items():
+            if key not in param_names:
+                raise TypeError(f"{self.name}() got an unexpected keyword argument '{key}'")
+            if key in call_values:
+                raise TypeError(f"{self.name}() got multiple values for argument '{key}'")
+            call_values[key] = self._bind_python_value(key, value, namespace)
+
+        for name in return_params:
+            if name not in call_values:
+                call_values[name] = f"_pvt_return_{self.name}_{name}"
+
+        call_args = []
+        for param in params:
+            name = param['name']
+            if name in call_values:
+                call_args.append(call_values[name])
+            elif param.get('has_default'):
+                call_args.append(self.parser._resolve_compile_value(param.get('default'), self.lists))
+            else:
+                raise TypeError(f"{self.name}() missing required argument '{name}'")
+        return call_args
+
+    def __call__(self, *args, **kwargs):
+        namespace = {'pd': pd}
+        call_args = self._build_call_args(args, kwargs, namespace)
+        call_node = {'type': 'function_call', 'name': self.name, 'args': call_args}
+        ast_list = self.parser._expand_function_calls([call_node], self.functions, self.lists)
+        if self.backend != 'sql':
+            ast_list = self.parser._expand_for_loops(ast_list, namespace)
+        python_code_list = self.parser.generate_code(ast_list, backend=self.backend)
+        if self.backend in ('duckdb', 'polars') and python_code_list:
+            preamble = python_code_list[0]
+            python_code_list = python_code_list[1:]
+            exec(preamble, namespace)
+        for python_code in python_code_list:
+            exec(python_code, namespace)
+
+        returns = self._return_names()
+        if not returns:
+            return None
+        values = [namespace.get(f"_pvt_return_{self.name}_{name}", namespace.get(name)) for name in returns]
+        if len(values) == 1:
+            return values[0]
+        return tuple(values)
+
+
+class PivotalFunctionLibrary(SimpleNamespace):
+    pass
+
+
+def load_functions(path_or_code, backend="pandas"):
+    """Load Pivotal function definitions as Python callables."""
+    text = str(path_or_code)
+    source_path = Path(text)
+    if '\n' not in text and source_path.exists():
+        code = source_path.read_text(encoding='utf-8')
+    else:
+        code = text
+
+    parser = DSLParser(backend=backend)
+    parsed = parser.parse_definitions(code)
+    if isinstance(parsed, dict) and 'error' in parsed:
+        raise ValueError(str(parsed['error']))
+
+    functions = parsed['functions']
+    lists = parsed['lists']
+    library = PivotalFunctionLibrary()
+    for name, definition in functions.items():
+        setattr(library, name, _PivotalFunction(name, definition, functions, lists, backend=backend))
+    return library
         
 
 # Example usage

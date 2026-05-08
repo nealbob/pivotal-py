@@ -1,4 +1,4 @@
-from .dsl_parser import DSLParser
+from .dsl_parser import DSLParser, load_functions
 from .package import Package
 from .magic import update, delete, plot_gui, pivot_gui, load_gui, save_gui, settings_gui
 from .errors import PivotalError, display_error, format_error_text, format_error_html, _translate_runtime_error
@@ -27,7 +27,7 @@ try:
 except NameError:
     pass  # Not running inside IPython
 
-__all__ = ['DSLParser', 'Package', 'load_ipython_extension', 'update', 'delete',
+__all__ = ['DSLParser', 'Package', 'load_functions', 'load_ipython_extension', 'update', 'delete',
            'plot_gui', 'pivot_gui', 'load_gui', 'save_gui', 'settings_gui',
            'PivotalError', 'display_error', 'format_error_text', 'format_error_html',
            'run_pivotal', 'run_pivotal_isolated', 'compare_pandas_to_pivotal',

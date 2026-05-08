@@ -73,6 +73,24 @@ def test_cte_structure_single_op(parser, sample_df):
     assert 'SELECT * FROM' in sql
 
 
+def test_functions_and_lists_expand_before_sql_codegen(parser):
+    sql = gen_sql(parser, '''
+list money_cols = price, quantity
+
+function keep_money(input, output, cols)
+    with input as output
+        select cols
+    return output
+
+keep_money(sales, sales_money, money_cols)
+''')
+
+    assert 'SELECT * FROM sales' in sql
+    assert 'SELECT price, quantity FROM _cte_0_sales_money' in sql
+    assert 'function' not in sql.lower()
+    assert 'money_cols' not in sql
+
+
 def test_bulk_load_sql_backend_is_skipped(parser):
     sql = gen_sql(parser, 'bulk load :files as all_data\n')
     assert 'bulk load requires pandas, polars, or duckdb backend' in sql
