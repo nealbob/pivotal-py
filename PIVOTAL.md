@@ -179,6 +179,20 @@ with sales
 
 Python-list loops are not supported by the plain SQL backend because SQL export needs concrete column names.
 
+Pivotal lists define reusable compile-time lists of identifiers or values:
+```pivotal
+list money_cols = price, cost, revenue
+list regions = "AU", "NZ", "US"
+
+with sales
+    for col in money_cols
+        col = col / cpi
+
+    filter region in regions
+```
+
+Use `:name` only for Python runtime variables. A Pivotal `list` is expanded before backend code generation, so it works with SQL export when all values are literal.
+
 Loop assignment targets can build new names with string suffixes or prefixes:
 ```pivotal
 with sales
@@ -192,6 +206,49 @@ with sales
     for col in price, cost, revenue
         fillna col 0
         cast col as float
+```
+
+## Pipeline functions
+
+Use `function` to define a reusable non-recursive pipeline. Functions are expanded before validation and backend code generation, so they behave like compile-time pipeline macros in Pivotal:
+
+```pivotal
+list money_cols = price, cost, revenue
+
+function clean_sales(input, output, cols, min_amount=0)
+    with input as output
+        dropna cols
+        for col in cols
+            cast col as float
+        filter price >= min_amount
+    return output
+
+clean_sales(sales_raw, sales_clean, money_cols, min_amount=10)
+```
+
+Function calls use parentheses. Inline list arguments also use round brackets:
+
+```pivotal
+clean_sales(sales_raw, sales_clean, (price, cost, revenue))
+```
+
+For longer lists, prefer a named `list` and pass the list name. Keyword arguments and Python runtime values are supported:
+
+```pivotal
+clean_sales(sales_raw, sales_clean, money_cols, min_amount=:threshold)
+```
+
+`return` is optional. It has no effect during normal Pivotal execution, but records which output table should be returned when Pivotal functions are exposed through a Python-callable API.
+
+```python
+import pivotal
+
+funcs = pivotal.load_functions("transforms.pivotal")
+sales_clean = funcs.clean_sales(
+    sales_raw,
+    cols=["price", "cost", "revenue"],
+    min_amount=10,
+)
 ```
 
 Conditional (sets column only where condition is true, NaN elsewhere):

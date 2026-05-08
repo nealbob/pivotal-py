@@ -186,6 +186,9 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'df', type: 'keyword', detail: 'df <table> [from <source>]' },
   { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
   { label: 'bulk load', type: 'keyword', apply: snippet('bulk load :${files} as ${table}'), detail: 'bulk load :files as <table> or aliases' },
+  { label: 'list', type: 'keyword', apply: snippet('list ${name} = ${item1}, ${item2}'), detail: 'list <name> = <item>, ...' },
+  { label: 'function', type: 'keyword', apply: snippet('function ${name}(${input}, ${output})\n    with ${input} as ${output}\n        ${statement}\n    return ${output}'), detail: 'function <name>(...)' },
+  { label: 'return', type: 'keyword', apply: snippet('return ${output}'), detail: 'return <table>[, ...]' },
 
   // Row operations
   { label: 'for', type: 'keyword', apply: snippet('for ${col} in ${col1}, ${col2}\n    ${col} = ${col} / ${denom}'), detail: 'for <name> in <col>, ... or :cols' },
@@ -233,6 +236,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
 
   // Type casting
   { label: 'cast', type: 'keyword', apply: snippet('cast ${cast_col} as ${type}'), detail: 'cast <col> as <type> [strict]' },
+  { label: 'round', type: 'keyword', apply: snippet('round ${col} ${digits}'), detail: 'round <col>, ... <digits> [as <name>]' },
 
   // Filling / cleaning
   { label: 'fillna',  type: 'keyword', detail: 'fillna <value>' },

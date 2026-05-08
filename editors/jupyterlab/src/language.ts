@@ -22,14 +22,15 @@ interface PivotalState {
 }
 
 const keywords: Record<string, true> = {
-  load: true, bulk: true, with: true, from: true, query: true, for: true, filter: true,
+  load: true, bulk: true, with: true, from: true, query: true, for: true,
+  function: true, return: true, list: true, filter: true,
   assert: true, check: true,
   select: true, sort: true, order: true, by: true,
   group: true, merge: true, pivot: true, unpivot: true, apply: true,
   plot: true, python: true, end: true, where: true, else: true,
   as: true, on: true, rows: true, cols: true, all: true,
   agg: true, drop: true, fillna: true, dropna: true, delete: true,
-  distinct: true, concat: true, intersect: true, exclude: true, rename: true, save: true,
+  distinct: true, concat: true, intersect: true, exclude: true, rename: true, round: true, save: true,
   show: true, head: true, summary: true,
   table: true, stub: true, col: true, stripe: true,
   rank: true, lag: true, lead: true,

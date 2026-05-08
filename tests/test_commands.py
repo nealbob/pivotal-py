@@ -207,6 +207,107 @@ def test_select(parser, sample_df):
     assert list(ns['sales'].columns) == ['product', 'price']
 
 
+def test_named_list_expands_in_column_contexts(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, '''
+list money_cols = price, quantity
+
+with sales
+    select product, money_cols
+''', ns)
+
+    assert list(ns['sales'].columns) == ['product', 'price', 'quantity']
+
+
+def test_named_list_expands_in_filter_value_context(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'region': ['AU', 'NZ', 'US'],
+            'amount': [10, 20, 30],
+        }),
+    }
+
+    run(parser, '''
+list regions = "AU", "NZ"
+
+with sales
+    filter region in regions
+''', ns)
+
+    assert list(ns['sales']['region']) == ['AU', 'NZ']
+
+
+def test_function_expands_pipeline_with_named_list_and_keyword_default(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'price': [1, 20, None],
+            'cost': [2, 3, 4],
+            'region': ['AU', 'NZ', 'US'],
+        }),
+    }
+
+    run(parser, '''
+list money_cols = price, cost
+
+function clean_sales(input, output, cols, min_amount=0)
+    with input as output
+        dropna cols
+        for col in cols
+            cast col as float
+        filter price >= min_amount
+    return output
+
+clean_sales(sales, sales_clean, money_cols, min_amount=10)
+''', ns)
+
+    assert 'sales_clean' in ns
+    assert list(ns['sales_clean']['price']) == [20.0]
+    assert list(ns['sales_clean'].columns) == ['price', 'cost', 'region']
+
+
+def test_function_accepts_inline_round_bracket_list(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'price': [1, None, 3],
+            'cost': [2, 3, None],
+            'region': ['AU', 'NZ', 'US'],
+        }),
+    }
+
+    run(parser, '''
+function keep_complete(input, output, cols)
+    with input as output
+        dropna cols
+    return output
+
+keep_complete(sales, cleaned, (price, cost))
+''', ns)
+
+    assert list(ns['cleaned']['region']) == ['AU']
+
+
+def test_load_functions_exposes_python_callable():
+    funcs = pivotal.load_functions('''
+function clean_sales(input, output, cols, min_amount=0)
+    with input as output
+        dropna cols
+        filter price >= min_amount
+    return output
+''')
+    sales = pd.DataFrame({
+        'price': [1, 20, None],
+        'cost': [2, 3, 4],
+    })
+
+    result = funcs.clean_sales(sales, cols=['price', 'cost'], min_amount=10)
+
+    assert list(result['price']) == [20.0]
+    assert list(result.columns) == ['price', 'cost']
+
+
 def test_select_matches(parser):
     df = pd.DataFrame({
         'abc_one': [1],
