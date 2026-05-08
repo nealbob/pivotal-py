@@ -23,6 +23,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added an optional local MCP server (`python -m pivotal.mcp_server`) with syntax, run, compile, and pandas-to-Pivotal comparison tools.
 - Added package extras for test dependencies.
 - Added `round` column syntax and `min_periods=<n>` for rolling window commands.
+- Added read-only Streamable HTTP MCP mode for hosted syntax/examples/compile tools.
 - Added compile-time `list` definitions, non-recursive `function` pipeline expansion with positional and keyword arguments, and `pivotal.load_functions()` for Python-callable wrappers.
 
 ### Fixed

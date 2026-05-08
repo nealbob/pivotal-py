@@ -47,6 +47,22 @@ def test_compile_pivotal_source_does_not_execute():
     assert "sales" in result["generated_code"]
 
 
+def test_compile_pivotal_source_accepts_recent_syntax():
+    result = mcp_server.compile_pivotal_source(
+        (
+            "with sales\n"
+            "    round revenue 2 as revenue_rounded\n"
+            "    rolling mean revenue 3 as rolling_revenue\n"
+            "        order date\n"
+            "        min_periods 1\n"
+        ),
+        backend="pandas",
+    )
+
+    assert result["ok"] is True
+    assert "rolling(3, min_periods=1).mean()" in result["generated_code"]
+
+
 def test_get_pivotal_examples_documents_input_files_shape():
     result = mcp_server.get_pivotal_examples("run")
 
@@ -66,6 +82,20 @@ def test_create_mcp_server_requires_optional_dependency_when_missing():
     else:
         server = mcp_server.create_mcp_server()
         assert hasattr(server, "run")
+
+
+def test_parse_args_defaults_preserve_local_stdio():
+    args = mcp_server._parse_args([])
+
+    assert args.read_only is False
+    assert args.transport == "stdio"
+
+
+def test_parse_args_supports_readonly_streamable_http():
+    args = mcp_server._parse_args(["--read-only", "--transport", "streamable-http"])
+
+    assert args.read_only is True
+    assert args.transport == "streamable-http"
 
 
 def test_mcp_stdio_pivotal_run_does_not_deadlock(tmp_path):
@@ -105,3 +135,34 @@ def test_mcp_stdio_pivotal_run_does_not_deadlock(tmp_path):
         {"amount": 10},
         {"amount": 20},
     ]
+
+
+def test_mcp_readonly_stdio_exposes_only_compile_safe_tools():
+    pytest.importorskip("mcp")
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    async def _run():
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "pivotal.mcp_server", "--read-only"],
+            cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+        )
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                tools = await session.list_tools()
+                tool_names = sorted(tool.name for tool in tools.tools)
+                result = await session.call_tool(
+                    "pivotal_compile",
+                    {
+                        "source": "with sales\n    filter amount > 0\n",
+                        "backend": "pandas",
+                    },
+                )
+                return tool_names, json.loads(result.content[0].text)
+
+    tool_names, result = anyio.run(_run)
+
+    assert tool_names == ["pivotal_compile", "pivotal_examples", "pivotal_syntax"]
+    assert result["ok"] is True
