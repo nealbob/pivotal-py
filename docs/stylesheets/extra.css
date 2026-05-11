@@ -42,3 +42,24 @@
 .md-sidebar--primary .md-nav__item:has(> .md-nav__link[href*="syntax/command-reference"]) {
   margin-bottom: 0.6rem;
 }
+
+/* Cheatsheet and print-friendly tables */
+.md-typeset table .highlight {
+  margin: 0;
+}
+
+.md-typeset table .highlight pre {
+  margin: 0;
+}
+
+@media print {
+  .md-typeset table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .md-typeset table code {
+    white-space: pre-wrap;
+    word-break: normal;
+  }
+}

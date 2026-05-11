@@ -9,7 +9,7 @@ or combines data.
 
 ## Load and Inspect
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -20,34 +20,82 @@ or combines data.
   <tbody>
     <tr>
       <td>Read a CSV</td>
-      <td><pre><code class="language-python">sales = pd.read_csv("sales.csv")</code></pre></td>
-      <td><pre><code class="language-pivotal">load "sales.csv" as sales</code></pre></td>
+      <td markdown="1">
+
+```python
+sales = pd.read_csv("sales.csv")
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+load "sales.csv" as sales
+```
+
+</td>
     </tr>
     <tr>
       <td>Read with options</td>
-      <td><pre><code class="language-python">sales = pd.read_csv("sales.csv", sep=";", header=0)</code></pre></td>
-      <td><pre><code class="language-pivotal">load "sales.csv" as sales
+      <td markdown="1">
+
+```python
+sales = pd.read_csv("sales.csv", sep=";", header=0)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+load "sales.csv" as sales
     sep ";"
-    header 0</code></pre></td>
+    header 0
+```
+
+</td>
     </tr>
     <tr>
       <td>Show rows</td>
-      <td><pre><code class="language-python">sales.head()</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
-    show head</code></pre></td>
+      <td markdown="1">
+
+```python
+sales.head()
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
+    show head
+```
+
+</td>
     </tr>
     <tr>
       <td>Summary statistics</td>
-      <td><pre><code class="language-python">sales.describe()</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
-    show summary</code></pre></td>
+      <td markdown="1">
+
+```python
+sales.describe()
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
+    show summary
+```
+
+</td>
     </tr>
   </tbody>
 </table>
 
 ## Rows and Columns
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -58,67 +106,175 @@ or combines data.
   <tbody>
     <tr>
       <td>Filter rows</td>
-      <td><pre><code class="language-python">active = sales[sales["status"] == "active"]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as active
-    filter status == "active"</code></pre></td>
+      <td markdown="1">
+
+```python
+active = sales[sales["status"] == "active"]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as active
+    filter status == "active"
+```
+
+</td>
     </tr>
     <tr>
       <td>Filter with multiple conditions</td>
-      <td><pre><code class="language-python">high_value = sales[
-    (sales["status"] == "active") &amp; (sales["revenue"] &gt; 1000)
-]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as high_value
+      <td markdown="1">
+
+```python
+high_value = sales[
+    (sales["status"] == "active") & (sales["revenue"] > 1000)
+]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as high_value
     filter status == "active"
-    filter revenue &gt; 1000</code></pre></td>
+    filter revenue > 1000
+```
+
+</td>
     </tr>
     <tr>
       <td>Filter with a list</td>
-      <td><pre><code class="language-python">east_west = sales[sales["region"].isin(["East", "West"])]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as east_west
-    filter region in ["East", "West"]</code></pre></td>
+      <td markdown="1">
+
+```python
+east_west = sales[sales["region"].isin(["East", "West"])]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as east_west
+    filter region in ["East", "West"]
+```
+
+</td>
     </tr>
     <tr>
       <td>Select columns</td>
-      <td><pre><code class="language-python">report = sales[["order_id", "region", "revenue"]]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as report
-    select order_id, region, revenue</code></pre></td>
+      <td markdown="1">
+
+```python
+report = sales[["order_id", "region", "revenue"]]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as report
+    select order_id, region, revenue
+```
+
+</td>
     </tr>
     <tr>
       <td>Drop columns</td>
-      <td><pre><code class="language-python">clean = sales.drop(columns=["debug_flag", "notes"])</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as clean
-    drop debug_flag, notes</code></pre></td>
+      <td markdown="1">
+
+```python
+clean = sales.drop(columns=["debug_flag", "notes"])
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as clean
+    drop debug_flag, notes
+```
+
+</td>
     </tr>
     <tr>
       <td>Rename columns</td>
-      <td><pre><code class="language-python">renamed = sales.rename(columns={"qty": "quantity", "rev": "revenue"})</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as renamed
-    rename qty as quantity, rev as revenue</code></pre></td>
+      <td markdown="1">
+
+```python
+renamed = sales.rename(columns={"qty": "quantity", "rev": "revenue"})
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as renamed
+    rename qty as quantity, rev as revenue
+```
+
+</td>
     </tr>
     <tr>
       <td>Sort rows</td>
-      <td><pre><code class="language-python">top = sales.sort_values("revenue", ascending=False)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as top
-    sort revenue desc</code></pre></td>
+      <td markdown="1">
+
+```python
+top = sales.sort_values("revenue", ascending=False)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as top
+    sort revenue desc
+```
+
+</td>
     </tr>
     <tr>
       <td>Remove duplicate rows</td>
-      <td><pre><code class="language-python">unique_sales = sales.drop_duplicates()</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as unique_sales
-    distinct</code></pre></td>
+      <td markdown="1">
+
+```python
+unique_sales = sales.drop_duplicates()
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as unique_sales
+    distinct
+```
+
+</td>
     </tr>
     <tr>
       <td>Remove duplicates by selected columns</td>
-      <td><pre><code class="language-python">unique_products = sales.drop_duplicates(["product", "category"])</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as unique_products
-    distinct product, category</code></pre></td>
+      <td markdown="1">
+
+```python
+unique_products = sales.drop_duplicates(["product", "category"])
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as unique_products
+    distinct product, category
+```
+
+</td>
     </tr>
   </tbody>
 </table>
 
 ## Create and Clean Columns
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -129,50 +285,122 @@ or combines data.
   <tbody>
     <tr>
       <td>Create a column</td>
-      <td><pre><code class="language-python">sales["margin"] = sales["revenue"] - sales["cost"]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
-    margin = revenue - cost</code></pre></td>
+      <td markdown="1">
+
+```python
+sales["margin"] = sales["revenue"] - sales["cost"]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
+    margin = revenue - cost
+```
+
+</td>
     </tr>
     <tr>
       <td>Create a conditional column</td>
-      <td><pre><code class="language-python">sales["tier"] = np.where(sales["revenue"] &gt; 1000, "high", "standard")</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
+      <td markdown="1">
+
+```python
+sales["tier"] = np.where(sales["revenue"] > 1000, "high", "standard")
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
     tier = "high"
-        where revenue &gt; 1000
-        else "standard"</code></pre></td>
+        where revenue > 1000
+        else "standard"
+```
+
+</td>
     </tr>
     <tr>
       <td>Fill missing values</td>
-      <td><pre><code class="language-python">clean = sales.fillna({"region": "Unknown", "revenue": 0})</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as clean
+      <td markdown="1">
+
+```python
+clean = sales.fillna({"region": "Unknown", "revenue": 0})
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as clean
     fillna
         region = "Unknown"
-        revenue = 0</code></pre></td>
+        revenue = 0
+```
+
+</td>
     </tr>
     <tr>
       <td>Drop rows with missing values</td>
-      <td><pre><code class="language-python">complete = sales.dropna(subset=["customer_id", "revenue"])</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as complete
-    dropna customer_id, revenue</code></pre></td>
+      <td markdown="1">
+
+```python
+complete = sales.dropna(subset=["customer_id", "revenue"])
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as complete
+    dropna customer_id, revenue
+```
+
+</td>
     </tr>
     <tr>
       <td>Cast a column</td>
-      <td><pre><code class="language-python">sales["order_date"] = pd.to_datetime(sales["order_date"])</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
-    cast order_date as datetime</code></pre></td>
+      <td markdown="1">
+
+```python
+sales["order_date"] = pd.to_datetime(sales["order_date"])
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
+    cast order_date as datetime
+```
+
+</td>
     </tr>
     <tr>
       <td>Round values</td>
-      <td><pre><code class="language-python">sales["revenue"] = sales["revenue"].round(2)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
-    round revenue 2</code></pre></td>
+      <td markdown="1">
+
+```python
+sales["revenue"] = sales["revenue"].round(2)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
+    round revenue 2
+```
+
+</td>
     </tr>
   </tbody>
 </table>
 
 ## Aggregation and Reshaping
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -183,63 +411,123 @@ or combines data.
   <tbody>
     <tr>
       <td>Group and sum</td>
-      <td><pre><code class="language-python">by_region = sales.groupby("region", as_index=False)["revenue"].sum()</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as by_region
+      <td markdown="1">
+
+```python
+by_region = sales.groupby("region", as_index=False)["revenue"].sum()
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as by_region
     group by region
-        agg sum revenue as revenue</code></pre></td>
+        agg sum revenue as revenue
+```
+
+</td>
     </tr>
     <tr>
       <td>Group with several aggregations</td>
-      <td><pre><code class="language-python">summary = sales.groupby("region", as_index=False).agg(
+      <td markdown="1">
+
+```python
+summary = sales.groupby("region", as_index=False).agg(
     total=("revenue", "sum"),
     avg_order=("revenue", "mean"),
     orders=("order_id", "count"),
-)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as summary
+)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as summary
     group by region
-        agg sum revenue as total, mean revenue as avg_order, count order_id as orders</code></pre></td>
+        agg sum revenue as total, mean revenue as avg_order, count order_id as orders
+```
+
+</td>
     </tr>
     <tr>
       <td>Aggregate all rows</td>
-      <td><pre><code class="language-python">totals = sales.agg(total=("revenue", "sum"), avg=("revenue", "mean"))</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as totals
-    agg sum revenue as total, mean revenue as avg</code></pre></td>
+      <td markdown="1">
+
+```python
+totals = sales.agg(total=("revenue", "sum"), avg=("revenue", "mean"))
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as totals
+    agg sum revenue as total, mean revenue as avg
+```
+
+</td>
     </tr>
     <tr>
       <td>Pivot table</td>
-      <td><pre><code class="language-python">wide = sales.pivot_table(
+      <td markdown="1">
+
+```python
+wide = sales.pivot_table(
     index="product",
     columns="region",
     values="revenue",
     aggfunc="sum",
-)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as wide
+)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as wide
     pivot
         rows product
         cols region
-        agg sum revenue</code></pre></td>
+        agg sum revenue
+```
+
+</td>
     </tr>
     <tr>
       <td>Melt wide data to long</td>
-      <td><pre><code class="language-python">long = monthly_sales.melt(
+      <td markdown="1">
+
+```python
+long = monthly_sales.melt(
     id_vars=["region"],
     value_vars=["jan", "feb", "mar"],
     var_name="month",
     value_name="revenue",
-)</code></pre></td>
-      <td><pre><code class="language-pivotal">with monthly_sales as long
+)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with monthly_sales as long
     unpivot
         id region
         cols jan, feb, mar
         variable "month"
-        value "revenue"</code></pre></td>
+        value "revenue"
+```
+
+</td>
     </tr>
   </tbody>
 </table>
 
 ## Combine Tables
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -250,30 +538,66 @@ or combines data.
   <tbody>
     <tr>
       <td>Left join</td>
-      <td><pre><code class="language-python">enriched = sales.merge(customers, on="customer_id", how="left")</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as enriched
-    left merge customers on customer_id</code></pre></td>
+      <td markdown="1">
+
+```python
+enriched = sales.merge(customers, on="customer_id", how="left")
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as enriched
+    left merge customers on customer_id
+```
+
+</td>
     </tr>
     <tr>
       <td>Join with different key names</td>
-      <td><pre><code class="language-python">enriched = sales.merge(customers, left_on="customer_id", right_on="id", how="left")</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as enriched
+      <td markdown="1">
+
+```python
+enriched = sales.merge(customers, left_on="customer_id", right_on="id", how="left")
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as enriched
     left merge customers
         left_on customer_id
-        right_on id</code></pre></td>
+        right_on id
+```
+
+</td>
     </tr>
     <tr>
       <td>Stack rows</td>
-      <td><pre><code class="language-python">all_sales = pd.concat([jan_sales, feb_sales, mar_sales])</code></pre></td>
-      <td><pre><code class="language-pivotal">with jan_sales as all_sales
-    concat feb_sales, mar_sales</code></pre></td>
+      <td markdown="1">
+
+```python
+all_sales = pd.concat([jan_sales, feb_sales, mar_sales])
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with jan_sales as all_sales
+    concat feb_sales, mar_sales
+```
+
+</td>
     </tr>
   </tbody>
 </table>
 
 ## Window-Style Operations
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -284,39 +608,87 @@ or combines data.
   <tbody>
     <tr>
       <td>Rank within groups</td>
-      <td><pre><code class="language-python">sales["regional_rank"] = sales.groupby("region")["revenue"].rank(ascending=False)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
+      <td markdown="1">
+
+```python
+sales["regional_rank"] = sales.groupby("region")["revenue"].rank(ascending=False)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
     rank revenue desc as regional_rank
-        by region</code></pre></td>
+        by region
+```
+
+</td>
     </tr>
     <tr>
       <td>Lag a value</td>
-      <td><pre><code class="language-python">sales = sales.sort_values("date")
-sales["prev_revenue"] = sales.groupby("region")["revenue"].shift(1)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
+      <td markdown="1">
+
+```python
+sales = sales.sort_values("date")
+sales["prev_revenue"] = sales.groupby("region")["revenue"].shift(1)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
     lag revenue 1 as prev_revenue
         by region
-        order date</code></pre></td>
+        order date
+```
+
+</td>
     </tr>
     <tr>
       <td>Running total</td>
-      <td><pre><code class="language-python">sales = sales.sort_values("date")
-sales["running_revenue"] = sales.groupby("region")["revenue"].cumsum()</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
+      <td markdown="1">
+
+```python
+sales = sales.sort_values("date")
+sales["running_revenue"] = sales.groupby("region")["revenue"].cumsum()
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
     cumsum revenue as running_revenue
         by region
-        order date</code></pre></td>
+        order date
+```
+
+</td>
     </tr>
     <tr>
       <td>Rolling average</td>
-      <td><pre><code class="language-python">sales = sales.sort_values("date")
+      <td markdown="1">
+
+```python
+sales = sales.sort_values("date")
 sales["rolling_avg"] = (
     sales.groupby("region")["revenue"].rolling(7).mean().reset_index(level=0, drop=True)
-)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales
+)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales
     rolling mean revenue 7 as rolling_avg
         by region
-        order date</code></pre></td>
+        order date
+```
+
+</td>
     </tr>
   </tbody>
 </table>
@@ -326,7 +698,7 @@ sales["rolling_avg"] = (
 Use `:` when a Pivotal statement should read a Python object from the surrounding
 notebook or script.
 
-<table>
+<table markdown="1">
   <thead>
     <tr>
       <th>Task</th>
@@ -337,23 +709,59 @@ notebook or script.
   <tbody>
     <tr>
       <td>Use a Python threshold</td>
-      <td><pre><code class="language-python">threshold = 1000
-top = sales[sales["revenue"] &gt; threshold]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as top
-    filter revenue &gt; :threshold</code></pre></td>
+      <td markdown="1">
+
+```python
+threshold = 1000
+top = sales[sales["revenue"] > threshold]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as top
+    filter revenue > :threshold
+```
+
+</td>
     </tr>
     <tr>
       <td>Use a Python column list</td>
-      <td><pre><code class="language-python">cols = ["order_id", "region", "revenue"]
-report = sales[cols]</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as report
-    select :cols</code></pre></td>
+      <td markdown="1">
+
+```python
+cols = ["order_id", "region", "revenue"]
+report = sales[cols]
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as report
+    select :cols
+```
+
+</td>
     </tr>
     <tr>
       <td>Apply a Python function to the table</td>
-      <td><pre><code class="language-python">clean = clean_sales(sales)</code></pre></td>
-      <td><pre><code class="language-pivotal">with sales as clean
-    apply :clean_sales</code></pre></td>
+      <td markdown="1">
+
+```python
+clean = clean_sales(sales)
+```
+
+</td>
+      <td markdown="1">
+
+```pivotal
+with sales as clean
+    apply :clean_sales
+```
+
+</td>
     </tr>
   </tbody>
 </table>
