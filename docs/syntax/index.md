@@ -2,6 +2,9 @@
 
 Pivotal is a line-oriented pipeline language. Each statement occupies one or more lines, sub-options are indented beneath their parent, and operations flow top-to-bottom.
 
+For a compact list of every command shape and accepted option, see the
+[Command Reference](command-reference.md).
+
 ## Structure
 
 A Pivotal script is a sequence of **blocks**. Each block begins with a top-level statement (`load`, `with`, `save`, `delete`) and its indented sub-statements:
