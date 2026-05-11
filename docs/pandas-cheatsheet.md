@@ -446,7 +446,9 @@ summary = sales.groupby("region", as_index=False).agg(
 ```pivotal
 with sales as summary
     group by region
-        agg sum revenue as total, mean revenue as avg_order, count order_id as orders
+        agg sum revenue as total
+        agg mean revenue as avg_order
+        agg count order_id as orders
 ```
 
 </td>
