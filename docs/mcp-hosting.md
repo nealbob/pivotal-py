@@ -1,4 +1,4 @@
-# Hosting a Read-Only Pivotal MCP Server
+# MCP Server
 
 Pivotal includes a hosted-safe MCP mode for ChatGPT, Claude, and other remote
 MCP clients. This mode exposes only documentation and compile-time tools:

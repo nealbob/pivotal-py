@@ -33,3 +33,12 @@
   --md-accent-bg-color:              #ffffff;
   --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
 }
+
+/* Main left navigation emphasis */
+.md-sidebar--primary .md-nav__link[href*="syntax/command-reference"] {
+  font-weight: 700;
+}
+
+.md-sidebar--primary .md-nav__item:has(> .md-nav__link[href*="syntax/command-reference"]) {
+  margin-bottom: 0.6rem;
+}

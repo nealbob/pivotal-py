@@ -47,6 +47,7 @@ nav:
   - Home: index.md
   - Why Pivotal?: whypivotal.md
   - Getting Started: getting-started.md
+  - Pandas Cheatsheet: pandas-cheatsheet.md
   - User Guide:
     - syntax/index.md
     - Data Sources: syntax/data-sources.md
@@ -66,9 +67,10 @@ nav:
     - Saving: syntax/saving.md
   - Syntax Reference: syntax/command-reference.md
   - Backends: backends.md
-  - Comparison: comparison.md
+  - Pivotal Vs Python: comparison.md
   - Editors:
     - JupyterLab: jupyter.md
     - VS Code: vscode.md
   - Python API: api.md
   - CLI: cli.md
+  - MCP Server: mcp-hosting.md

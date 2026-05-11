@@ -59,6 +59,16 @@ dependencies = [
 test = [
     "pytest",
 ]
+# pip install pivotal-lang[docs]
+docs = [
+    "mkdocs-material>=9.0",
+]
+# pip install pivotal-lang[dev]
+dev = [
+    "pytest",
+    "playwright",
+    "mkdocs-material>=9.0",
+]
 # Optional dependency for the standalone JupyterLab Playwright smoke test
 # pip install pivotal-lang[jupyter-test]
 jupyter-test = [

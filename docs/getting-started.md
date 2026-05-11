@@ -24,6 +24,10 @@ pip install lark pandas matplotlib
 | `pivotal-lang[jupyter]` | ipywidgets, ipyfilechooser |
 | `pivotal-lang[tables]` | great-tables, css_inline |
 | `pivotal-lang[sql]` | sqlalchemy |
+| `pivotal-lang[mcp]` | MCP server dependencies |
+
+To expose Pivotal syntax, examples, and compilation tools to local or hosted MCP
+clients, see [MCP Server](mcp-hosting.md).
 
 ## JupyterLab extension
 
