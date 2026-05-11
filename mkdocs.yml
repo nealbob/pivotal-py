@@ -47,9 +47,8 @@ nav:
   - Home: index.md
   - Why Pivotal?: whypivotal.md
   - Getting Started: getting-started.md
-  - Syntax Reference:
+  - User Guide:
     - syntax/index.md
-    - Command Reference: syntax/command-reference.md
     - Data Sources: syntax/data-sources.md
     - Filtering: syntax/filtering.md
     - Data Quality: syntax/data-quality.md
@@ -65,6 +64,7 @@ nav:
     - Python Integration: syntax/python-interop.md
     - Output: syntax/output.md
     - Saving: syntax/saving.md
+  - Syntax Reference: syntax/command-reference.md
   - Backends: backends.md
   - Comparison: comparison.md
   - Editors:

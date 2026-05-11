@@ -194,7 +194,7 @@ def _relative_doc_path(path: Path) -> str:
 
 def _public_doc_url(relative_path: str) -> str:
     if relative_path == "PIVOTAL.md":
-        return f"{_PUBLIC_DOCS_BASE_URL}/syntax/"
+        return f"{_PUBLIC_DOCS_BASE_URL}/syntax/command-reference/"
     if relative_path == "README.md":
         return _PUBLIC_DOCS_BASE_URL
     if relative_path.startswith("docs/") and relative_path.endswith(".md"):

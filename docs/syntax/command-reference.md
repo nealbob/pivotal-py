@@ -1,7 +1,7 @@
-# Command Reference
+# Syntax Reference
 
 This page is a compact reference for Pivotal statements and options. It is
-intended for checking exact command shapes; see the topic pages in this section
+intended for checking exact command shapes; see the user guide topic pages
 for longer examples and explanation.
 
 ## Notation

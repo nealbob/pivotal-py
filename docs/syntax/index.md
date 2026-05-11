@@ -1,9 +1,9 @@
-# Syntax Reference
+# User Guide
 
 Pivotal is a line-oriented pipeline language. Each statement occupies one or more lines, sub-options are indented beneath their parent, and operations flow top-to-bottom.
 
-For a compact list of every command shape and accepted option, see the
-[Command Reference](command-reference.md).
+For exact command forms and accepted options, see the
+[Syntax Reference](command-reference.md).
 
 ## Structure
 

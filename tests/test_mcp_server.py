@@ -59,7 +59,7 @@ def test_pivotal_docs_can_read_command_reference_by_path():
 
     assert result["ok"] is True
     assert result["path"] == "docs/syntax/command-reference.md"
-    assert "# Command Reference" in result["content"]
+    assert "# Syntax Reference" in result["content"]
 
 
 def test_pivotal_docs_topic_search_uses_docs_pages():

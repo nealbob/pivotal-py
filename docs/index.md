@@ -190,7 +190,8 @@ pip install lark pandas matplotlib
 ## Next steps
 
 - [Getting Started](getting-started.md) — installation and first steps
-- [Syntax Reference](syntax/index.md) — complete DSL documentation
+- [User Guide](syntax/index.md) — task-based DSL documentation
+- [Syntax Reference](syntax/command-reference.md) — exact command forms and options
 - [Backends](backends.md) — pandas, Polars, DuckDB, and SQL
 - [JupyterLab](jupyter.md) — cell magic, viewer, and export
 - [VS Code](vscode.md) — editor integration
