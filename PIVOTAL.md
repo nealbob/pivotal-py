@@ -238,7 +238,7 @@ For longer lists, prefer a named `list` and pass the list name. Keyword argument
 clean_sales(sales_raw, sales_clean, money_cols, min_amount=:threshold)
 ```
 
-`return` is optional. It has no effect during normal Pivotal execution, but records which output table should be returned when Pivotal functions are exposed through a Python-callable API.
+`return` is optional. It has no effect during normal Pivotal execution, but records which output table should be returned when Pivotal functions are exposed through a Python-callable API:
 
 ```python
 import pivotal
@@ -437,6 +437,8 @@ with wide as long
         value "amount"
 ```
 
+Here `variable` and `amount` are optional parameters that just allow the user to customtise the names of the variable and value columns.
+
 ## Type casting
 
 ```pivotal
@@ -589,13 +591,13 @@ with sales
     name = :clean_name(name)
 ```
 
-Bare function calls in column expressions are reserved for Pivotal built-ins such as `upper(name)`, `year(date)`, or backend-native functions. Use `:my_func(col)` for Python functions.
+Bare function calls in column expressions are reserved for Pivotal built-ins such as `upper(name)`, `year(date)`, or backend-native functions like `log(col)`. Use `:my_func(col)` for Python functions.
 
 ## Python blocks
 
 Python code can be embedded directly. This is the primary way to define helper functions or perform operations that Pivotal doesn't cover. The `python`/`end` block is available in both `%%pivotal` cells and `.pivotal` files.
 
-Multi-line block — **must be closed with `end` on its own line**:
+Multi-line `python`/`end` block — **must be closed with `end` on its own line**:
 ```pivotal
 python
     def clean(s):
