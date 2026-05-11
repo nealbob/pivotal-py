@@ -63,6 +63,22 @@ def test_compile_pivotal_source_accepts_recent_syntax():
     assert "rolling(3, min_periods=1).mean()" in result["generated_code"]
 
 
+def test_highlight_pivotal_source_returns_html_and_tokens():
+    result = mcp_server.highlight_pivotal_source(
+        'with sales\n    round revenue 2 as rounded\n',
+    )
+
+    assert result["ok"] is True
+    assert '<span class="pvt-keyword">with</span>' in result["html"]
+    assert '<span class="pvt-keyword">round</span>' in result["html"]
+    assert '<span class="pvt-number">2</span>' in result["html"]
+    assert result["css"]
+    token_types = {token["text"]: token["type"] for token in result["tokens"] if token["text"].strip()}
+    assert token_types["with"] == "keyword"
+    assert token_types["round"] == "keyword"
+    assert token_types["2"] == "number"
+
+
 def test_get_pivotal_examples_documents_input_files_shape():
     result = mcp_server.get_pivotal_examples("run")
 
@@ -164,5 +180,10 @@ def test_mcp_readonly_stdio_exposes_only_compile_safe_tools():
 
     tool_names, result = anyio.run(_run)
 
-    assert tool_names == ["pivotal_compile", "pivotal_examples", "pivotal_syntax"]
+    assert tool_names == [
+        "pivotal_compile",
+        "pivotal_examples",
+        "pivotal_highlight",
+        "pivotal_syntax",
+    ]
     assert result["ok"] is True

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,20 @@ from .dsl_parser import DSLParser
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SYNTAX_PATH = _REPO_ROOT / "PIVOTAL.md"
+
+_HIGHLIGHT_CSS = """
+.pvt-keyword { color: #7c3aed; font-weight: 600; }
+.pvt-clause { color: #2563eb; font-weight: 500; }
+.pvt-builtin { color: #0f766e; }
+.pvt-variable { color: #9333ea; }
+.pvt-name { color: #111827; }
+.pvt-string { color: #b45309; }
+.pvt-number { color: #0369a1; }
+.pvt-operator { color: #be123c; }
+.pvt-punctuation { color: #64748b; }
+.pvt-comment { color: #64748b; font-style: italic; }
+.pvt-constant { color: #0891b2; }
+""".strip()
 
 
 def _load_input_files(input_files: Optional[Mapping[str, str]]) -> dict[str, Any]:
@@ -143,6 +158,81 @@ def compile_pivotal_source(source: str, backend: str = "pandas") -> dict[str, An
     }
 
 
+def _highlight_type(ttype: Any) -> str:
+    from pygments.token import Comment, Keyword, Name, Number, Operator, Punctuation, String, Text
+
+    if ttype in Text:
+        return "text"
+    if ttype in Comment:
+        return "comment"
+    if ttype in Keyword.Constant:
+        return "constant"
+    if ttype in Keyword.Declaration:
+        return "clause"
+    if ttype in Keyword:
+        return "keyword"
+    if ttype in Name.Builtin:
+        return "builtin"
+    if ttype in Name.Variable:
+        return "variable"
+    if ttype in Name:
+        return "name"
+    if ttype in String:
+        return "string"
+    if ttype in Number:
+        return "number"
+    if ttype in Operator:
+        return "operator"
+    if ttype in Punctuation:
+        return "punctuation"
+    return "text"
+
+
+def highlight_pivotal_source(
+    source: str,
+    *,
+    include_html: bool = True,
+    include_tokens: bool = True,
+    include_css: bool = True,
+) -> dict[str, Any]:
+    """Return syntax-highlighted Pivotal as HTML and/or a token stream."""
+    from pygments import lex
+
+    from .lexer import PivotalLexer
+
+    parts: list[str] = []
+    tokens: list[dict[str, Any]] = []
+    offset = 0
+    for ttype, text in lex(source, PivotalLexer()):
+        kind = _highlight_type(ttype)
+        end = offset + len(text)
+        css_class = f"pvt-{kind}"
+        if include_html:
+            escaped = html.escape(text)
+            if kind == "text":
+                parts.append(escaped)
+            else:
+                parts.append(f'<span class="{css_class}">{escaped}</span>')
+        if include_tokens:
+            tokens.append({
+                "text": text,
+                "type": kind,
+                "class": css_class,
+                "start": offset,
+                "end": end,
+            })
+        offset = end
+
+    result: dict[str, Any] = {"ok": True}
+    if include_html:
+        result["html"] = "".join(parts)
+    if include_tokens:
+        result["tokens"] = tokens
+    if include_css:
+        result["css"] = _HIGHLIGHT_CSS
+    return result
+
+
 def get_pivotal_examples(kind: Optional[str] = None) -> dict[str, Any]:
     """Return MCP tool-call examples, especially input_files shape."""
     examples = {
@@ -271,6 +361,29 @@ def _register_readonly_tools(mcp) -> None:
     ) -> dict[str, Any]:
         """Compile Pivotal source to backend code without executing data pipelines."""
         return compile_pivotal_source(source, backend=backend)
+
+    @mcp.tool()
+    def pivotal_highlight(
+        source: str,
+        include_html: bool = True,
+        include_tokens: bool = True,
+        include_css: bool = True,
+    ) -> dict[str, Any]:
+        """Return syntax-highlighted Pivotal source as HTML and/or tokens."""
+        try:
+            return highlight_pivotal_source(
+                source,
+                include_html=include_html,
+                include_tokens=include_tokens,
+                include_css=include_css,
+            )
+        except Exception as exc:  # noqa: BLE001 - tool boundary
+            return {
+                "ok": False,
+                "stage": "highlight",
+                "error_type": type(exc).__name__,
+                "message": str(exc),
+            }
 
 
 def _register_execution_tools(mcp) -> None:

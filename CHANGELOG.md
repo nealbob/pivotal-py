@@ -24,6 +24,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added package extras for test dependencies.
 - Added `round` column syntax and `min_periods=<n>` for rolling window commands.
 - Added read-only Streamable HTTP MCP mode for hosted syntax/examples/compile tools.
+- Added shared syntax-token metadata and a read-only `pivotal_highlight` MCP tool.
 - Added compile-time `list` definitions, non-recursive `function` pipeline expansion with positional and keyword arguments, and `pivotal.load_functions()` for Python-callable wrappers.
 
 ### Fixed

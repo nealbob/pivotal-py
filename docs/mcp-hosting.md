@@ -6,6 +6,7 @@ MCP clients. This mode exposes only documentation and compile-time tools:
 - `pivotal_syntax`
 - `pivotal_examples`
 - `pivotal_compile`
+- `pivotal_highlight`
 
 It does not expose `pivotal_run`, `pivotal_compare`, or file-based comparison
 tools, so remote users can parse and compile Pivotal code but cannot execute

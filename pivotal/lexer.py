@@ -9,6 +9,8 @@ from pygments.token import (
     Comment, Keyword, Name, Number, Operator, Punctuation, String, Text,
 )
 
+from .syntax_metadata import token_category
+
 
 class PivotalLexer(RegexLexer):
     """Lexer for the Pivotal data transformation DSL."""
@@ -18,49 +20,16 @@ class PivotalLexer(RegexLexer):
     filenames = ['*.pivotal']
     mimetypes = ['text/x-pivotal']
 
-    # Primary DSL verbs
-    KEYWORDS = (
-        'with', 'load', 'from', 'delete', 'save', 'concat',
-        'filter', 'assert', 'check', 'select', 'drop', 'distinct', 'rename',
-        'sort', 'order', 'group', 'by', 'agg',
-        'merge', 'pivot', 'unpivot', 'apply',
-        'intersect', 'cast', 'python', 'end', 'query',
-        'rank', 'lag', 'lead',
-        'cumsum', 'cummean', 'cummin', 'cummax',
-        'rolling', 'fillna', 'dropna',
-        'show', 'plot', 'table', 'all',
+    KEYWORDS = tuple(token_category("statement_keywords"))
+    MODIFIERS = tuple(
+        token_category("clause_keywords")
+        + token_category("merge_modifiers")
+        + token_category("sort_modifiers")
+        + token_category("format_types")
     )
-
-    # Clause keywords, modifiers, and sub-options
-    MODIFIERS = (
-        'as', 'on', 'where', 'else', 'rows', 'cols',
-        'left', 'right', 'inner', 'outer',
-        'asc', 'desc', 'pct',
-        'head', 'summary',
-        'variable', 'value', 'id',
-        'left_on', 'right_on', 'suffixes',
-        'header', 'names', 'path', 'format', 'include', 'exclude',
-        'chart_format',
-        'title', 'subtitle', 'font', 'size', 'stub', 'spanner', 'auto',
-        'label', 'stripe', 'canvas', 'style',
-        'kind', 'colormap', 'legend', 'x', 'y', 'c',
-        'number', 'integer', 'currency', 'percent', 'date',
-        'int', 'float', 'string', 'str', 'bool', 'boolean', 'datetime', 'strict',
-    )
-
-    # Word-form logical and comparison operators
-    WORD_OPS = (
-        'and', 'or', 'not', 'in', 'unique', 'null', 'between',
-        'contains', 'startswith', 'endswith',
-    )
-
-    # Built-in aggregation and string functions
-    BUILTINS = (
-        'sum', 'mean', 'count', 'min', 'max', 'median', 'std', 'nunique',
-        'wmean', 'wavg', 'avg',
-        'upper', 'lower', 'trim', 'ltrim', 'rtrim',
-        'left', 'right', 'substr', 'len', 'replace',
-    )
+    WORD_OPS = tuple(token_category("word_operators"))
+    BUILTINS = tuple(token_category("builtin_functions"))
+    CONSTANTS = tuple(token_category("constants"))
 
     tokens = {
         'root': [
@@ -91,8 +60,7 @@ class PivotalLexer(RegexLexer):
             (words(BUILTINS,  suffix=r'\b'), Name.Builtin),
 
             # Boolean / None literals
-            (words(('True', 'False', 'true', 'false', 'None', 'none'), suffix=r'\b'),
-             Keyword.Constant),
+            (words(CONSTANTS, suffix=r'\b'), Keyword.Constant),
 
             # Identifiers (table names, column names, etc.)
             (r'[a-zA-Z_]\w*',         Name),

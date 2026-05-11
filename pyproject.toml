@@ -42,6 +42,7 @@ classifiers = [
 # For a minimal pandas-only install use: pip install --no-deps pivotal
 dependencies = [
     "lark>=1.1",
+    "Pygments>=2.14",
     "pandas>=1.5",
     "matplotlib>=3.5",
     "polars>=0.20",
@@ -105,6 +106,9 @@ Repository = "https://github.com/nealbob/pivotal-py"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pivotal*"]
+
+[tool.setuptools.package-data]
+pivotal = ["syntax_tokens.json"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
