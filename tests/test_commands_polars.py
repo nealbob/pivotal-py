@@ -835,9 +835,16 @@ def test_assign_user_func(parser, sample_df):
         return s * 2
 
     ns = {'sales': sample_df, 'double': double}
-    run(parser, 'with sales\ndoubled = double(price)', ns)
+    run(parser, 'with sales\ndoubled = :double(price)', ns)
     assert 'doubled' in ns['sales'].columns
     assert ns['sales']['doubled'][0] == pytest.approx(999.99 * 2)
+
+
+def test_assign_user_func_requires_python_prefix(parser, sample_df):
+    ast_list = parser.parse('with sales\ndoubled = double(price)')
+
+    with pytest.raises(ValueError, match="must be called with ':'"):
+        parser.generate_code(ast_list, backend='polars')
 
 
 # ===========================================================================
@@ -1342,7 +1349,7 @@ def test_apply_polars(parser, output_df):
         return df.with_columns((pl.col('price') * 2).alias('price'))
 
     ns = {'sales': output_df, 'double_price': double_price}
-    run(parser, 'with sales\napply double_price\n', ns)
+    run(parser, 'with sales\napply :double_price\n', ns)
     assert ns['sales']['price'][0] == pytest.approx(999.99 * 2)
 
 

@@ -43,7 +43,7 @@ All operations are **in-place on the active DataFrame** — `filter`, `select`, 
 - `load`, `save`, and `delete` are standalone — not indented under `with`
 - Column names and table names are bare identifiers (no quotes)
 - Strings use double or single quotes: `"North"`, `'2024-01-01'`
-- **Python runtime variables** are referenced with a `:` prefix: `:my_var` — the value is substituted at execution time
+- **Python runtime variables and callables** are referenced with a `:` prefix: `:my_var`, `:my_func(col)` — the value is resolved at execution time
 
 
 ## Loading data
@@ -191,7 +191,7 @@ with sales
     filter region in regions
 ```
 
-Use `:name` only for Python runtime variables. A Pivotal `list` is expanded before backend code generation, so it works with SQL export when all values are literal.
+Use `:name` only for Python runtime values such as variables or callables. A Pivotal `list` is expanded before backend code generation, so it works with SQL export when all values are literal.
 
 Loop assignment targets can build new names with string suffixes or prefixes:
 ```pivotal
@@ -577,6 +577,20 @@ with sales
     newvar = "prefix" + :val
 ```
 
+Python runtime functions also use `:` in column expressions. The function should accept a Series-like column and return a Series-like result:
+
+```pivotal
+python
+    def clean_name(s):
+        return s.str.strip().str.upper()
+end
+
+with sales
+    name = :clean_name(name)
+```
+
+Bare function calls in column expressions are reserved for Pivotal built-ins such as `upper(name)`, `year(date)`, or backend-native functions. Use `:my_func(col)` for Python functions.
+
 ## Python blocks
 
 Python code can be embedded directly. This is the primary way to define helper functions or perform operations that Pivotal doesn't cover. The `python`/`end` block is available in both `%%pivotal` cells and `.pivotal` files.
@@ -592,7 +606,7 @@ python
 end
 
 with sales
-    name = clean(name)
+    name = :clean(name)
     python sales["outlier"] = flag_outlier(sales)
 ```
 
@@ -619,7 +633,7 @@ Call a Python function on the active DataFrame and replace it with the result:
 
 ```pivotal
 with sales
-    apply my_cleaning_function
+    apply :my_cleaning_function
 ```
 
 The function must accept a DataFrame and return a DataFrame. Define it in a `python` block first.
@@ -663,6 +677,7 @@ These are patterns that look plausible but are wrong:
 | `with clean from sales` | `with sales as clean` | Copy syntax uses `with <source> as <name>` |
 | `where amount > 0` (as a statement) | `filter amount > 0` | `where` is only valid as a sub-clause inside an assignment |
 | `python` block without `end` | close every multi-line `python` block with `end` | Missing `end` is a syntax error |
+| `clean_name(name)` for a Python helper | `:clean_name(name)` | Python runtime functions in column expressions need `:` |
 | `:mylist[0]` or `:mydict['key']` | `python val = mylist[0]` then `:val` | Subscript indexing on `:var` is not supported |
 
 ---

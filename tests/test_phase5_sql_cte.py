@@ -471,7 +471,7 @@ def test_python_block_skipped(parser):
 
 
 def test_apply_skipped(parser):
-    sql = gen_sql(parser, 'with sales\napply my_func\n')
+    sql = gen_sql(parser, 'with sales\napply :my_func\n')
     assert '[skipped' in sql
 
 

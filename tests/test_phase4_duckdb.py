@@ -90,13 +90,13 @@ def test_apply_duckdb(parser, sample_df):
     conn = make_conn('sales', sample_df)
     # Make clean_prices available in the namespace
     ns = ddb_ns(conn, {'clean_prices': clean_prices})
-    run_ddb(parser, 'with sales\napply clean_prices\n', ns)
+    run_ddb(parser, 'with sales\napply :clean_prices\n', ns)
     df = fetch(ns, 'sales')
     assert list(df['price']) == pytest.approx([p * 3 for p in sample_df['price']])
 
 
 def test_codegen_apply_duckdb(parser):
-    dsl = 'with sales\napply my_func\n'
+    dsl = 'with sales\napply :my_func\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
     assert '_pvt.execute(' in code       # re-registers the table
     assert 'my_func' in code

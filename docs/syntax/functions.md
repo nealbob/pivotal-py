@@ -15,7 +15,7 @@ with sales
     filter region in regions
 ```
 
-Use `:name` for Python runtime variables. Pivotal lists are resolved before backend generation, which makes them suitable for SQL export.
+Use `:name` for Python runtime values such as variables or callables. Pivotal lists are resolved before backend generation, which makes them suitable for SQL export.
 
 ## Pipeline Functions
 

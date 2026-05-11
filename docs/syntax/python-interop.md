@@ -35,7 +35,7 @@ python
 end
 
 with sales
-    price = clean_price(price)
+    price = :clean_price(price)
 ```
 
 ### In Jupyter notebooks
@@ -72,7 +72,7 @@ end
 
 ## User-defined functions
 
-Define Python functions in a `python...end` block and call them in column expressions:
+Define Python functions in a `python...end` block and call them in column expressions with `:`:
 
 ```pivotal
 python
@@ -84,9 +84,11 @@ python
 end
 
 with sales
-    price = clean_price(price)
-    abbr = initials(name)
+    price = :clean_price(price)
+    abbr = :initials(name)
 ```
+
+The `:` prefix marks the function as a Python runtime callable. Bare calls such as `upper(name)` are reserved for Pivotal built-ins or backend-native functions.
 
 ---
 
@@ -107,15 +109,15 @@ python
 end
 
 with sales
-    apply remove_outliers
+    apply :remove_outliers
 
 with sales
-    apply normalise
+    apply :normalise
     group by category
         agg mean amount as avg_z_score
 ```
 
-The function receives the active DataFrame and must return a DataFrame.
+The `:` prefix marks the function as a Python runtime callable. The function receives the active DataFrame and must return a DataFrame.
 
 ---
 
@@ -153,19 +155,19 @@ For larger projects — or when working in an editor like VS Code — it's natur
 ### Importing a Python module
 
 ```pivotal
-python import myscript
+python from myscript import clean_price
 
 with sales
-    price = myscript.clean_price(price)
+    price = :clean_price(price)
 ```
 
-Or use `from ... import *` to bring everything into the shared namespace and call functions directly:
+Or use `from ... import *` to bring everything into the shared namespace:
 
 ```pivotal
 python from myscript import *
 
 with sales
-    price = clean_price(price)
+    price = :clean_price(price)
 ```
 
 ### VS Code workflow
@@ -198,8 +200,8 @@ python from transforms import *
 load "sales.csv" as sales
 
 with sales
-    price = clean_price(price)
-    apply flag_outliers
+    price = :clean_price(price)
+    apply :flag_outliers
 ```
 
 ### Data science pipeline pattern
@@ -233,7 +235,7 @@ load "sales.csv" as sales
 
 with sales
     filter region == "North"
-    apply fit_model
+    apply :fit_model
 
 with sales as summary
     group by category

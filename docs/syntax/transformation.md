@@ -13,6 +13,22 @@ with sales
 
 Any arithmetic expression is valid: `+`, `-`, `*`, `/`, `**` (power).
 
+## Python runtime functions
+
+Python functions in the runtime namespace use `:` in column expressions:
+
+```pivotal
+python
+    def clean_price(s):
+        return s.str.replace("$", "").astype(float)
+end
+
+with sales
+    price = :clean_price(price)
+```
+
+Bare function calls are for Pivotal built-ins such as `upper(name)` or backend-native functions. Use `:my_func(col)` when calling Python.
+
 ## Column loops
 
 Use a `for` block to apply assignment statements to several columns:

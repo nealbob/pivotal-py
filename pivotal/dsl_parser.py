@@ -157,7 +157,7 @@ grammar_indented = r"""
     show_statement: "show" SHOW_MODE? _NL?
     SHOW_MODE: "head" | "summary"
 
-    apply_statement: "apply" IDENTIFIER _NL?
+    apply_statement: "apply" (PYTHON_VAR | IDENTIFIER) _NL?
 
     agg_plot_statement: ("pivot" "plot" | "agg" "plot") IDENTIFIER IDENTIFIER? (_NL | _NL _INDENT agg_plot_params _DEDENT)?
 
@@ -1313,10 +1313,15 @@ class DSLTransformer(Transformer):
         return {str(old): str(new)}
 
     def apply_statement(self, func):
+        if not isinstance(func, dict) or func.get('type') != 'var':
+            raise ValueError(
+                "Python function used with apply must be prefixed with ':'. "
+                "Use apply :function_name."
+            )
         return {
             'type': 'apply',
             'table_name': self.current_table,
-            'func': str(func)
+            'func': func['name']
         }
 
     def delete_statement(self, *args):
@@ -2830,14 +2835,29 @@ class CodeGenerator:
     })
     _DATE_TWO_ARG = frozenset({'date_diff', 'date_add'})
 
-    def _parse_user_func_call(self, expr):
-        """If expr matches 'func(col)' and func is not a built-in, return (func, col).
+    def _parse_python_func_call(self, expr):
+        """If expr matches ':func(col)' and func is not a built-in, return (func, col).
         Otherwise return None."""
         import re
-        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)', expr.strip())
+        m = re.fullmatch(r'[:@]([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)', expr.strip())
         if m and m.group(1) not in self._BUILTIN_FUNCS:
             return m.group(1), m.group(2)
         return None
+
+    def _bare_unknown_func_call(self, expr):
+        """Return function name for bare non-built-in func(col), else None."""
+        import re
+        m = re.fullmatch(r'([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)', expr.strip())
+        if m and m.group(1) not in self._BUILTIN_FUNCS:
+            return m.group(1)
+        return None
+
+    def _raise_bare_python_func_call(self, func):
+        raise ValueError(
+            f"Python function '{func}' must be called with ':' in a column expression. "
+            f"Use :{func}(column) for a Python runtime function, or use a built-in Pivotal "
+            "function without ':'."
+        )
 
     # -------------------------------------------------------------------------
     # String expression helpers
@@ -3269,10 +3289,13 @@ class CodeGenerator:
             scalar_minmax = self._try_scalar_minmax_pandas(expr_value, table)
             if scalar_minmax is not None:
                 return f"({scalar_minmax})"
-            user_call = self._parse_user_func_call(expr_value)
+            user_call = self._parse_python_func_call(expr_value)
             if user_call:
                 func, col = user_call
                 return f"{func}({table}['{col}'])"
+            bare_func = self._bare_unknown_func_call(expr_value)
+            if bare_func:
+                self._raise_bare_python_func_call(bare_func)
             if self._is_scalar_expr(expr_value):
                 return expr_value
             return f"{table}.eval('{expr_value}')"
@@ -3333,7 +3356,10 @@ class CodeGenerator:
                 return code
             return f"import numpy as np\n{table}['{target}'] = {scalar_minmax}"
 
-        user_call = self._parse_user_func_call(expr)
+        user_call = self._parse_python_func_call(expr)
+        bare_func = self._bare_unknown_func_call(expr)
+        if bare_func:
+            self._raise_bare_python_func_call(bare_func)
 
         if conditions:
             if user_call:
@@ -3924,10 +3950,13 @@ class CodeGenerator:
             string_code = self._parse_string_expr_polars(expr_value)
             if string_code is not None:
                 return string_code
-            user_call = self._parse_user_func_call(expr_value)
+            user_call = self._parse_python_func_call(expr_value)
             if user_call:
                 func, col = user_call
                 return f"pl.col('{col}').map_batches({func})"
+            bare_func = self._bare_unknown_func_call(expr_value)
+            if bare_func:
+                self._raise_bare_python_func_call(bare_func)
             return self._expr_to_polars(expr_value, by_cols)
 
         def _conditional_wrap(polars_expr):
@@ -3961,8 +3990,8 @@ class CodeGenerator:
                 return _conditional_wrap(string_code)
             return f"{table} = {table}.with_columns({string_code}.alias('{target}'))"
 
-        # User-defined function call: func(col)
-        user_call = self._parse_user_func_call(expr)
+        # Python runtime function call: :func(col)
+        user_call = self._parse_python_func_call(expr)
         if user_call:
             func, col = user_call
             if conditions:
@@ -3979,6 +4008,10 @@ class CodeGenerator:
                     f")"
                 )
             return f"{table} = {table}.with_columns(pl.col('{col}').map_batches({func}).alias('{target}'))"
+
+        bare_func = self._bare_unknown_func_call(expr)
+        if bare_func:
+            self._raise_bare_python_func_call(bare_func)
 
         # General arithmetic / scalar expression
         polars_expr = self._expr_to_polars(expr, by_cols)

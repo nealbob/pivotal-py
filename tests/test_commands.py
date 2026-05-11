@@ -1102,7 +1102,7 @@ def test_apply_adds_column(parser, sample_df):
         return df
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'add_tax': add_tax}
-    run(parser, 'with sales\napply add_tax', ns)
+    run(parser, 'with sales\napply :add_tax', ns)
     assert 'tax' in ns['sales'].columns
     assert ns['sales'].iloc[0]['tax'] == pytest.approx(999.99 * 0.2)
 
@@ -1112,8 +1112,15 @@ def test_apply_filters_rows(parser, sample_df):
         return df[df['category'] == 'Electronics'].reset_index(drop=True)
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'only_electronics': only_electronics}
-    run(parser, 'with sales\napply only_electronics', ns)
+    run(parser, 'with sales\napply :only_electronics', ns)
     assert all(ns['sales']['category'] == 'Electronics')
+
+
+def test_apply_requires_python_prefix(parser):
+    result = parser.parse('with sales\napply clean_sales\n')
+
+    assert 'error' in result
+    assert "apply :function_name" in result['error'].message
 
 
 # ---------------------------------------------------------------------------
@@ -1125,9 +1132,17 @@ def test_assign_user_func(parser, sample_df):
         return s * 2
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'double': double}
-    run(parser, 'with sales\ndoubled = double(price)', ns)
+    run(parser, 'with sales\ndoubled = :double(price)', ns)
     assert 'doubled' in ns['sales'].columns
     assert ns['sales'].iloc[0]['doubled'] == pytest.approx(999.99 * 2)
+
+
+def test_assign_user_func_requires_python_prefix(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy(), 'double': lambda s: s * 2}
+    ast_list = parser.parse('with sales\ndoubled = double(price)')
+
+    with pytest.raises(ValueError, match="must be called with ':'"):
+        parser.generate_code(ast_list)
 
 
 def test_assign_user_func_with_where(parser, sample_df):
@@ -1135,7 +1150,7 @@ def test_assign_user_func_with_where(parser, sample_df):
         return s * 0.9
 
     ns = {'pd': pd, 'sales': sample_df.copy(), 'discount': discount}
-    run(parser, 'with sales\ndiscounted = discount(price)\n    where category == "Electronics"', ns)
+    run(parser, 'with sales\ndiscounted = :discount(price)\n    where category == "Electronics"', ns)
     assert 'discounted' in ns['sales'].columns
     electronics = ns['sales'][ns['sales']['category'] == 'Electronics']
     assert all(electronics['discounted'].notna())

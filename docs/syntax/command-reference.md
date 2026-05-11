@@ -14,7 +14,7 @@ for longer examples and explanation.
 | `<value>` | Boolean, number, string, identifier, path, `None`, or Python variable |
 | `<expr>` | Raw expression text parsed by the selected backend |
 | `<condition>` | One or more comparisons joined by `and` or `or` |
-| `:var` | Python runtime variable |
+| `:var` / `:func(col)` | Python runtime variable or callable |
 | `[ ... ]` | Optional syntax in this reference, unless shown inside code as a list |
 
 Pivotal identifiers start with a letter and may contain letters, numbers, and
@@ -196,6 +196,14 @@ Multi-case assignment:
 
 The `else` branch is optional. Without it, unmatched rows receive the backend's
 missing value.
+
+Python runtime functions in assignment expressions must use `:`:
+
+```pivotal
+<target_col> = :python_func(<col>)
+```
+
+Bare function calls are reserved for built-in Pivotal functions and backend-native functions.
 
 ### `for`
 
@@ -667,7 +675,7 @@ parsing, so comments and indentation inside the Python code are preserved.
 Apply a Python function to the active table:
 
 ```pivotal
-apply <python_function_name>
+apply :<python_function_name>
 ```
 
 The function receives the active DataFrame and must return a DataFrame.
