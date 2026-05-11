@@ -370,17 +370,17 @@ Aggregation item forms:
 <func> <col-or-python-var> [as <new_col>]
 <func>(<col-or-python-var>) [as <new_col>]
 wmean(<col-or-python-var>, <weight-col-or-python-var>) [as <new_col>]
-wavg(<col-or-python-var>, <weight-col-or-python-var>) [as <new_col>]
 wmean <weight-col-or-python-var> <col-or-python-var> [as <new_col>]
-wavg <weight-col-or-python-var> <col-or-python-var> [as <new_col>]
 wmean <weight-col-or-python-var> <col1> <col2> ...
-wavg <weight-col-or-python-var> <col1> <col2> ...
 :python_func <col> ... [as <new_col>]
 :python_func(<col>, ..., <kw>=<value>) [as <new_col>]
 ```
 
 Built-in aggregation functions accepted by the grammar are `mean`, `avg`, `sum`,
 `min`, `max`, `count`, `median`, `std`, and `nunique`.
+
+Older `wavg` syntax is accepted as a backward-compatible alias for `wmean`, but
+new code should use `wmean`.
 
 Pivotal also expands shorthand such as:
 
@@ -736,4 +736,3 @@ round-bracket lists:
 ```pivotal
 clean_sales(raw, clean, (price, cost), min_amount=:threshold)
 ```
-
