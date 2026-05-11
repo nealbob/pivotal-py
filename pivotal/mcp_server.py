@@ -53,6 +53,26 @@ _TOPIC_ALIASES = {
     "weighted average": ("wmean", "weighted mean", "aggregation"),
 }
 
+_CORE_GUIDANCE = (
+    "Pivotal is an indented, pipeline-oriented DSL for data transformation. "
+    "It compiles to Python by default using pandas DataFrames, and can also "
+    "target polars, duckdb, or SQL. Core conventions: `with table` sets the "
+    "active DataFrame; `with source as name` creates a derived copy and makes "
+    "it active; indented statements mutate the active table in place. `load`, "
+    "`save`, and `delete` are standalone top-level commands. Table and column "
+    "names are bare identifiers; strings use quotes; Python runtime variables "
+    "and callables use `:` such as `:threshold` or `:clean_func(col)`. "
+    "Canonical example:\n"
+    "with sales\n"
+    "    filter amount > 100\n"
+    "    revenue = price * quantity\n"
+    "\n"
+    "with sales as report\n"
+    "    group by region\n"
+    "        agg sum revenue as total_revenue\n"
+    "    sort total_revenue desc\n"
+)
+
 _HIGHLIGHT_CSS = """
 .pvt-code-block {
   position: relative;
@@ -967,6 +987,7 @@ def create_mcp_server(
         "Pivotal",
         instructions=(
             "Tools for generating, running, and comparing Pivotal DSL code. "
+            f"{_CORE_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then verify generated code "
             "with pivotal_run or pivotal_compare before giving a final answer. "
@@ -998,6 +1019,7 @@ def create_readonly_mcp_server(
         "Pivotal Read Only",
         instructions=(
             "Read-only tools for learning and compiling Pivotal DSL code. "
+            f"{_CORE_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then use pivotal_compile "
             "to check that the source parses and compiles. "

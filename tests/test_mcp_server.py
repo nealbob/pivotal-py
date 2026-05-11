@@ -181,6 +181,18 @@ def test_create_mcp_server_requires_optional_dependency_when_missing():
         assert hasattr(server, "run")
 
 
+def test_mcp_server_startup_instructions_include_core_guidance():
+    pytest.importorskip("mcp")
+
+    server = mcp_server.create_mcp_server()
+
+    assert "compiles to Python by default using pandas" in server.instructions
+    assert "`with table` sets the active DataFrame" in server.instructions
+    assert "Canonical example:" in server.instructions
+    assert "with sales as report" in server.instructions
+    assert "pivotal_docs_search" in server.instructions
+
+
 def test_parse_args_defaults_preserve_local_stdio():
     args = mcp_server._parse_args([])
 
