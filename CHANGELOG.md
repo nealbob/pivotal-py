@@ -28,6 +28,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added a copy-to-clipboard button to the default `pivotal_highlight` HTML output.
 - Added compile-time `list` definitions, non-recursive `function` pipeline expansion with positional and keyword arguments, and `pivotal.load_functions()` for Python-callable wrappers.
 - Added MCP documentation tools for indexing, reading, and searching Pivotal docs, including command-reference and topic docs.
+- Added and reorganized documentation, including a complete syntax reference, a pandas-to-Pivotal cheatsheet, clearer backend and Pivotal-vs-Python navigation, and a discoverable MCP Server page.
 
 ### Fixed
 
