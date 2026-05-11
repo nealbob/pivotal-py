@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import html
 import json
 import os
@@ -15,6 +16,43 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SYNTAX_PATH = _REPO_ROOT / "PIVOTAL.md"
 
 _HIGHLIGHT_CSS = """
+.pvt-code-block {
+  position: relative;
+  margin: 0;
+}
+.pvt-code-block .pvt-code {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 3rem 1rem 1rem;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  color: #111827;
+  font: 0.875rem/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+}
+.pvt-copy-button {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+  z-index: 1;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  padding: 0.35rem 0.65rem;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font: 0.75rem/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.pvt-copy-button:hover {
+  background: #f1f5f9;
+}
+.pvt-copy-button.pvt-copy-success {
+  border-color: #0f766e;
+  background: #ccfbf1;
+  color: #0f766e;
+}
 .pvt-keyword { color: #7c3aed; font-weight: 600; }
 .pvt-clause { color: #2563eb; font-weight: 500; }
 .pvt-builtin { color: #0f766e; }
@@ -27,6 +65,53 @@ _HIGHLIGHT_CSS = """
 .pvt-comment { color: #64748b; font-style: italic; }
 .pvt-constant { color: #0891b2; }
 """.strip()
+
+_COPY_BUTTON_SCRIPT = """
+(function(button) {
+  var block = button.closest('.pvt-code-block');
+  var code = block && block.querySelector('.pvt-code');
+  var text = code ? code.innerText : '';
+  function markCopied() {
+    var original = button.getAttribute('data-label') || button.textContent;
+    button.setAttribute('data-label', original);
+    button.textContent = 'Copied!';
+    button.classList.add('pvt-copy-success');
+    window.setTimeout(function() {
+      button.textContent = original;
+      button.classList.remove('pvt-copy-success');
+    }, 2000);
+  }
+  function fallbackCopy() {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    markCopied();
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(markCopied, fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
+})(this);
+""".strip()
+
+
+def _render_highlighted_code_block(highlighted_html: str, *, include_css: bool) -> str:
+    style = f"<style>\n{_HIGHLIGHT_CSS}\n</style>\n" if include_css else ""
+    return (
+        f"{style}"
+        '<div class="pvt-code-block">'
+        '<button class="pvt-copy-button" type="button" '
+        f'onclick="{html.escape(_COPY_BUTTON_SCRIPT, quote=True)}">Copy</button>'
+        f'<pre class="pvt-code">{highlighted_html}</pre>'
+        "</div>"
+    )
 
 
 def _load_input_files(input_files: Optional[Mapping[str, str]]) -> dict[str, Any]:
@@ -150,11 +235,26 @@ def compile_pivotal_source(source: str, backend: str = "pandas") -> dict[str, An
             "error_type": type(exc).__name__,
             "message": str(exc),
         }
+    generated_code = "\n\n".join(code_blocks)
+    if backend != "sql":
+        try:
+            ast.parse(generated_code)
+        except SyntaxError as exc:
+            return {
+                "ok": False,
+                "stage": "codegen_syntax",
+                "backend": backend,
+                "error_type": type(exc).__name__,
+                "message": exc.msg,
+                "line": exc.lineno,
+                "column": exc.offset,
+                "generated_code": generated_code,
+            }
     return {
         "ok": True,
         "stage": "codegen",
         "backend": backend,
-        "generated_code": "\n\n".join(code_blocks),
+        "generated_code": generated_code,
     }
 
 
@@ -194,8 +294,9 @@ def highlight_pivotal_source(
     include_html: bool = True,
     include_tokens: bool = True,
     include_css: bool = True,
+    include_copy_button: bool = True,
 ) -> dict[str, Any]:
-    """Return syntax-highlighted Pivotal as HTML and/or a token stream."""
+    """Return syntax-highlighted Pivotal as copyable HTML and/or a token stream."""
     from pygments import lex
 
     from .lexer import PivotalLexer
@@ -225,7 +326,12 @@ def highlight_pivotal_source(
 
     result: dict[str, Any] = {"ok": True}
     if include_html:
-        result["html"] = "".join(parts)
+        highlighted_html = "".join(parts)
+        result["html"] = (
+            _render_highlighted_code_block(highlighted_html, include_css=include_css)
+            if include_copy_button
+            else highlighted_html
+        )
     if include_tokens:
         result["tokens"] = tokens
     if include_css:
@@ -368,14 +474,16 @@ def _register_readonly_tools(mcp) -> None:
         include_html: bool = True,
         include_tokens: bool = True,
         include_css: bool = True,
+        include_copy_button: bool = True,
     ) -> dict[str, Any]:
-        """Return syntax-highlighted Pivotal source as HTML and/or tokens."""
+        """Return syntax-highlighted Pivotal source as copyable HTML and/or tokens."""
         try:
             return highlight_pivotal_source(
                 source,
                 include_html=include_html,
                 include_tokens=include_tokens,
                 include_css=include_css,
+                include_copy_button=include_copy_button,
             )
         except Exception as exc:  # noqa: BLE001 - tool boundary
             return {

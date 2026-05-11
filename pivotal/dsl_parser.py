@@ -7616,6 +7616,7 @@ class DSLParser:
         # Strip single-line comments line-by-line (respects string literals).
         lines = [self._strip_line_comment(ln) for ln in code.split('\n')]
         code = '\n'.join(lines)
+        self._validate_inline_python_statements(code)
 
         # Allow compact aggregation syntax such as:
         #     agg mean colA, colB
@@ -7686,6 +7687,23 @@ class DSLParser:
             code += '\n'
 
         return code
+
+    def _validate_inline_python_statements(self, code):
+        """Catch incomplete single-line Python before backend codegen."""
+        for line in code.splitlines():
+            match = re.match(r'^[ \t]*python[ \t]+(.+?)\s*$', line)
+            if not match:
+                continue
+            source = match.group(1)
+            if source.startswith('__PYBLOCK_') and source.endswith('__'):
+                continue
+            try:
+                ast.parse(source, mode='exec')
+            except SyntaxError as exc:
+                raise ValueError(
+                    "Invalid inline Python statement. Use a python/end block for "
+                    f"multi-line Python such as function definitions: {exc.msg}"
+                ) from exc
 
     def _replace_loop_identifier(self, text, loop_var, column):
         """Replace a bare loop variable in expression text, preserving strings."""

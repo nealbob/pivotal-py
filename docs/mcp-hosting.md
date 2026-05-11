@@ -12,6 +12,11 @@ It does not expose `pivotal_run`, `pivotal_compare`, or file-based comparison
 tools, so remote users can parse and compile Pivotal code but cannot execute
 Python/data pipelines or read files from the server.
 
+`pivotal_highlight` returns copyable HTML by default: the highlighted code is
+wrapped in a styled `<pre>` block with a top-right button that copies the plain
+Pivotal source via `innerText`. Pass `include_copy_button=false` when a client
+needs only the bare highlighted span fragment.
+
 ## Local Smoke Test
 
 Install the MCP extra:

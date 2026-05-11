@@ -47,6 +47,17 @@ def test_compile_pivotal_source_does_not_execute():
     assert "sales" in result["generated_code"]
 
 
+def test_compile_pivotal_source_rejects_incomplete_inline_python():
+    result = mcp_server.compile_pivotal_source(
+        "python def clean(value):\n    return value\n",
+        backend="pandas",
+    )
+
+    assert result["ok"] is False
+    assert result["stage"] == "parse"
+    assert "python/end block" in result["message"]
+
+
 def test_compile_pivotal_source_accepts_recent_syntax():
     result = mcp_server.compile_pivotal_source(
         (
@@ -69,14 +80,31 @@ def test_highlight_pivotal_source_returns_html_and_tokens():
     )
 
     assert result["ok"] is True
+    assert '<div class="pvt-code-block">' in result["html"]
+    assert '<button class="pvt-copy-button" type="button"' in result["html"]
+    assert '<pre class="pvt-code">' in result["html"]
+    assert "innerText" in result["html"]
+    assert "navigator.clipboard.writeText" in result["html"]
     assert '<span class="pvt-keyword">with</span>' in result["html"]
     assert '<span class="pvt-keyword">round</span>' in result["html"]
     assert '<span class="pvt-number">2</span>' in result["html"]
+    assert ".pvt-copy-button" in result["css"]
     assert result["css"]
     token_types = {token["text"]: token["type"] for token in result["tokens"] if token["text"].strip()}
     assert token_types["with"] == "keyword"
     assert token_types["round"] == "keyword"
     assert token_types["2"] == "number"
+
+
+def test_highlight_pivotal_source_can_return_bare_html_fragment():
+    result = mcp_server.highlight_pivotal_source(
+        'with sales\n',
+        include_copy_button=False,
+    )
+
+    assert result["ok"] is True
+    assert result["html"].startswith('<span class="pvt-keyword">with</span>')
+    assert "pvt-copy-button" not in result["html"]
 
 
 def test_get_pivotal_examples_documents_input_files_shape():
