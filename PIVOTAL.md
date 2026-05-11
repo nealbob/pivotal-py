@@ -420,7 +420,7 @@ with sales as result
 
 Merge types: `merge` (inner)  `left merge`  `right merge`  `outer merge`
 
-## Pivot and unpivot
+## Pivot tables and unpivot (melt)
 
 ```pivotal
 with sales as pivot_result
@@ -437,7 +437,7 @@ with wide as long
         value "amount"
 ```
 
-Here `variable` and `amount` are optional parameters that just allow the user to customtise the names of the variable and value columns.
+Here `variable` and `value` are optional parameters that allow the user to customtise the names of the variable and value columns.
 
 ## Type casting
 

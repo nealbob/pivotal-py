@@ -26,6 +26,59 @@ def test_get_pivotal_syntax_reports_missing_topic():
     assert "No Pivotal syntax section matched" in result["message"]
 
 
+def test_get_pivotal_syntax_uses_specific_alias_sections():
+    result = mcp_server.get_pivotal_syntax(topic="melt", max_chars=2000)
+
+    assert result["ok"] is True
+    assert "pivot" in result["heading"].lower()
+    assert "unpivot" in result["heading"].lower()
+    assert "unpivot" in result["content"]
+    assert "melt" in result["matched_terms"]
+    assert result["content"].startswith("## Pivot")
+
+
+def test_get_pivotal_syntax_full_default_includes_later_sections():
+    result = mcp_server.get_pivotal_syntax()
+
+    assert result["ok"] is True
+    assert result["truncated"] is False
+    assert "unpivot" in result["content"]
+
+
+def test_pivotal_docs_index_lists_command_reference():
+    result = mcp_server.get_pivotal_docs_index()
+
+    paths = {doc["path"] for doc in result["documents"]}
+    assert result["ok"] is True
+    assert "docs/syntax/command-reference.md" in paths
+    assert "PIVOTAL.md" in paths
+
+
+def test_pivotal_docs_can_read_command_reference_by_path():
+    result = mcp_server.get_pivotal_docs(path="docs/syntax/command-reference.md", max_chars=2000)
+
+    assert result["ok"] is True
+    assert result["path"] == "docs/syntax/command-reference.md"
+    assert "# Command Reference" in result["content"]
+
+
+def test_pivotal_docs_topic_search_uses_docs_pages():
+    result = mcp_server.get_pivotal_docs(topic="reshape", max_chars=1200)
+
+    assert result["ok"] is True
+    assert result["path"] in {"PIVOTAL.md", "docs/syntax/reshaping.md", "docs/syntax/command-reference.md"}
+    assert "unpivot" in result["content"].lower() or "pivot" in result["content"].lower()
+    assert "reshaping" in result["matched_terms"]
+
+
+def test_pivotal_docs_search_returns_ranked_excerpts():
+    result = mcp_server.search_pivotal_docs("melt", max_results=3, max_chars=600)
+
+    assert result["ok"] is True
+    assert result["results"]
+    assert any("unpivot" in item["excerpt"].lower() for item in result["results"])
+
+
 def test_mcp_load_input_files_reads_csv(tmp_path):
     csv_path = tmp_path / "sales.csv"
     pd.DataFrame({"amount": [1, 2]}).to_csv(csv_path, index=False)
@@ -210,6 +263,9 @@ def test_mcp_readonly_stdio_exposes_only_compile_safe_tools():
 
     assert tool_names == [
         "pivotal_compile",
+        "pivotal_docs",
+        "pivotal_docs_index",
+        "pivotal_docs_search",
         "pivotal_examples",
         "pivotal_highlight",
         "pivotal_syntax",

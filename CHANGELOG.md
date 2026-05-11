@@ -27,11 +27,13 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added shared syntax-token metadata and a read-only `pivotal_highlight` MCP tool.
 - Added a copy-to-clipboard button to the default `pivotal_highlight` HTML output.
 - Added compile-time `list` definitions, non-recursive `function` pipeline expansion with positional and keyword arguments, and `pivotal.load_functions()` for Python-callable wrappers.
+- Added MCP documentation tools for indexing, reading, and searching Pivotal docs, including command-reference and topic docs.
 
 ### Fixed
 
 - Fixed and expanded the test suite around command parsing and backend behavior, including pandas, Polars, DuckDB, and SQL CTE coverage.
 - Fixed MCP compile validation so incomplete inline Python such as `python def ...:` is rejected instead of reporting successful code generation.
+- Fixed MCP syntax topic lookup so aliases such as `melt` and `reshape` return specific pivot/unpivot guidance instead of the start of `PIVOTAL.md`.
 - Standardized Python runtime function calls to require `:` in column expressions and `apply` statements, matching custom aggregation syntax.
 - Fixed JupyterLab autocomplete and highlighting for column `for` loops, including column suggestions in `for <name> in ...` headers and distinct loop-placeholder styling.
 - Fixed the JupyterLab extension asset copy step so local builds and editable installs work on Windows.

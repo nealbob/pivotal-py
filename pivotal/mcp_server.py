@@ -6,6 +6,7 @@ import ast
 import html
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
@@ -14,6 +15,43 @@ from .dsl_parser import DSLParser
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SYNTAX_PATH = _REPO_ROOT / "PIVOTAL.md"
+_PUBLIC_DOCS_BASE_URL = "https://nealbob.github.io/pivotal-py"
+_FULL_SYNTAX_MAX_CHARS = 25000
+
+_DOC_FILES = (
+    "PIVOTAL.md",
+    "README.md",
+    "docs/syntax/index.md",
+    "docs/syntax/command-reference.md",
+    "docs/syntax/data-quality.md",
+    "docs/syntax/data-sources.md",
+    "docs/syntax/filtering.md",
+    "docs/syntax/functions.md",
+    "docs/syntax/grouping.md",
+    "docs/syntax/joining.md",
+    "docs/syntax/missing-data.md",
+    "docs/syntax/output.md",
+    "docs/syntax/python-interop.md",
+    "docs/syntax/reshaping.md",
+    "docs/syntax/saving.md",
+    "docs/syntax/selection.md",
+    "docs/syntax/sorting.md",
+    "docs/syntax/transformation.md",
+    "docs/syntax/window-functions.md",
+    "docs/jupyter.md",
+)
+
+_TOPIC_ALIASES = {
+    "melt": ("unpivot", "reshaping", "pivot"),
+    "reshape": ("reshaping", "pivot", "unpivot"),
+    "reshaping": ("reshaping", "pivot", "unpivot"),
+    "wide": ("pivot", "reshaping"),
+    "long": ("unpivot", "melt", "reshaping"),
+    "spread": ("pivot", "reshaping"),
+    "gather": ("unpivot", "melt", "reshaping"),
+    "wavg": ("wmean", "weighted mean", "aggregation"),
+    "weighted average": ("wmean", "weighted mean", "aggregation"),
+}
 
 _HIGHLIGHT_CSS = """
 .pvt-code-block {
@@ -150,6 +188,50 @@ def _trim_text(text: str, max_chars: int) -> tuple[str, bool]:
     return text[:max_chars].rstrip() + "\n\n[truncated]", True
 
 
+def _relative_doc_path(path: Path) -> str:
+    return path.relative_to(_REPO_ROOT).as_posix()
+
+
+def _public_doc_url(relative_path: str) -> str:
+    if relative_path == "PIVOTAL.md":
+        return f"{_PUBLIC_DOCS_BASE_URL}/syntax/"
+    if relative_path == "README.md":
+        return _PUBLIC_DOCS_BASE_URL
+    if relative_path.startswith("docs/") and relative_path.endswith(".md"):
+        page = relative_path.removeprefix("docs/").removesuffix(".md")
+        if page.endswith("/index"):
+            page = page.removesuffix("/index")
+        return f"{_PUBLIC_DOCS_BASE_URL}/{page}/"
+    return _PUBLIC_DOCS_BASE_URL
+
+
+def _iter_doc_paths() -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for relative in _DOC_FILES:
+        path = (_REPO_ROOT / relative).resolve()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        paths.append(path)
+    return paths
+
+
+def _resolve_doc_path(path_text: str) -> Optional[Path]:
+    normalized = path_text.replace("\\", "/").strip().lstrip("/")
+    for path in _iter_doc_paths():
+        relative = _relative_doc_path(path)
+        if normalized in {relative, path.name, relative.removeprefix("docs/")}:
+            return path
+    return None
+
+
+def _slugify_heading(text: str) -> str:
+    text = re.sub(r"`([^`]+)`", r"\1", text.lower())
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+    return text
+
+
 def _syntax_heading_level(line: str) -> Optional[int]:
     stripped = line.lstrip()
     if not stripped.startswith("#"):
@@ -160,49 +242,283 @@ def _syntax_heading_level(line: str) -> Optional[int]:
     return None
 
 
-def get_pivotal_syntax(topic: Optional[str] = None, max_chars: int = 12000) -> dict[str, Any]:
-    """Return all or part of PIVOTAL.md for MCP syntax grounding."""
-    text = _SYNTAX_PATH.read_text(encoding="utf-8")
+def _extract_heading_text(line: str) -> str:
+    level = _syntax_heading_level(line)
+    if level is None:
+        return ""
+    return line.lstrip()[level + 1:].strip()
+
+
+def _document_sections(path: Path) -> list[dict[str, Any]]:
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    headings: list[tuple[int, int, str]] = []
+    for idx, line in enumerate(lines):
+        level = _syntax_heading_level(line)
+        if level is not None:
+            headings.append((idx, level, _extract_heading_text(line)))
+
+    sections: list[dict[str, Any]] = []
+    for pos, (start, level, heading) in enumerate(headings):
+        end = len(lines)
+        for next_start, next_level, _ in headings[pos + 1:]:
+            if next_level <= level:
+                end = next_start
+                break
+        body = "\n".join(lines[start:end])
+        sections.append({
+            "heading": heading,
+            "level": level,
+            "start_line": start + 1,
+            "end_line": end,
+            "content": body,
+        })
+    return sections
+
+
+def _topic_terms(topic: str) -> list[str]:
+    topic_lower = topic.lower().strip()
+    terms = [topic_lower]
+    terms.extend(_TOPIC_ALIASES.get(topic_lower, ()))
+    return list(dict.fromkeys(term.lower() for term in terms if term))
+
+
+def _term_count(text: str, term: str) -> int:
+    if re.fullmatch(r"[a-z0-9_]+", term):
+        return len(re.findall(rf"(?<![a-z0-9_]){re.escape(term)}(?![a-z0-9_])", text))
+    return text.count(term)
+
+
+def _section_score(section: Mapping[str, Any], terms: Sequence[str]) -> int:
+    heading = str(section["heading"]).lower()
+    content = str(section["content"]).lower()
+    score = 0
+    matched = False
+    for term in terms:
+        if term == heading or term == _slugify_heading(heading):
+            score += 120
+            matched = True
+        heading_count = _term_count(heading, term)
+        content_count = _term_count(content, term)
+        if heading_count:
+            score += 80
+            matched = True
+        if content_count:
+            score += 10 + content_count
+            matched = True
+    if matched:
+        score += max(0, 6 - int(section["level"]))
+    return score
+
+
+def _best_matching_sections(
+    docs: Sequence[Path],
+    topic: str,
+    *,
+    max_results: int = 5,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    terms = _topic_terms(topic)
+    matches: list[dict[str, Any]] = []
+    for path in docs:
+        relative = _relative_doc_path(path)
+        for section in _document_sections(path):
+            # The H1 section usually wraps the whole page; prefer specific child sections.
+            if int(section["level"]) == 1:
+                heading_lower = str(section["heading"]).lower()
+                if not any(_term_count(heading_lower, term) for term in terms):
+                    continue
+            score = _section_score(section, terms)
+            if score <= 0:
+                continue
+            matches.append({
+                "score": score,
+                "source": str(path),
+                "path": relative,
+                "url": _public_doc_url(relative),
+                "heading": section["heading"],
+                "level": section["level"],
+                "start_line": section["start_line"],
+                "end_line": section["end_line"],
+                "content": section["content"],
+            })
+
+    matches.sort(
+        key=lambda item: (
+            item["score"],
+            -int(item["level"]),
+            -(item["end_line"] - item["start_line"]),
+        ),
+        reverse=True,
+    )
+    return matches[:max_results], terms
+
+
+def get_pivotal_docs_index() -> dict[str, Any]:
+    """Return available Pivotal documentation pages and headings."""
+    documents: list[dict[str, Any]] = []
+    for path in _iter_doc_paths():
+        relative = _relative_doc_path(path)
+        sections = _document_sections(path)
+        title = sections[0]["heading"] if sections else path.stem
+        documents.append({
+            "path": relative,
+            "source": str(path),
+            "url": _public_doc_url(relative),
+            "title": title,
+            "headings": [
+                {
+                    "level": section["level"],
+                    "heading": section["heading"],
+                    "line": section["start_line"],
+                }
+                for section in sections
+            ],
+        })
+    return {"ok": True, "documents": documents}
+
+
+def get_pivotal_docs(
+    topic: Optional[str] = None,
+    path: Optional[str] = None,
+    max_chars: int = 12000,
+) -> dict[str, Any]:
+    """Return Pivotal documentation by topic or allowlisted local docs path."""
+    if path:
+        doc_path = _resolve_doc_path(path)
+        if doc_path is None:
+            return {
+                "ok": False,
+                "topic": topic,
+                "path": path,
+                "content": "",
+                "truncated": False,
+                "message": f"Unknown Pivotal docs path '{path}'. Call pivotal_docs_index for valid paths.",
+            }
+        text = doc_path.read_text(encoding="utf-8")
+        content, truncated = _trim_text(text, max_chars)
+        relative = _relative_doc_path(doc_path)
+        return {
+            "ok": True,
+            "topic": topic,
+            "path": relative,
+            "source": str(doc_path),
+            "url": _public_doc_url(relative),
+            "content": content,
+            "truncated": truncated,
+        }
+
     if not topic:
+        return get_pivotal_docs_index()
+
+    matches, terms = _best_matching_sections(_iter_doc_paths(), topic)
+    if not matches:
+        return {
+            "ok": False,
+            "topic": topic,
+            "matched_terms": terms,
+            "content": "",
+            "matches": [],
+            "truncated": False,
+            "message": f"No Pivotal documentation section matched topic '{topic}'.",
+        }
+
+    best = matches[0]
+    content, truncated = _trim_text(str(best["content"]), max_chars)
+    return {
+        "ok": True,
+        "topic": topic,
+        "matched_terms": terms,
+        "path": best["path"],
+        "source": best["source"],
+        "url": best["url"],
+        "heading": best["heading"],
+        "start_line": best["start_line"],
+        "content": content,
+        "truncated": truncated,
+        "matches": [
+            {
+                "path": match["path"],
+                "url": match["url"],
+                "heading": match["heading"],
+                "start_line": match["start_line"],
+                "score": match["score"],
+            }
+            for match in matches
+        ],
+    }
+
+
+def search_pivotal_docs(query: str, max_results: int = 8, max_chars: int = 1200) -> dict[str, Any]:
+    """Search Pivotal docs sections and return compact matching excerpts."""
+    matches, terms = _best_matching_sections(_iter_doc_paths(), query, max_results=max_results)
+    results: list[dict[str, Any]] = []
+    for match in matches:
+        content, truncated = _trim_text(str(match["content"]), max_chars)
+        results.append({
+            "path": match["path"],
+            "source": match["source"],
+            "url": match["url"],
+            "heading": match["heading"],
+            "start_line": match["start_line"],
+            "score": match["score"],
+            "excerpt": content,
+            "truncated": truncated,
+        })
+    return {
+        "ok": bool(results),
+        "query": query,
+        "matched_terms": terms,
+        "results": results,
+        "message": "" if results else f"No Pivotal docs matched query '{query}'.",
+    }
+
+
+def get_pivotal_syntax(topic: Optional[str] = None, max_chars: int = _FULL_SYNTAX_MAX_CHARS) -> dict[str, Any]:
+    """Return all or part of PIVOTAL.md for MCP syntax grounding."""
+    if not topic:
+        text = _SYNTAX_PATH.read_text(encoding="utf-8")
         content, truncated = _trim_text(text, max_chars)
         return {
             "ok": True,
             "topic": None,
             "source": str(_SYNTAX_PATH),
+            "path": _relative_doc_path(_SYNTAX_PATH),
+            "url": _public_doc_url(_relative_doc_path(_SYNTAX_PATH)),
             "content": content,
             "truncated": truncated,
         }
 
-    lines = text.splitlines()
-    topic_lower = topic.lower()
-    sections: list[tuple[int, int, int]] = []
-    for idx, line in enumerate(lines):
-        level = _syntax_heading_level(line)
-        if level is not None:
-            sections.append((idx, level, len(lines)))
-    for pos, (start, level, _) in enumerate(sections):
-        end = len(lines)
-        for next_start, next_level, _ in sections[pos + 1:]:
-            if next_level <= level:
-                end = next_start
-                break
-        sections[pos] = (start, level, end)
-
-    for start, _, end in sections:
-        body = "\n".join(lines[start:end])
-        if topic_lower in body.lower():
-            content, truncated = _trim_text(body, max_chars)
-            return {
-                "ok": True,
-                "topic": topic,
-                "source": str(_SYNTAX_PATH),
-                "content": content,
-                "truncated": truncated,
-            }
+    matches, terms = _best_matching_sections([_SYNTAX_PATH], topic)
+    if matches:
+        best = matches[0]
+        content, truncated = _trim_text(str(best["content"]), max_chars)
+        return {
+            "ok": True,
+            "topic": topic,
+            "matched_terms": terms,
+            "source": best["source"],
+            "path": best["path"],
+            "url": best["url"],
+            "heading": best["heading"],
+            "start_line": best["start_line"],
+            "content": content,
+            "truncated": truncated,
+            "matches": [
+                {
+                    "path": match["path"],
+                    "url": match["url"],
+                    "heading": match["heading"],
+                    "start_line": match["start_line"],
+                    "score": match["score"],
+                }
+                for match in matches
+            ],
+        }
 
     return {
         "ok": False,
         "topic": topic,
+        "matched_terms": terms,
         "source": str(_SYNTAX_PATH),
         "content": "",
         "truncated": False,
@@ -451,9 +767,28 @@ def _register_readonly_tools(mcp) -> None:
     """Register tools that never execute user code or read user data files."""
 
     @mcp.tool()
-    def pivotal_syntax(topic: Optional[str] = None, max_chars: int = 12000) -> dict[str, Any]:
+    def pivotal_syntax(topic: Optional[str] = None, max_chars: int = _FULL_SYNTAX_MAX_CHARS) -> dict[str, Any]:
         """Return Pivotal language syntax guidance from PIVOTAL.md."""
         return get_pivotal_syntax(topic=topic, max_chars=max_chars)
+
+    @mcp.tool()
+    def pivotal_docs_index() -> dict[str, Any]:
+        """Return available Pivotal docs pages and their headings."""
+        return get_pivotal_docs_index()
+
+    @mcp.tool()
+    def pivotal_docs(
+        topic: Optional[str] = None,
+        path: Optional[str] = None,
+        max_chars: int = 12000,
+    ) -> dict[str, Any]:
+        """Return Pivotal docs by topic or allowlisted docs path."""
+        return get_pivotal_docs(topic=topic, path=path, max_chars=max_chars)
+
+    @mcp.tool()
+    def pivotal_docs_search(query: str, max_results: int = 8, max_chars: int = 1200) -> dict[str, Any]:
+        """Search Pivotal docs sections and return compact excerpts."""
+        return search_pivotal_docs(query=query, max_results=max_results, max_chars=max_chars)
 
     @mcp.tool()
     def pivotal_examples(kind: Optional[str] = None) -> dict[str, Any]:
@@ -632,6 +967,9 @@ def create_mcp_server(
         "Pivotal",
         instructions=(
             "Tools for generating, running, and comparing Pivotal DSL code. "
+            "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
+            "or pivotal_syntax before writing code, then verify generated code "
+            "with pivotal_run or pivotal_compare before giving a final answer. "
             "Prefer native Pivotal syntax and use python blocks only for "
             "operations that Pivotal cannot express. For tools with input_files, "
             "pass a mapping of Pivotal table name to local CSV/Parquet file path, "
@@ -653,13 +991,16 @@ def create_readonly_mcp_server(
     port: Optional[int] = None,
     stateless_http: bool = True,
 ):
-    """Create a hosted-safe MCP server with syntax/examples/compile only."""
+    """Create a hosted-safe MCP server with docs, syntax, examples, and compile tools."""
     if port is None:
         port = int(os.environ.get("PORT", "8000"))
     mcp = _create_fastmcp(
         "Pivotal Read Only",
         instructions=(
             "Read-only tools for learning and compiling Pivotal DSL code. "
+            "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
+            "or pivotal_syntax before writing code, then use pivotal_compile "
+            "to check that the source parses and compiles. "
             "This server parses and compiles Pivotal source but does not run "
             "data pipelines, execute user Python, read user files, or compare "
             "against pandas scripts."
@@ -677,7 +1018,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--read-only",
         action="store_true",
-        help="Expose only syntax, examples, and compile tools for hosted use.",
+        help="Expose only docs, syntax, examples, and compile tools for hosted use.",
     )
     parser.add_argument(
         "--transport",
