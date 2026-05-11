@@ -49,6 +49,7 @@ nav:
   - Getting Started: getting-started.md
   - Syntax Reference:
     - syntax/index.md
+    - Command Reference: syntax/command-reference.md
     - Data Sources: syntax/data-sources.md
     - Filtering: syntax/filtering.md
     - Data Quality: syntax/data-quality.md
