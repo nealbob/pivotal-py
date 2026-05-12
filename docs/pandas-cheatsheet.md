@@ -40,7 +40,11 @@ load "sales.csv" as sales
       <td markdown="1">
 
 ```python
-sales = pd.read_csv("sales.csv", sep=";", header=0)
+sales = pd.read_csv(
+    "sales.csv",
+    sep=";",
+    header=0,
+)
 ```
 
 </td>
@@ -128,7 +132,8 @@ with sales as active
 
 ```python
 high_value = sales[
-    (sales["status"] == "active") & (sales["revenue"] > 1000)
+    (sales["status"] == "active")
+    & (sales["revenue"] > 1000)
 ]
 ```
 
@@ -148,7 +153,9 @@ with sales as high_value
       <td markdown="1">
 
 ```python
-east_west = sales[sales["region"].isin(["East", "West"])]
+east_west = sales[
+    sales["region"].isin(["East", "West"])
+]
 ```
 
 </td>
@@ -184,7 +191,9 @@ with sales as report
       <td markdown="1">
 
 ```python
-clean = sales.drop(columns=["debug_flag", "notes"])
+clean = sales.drop(
+    columns=["debug_flag", "notes"]
+)
 ```
 
 </td>
@@ -202,7 +211,12 @@ with sales as clean
       <td markdown="1">
 
 ```python
-renamed = sales.rename(columns={"qty": "quantity", "rev": "revenue"})
+renamed = sales.rename(
+    columns={
+        "qty": "quantity",
+        "rev": "revenue",
+    }
+)
 ```
 
 </td>
@@ -220,7 +234,10 @@ with sales as renamed
       <td markdown="1">
 
 ```python
-top = sales.sort_values("revenue", ascending=False)
+top = sales.sort_values(
+    "revenue",
+    ascending=False,
+)
 ```
 
 </td>
@@ -256,7 +273,9 @@ with sales as unique_sales
       <td markdown="1">
 
 ```python
-unique_products = sales.drop_duplicates(["product", "category"])
+unique_products = sales.drop_duplicates(
+    ["product", "category"]
+)
 ```
 
 </td>
@@ -306,7 +325,11 @@ with sales
       <td markdown="1">
 
 ```python
-sales["tier"] = np.where(sales["revenue"] > 1000, "high", "standard")
+sales["tier"] = np.where(
+    sales["revenue"] > 1000,
+    "high",
+    "standard",
+)
 ```
 
 </td>
@@ -326,7 +349,10 @@ with sales
       <td markdown="1">
 
 ```python
-clean = sales.fillna({"region": "Unknown", "revenue": 0})
+clean = sales.fillna({
+    "region": "Unknown",
+    "revenue": 0,
+})
 ```
 
 </td>
@@ -346,7 +372,9 @@ with sales as clean
       <td markdown="1">
 
 ```python
-complete = sales.dropna(subset=["customer_id", "revenue"])
+complete = sales.dropna(
+    subset=["customer_id", "revenue"]
+)
 ```
 
 </td>
@@ -364,7 +392,9 @@ with sales as complete
       <td markdown="1">
 
 ```python
-sales["order_date"] = pd.to_datetime(sales["order_date"])
+sales["order_date"] = pd.to_datetime(
+    sales["order_date"]
+)
 ```
 
 </td>
@@ -414,7 +444,11 @@ with sales
       <td markdown="1">
 
 ```python
-by_region = sales.groupby("region", as_index=False)["revenue"].sum()
+by_region = (
+    sales
+    .groupby("region", as_index=False)["revenue"]
+    .sum()
+)
 ```
 
 </td>
@@ -433,10 +467,14 @@ with sales as by_region
       <td markdown="1">
 
 ```python
-summary = sales.groupby("region", as_index=False).agg(
-    total=("revenue", "sum"),
-    avg_order=("revenue", "mean"),
-    orders=("order_id", "count"),
+summary = (
+    sales
+    .groupby("region", as_index=False)
+    .agg(
+        total=("revenue", "sum"),
+        avg_order=("revenue", "mean"),
+        orders=("order_id", "count"),
+    )
 )
 ```
 
@@ -458,7 +496,10 @@ with sales as summary
       <td markdown="1">
 
 ```python
-totals = sales.agg(total=("revenue", "sum"), avg=("revenue", "mean"))
+totals = sales.agg(
+    total=("revenue", "sum"),
+    avg=("revenue", "mean"),
+)
 ```
 
 </td>
@@ -543,7 +584,11 @@ with monthly_sales as long
       <td markdown="1">
 
 ```python
-enriched = sales.merge(customers, on="customer_id", how="left")
+enriched = sales.merge(
+    customers,
+    on="customer_id",
+    how="left",
+)
 ```
 
 </td>
@@ -561,7 +606,12 @@ with sales as enriched
       <td markdown="1">
 
 ```python
-enriched = sales.merge(customers, left_on="customer_id", right_on="id", how="left")
+enriched = sales.merge(
+    customers,
+    left_on="customer_id",
+    right_on="id",
+    how="left",
+)
 ```
 
 </td>
@@ -581,7 +631,11 @@ with sales as enriched
       <td markdown="1">
 
 ```python
-all_sales = pd.concat([jan_sales, feb_sales, mar_sales])
+all_sales = pd.concat([
+    jan_sales,
+    feb_sales,
+    mar_sales,
+])
 ```
 
 </td>
@@ -613,7 +667,10 @@ with jan_sales as all_sales
       <td markdown="1">
 
 ```python
-sales["regional_rank"] = sales.groupby("region")["revenue"].rank(ascending=False)
+sales["regional_rank"] = (
+    sales.groupby("region")["revenue"]
+    .rank(ascending=False)
+)
 ```
 
 </td>
@@ -633,7 +690,10 @@ with sales
 
 ```python
 sales = sales.sort_values("date")
-sales["prev_revenue"] = sales.groupby("region")["revenue"].shift(1)
+sales["prev_revenue"] = (
+    sales.groupby("region")["revenue"]
+    .shift(1)
+)
 ```
 
 </td>
@@ -654,7 +714,10 @@ with sales
 
 ```python
 sales = sales.sort_values("date")
-sales["running_revenue"] = sales.groupby("region")["revenue"].cumsum()
+sales["running_revenue"] = (
+    sales.groupby("region")["revenue"]
+    .cumsum()
+)
 ```
 
 </td>
@@ -676,7 +739,10 @@ with sales
 ```python
 sales = sales.sort_values("date")
 sales["rolling_avg"] = (
-    sales.groupby("region")["revenue"].rolling(7).mean().reset_index(level=0, drop=True)
+    sales.groupby("region")["revenue"]
+    .rolling(7)
+    .mean()
+    .reset_index(level=0, drop=True)
 )
 ```
 
