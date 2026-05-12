@@ -31,7 +31,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added and reorganized documentation, including a complete syntax reference, a pandas-to-Pivotal cheatsheet, clearer backend and Pivotal-vs-Python navigation, and a discoverable MCP Server page.
 - Added `show shape` and `show columns` output variants.
 - Added `quantile` and `percentile` as built-in aggregation functions for assignment expressions and `agg` statements.
-- Added compile-time `scalar` and `dict` definitions, JSON/YAML config dict loading, dot-path config lookup, and Pivotal list indexing.
+- Added persistent native `scalar` and `dict` definitions, JSON/YAML config dict loading, dot-path config lookup, Pivotal list indexing, and indexed `:` runtime references for lists/dicts.
 
 ### Fixed
 

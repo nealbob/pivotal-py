@@ -1413,7 +1413,7 @@ class PivotalMagics(Magics):
         if not cell.endswith('\n'):
             cell += '\n'
 
-        results = self.parser.parse(cell)
+        results = self.parser.parse(cell, self.shell.user_ns)
 
         if isinstance(results, dict) and 'error' in results:
             err = results['error']
@@ -1421,6 +1421,15 @@ class PivotalMagics(Magics):
                 err = PivotalError(message=str(err), error_type="Error")
             display_error(err, cell)
             return
+
+        defs = self.parser.parse_definitions(cell, self.shell.user_ns)
+        if isinstance(defs, dict) and 'error' in defs:
+            err = defs['error']
+            if not isinstance(err, PivotalError):
+                err = PivotalError(message=str(err), error_type="Error")
+            display_error(err, cell)
+            return
+        self.parser._store_pivotal_values(self.shell.user_ns, defs.get('defined_values', {}))
 
         # Semantic validation — collect errors but don't block execution.
         # Only surfaced if the cell actually errors at runtime (avoids false

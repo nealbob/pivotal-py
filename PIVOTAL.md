@@ -179,7 +179,7 @@ with sales
 
 Python-list loops are not supported by the plain SQL backend because SQL export needs concrete column names.
 
-Pivotal lists define reusable compile-time lists of identifiers or values:
+Pivotal lists define reusable values that also persist into the Python namespace in notebooks and `%%pivotal` cells:
 ```pivotal
 list money_cols = price, cost, revenue
 list regions = "AU", "NZ", "US"
@@ -193,7 +193,7 @@ with sales
     filter zscore > limits[0] and zscore < limits[1]
 ```
 
-Pivotal also supports compile-time scalar and dictionary values. These are expanded before backend code generation, so they work with SQL export when the resolved values are literal:
+Pivotal also supports native scalar and dictionary values. These persist in the Python namespace and are resolved before backend code generation when their values are known:
 ```pivotal
 scalar gst = 0.1
 
@@ -213,17 +213,19 @@ with sales
     tax = price * gst
 ```
 
-Dictionary/config values can also be loaded from JSON or YAML based on file extension:
+Dictionary/config values can also be loaded from JSON or YAML based on file extension, or bound from an existing Python dictionary:
 ```pivotal
 dict config from "config.json"
 dict labels from "labels.yml"
+dict pivotal_dict = :python_dict
 
 with sales
     filter amount > config.thresholds.high
     region_name = labels.regions.AU
+    filter amount > pivotal_dict.thresholds.high
 ```
 
-Use `:name` only for Python runtime values such as variables or callables. Pivotal `list`, `scalar`, and `dict` definitions are compile-time values.
+Pivotal `list`, `scalar`, and `dict` definitions can be used either through native Pivotal syntax such as `config.thresholds.high` and `limits[0]`, or through `:` runtime references once they exist in the Python namespace.
 
 Loop assignment targets can build new names with string suffixes or prefixes:
 ```pivotal
@@ -614,13 +616,12 @@ with sales
 load :data_path as sales
 ```
 
-`:var` supports plain variable names only — subscript indexing (`:mylist[0]`, `:mydict['key']`) is not supported. Extract the value first:
+Subscript indexing is supported for Python lists and dictionaries after `:`:
 
 ```pivotal
-python val = mylist[0]
-
 with sales
-    newvar = "prefix" + :val
+    filter amount < :limits[1]
+    filter amount < :config["thresholds"]["high"]
 ```
 
 Python runtime functions also use `:` in column expressions. The function should accept a Series-like column and return a Series-like result:
@@ -726,7 +727,7 @@ These are patterns that look plausible but are wrong:
 | `where amount > 0` (as a statement) | `filter amount > 0` | `where` is only valid as a sub-clause inside an assignment |
 | `python` block without `end` | close every multi-line `python` block with `end` | Missing `end` is a syntax error |
 | `clean_name(name)` for a Python helper | `:clean_name(name)` | Python runtime functions in column expressions need `:` |
-| `:mylist[0]` or `:mydict['key']` | `python val = mylist[0]` then `:val` | Subscript indexing on `:var` is not supported |
+| `:mylist[0]` or `:mydict['key']` | `:mylist[0]` or `:mydict['key']` | Indexed Python runtime references are supported |
 
 ---
 

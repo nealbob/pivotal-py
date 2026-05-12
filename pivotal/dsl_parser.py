@@ -129,7 +129,8 @@ grammar_indented = r"""
 
     scalar_statement: "scalar" IDENTIFIER "=" function_arg_value _NL?
 
-    dict_statement: "dict" IDENTIFIER "from" (STRING | PATH) _NL? -> dict_from_file
+    dict_statement: "dict" IDENTIFIER "=" function_arg_value _NL? -> dict_assignment
+                  | "dict" IDENTIFIER "from" (STRING | PATH) _NL? -> dict_from_file
                   | "dict" IDENTIFIER _NL _INDENT dict_entries _DEDENT
     dict_entries: dict_entry+
     dict_entry: IDENTIFIER "=" dict_entry_items _NL? -> dict_value_entry
@@ -546,6 +547,9 @@ class DSLTransformer(Transformer):
 
     def dict_from_file(self, name, path):
         return {'type': 'dict_def', 'name': str(name), 'source': str(path)}
+
+    def dict_assignment(self, name, value):
+        return {'type': 'dict_def', 'name': str(name), 'value': value}
 
     def dict_statement(self, name, entries):
         return {'type': 'dict_def', 'name': str(name), 'items': entries}
@@ -7746,7 +7750,8 @@ class DSLParser:
         self.code_generator = CodeGenerator(backend)
         self.autocomplete_file = Path('pivotal_autocomplete.json')
         self.table_info = {}
-        
+        self._pivotal_registry_name = '_pivotal_values'
+
     def update_autocomplete_info(self, globals_dict=None):
         """Update the autocomplete JSON file with current table information"""
         if globals_dict is None:
@@ -7793,6 +7798,110 @@ class DSLParser:
         if table_name:
             return self.table_info.get(table_name, {}).get('columns', [])
         return self.table_info
+
+    def _get_pivotal_values(self, namespace=None):
+        if namespace is None:
+            return {}
+        return namespace.setdefault(self._pivotal_registry_name, {})
+
+    def _runtime_var_expr(self, var_node):
+        expr = var_node['name']
+        for part in var_node.get('path', []):
+            if isinstance(part, int):
+                expr += f'[{part}]'
+            else:
+                expr += f'[{part!r}]'
+        return expr
+
+    def _resolve_runtime_var(self, var_node, namespace):
+        if namespace is None:
+            raise ValueError(f"Python variable ':{var_node['name']}' requires a runtime namespace.")
+        name = var_node['name']
+        if name not in namespace:
+            raise ValueError(f"Python variable ':{name}' was not found.")
+        value = namespace[name]
+        for part in var_node.get('path', []):
+            try:
+                value = value[part]
+            except Exception as exc:
+                raise ValueError(
+                    f"Could not resolve Python variable reference ':{self._runtime_var_expr(var_node)}': {exc}"
+                )
+        return value
+
+    _PYTHON_INDEXED_REF_RE = re.compile(
+        r':[a-zA-Z_][a-zA-Z0-9_]*(?:\[(?:-?\d+|"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')\])+'
+    )
+
+    def _parse_runtime_ref(self, ref):
+        name_match = re.match(r':([a-zA-Z_][a-zA-Z0-9_]*)', ref)
+        if not name_match:
+            raise ValueError(f"Invalid Python variable reference '{ref}'.")
+        name = name_match.group(1)
+        rest = ref[name_match.end():]
+        path = []
+        while rest:
+            if not rest.startswith('['):
+                raise ValueError(f"Invalid Python variable reference '{ref}'.")
+            end = rest.find(']')
+            if end == -1:
+                raise ValueError(f"Invalid Python variable reference '{ref}'.")
+            token = rest[1:end].strip()
+            if token.startswith(("'", '"')):
+                path.append(ast.literal_eval(token))
+            else:
+                path.append(int(token))
+            rest = rest[end + 1:]
+        return {'type': 'var', 'name': name, 'path': path}
+
+    def _rewrite_runtime_refs(self, code, namespace=None):
+        if namespace is None:
+            return code, []
+
+        result = []
+        created = []
+        i = 0
+        quote = None
+        while i < len(code):
+            ch = code[i]
+            if quote:
+                result.append(ch)
+                if ch == '\\' and i + 1 < len(code):
+                    i += 1
+                    result.append(code[i])
+                elif ch == quote:
+                    quote = None
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                quote = ch
+                result.append(ch)
+                i += 1
+                continue
+
+            match = self._PYTHON_INDEXED_REF_RE.match(code, i)
+            if match:
+                ref = match.group(0)
+                temp_name = f"pvt_runtime_ref_{len(created)}"
+                namespace[temp_name] = self._resolve_runtime_var(self._parse_runtime_ref(ref), namespace)
+                created.append(temp_name)
+                result.append(f":{temp_name}")
+                i = match.end()
+                continue
+
+            result.append(ch)
+            i += 1
+
+        return ''.join(result), created
+
+    def _store_pivotal_values(self, namespace, values):
+        if namespace is None:
+            return
+        registry = self._get_pivotal_values(namespace)
+        for name, value in values.items():
+            namespace[name] = copy.deepcopy(value)
+            registry[name] = copy.deepcopy(value)
         
     @staticmethod
     def _strip_line_comment(line):
@@ -8151,18 +8260,18 @@ class DSLParser:
 
         return ''.join(result)
 
-    def _normalise_compile_value(self, value, values):
+    def _normalise_compile_value(self, value, values, namespace=None):
         if isinstance(value, dict):
             node_type = value.get('type')
             if node_type == 'var' and 'name' in value:
-                return copy.deepcopy(value)
+                return copy.deepcopy(self._resolve_runtime_var(value, namespace))
             if node_type == 'compile_ref' and 'path' in value:
                 return self._resolve_compile_ref(value['path'], values)
             if node_type == 'list_ref' and 'name' in value:
                 return self._resolve_compile_value(value, values)
-            return {k: self._normalise_compile_value(v, values) for k, v in value.items()}
+            return {k: self._normalise_compile_value(v, values, namespace) for k, v in value.items()}
         if isinstance(value, list):
-            return [self._normalise_compile_value(item, values) for item in value]
+            return [self._normalise_compile_value(item, values, namespace) for item in value]
         if isinstance(value, str) and not isinstance(value, _LiteralStr) and value in values:
             return copy.deepcopy(values[value])
         return copy.deepcopy(value)
@@ -8251,10 +8360,11 @@ class DSLParser:
 
         return copy.deepcopy(value)
 
-    def _collect_compile_defs(self, ast_list):
+    def _collect_compile_defs(self, ast_list, namespace=None):
         functions = {}
-        lists = {}
+        lists = copy.deepcopy(self._get_pivotal_values(namespace))
         executable = []
+        defined_values = {}
         last_function = None
 
         for node in ast_list:
@@ -8263,17 +8373,29 @@ class DSLParser:
                 continue
             node_type = node.get('type')
             if node_type == 'list_def':
-                lists[node['name']] = self._normalise_compile_value(node.get('items', []), lists)
+                resolved = self._normalise_compile_value(node.get('items', []), lists, namespace)
+                if len(resolved) == 1 and isinstance(resolved[0], list):
+                    resolved = resolved[0]
+                lists[node['name']] = resolved
+                defined_values[node['name']] = copy.deepcopy(resolved)
             elif node_type == 'scalar_def':
-                lists[node['name']] = self._normalise_compile_value(node.get('value'), lists)
+                resolved = self._normalise_compile_value(node.get('value'), lists, namespace)
+                lists[node['name']] = resolved
+                defined_values[node['name']] = copy.deepcopy(resolved)
             elif node_type == 'dict_def':
                 if node.get('source') is not None:
-                    lists[node['name']] = self._normalise_compile_value(
+                    resolved = self._normalise_compile_value(
                         self._load_compile_dict(node['source']),
                         lists,
+                        namespace,
                     )
                 else:
-                    lists[node['name']] = self._normalise_compile_value(node.get('items', {}), lists)
+                    raw_value = node.get('value', node.get('items', {}))
+                    resolved = self._normalise_compile_value(raw_value, lists, namespace)
+                if not isinstance(resolved, dict):
+                    raise ValueError(f"Dict '{node['name']}' must resolve to a dictionary.")
+                lists[node['name']] = resolved
+                defined_values[node['name']] = copy.deepcopy(resolved)
             elif node_type == 'function_def':
                 name = node['name']
                 if name in PIVOTAL_KEYWORDS:
@@ -8290,7 +8412,7 @@ class DSLParser:
                 last_function = None
                 executable.append(node)
 
-        return executable, functions, lists
+        return executable, functions, lists, defined_values
 
     def _bind_function_args(self, fn, call, lists):
         params = fn.get('params', [])
@@ -8369,8 +8491,8 @@ class DSLParser:
 
         return expanded
 
-    def _expand_compile_time_features(self, ast_list):
-        executable, functions, lists = self._collect_compile_defs(ast_list)
+    def _expand_compile_time_features(self, ast_list, namespace=None):
+        executable, functions, lists, _ = self._collect_compile_defs(ast_list, namespace)
         return self._expand_function_calls(executable, functions, lists)
 
     def _resolve_loop_target(self, target, loop_var, column):
@@ -8501,13 +8623,14 @@ class DSLParser:
 
         return expanded
 
-    def parse(self, code):
+    def parse(self, code, namespace=None):
         """Parse DSL code and return AST or {'error': PivotalError}."""
         try:
             processed_code = self.preprocess_code(code)
+            processed_code, _ = self._rewrite_runtime_refs(processed_code, namespace)
             result = self.parser.parse(processed_code)
-            result = self._expand_compile_time_features(result)
-            return self._expand_for_loops(result)
+            result = self._expand_compile_time_features(result, namespace)
+            return self._expand_for_loops(result, namespace)
         except ValueError as e:
             # Keyword-collision errors raised by the transformer — wrap cleanly.
             return {'error': PivotalError(message=str(e), error_type="Error")}
@@ -8527,13 +8650,14 @@ class DSLParser:
         except Exception as e:
             return {'error': f"Error reading file {filepath}: {str(e)}"}
 
-    def parse_definitions(self, code):
+    def parse_definitions(self, code, namespace=None):
         """Parse compile-time list/function definitions without expanding them."""
         try:
             processed_code = self.preprocess_code(code)
+            processed_code, _ = self._rewrite_runtime_refs(processed_code, namespace)
             result = self.parser.parse(processed_code)
-            executable, functions, lists = self._collect_compile_defs(result)
-            return {'executable': executable, 'functions': functions, 'lists': lists}
+            executable, functions, lists, defined_values = self._collect_compile_defs(result, namespace)
+            return {'executable': executable, 'functions': functions, 'lists': lists, 'defined_values': defined_values}
         except ValueError as e:
             return {'error': PivotalError(message=str(e), error_type="Error")}
         except (UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError) as e:
@@ -8688,11 +8812,17 @@ class DSLParser:
         if 'pd' not in globals_dict:
             globals_dict['pd'] = pd
         
-        results = self.parse(code)
+        results = self.parse(code, globals_dict)
 
         if isinstance(results, dict) and 'error' in results:
             print(f"Parse error: {results['error']}")
             return None
+
+        defs = self.parse_definitions(code, globals_dict)
+        if isinstance(defs, dict) and 'error' in defs:
+            print(f"Parse error: {defs['error']}")
+            return None
+        self._store_pivotal_values(globals_dict, defs.get('defined_values', {}))
 
         try:
             if backend != 'sql':

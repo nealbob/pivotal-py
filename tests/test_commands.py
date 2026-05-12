@@ -314,6 +314,70 @@ with sales
     assert ns['sales']['label'].tolist() == ['New Zealand']
 
 
+def test_pivotal_values_persist_across_execute_calls(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'region': ['AU', 'NZ', 'US'],
+            'amount': [10, 20, 30],
+        }),
+    }
+
+    parser.execute('''
+list regions = "AU", "NZ"
+dict config
+    thresholds
+        high = 25
+''', ns, verbose=False)
+
+    parser.execute('''
+with sales
+    filter region in regions and amount < config.thresholds.high
+''', ns, verbose=False)
+
+    assert ns['regions'] == ['AU', 'NZ']
+    assert ns['config']['thresholds']['high'] == 25
+    assert ns['sales']['region'].tolist() == ['AU', 'NZ']
+
+
+def test_python_indexed_runtime_refs_work(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'region': ['AU', 'NZ', 'US'],
+            'amount': [10, 20, 30],
+        }),
+        'config': {'thresholds': {'high': 25}},
+        'regions': ['AU', 'NZ'],
+    }
+
+    parser.execute('''
+with sales
+    filter region in :regions and amount < :config["thresholds"]["high"]
+''', ns, verbose=False)
+
+    assert ns['sales']['region'].tolist() == ['AU', 'NZ']
+
+
+def test_dict_can_bind_existing_python_dict_for_native_lookup(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'amount': [10, 20, 30],
+        }),
+        'python_dict': {'thresholds': {'high': 25}},
+    }
+
+    parser.execute('dict pivotal_dict = :python_dict', ns, verbose=False)
+    parser.execute('''
+with sales
+    filter amount < pivotal_dict.thresholds.high
+''', ns, verbose=False)
+
+    assert ns['pivotal_dict']['thresholds']['high'] == 25
+    assert ns['sales']['amount'].tolist() == [10, 20]
+
+
 def test_function_expands_pipeline_with_named_list_and_keyword_default(parser):
     ns = {
         'pd': pd,
