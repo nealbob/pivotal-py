@@ -136,12 +136,14 @@ def test_highlight_pivotal_source_returns_html_and_tokens():
     assert '<div class="pvt-code-block">' in result["html"]
     assert '<button class="pvt-copy-button" type="button"' in result["html"]
     assert '<pre class="pvt-code">' in result["html"]
+    assert '<pre class="pvt-code">\n' not in result["html"]
     assert "innerText" in result["html"]
     assert "navigator.clipboard.writeText" in result["html"]
     assert '<span class="pvt-keyword">with</span>' in result["html"]
     assert '<span class="pvt-keyword">round</span>' in result["html"]
     assert '<span class="pvt-number">2</span>' in result["html"]
     assert ".pvt-copy-button" in result["css"]
+    assert "padding: 1rem 5.5rem 1rem 1rem;" in result["css"]
     assert result["css"]
     token_types = {token["text"]: token["type"] for token in result["tokens"] if token["text"].strip()}
     assert token_types["with"] == "keyword"

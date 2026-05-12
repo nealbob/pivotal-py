@@ -89,7 +89,7 @@ _HIGHLIGHT_CSS = """
 .pvt-code-block .pvt-code {
   box-sizing: border-box;
   margin: 0;
-  padding: 3rem 1rem 1rem;
+  padding: 1rem 5.5rem 1rem 1rem;
   overflow: auto;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
