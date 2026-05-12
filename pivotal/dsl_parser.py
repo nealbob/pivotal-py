@@ -5210,9 +5210,15 @@ class CodeGenerator:
             lines.append(f"_ipyd({table})")
         return "\n".join(lines)
 
+    def _format_plot_kwarg_value(self, value):
+        """Render an already-resolved plot kwarg value as Python source."""
+        if isinstance(value, dict) and value.get('type') == 'var':
+            return value['name']
+        return repr(value)
+
     def generate_plot_pandas(self, ast_node):
         kind = ast_node['kind']
-        kwargs_str = ast_node['kwargs_str']
+        kwargs = ast_node.get('kwargs', {})
         table = ast_node['table_name']
         chart_key = ast_node['name']
         on = ast_node.get('on')
@@ -5220,11 +5226,14 @@ class CodeGenerator:
         n_cols = int(ast_node.get('cols') or 2)
         style = ast_node.get('style')
 
-        args_str = ""
+        arg_parts = []
         if kind:
-            args_str += f"kind='{kind}'"
-        if kwargs_str:
-            args_str = f"{args_str}, {kwargs_str}" if args_str else kwargs_str
+            arg_parts.append(f"kind={kind!r}")
+        arg_parts.extend(
+            f"{key}={self._format_plot_kwarg_value(value)}"
+            for key, value in kwargs.items()
+        )
+        args_str = ', '.join(arg_parts)
 
         lines = ["import matplotlib.pyplot as plt"]
 
@@ -5251,7 +5260,6 @@ class CodeGenerator:
 
         if on:
             # Layer onto an existing single-axis figure
-            kwargs = ast_node.get('kwargs', {})
             preserve_xlabel = 'xlabel' not in kwargs
             preserve_ylabel = 'ylabel' not in kwargs
             lines += [
