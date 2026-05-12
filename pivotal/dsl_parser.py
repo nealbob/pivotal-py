@@ -275,7 +275,7 @@ grammar_indented = r"""
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
-    MERGE_TYPE: "left" | "right" | "inner" | "outer"
+    MERGE_TYPE.2: "left" | "right" | "inner" | "outer"
     keys: IDENTIFIER ("," IDENTIFIER)*
     RIGHT_TABLE: IDENTIFIER
 
