@@ -22,7 +22,7 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 **AI support** — ask an LLM or coding agent to generate, run, verify, and compare Pivotal code via the Pivotal MCP server
 
-**Comprehensive data pipelines** — build full workflows with data-quality checks, reusable pipeline functions, column loops, and loadable config / metadata values
+**Comprehensive data pipelines** — build full workflows with data-quality checks, pipeline functions, column loops, and loadable config / metadata values
 
 **Plotting and tables** — create charts and publication-ready tables with simple syntax, backed by matplotlib and Great Tables
 

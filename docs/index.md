@@ -113,12 +113,14 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 ## Key features
 
-- **Readable, Writable syntax** — write data transformations in a simple declarative syntax
-- **Multiple backends** — run the same code as Pandas, Polars or DuckDB/SQL
-- **JupyterLab and VS Code integration** — syntax highlighting, autocomplete, `%%pivotal` cell magic, interactive object viewer and explorer,  GUI controls
-- **Export to code** — compile any notebook or `.pivotal` file to `.py` or `.sql`
-- **Plotting & tables** — built-in chart and publication-ready table support
-- **Data packages** — export all output (DataFrames, charts, tables) to a single [Frictionless](https://specs.frictionlessdata.io/) data package
+**Readable, writable syntax** — write data transformations in a concise declarative syntax that feels familiar to SQL and Pandas users
+**Multiple backends** — compile to Pandas, Polars, or in-process DuckDB SQL
+**JupyterLab and VS Code integration** — syntax highlighting, autocomplete, `%%pivotal` cell magic, interactive object viewer and explorer, and GUI controls
+**AI support** — ask an LLM or coding agent to generate, run, verify, and compare Pivotal code via the Pivotal MCP server
+**Comprehensive data pipelines** — build full workflows with data-quality checks, pipeline functions, column loops, and loadable config / metadata values
+**Plotting and tables** — create charts and publication-ready tables with simple syntax, backed by matplotlib and Great Tables
+**Data packages** — export DataFrames, charts, and tables to a single [Frictionless](https://specs.frictionlessdata.io/) data package
+**Python integration** — call Python functions, load Python variables, and mix Pivotal and Python code as needed
   
 ## Install
 
