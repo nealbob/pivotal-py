@@ -389,6 +389,7 @@ grammar_indented = r"""
     ASSIGN_TARGET.-1: /[a-zA-Z][a-zA-Z0-9_]*/
 
     target: ASSIGN_TARGET
+          | IDENTIFIER
     table_name: IDENTIFIER
     copy_table: IDENTIFIER
 
