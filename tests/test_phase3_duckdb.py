@@ -242,6 +242,15 @@ def test_assign_by_agg_duckdb(parser, window_df):
     assert s_total == 150
 
 
+def test_assign_quantile_by_group_duckdb(parser):
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\np90 = quantile(amount, 0.9)\n    by region\n', ns)
+    result = fetch(ns, 'data').sort_values(['region', 'amount']).reset_index(drop=True)
+    assert result['p90'].tolist() == pytest.approx([280.0, 280.0, 380.0, 380.0])
+
+
 def test_codegen_assign_by_agg_duckdb(parser):
     dsl = 'with data\nregion_total = sum(sales)\n    by region\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='duckdb'))
@@ -433,6 +442,15 @@ def test_fillna_string_duckdb(parser):
     run_ddb(parser, 'with data\nfillna "N/A"\n', ns)
     result = fetch(ns, 'data')
     assert result['col'].tolist() == ['a', 'N/A', 'c']
+
+
+def test_fillna_column_reference_duckdb(parser):
+    df = pd.DataFrame({'revenue': [10.0, None, None], 'med_rev': [8.0, 20.0, 30.0]})
+    conn = make_conn('data', df)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\nfillna revenue med_rev\n', ns)
+    result = fetch(ns, 'data')
+    assert result['revenue'].tolist() == pytest.approx([10.0, 20.0, 30.0])
 
 
 def test_codegen_fillna_duckdb(parser):

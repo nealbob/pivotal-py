@@ -18,6 +18,10 @@ _AGG_CALL_RE = re.compile(
     r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
     r'\(([a-zA-Z_][a-zA-Z0-9_]*)\)'
 )
+_QUANTILE_CALL_RE = re.compile(
+    r'\b(quantile|percentile)'
+    r'\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\)'
+)
 _WAVG_CALL_RE = re.compile(
     r'\b(?:wavg|wmean)\(([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\)'
 )
@@ -38,6 +42,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'and', 'or',
     # Aggregation functions
     'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std', 'wavg', 'wmean',
+    'quantile', 'percentile',
     # Sort / merge modifiers
     'asc', 'desc', 'left', 'right', 'inner', 'outer',
     # Atoms
@@ -155,7 +160,7 @@ grammar_indented = r"""
     delete_statement: "delete" IDENTIFIER _NL?
 
     show_statement: "show" SHOW_MODE? _NL?
-    SHOW_MODE: "head" | "summary"
+    SHOW_MODE: "head" | "summary" | "shape" | "columns"
 
     apply_statement: "apply" (PYTHON_VAR | IDENTIFIER) _NL?
 
@@ -234,7 +239,9 @@ grammar_indented = r"""
 
     agg_line: "agg" agg_item ("," agg_item)* _NL?
 
-    agg_item: AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
+    agg_item: QUANTILE_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) "," quantile_value ")" ("as" IDENTIFIER)? -> quantile_bracket_item
+            | QUANTILE_FUNCTION (IDENTIFIER | PYTHON_VAR) quantile_value ("as" IDENTIFIER)? -> quantile_space_item
+            | AGG_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) ")" ("as" IDENTIFIER)?
             | AGG_FUNCTION (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
             | PYTHON_VAR "(" custom_agg_args? ")" "as" IDENTIFIER -> custom_agg_bracket_alias_item
             | PYTHON_VAR "(" custom_agg_args? ")" -> custom_agg_bracket_item
@@ -251,6 +258,7 @@ grammar_indented = r"""
                   | PYTHON_VAR -> custom_agg_col_arg
     custom_agg_kw_arg.2: IDENTIFIER "=" custom_agg_value
     custom_agg_value: value | "[" [value ("," value)*] "]" -> custom_agg_list_value
+    quantile_value: SIGNED_NUMBER | NUMBER
 
     merge_statement: MERGE_TYPE? "merge" RIGHT_TABLE ("on" keys)? (_NL | _NL _INDENT params _DEDENT)?
     
@@ -342,6 +350,7 @@ grammar_indented = r"""
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
     AGG_FUNCTION.2: "mean" | "min" | "max" | "sum" | "count" | "avg" | "median" | "std" | "nunique"
+    QUANTILE_FUNCTION.2: "quantile" | "percentile"
 
     rank_statement: "rank" IDENTIFIER SORT_TYPE? RANK_PCT? "as" IDENTIFIER (_NL | _NL _INDENT window_opts _DEDENT)?
     RANK_PCT: "pct"
@@ -1332,7 +1341,7 @@ class DSLTransformer(Transformer):
         mode = 'df'
         for arg in args:
             if isinstance(arg, Token) and arg.type == 'SHOW_MODE':
-                mode = str(arg)  # 'head' or 'summary'
+                mode = str(arg)  # 'head', 'summary', 'shape', or 'columns'
         return {
             'type': 'show',
             'table_name': self.current_table,
@@ -1701,6 +1710,30 @@ class DSLTransformer(Transformer):
         weight = str(items[0])
         return [{'func': 'wmean', 'column': str(c), 'weight': weight} for c in items[1:]]
 
+    @staticmethod
+    def _quantile_probability(func, q):
+        q_value = float(q)
+        if str(func) == 'percentile':
+            q_value = q_value / 100.0
+        if not 0 <= q_value <= 1:
+            label = 'percentile' if str(func) == 'percentile' else 'quantile'
+            upper = 100 if label == 'percentile' else 1
+            raise ValueError(f"{label} must be between 0 and {upper}.")
+        return q_value
+
+    def quantile_bracket_item(self, func, col, q, alias=None):
+        res = {
+            'func': str(func),
+            'column': col if isinstance(col, dict) and col.get('type') == 'var' else str(col),
+            'q': self._quantile_probability(func, q),
+        }
+        if alias:
+            res['alias'] = str(alias)
+        return res
+
+    def quantile_space_item(self, func, col, q, alias=None):
+        return self.quantile_bracket_item(func, col, q, alias)
+
     def custom_agg_cols(self, *columns):
         return list(columns)
 
@@ -1730,6 +1763,9 @@ class DSLTransformer(Transformer):
 
     def custom_agg_list_value(self, *items):
         return [self._convert_value(item) for item in items] if items else []
+
+    def quantile_value(self, value):
+        return self._convert_value(value)
 
     def custom_agg_args(self, *args):
         return list(args)
@@ -1770,6 +1806,10 @@ class DSLTransformer(Transformer):
     
     def AGG_FUNCTION(self, token):
         """Handle aggregation function tokens"""
+        return str(token)
+
+    def QUANTILE_FUNCTION(self, token):
+        """Handle quantile/percentile aggregation function tokens."""
         return str(token)
     
     def python_statement(self, code):
@@ -3047,6 +3087,11 @@ class CodeGenerator:
         """Return a single-quoted SQL string literal."""
         return "'" + str(value).replace("'", "''") + "'"
 
+    @staticmethod
+    def _quantile_alias(col, func, q):
+        q_text = ("%g" % float(q)).replace('.', 'p')
+        return f"{col}_{func}_{q_text}"
+
     def _parse_scalar_minmax_call(self, expr):
         """Return (func, args) for scalar min/max(expr1, expr2, ...), else None."""
         import re
@@ -3220,7 +3265,7 @@ class CodeGenerator:
                 f")")
 
     def _substitute_agg_calls(self, expr, table, by_cols):
-        """Replace agg(col) and wavg(col, wt) calls with @_agg_N locals; return (preamble, new_expr)."""
+        """Replace agg(col), quantile(col, q), and wavg(col, wt) calls with @_agg_N locals."""
         preamble = []
         counter = [0]
 
@@ -3243,6 +3288,20 @@ class CodeGenerator:
                 )
             return f'@{var}'
 
+        def replace_quantile(m):
+            func, col, q = m.group(1), m.group(2), float(m.group(3))
+            if func == 'percentile':
+                q = q / 100.0
+            var = f'_agg_{counter[0]}'
+            counter[0] += 1
+            if by_cols:
+                preamble.append(
+                    f"{var} = {table}.groupby({by_cols!r})[{col!r}].transform(lambda _s: _s.quantile({q!r}))"
+                )
+            else:
+                preamble.append(f"{var} = {table}[{col!r}].quantile({q!r})")
+            return f'@{var}'
+
         def replace_agg(m):
             func = m.group(1)
             col = m.group(2)
@@ -3258,6 +3317,7 @@ class CodeGenerator:
             return f'@{var}'
 
         new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _QUANTILE_CALL_RE.sub(replace_quantile, new_expr)
         new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
         return preamble, new_expr
 
@@ -3566,12 +3626,17 @@ class CodeGenerator:
         if per_col:
             lines = [f"{tbl} = {tbl}.with_columns(["]
             for col, val in per_col.items():
-                val_code = f"'{val}'" if isinstance(val, str) else str(val)
+                if isinstance(val, _LiteralStr):
+                    val_code = repr(str(val))
+                elif isinstance(val, str):
+                    val_code = f"pl.col('{val}')"
+                else:
+                    val_code = str(val)
                 lines.append(f"    pl.col('{col}').fill_null({val_code}),")
             lines.append("])")
             return '\n'.join(lines)
         val = ast_node['value']
-        val_code = f"'{val}'" if isinstance(val, str) else str(val)
+        val_code = repr(str(val)) if isinstance(val, _LiteralStr) else (f"'{val}'" if isinstance(val, str) else str(val))
         return f"{tbl} = {tbl}.fill_null({val_code})"
 
     def generate_intersect_polars(self, ast_node):
@@ -3657,7 +3722,7 @@ class CodeGenerator:
                 # Peek past whitespace for opening paren
                 rest = expr[end:].lstrip()
 
-                if rest.startswith('(') and name == 'wavg':
+                if rest.startswith('(') and name in ('wavg', 'wmean'):
                     paren_pos = expr.index('(', end)
                     depth, j = 1, paren_pos + 1
                     while j < n and depth > 0:
@@ -3680,6 +3745,26 @@ class CodeGenerator:
                     result.append(agg_expr)
                     i = j
                     continue
+
+                if rest.startswith('(') and name in ('quantile', 'percentile'):
+                    paren_pos = expr.index('(', end)
+                    depth, j = 1, paren_pos + 1
+                    while j < n and depth > 0:
+                        depth += (expr[j] == '(') - (expr[j] == ')')
+                        j += 1
+                    inner = expr[paren_pos + 1:j - 1].strip()
+                    parts = self._split_func_args(inner)
+                    if len(parts) == 2:
+                        col, q = parts[0], float(parts[1])
+                        if name == 'percentile':
+                            q = q / 100.0
+                        agg_expr = f"pl.col('{col}').quantile({q!r}, interpolation='linear')"
+                        if by_cols:
+                            by_repr = repr(by_cols[0]) if len(by_cols) == 1 else repr(by_cols)
+                            agg_expr += f".over({by_repr})"
+                        result.append(agg_expr)
+                        i = j
+                        continue
 
                 if rest.startswith('(') and name in {'min', 'max'}:
                     paren_pos = expr.index('(', end)
@@ -3977,7 +4062,7 @@ class CodeGenerator:
             )
 
         # Agg function calls — handle inline in Polars (no preamble needed)
-        if _WAVG_CALL_RE.search(expr) or _AGG_CALL_RE.search(expr):
+        if _WAVG_CALL_RE.search(expr) or _QUANTILE_CALL_RE.search(expr) or _AGG_CALL_RE.search(expr):
             polars_expr = self._expr_to_polars(expr, by_cols)
             if conditions:
                 return _conditional_wrap(polars_expr)
@@ -4128,6 +4213,9 @@ class CodeGenerator:
                             f"((pl.col({col_code}) * pl.col('{wt}')).sum()"
                             f" / pl.col('{wt}').sum()).alias('{alias}')"
                         )
+                    elif func in ('quantile', 'percentile'):
+                        alias = item.get('alias') or self._quantile_alias(col, func, item['q'])
+                        exprs.append(f"pl.col({col_code}).quantile({item['q']!r}, interpolation='linear').alias('{alias}')")
                     else:
                         alias = item.get('alias') or f"{col}_{func}"
                         polars_func = self._POLARS_AGG_MAP.get(func, func)
@@ -4158,11 +4246,19 @@ class CodeGenerator:
 
                 if isinstance(col, dict) and col.get('type') == 'var':
                     var_name = col['name']
-                    alias_expr = f"f'{{c}}_{func}'" if not alias else repr(alias)
-                    lines.append(
-                        f"for c in ({var_name} if isinstance({var_name}, list) else [{var_name}]):\n"
-                        f"    _agg_exprs.append(pl.col(c).{polars_func}().alias({alias_expr}))"
-                    )
+                    if func in ('quantile', 'percentile'):
+                        q_text = ("%g" % float(item['q'])).replace('.', 'p')
+                        alias_expr = f"f'{{c}}_{func}_{q_text}'" if not alias else repr(alias)
+                        lines.append(
+                            f"for c in ({var_name} if isinstance({var_name}, list) else [{var_name}]):\n"
+                            f"    _agg_exprs.append(pl.col(c).quantile({item['q']!r}, interpolation='linear').alias({alias_expr}))"
+                        )
+                    else:
+                        alias_expr = f"f'{{c}}_{func}'" if not alias else repr(alias)
+                        lines.append(
+                            f"for c in ({var_name} if isinstance({var_name}, list) else [{var_name}]):\n"
+                            f"    _agg_exprs.append(pl.col(c).{polars_func}().alias({alias_expr}))"
+                        )
                 elif func in ('wavg', 'wmean'):
                     wt = item['weight']
                     col_str = str(col)
@@ -4171,6 +4267,12 @@ class CodeGenerator:
                         f"_agg_exprs.append("
                         f"((pl.col('{col_str}') * pl.col('{wt}')).sum()"
                         f" / pl.col('{wt}').sum()).alias('{alias_val}'))"
+                    )
+                elif func in ('quantile', 'percentile'):
+                    col_str = str(col)
+                    alias_val = alias or self._quantile_alias(col_str, func, item['q'])
+                    lines.append(
+                        f"_agg_exprs.append(pl.col('{col_str}').quantile({item['q']!r}, interpolation='linear').alias('{alias_val}'))"
                     )
                 else:
                     col_str = str(col)
@@ -4195,6 +4297,9 @@ class CodeGenerator:
                     f"((pl.col('{col}') * pl.col('{wt}')).sum()"
                     f" / pl.col('{wt}').sum()).alias('{alias_val}')"
                 )
+            elif func in ('quantile', 'percentile'):
+                alias_val = alias or self._quantile_alias(col, func, item['q'])
+                expr = f"pl.col('{col}').quantile({item['q']!r}, interpolation='linear').alias('{alias_val}')"
             else:
                 polars_func = self._POLARS_AGG_MAP.get(func, func)
                 expr = f"pl.col('{col}').{polars_func}()"
@@ -4414,6 +4519,10 @@ class CodeGenerator:
             lines.append(f"_ipyd({table}.head(5))")
         elif mode == 'summary':
             lines.append(f"_ipyd({table}.to_pandas().describe())")
+        elif mode == 'shape':
+            lines.append(f"_ipyd({table}.shape)")
+        elif mode == 'columns':
+            lines.append(f"_ipyd(list({table}.columns))")
         else:
             lines.append(f"_ipyd({table})")
         return "\n".join(lines)
@@ -4762,7 +4871,11 @@ class CodeGenerator:
                 for item in regular_items:
                     col = item['column']
                     func = item['func']
-                    alias = item.get('alias') or (f"wmean_{col}" if func in ('wavg', 'wmean') else f"{col}_{func}")
+                    alias = item.get('alias') or (
+                        f"wmean_{col}" if func in ('wavg', 'wmean')
+                        else self._quantile_alias(col, func, item.get('q')) if func in ('quantile', 'percentile')
+                        else f"{col}_{func}"
+                    )
                     col_code = col['name'] if isinstance(col, dict) and col.get('type') == 'var' else f"'{col}'"
                     if func in ('wavg', 'wmean'):
                         wt = item['weight']
@@ -4770,6 +4883,8 @@ class CodeGenerator:
                             f"'{alias}': [({table}[{col_code}] * {table}['{wt}']).sum()"
                             f" / {table}['{wt}'].sum()]"
                         )
+                    elif func in ('quantile', 'percentile'):
+                        parts.append(f"'{alias}': [{table}[{col_code}].quantile({item['q']!r})]")
                     else:
                         pandas_func = 'mean' if func == 'avg' else func
                         parts.append(f"'{alias}': [{table}[{col_code}].{pandas_func}()]")
@@ -4846,10 +4961,11 @@ class CodeGenerator:
         if agg_list:
             table = ast_node['table_name']
             wavg_items = [i for i in agg_list if i['func'] in ('wavg', 'wmean')]
-            regular_items = [i for i in agg_list if i['func'] not in ('wavg', 'wmean')]
+            quantile_items = [i for i in agg_list if i['func'] in ('quantile', 'percentile')]
+            regular_items = [i for i in agg_list if i['func'] not in ('wavg', 'wmean', 'quantile', 'percentile')]
 
             # wmean requires named agg with a lambda — force that path
-            if wavg_items:
+            if wavg_items or quantile_items:
                 agg_args = []
                 for item in regular_items:
                     col = item['column']
@@ -4864,6 +4980,10 @@ class CodeGenerator:
                     lam = (f"lambda x: (x * {table}.loc[x.index, {wt!r}]).sum()"
                            f" / {table}.loc[x.index, {wt!r}].sum()")
                     agg_args.append(f"{alias}=('{col}', {lam})")
+                for item in quantile_items:
+                    col = item['column']
+                    alias = item.get('alias', self._quantile_alias(col, item['func'], item['q']))
+                    agg_args.append(f"{alias}=('{col}', lambda x: x.quantile({item['q']!r}))")
                 agg_str = ', '.join(agg_args)
                 return f"{table} = {table}.groupby({by_code}).agg({agg_str}).reset_index()"
 
@@ -4970,11 +5090,17 @@ class CodeGenerator:
         t = ast_node['table_name']
         per_col = ast_node.get('per_col', {})
         if per_col:
-            fill_dict = {col: (f"'{v}'" if isinstance(v, str) else str(v)) for col, v in per_col.items()}
+            def _fill_value_code(v):
+                if isinstance(v, _LiteralStr):
+                    return repr(str(v))
+                if isinstance(v, str):
+                    return f"{t}[{v!r}]"
+                return str(v)
+            fill_dict = {col: _fill_value_code(v) for col, v in per_col.items()}
             fill_str = '{' + ', '.join(f"'{c}': {v}" for c, v in fill_dict.items()) + '}'
             return f"{t} = {t}.fillna({fill_str})"
         val = ast_node['value']
-        val_code = f"'{val}'" if isinstance(val, str) else str(val)
+        val_code = repr(str(val)) if isinstance(val, _LiteralStr) else (f"'{val}'" if isinstance(val, str) else str(val))
         return f"{t} = {t}.fillna({val_code})"
 
     def generate_intersect_pandas(self, ast_node):
@@ -5028,6 +5154,10 @@ class CodeGenerator:
             lines.append(f"_ipyd({table}.head())")
         elif mode == 'summary':
             lines.append(f"_ipyd({table}.describe())")
+        elif mode == 'shape':
+            lines.append(f"_ipyd({table}.shape)")
+        elif mode == 'columns':
+            lines.append(f"_ipyd(list({table}.columns))")
         else:
             lines.append(f"_ipyd({table})")
         return "\n".join(lines)
@@ -6043,10 +6173,12 @@ class CodeGenerator:
     }
 
     @staticmethod
-    def _ddb_agg_expr(col, func, alias, weight=None):
+    def _ddb_agg_expr(col, func, alias, weight=None, q=None):
         """Return a SQL agg expression string for one agg_list item."""
         if func in ('wavg', 'wmean'):
             return f"SUM({col} * {weight}) / NULLIF(SUM({weight}), 0) AS {alias}"
+        if func in ('quantile', 'percentile'):
+            return f"QUANTILE_CONT({col}, {q}) AS {alias}"
         if func == 'nunique':
             return f"COUNT(DISTINCT {col}) AS {alias}"
         sql_func = CodeGenerator._DDB_AGG_MAP.get(func, func.upper())
@@ -6094,7 +6226,7 @@ class CodeGenerator:
                     col = item['column']
                     func = item['func']
                     alias = item.get('alias') or (col if isinstance(col, str) else f"agg_{func}")
-                    sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+                    sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight'), item.get('q')))
                 sel = ', '.join(sel_parts)
                 return f'_pvt.execute("CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t}")'
             else:
@@ -6118,7 +6250,7 @@ class CodeGenerator:
                     func = item['func']
                     alias = item.get('alias') or col
                     sel_parts.append(self._ddb_agg_expr(col, func, alias,
-                                                         item.get('weight')))
+                                                         item.get('weight'), item.get('q')))
                 sel = ', '.join(sel_parts)
                 sql = f"CREATE OR REPLACE TABLE {t} AS SELECT {sel} FROM {t} GROUP BY {group_by_sql}"
                 return f'_pvt.execute("{sql}")'
@@ -6158,13 +6290,17 @@ class CodeGenerator:
                         lines.append(
                             f"_ddb_sel_parts.append(f'COUNT(DISTINCT {{{v}}}) AS {alias}')"
                         )
+                    elif func in ('quantile', 'percentile'):
+                        lines.append(
+                            f"_ddb_sel_parts.append(f'QUANTILE_CONT({{{v}}}, {item.get('q')}) AS {alias}')"
+                        )
                     else:
                         sql_func = self._DDB_AGG_MAP.get(func, func.upper())
                         lines.append(
                             f"_ddb_sel_parts.append(f'{sql_func}({{{v}}}) AS {alias}')"
                         )
                 else:
-                    expr = self._ddb_agg_expr(col, func, alias, item.get('weight'))
+                    expr = self._ddb_agg_expr(col, func, alias, item.get('weight'), item.get('q'))
                     lines.append(f"_ddb_sel_parts.append({expr!r})")
             lines.append("_ddb_sel = ', '.join(_ddb_sel_parts)")
         else:
@@ -6458,7 +6594,7 @@ class CodeGenerator:
         return None
 
     def _substitute_agg_calls_sql(self, expr, by_cols):
-        """Replace sum(col) / wavg(col, wt) in expr with SQL window function calls."""
+        """Replace aggregate calls in expr with SQL window function calls."""
         if by_cols:
             part_str = ', '.join(by_cols) if isinstance(by_cols, list) else str(by_cols)
             over = f" OVER (PARTITION BY {part_str})"
@@ -6469,6 +6605,12 @@ class CodeGenerator:
             col, wt = m.group(1), m.group(2)
             return f"(SUM({col} * {wt}){over}) / NULLIF(SUM({wt}){over}, 0)"
 
+        def replace_quantile(m):
+            func, col, q = m.group(1).lower(), m.group(2), float(m.group(3))
+            if func == 'percentile':
+                q = q / 100.0
+            return f"QUANTILE_CONT({col}, {q!r}){over}"
+
         def replace_agg(m):
             func = m.group(1).lower()
             col  = m.group(2)
@@ -6476,6 +6618,7 @@ class CodeGenerator:
             return f"{sf}({col}){over}"
 
         new_expr = _WAVG_CALL_RE.sub(replace_wavg, expr)
+        new_expr = _QUANTILE_CALL_RE.sub(replace_quantile, new_expr)
         new_expr = _AGG_CALL_RE.sub(replace_agg, new_expr)
         return new_expr
 
@@ -6682,21 +6825,36 @@ class CodeGenerator:
         per_col = ast_node.get('per_col', {})
 
         if per_col:
-            parts = []
-            for col, val in per_col.items():
-                val_sql = f"'{val}'" if isinstance(val, str) else str(val)
-                parts.append(f"COALESCE({col}, {val_sql}) AS {col}")
             # Build SELECT replacing only specified cols; keep others as-is via star + override
+            per_entries = []
+            for c, v in per_col.items():
+                if isinstance(v, _LiteralStr):
+                    per_entries.append(repr(c) + ': ' + repr(('literal', str(v))))
+                elif isinstance(v, str):
+                    per_entries.append(repr(c) + ': ' + repr(('column', v)))
+                else:
+                    per_entries.append(repr(c) + ': ' + repr(('scalar', v)))
             lines = [
                 f"_ddb_all_cols = [r[0] for r in _pvt.execute('DESCRIBE {t}').fetchall()]",
-                f"_ddb_per = {{{', '.join(repr(c) + ': ' + (repr(v) if isinstance(v, str) else str(v)) for c, v in per_col.items())}}}",
-                f"_ddb_sel = ', '.join(f\"COALESCE({{c}}, '{{_ddb_per[c]}}') AS {{c}}\" if c in _ddb_per and isinstance(_ddb_per[c], str) else (f'COALESCE({{c}}, {{_ddb_per[c]}}) AS {{c}}' if c in _ddb_per else c) for c in _ddb_all_cols)",
+                f"_ddb_per = {{{', '.join(per_entries)}}}",
+                "_ddb_sel_parts = []",
+                "for _c in _ddb_all_cols:",
+                "    if _c not in _ddb_per:",
+                "        _ddb_sel_parts.append(_c)",
+                "    else:",
+                "        _kind, _val = _ddb_per[_c]",
+                "        _fill = repr(_val) if _kind == 'literal' else str(_val)",
+                "        _ddb_sel_parts.append(f'COALESCE({_c}, {_fill}) AS {_c}')",
+                "_ddb_sel = ', '.join(_ddb_sel_parts)",
                 f'_pvt.execute(f"CREATE OR REPLACE TABLE {t} AS SELECT {{_ddb_sel}} FROM {t}")',
             ]
             return '\n'.join(lines)
 
         val = ast_node['value']
-        if isinstance(val, str):
+        if isinstance(val, _LiteralStr):
+            fill_val_line = f"_ddb_fillval = {repr(str(val))}"
+            sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
+        elif isinstance(val, str):
             fill_val_line = f"_ddb_fillval = {repr(str(val))}"
             sel_line = "_ddb_sel = ', '.join(f\"COALESCE({c}, '{_ddb_fillval}') AS {c}\" for c in _ddb_cols)"
         elif val is None:
@@ -6995,7 +7153,7 @@ class CodeGenerator:
                 col = item['column']
                 func = item['func']
                 alias = item.get('alias', f"{col}_{func}")
-                sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+                sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight'), item.get('q')))
             return f"SELECT {', '.join(sel_parts)} FROM {from_alias}"
 
         by_list, has_var_by, _ = self._ddb_by_parts(by)
@@ -7015,7 +7173,7 @@ class CodeGenerator:
             col = item['column']
             func = item['func']
             alias = item.get('alias', f"{col}_{func}")
-            sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight')))
+            sel_parts.append(self._ddb_agg_expr(col, func, alias, item.get('weight'), item.get('q')))
         return f"SELECT {', '.join(sel_parts)} FROM {from_alias} GROUP BY {group_by_sql}"
 
     def generate_pivot_sql(self, ast_node):
@@ -7203,7 +7361,7 @@ class CodeGenerator:
         per_col = ast_node.get('per_col', {})
         if per_col:
             parts = ', '.join(
-                f"COALESCE({c}, {repr(v) if isinstance(v, str) else v}) AS {c}"
+                f"COALESCE({c}, {repr(str(v)) if isinstance(v, _LiteralStr) else v}) AS {c}"
                 for c, v in per_col.items()
             )
             return f"SELECT *, {parts} FROM {from_alias}"
@@ -7330,7 +7488,7 @@ _TERMINAL_NAMES = {
     'NUMBER':        'a number',
     'AGG_FUNCTION':  'an aggregation function (sum, mean, count, ...)',
     'MERGE_TYPE':    'a join type (left, right, inner, outer)',
-    'SHOW_MODE':     'head or summary',
+    'SHOW_MODE':     'head, summary, shape, or columns',
     '_NL':           'end of line',
     'EQUAL':         "'='",
     'RIGHT_TABLE':   'a table name',
@@ -7656,7 +7814,7 @@ class DSLParser:
         # by expanding it to:
         #     agg mean colA, mean colB
         # Existing multi-function syntax like "agg sum x, max y" is left alone.
-        agg_funcs = 'mean|avg|sum|min|max|count|std|median|var|nunique|first|last'
+        agg_funcs = 'mean|avg|sum|min|max|count|std|median|var|nunique|first|last|quantile|percentile'
 
         def _split_agg_parts(body):
             parts = []

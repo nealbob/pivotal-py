@@ -127,6 +127,14 @@ def test_codegen_show_summary_duckdb(parser):
     assert '.describe()' in code
 
 
+def test_codegen_show_shape_columns_duckdb(parser):
+    shape_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow shape\n'), backend='duckdb'))
+    columns_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow columns\n'), backend='duckdb'))
+
+    assert '_ipyd(_df_sales.shape)' in shape_code
+    assert '_ipyd(list(_df_sales.columns))' in columns_code
+
+
 def test_show_runs_without_error_duckdb(parser, sample_df):
     """show executes without raising (uses IPython display which no-ops outside notebook)."""
     conn = make_conn('sales', sample_df)

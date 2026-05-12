@@ -35,6 +35,15 @@ with raw as clean
     fillna price 0, name "unknown", region "N/A"
 ```
 
+Unquoted per-column fill values are column references:
+
+```pivotal
+with sales
+    med_rev = median(revenue)
+        by product
+    fillna revenue med_rev
+```
+
 Only the listed columns are filled. All other columns are unchanged.
 
 ---
@@ -61,4 +70,3 @@ with raw as complete
 with raw as complete
     dropna customer_id, product_id, date
 ```
-

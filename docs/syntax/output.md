@@ -16,6 +16,8 @@ with sales
 show          # full table
 show head     # first 5 rows
 show summary  # descriptive statistics (like df.describe())
+show shape    # row and column counts
+show columns  # column names
 ```
 
 `show` can appear mid-pipeline — it displays the table at that point without interrupting subsequent operations:

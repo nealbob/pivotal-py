@@ -271,6 +271,11 @@ def test_execute_groupby_sql(parser, sample_df):
     assert elec == pytest.approx(999.99 + 25.50 + 399.00)
 
 
+def test_codegen_groupby_quantile_sql(parser):
+    sql = gen_sql(parser, 'with sales\ngroup by category\n    agg quantile price 0.9 as p90\n')
+    assert 'QUANTILE_CONT(price, 0.9) AS p90' in sql
+
+
 # ===========================================================================
 # merge (join)
 # ===========================================================================
@@ -339,6 +344,14 @@ def test_execute_assign_sql(parser, sample_df):
     assert 'revenue' in result.columns
     expected = sample_df['price'] * sample_df['quantity']
     assert list(result.sort_values('id')['revenue']) == pytest.approx(list(expected))
+
+
+def test_execute_assign_quantile_sql(parser):
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    conn = make_conn('data', df)
+    sql = gen_sql(parser, 'with data\np90 = percentile(amount, 90)\n    by region\n')
+    result = conn.execute(sql).df().sort_values(['region', 'amount']).reset_index(drop=True)
+    assert result['p90'].tolist() == pytest.approx([280.0, 280.0, 380.0, 380.0])
 
 
 def test_codegen_for_assign_sql(parser):

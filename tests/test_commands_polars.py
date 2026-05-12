@@ -399,6 +399,13 @@ def test_fillna_string(parser, df_with_nulls):
     assert ns['df']['b'][1] == 'unknown'  # null in 'b' is filled
 
 
+def test_fillna_column_reference_polars(parser):
+    df = pl.DataFrame({'revenue': [10.0, None, None], 'med_rev': [8.0, 20.0, 30.0]})
+    ns = {'data': df}
+    run(parser, 'with data\nfillna revenue med_rev\n', ns)
+    assert ns['data']['revenue'].to_list() == [10.0, 20.0, 30.0]
+
+
 # ---------------------------------------------------------------------------
 # dropna
 # ---------------------------------------------------------------------------
@@ -704,6 +711,14 @@ def test_assign_agg_by_group(parser):
     assert s_rows['pct'].sum() == pytest.approx(1.0)
 
 
+def test_assign_quantile_by_group_polars(parser):
+    df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    ns = {'data': df}
+    run(parser, 'with data\np90 = quantile(amount, 0.9)\n    by region\n', ns)
+    result = ns['data'].sort(['region', 'amount'])
+    assert result['p90'].to_list() == pytest.approx([280.0, 280.0, 380.0, 380.0])
+
+
 def test_assign_agg_mean(parser):
     df = pl.DataFrame({'amount': [100.0, 200.0, 300.0, 400.0]})
     ns = {'data': df}
@@ -963,6 +978,14 @@ def test_groupby_wavg(parser):
     result = ns['data'].sort('region')
     assert result['wa'][0] == pytest.approx(250.0)   # N: (100*1+300*3)/(1+3)
     assert result['wa'][1] == pytest.approx(300.0)   # S: (200*2+400*2)/(2+2)
+
+
+def test_groupby_quantile_polars(parser):
+    df = pl.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    ns = {'data': df}
+    run(parser, 'with data\ngroup by region\n    agg quantile amount 0.9 as p90\n', ns)
+    result = ns['data'].sort('region')
+    assert result['p90'].to_list() == pytest.approx([280.0, 380.0])
 
 
 def test_groupby_multi_agg(parser):
@@ -1328,6 +1351,14 @@ def test_codegen_show_head_polars(parser):
     dsl = 'with sales\nshow head\n'
     code = '\n'.join(parser.generate_code(parser.parse(dsl), backend='polars'))
     assert '.head(' in code
+
+
+def test_codegen_show_shape_columns_polars(parser):
+    shape_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow shape\n'), backend='polars'))
+    columns_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow columns\n'), backend='polars'))
+
+    assert '_ipyd(sales.shape)' in shape_code
+    assert '_ipyd(list(sales.columns))' in columns_code
 
 
 def test_show_runs_without_error_polars(parser, output_df):

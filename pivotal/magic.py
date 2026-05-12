@@ -487,7 +487,7 @@ def plot_gui(df_name: str = None):
     def _row(*ws):
         return widgets.HBox(list(ws), layout=widgets.Layout(align_items='center', margin='2px 0'))
 
-    _AGG_FUNCS = ['mean', 'sum', 'count', 'min', 'max', 'median']
+    _AGG_FUNCS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'quantile', 'percentile']
 
     # Static widgets
     df_sel       = widgets.Dropdown(options=df_names,
@@ -664,7 +664,7 @@ def pivot_gui(df_name: str = None):
                    description='', layout=_dd)
     filter_w = widgets.Text(value='', placeholder='filter condition (optional)', description='',
                             layout=widgets.Layout(width='260px'))
-    agg_func = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median'],
+    agg_func = widgets.Dropdown(options=['mean', 'sum', 'count', 'min', 'max', 'median', 'quantile', 'percentile'],
                    value='mean', description='', layout=_dd)
     val_col  = widgets.Dropdown(options=[], description='', layout=_dd)
     output   = widgets.Output()
@@ -1115,6 +1115,7 @@ class PivotalMagics(Magics):
             'group by', 'merge', 'pivot', 'plot', 'python', 'apply',
             'drop', 'dropna', 'fillna', 'distinct', 'concat', 'rename',
             'mean', 'min', 'max', 'sum', 'count', 'avg', 'median', 'std',
+            'quantile', 'percentile',
             'asc', 'desc', 'left', 'right', 'inner', 'outer',
             'from', 'as', 'on', 'rows', 'cols',
             'between', 'contains', 'not contains', 'startswith', 'endswith',

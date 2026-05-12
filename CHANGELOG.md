@@ -29,6 +29,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added compile-time `list` definitions, non-recursive `function` pipeline expansion with positional and keyword arguments, and `pivotal.load_functions()` for Python-callable wrappers.
 - Added MCP documentation tools for indexing, reading, and searching Pivotal docs, including command-reference and topic docs.
 - Added and reorganized documentation, including a complete syntax reference, a pandas-to-Pivotal cheatsheet, clearer backend and Pivotal-vs-Python navigation, and a discoverable MCP Server page.
+- Added `show shape` and `show columns` output variants.
+- Added `quantile` and `percentile` as built-in aggregation functions for assignment expressions and `agg` statements.
 
 ### Fixed
 
@@ -39,6 +41,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Fixed JupyterLab autocomplete and highlighting for column `for` loops, including column suggestions in `for <name> in ...` headers and distinct loop-placeholder styling.
 - Fixed the JupyterLab extension asset copy step so local builds and editable installs work on Windows.
 - Added embedded Python syntax highlighting in VS Code for inline `python <code>` statements and multi-line `python`/`end` blocks in Pivotal files.
+- Fixed per-column `fillna` so unquoted fill values can reference another column, while quoted strings remain literal fill values.
 
 ## [0.3.0]
 
