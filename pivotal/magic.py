@@ -276,6 +276,20 @@ class _PivotalViewer:
         except Exception:
             pass
 
+    def send_value(self, name: str, value_info: dict):
+        """Send a native scalar/list/dict summary to the explorer."""
+        self._ensure_comm()
+        if self._comm is None:
+            return
+        try:
+            self._comm.send({
+                'type': 'value',
+                'name': name,
+                'value': value_info,
+            })
+        except Exception:
+            pass
+
     def send_table(self, name: str, html: str, canvas: str = 'none', source_df: str = None):
         """Send a rendered GT table to the viewer."""
         self._ensure_comm()
@@ -445,6 +459,13 @@ def _send_results_to_viewer(viewer: _PivotalViewer, results: list, ns: dict, set
                 canvas = global_canvas
             viewer.send_table(tbl_name, viewer_html, canvas,
                               source_df=node.get('table_name'))
+
+
+def _send_values_to_viewer(viewer: _PivotalViewer, parser: DSLParser, ns: dict):
+    """Send native Pivotal values to the explorer."""
+    values = parser.build_explorer_value_info(parser._get_pivotal_values(ns))
+    for name, value_info in values.items():
+        viewer.send_value(name, value_info)
 
 
 # ---------------------------------------------------------------------------
@@ -1475,6 +1496,7 @@ class PivotalMagics(Magics):
             if use_viewer:
                 try:
                     _send_results_to_viewer(self._viewer, results, self.shell.user_ns, settings=s)
+                    _send_values_to_viewer(self._viewer, self.parser, self.shell.user_ns)
                     self._viewer.send_current_table(self.shell.user_ns.get('__table_name__'))
                 except Exception as e:
                     print(f"[Pivotal] viewer error: {e}")

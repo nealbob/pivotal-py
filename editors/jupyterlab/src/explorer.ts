@@ -1,9 +1,5 @@
 import { Widget } from '@lumino/widgets';
-import { ExplorerItem } from './viewer';
-
-// ---------------------------------------------------------------------------
-// Inline SVG icons (14×14, currentColor)
-// ---------------------------------------------------------------------------
+import { ExplorerItem, ValueInfo } from './viewer';
 
 const DF_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
   <rect x="1" y="1" width="12" height="3" rx="0.5" fill="currentColor" opacity="0.75"/>
@@ -14,18 +10,39 @@ const DF_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" wid
 </svg>`;
 
 const CHART_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
-  <rect x="1"   y="7"  width="2.5" height="6" rx="0.4" fill="currentColor" opacity="0.6"/>
-  <rect x="5"   y="3"  width="2.5" height="10" rx="0.4" fill="currentColor" opacity="0.75"/>
-  <rect x="9.5" y="5"  width="2.5" height="8" rx="0.4" fill="currentColor" opacity="0.55"/>
+  <rect x="1" y="7" width="2.5" height="6" rx="0.4" fill="currentColor" opacity="0.6"/>
+  <rect x="5" y="3" width="2.5" height="10" rx="0.4" fill="currentColor" opacity="0.75"/>
+  <rect x="9.5" y="5" width="2.5" height="8" rx="0.4" fill="currentColor" opacity="0.55"/>
   <line x1="1" y1="13.5" x2="13" y2="13.5" stroke="currentColor" stroke-width="0.8"/>
 </svg>`;
 
 const GT_TABLE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
   <rect x="1" y="1.5" width="12" height="2.5" rx="0.4" fill="currentColor" opacity="0.85"/>
-  <line x1="1" y1="6"   x2="13" y2="6"   stroke="currentColor" stroke-width="0.8" opacity="0.55"/>
+  <line x1="1" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="0.8" opacity="0.55"/>
   <line x1="1" y1="8.5" x2="13" y2="8.5" stroke="currentColor" stroke-width="0.8" opacity="0.45"/>
-  <line x1="1" y1="11"  x2="13" y2="11"  stroke="currentColor" stroke-width="0.8" opacity="0.35"/>
-  <line x1="1" y1="13"  x2="13" y2="13"  stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+  <line x1="1" y1="11" x2="13" y2="11" stroke="currentColor" stroke-width="0.8" opacity="0.35"/>
+  <line x1="1" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+</svg>`;
+
+const SCALAR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+  <circle cx="7" cy="7" r="3.2" fill="currentColor" opacity="0.82"/>
+  <circle cx="7" cy="7" r="1.2" fill="currentColor" opacity="0.95"/>
+</svg>`;
+
+const LIST_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+  <circle cx="3" cy="3.2" r="1" fill="currentColor" opacity="0.8"/>
+  <circle cx="3" cy="7" r="1" fill="currentColor" opacity="0.7"/>
+  <circle cx="3" cy="10.8" r="1" fill="currentColor" opacity="0.6"/>
+  <line x1="5.3" y1="3.2" x2="11.5" y2="3.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.85"/>
+  <line x1="5.3" y1="7" x2="11.5" y2="7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.75"/>
+  <line x1="5.3" y1="10.8" x2="11.5" y2="10.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.65"/>
+</svg>`;
+
+const DICT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14">
+  <rect x="2" y="2" width="3.1" height="3.1" rx="0.6" fill="currentColor" opacity="0.8"/>
+  <rect x="8.9" y="2" width="3.1" height="3.1" rx="0.6" fill="currentColor" opacity="0.7"/>
+  <rect x="5.45" y="8.9" width="3.1" height="3.1" rx="0.6" fill="currentColor" opacity="0.6"/>
+  <path d="M5.1 3.55h3.8M7 5.1v2.65" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.78"/>
 </svg>`;
 
 const EYE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" width="12" height="12">
@@ -33,9 +50,7 @@ const EYE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" wi
   <circle cx="6" cy="6" r="1.8" fill="currentColor" opacity="0.85"/>
 </svg>`;
 
-// ---------------------------------------------------------------------------
-// PivotalExplorerWidget — left sidebar object inspector
-// ---------------------------------------------------------------------------
+type ExplorerGroup = [ExplorerItem[], string, string];
 
 export class PivotalExplorerWidget extends Widget {
   private _items: ExplorerItem[] = [];
@@ -67,13 +82,11 @@ export class PivotalExplorerWidget extends Widget {
     `;
 
     this._listEl = this.node.querySelector('.pv-explorer-list') as HTMLElement;
-
     this._renderEmpty();
 
-    // Keyboard navigation
     this.node.tabIndex = -1;
-    let _lastKey = '';
-    let _lastKeyTime = 0;
+    let lastKey = '';
+    let lastKeyTime = 0;
     this.node.addEventListener('keydown', e => {
       const nav = this._buildNavList();
       const idx = this._focusedName ? nav.indexOf(this._focusedName) : -1;
@@ -87,61 +100,31 @@ export class PivotalExplorerWidget extends Widget {
         if (!nav.length) return;
         this._setFocus(idx > 0 ? nav[idx - 1] : nav[nav.length - 1]);
       } else if ((e.key === 'l' || e.key === 'ArrowRight') && this._focusedName) {
-        // On a column row — do nothing; on a table row — expand or view
-        if (this._focusedName.includes('::')) return;
-        const item = this._items.find(it => it.name === this._focusedName);
-        const hasColumns = item?.type === 'dataframe' && !!(item.columns?.length);
-        if (hasColumns && !this._expanded.has(this._focusedName)) {
-          this._expanded.add(this._focusedName);
-          this._render();
-        } else {
-          this._clickCb?.(this._focusedName);
-        }
+        this._activateFocused(true);
       } else if ((e.key === 'h' || e.key === 'ArrowLeft') && this._focusedName) {
-        if (this._focusedName.includes('::')) {
-          // On a column — move focus up to the parent table and collapse
-          const tableName = this._focusedName.split('::')[0];
-          this._expanded.delete(tableName);
-          this._focusedName = tableName;
-          this._render();
-        } else if (this._expanded.has(this._focusedName)) {
-          this._expanded.delete(this._focusedName);
-          this._render();
-        }
+        this._collapseFocused();
       } else if ((e.key === 'Enter' || e.key === ' ') && this._focusedName) {
-        if (!this._focusedName.includes('::')) {
-          this._clickCb?.(this._focusedName);
-        }
+        this._activateFocused(false);
       } else if (e.key === 'Delete' && this._focusedName) {
-        const name = this._focusedName.includes('::')
-          ? this._focusedName.split('::')[0]
-          : this._focusedName;
-        this._deleteCb?.(name);
+        this._deleteCb?.(this._getRootName(this._focusedName));
       } else if (e.key === 'd' && this._focusedName) {
         const now = Date.now();
-        if (_lastKey === 'd' && now - _lastKeyTime < 500) {
-          const name = this._focusedName.includes('::')
-            ? this._focusedName.split('::')[0]
-            : this._focusedName;
-          this._deleteCb?.(name);
+        if (lastKey === 'd' && now - lastKeyTime < 500) {
+          this._deleteCb?.(this._getRootName(this._focusedName));
         }
-        _lastKey = 'd';
-        _lastKeyTime = now;
+        lastKey = 'd';
+        lastKeyTime = now;
         return;
       }
-      _lastKey = e.key;
-      _lastKeyTime = Date.now();
+
+      lastKey = e.key;
+      lastKeyTime = Date.now();
     });
 
-    // Dismiss context menu on outside click
     document.addEventListener('click', () => {
       this._dismissContextMenu();
     }, true);
   }
-
-  // -------------------------------------------------------------------------
-  // Public API
-  // -------------------------------------------------------------------------
 
   setItemClickCallback(cb: (name: string) => void): void {
     this._clickCb = cb;
@@ -161,12 +144,15 @@ export class PivotalExplorerWidget extends Widget {
 
   setItems(items: ExplorerItem[]): void {
     this._items = items;
-    for (const name of this._expanded) {
-      if (!items.find(it => it.name === name)) this._expanded.delete(name);
+    for (const key of [...this._expanded]) {
+      if (!this._keyExists(key)) this._expanded.delete(key);
     }
     if (this._currentTable && !items.find(it => it.name === this._currentTable)) {
       this._currentTable = null;
       this._currentTableChangedCb?.(null);
+    }
+    if (this._focusedName && !this._keyExists(this._focusedName)) {
+      this._focusedName = null;
     }
     this._render();
   }
@@ -186,20 +172,75 @@ export class PivotalExplorerWidget extends Widget {
     this._render();
   }
 
-  // -------------------------------------------------------------------------
-  // Rendering
-  // -------------------------------------------------------------------------
+  private _groups(): ExplorerGroup[] {
+    return [
+      [this._items.filter(it => it.type === 'dataframe'), 'data', 'Data'],
+      [this._items.filter(it => it.type === 'chart'), 'charts', 'Charts'],
+      [this._items.filter(it => it.type === 'gt_table'), 'tables', 'Tables'],
+      [this._items.filter(it => it.type === 'value'), 'values', 'Values'],
+    ];
+  }
 
-  // Returns a flat ordered list of nav keys: table names and "table::col" for
-  // expanded column rows, skipping collapsed folder groups.
+  private _getRootName(key: string): string {
+    return key.split('::')[0];
+  }
+
+  private _getValueInfoByPath(path: string[]): ValueInfo | undefined {
+    if (!path.length) return undefined;
+    const root = this._items.find(it => it.type === 'value' && it.name === path[0])?.value;
+    let current = root;
+    for (let i = 1; i < path.length && current; i++) {
+      current = current.children?.[path[i]];
+    }
+    return current;
+  }
+
+  private _isValueExpandable(value: ValueInfo | undefined): boolean {
+    return !!value?.children && Object.keys(value.children).length > 0;
+  }
+
+  private _hasChildren(item: ExplorerItem): boolean {
+    if (item.type === 'dataframe') return !!item.columns?.length;
+    if (item.type === 'value') return this._isValueExpandable(item.value);
+    return false;
+  }
+
+  private _keyExists(key: string): boolean {
+    if (!key.includes('::')) return this._items.some(it => it.name === key);
+    const parts = key.split('::');
+    return !!this._getValueInfoByPath(parts);
+  }
+
+  private _valueSummary(value: ValueInfo | undefined): string {
+    if (!value) return '';
+    if (value.kind === 'scalar') {
+      const preview = value.preview ?? '';
+      const suffix = value.value_type ? ` <${value.value_type}>` : '';
+      return `${preview}${suffix}`.trim();
+    }
+    if (value.kind === 'list') {
+      const length = value.length ?? 0;
+      return `${length} item${length === 1 ? '' : 's'}`;
+    }
+    const size = value.size ?? 0;
+    return `${size} entr${size === 1 ? 'y' : 'ies'}`;
+  }
+
+  private _valueBadge(value: ValueInfo | undefined): string {
+    if (!value || value.kind === 'scalar') return '';
+    return value.kind;
+  }
+
+  private _valueIcon(value: ValueInfo | undefined): string {
+    if (!value) return SCALAR_ICON;
+    if (value.kind === 'list') return LIST_ICON;
+    if (value.kind === 'dict') return DICT_ICON;
+    return SCALAR_ICON;
+  }
+
   private _buildNavList(): string[] {
     const list: string[] = [];
-    const groups: Array<[ExplorerItem[], string]> = [
-      [this._items.filter(it => it.type === 'dataframe'), 'data'],
-      [this._items.filter(it => it.type === 'chart'),     'charts'],
-      [this._items.filter(it => it.type === 'gt_table'),  'tables'],
-    ];
-    for (const [items, folderId] of groups) {
+    for (const [items, folderId] of this._groups()) {
       if (!items.length || this._collapsedFolders.has(folderId)) continue;
       for (const item of items) {
         list.push(item.name);
@@ -208,16 +249,29 @@ export class PivotalExplorerWidget extends Widget {
             list.push(`${item.name}::${col.name}`);
           }
         }
+        if (item.type === 'value' && this._expanded.has(item.name)) {
+          this._appendValueNav(list, item.name, item.value);
+        }
       }
     }
     return list;
   }
 
+  private _appendValueNav(list: string[], prefix: string, value: ValueInfo | undefined): void {
+    if (!value?.children) return;
+    for (const [childKey, childValue] of Object.entries(value.children)) {
+      const navKey = `${prefix}::${childKey}`;
+      list.push(navKey);
+      if (this._expanded.has(navKey)) {
+        this._appendValueNav(list, navKey, childValue);
+      }
+    }
+  }
+
   private _setFocus(key: string): void {
     this._focusedName = key;
     this._render();
-    this._listEl.querySelector('.pv-focused')
-      ?.scrollIntoView({ block: 'nearest' });
+    this._listEl.querySelector('.pv-focused')?.scrollIntoView({ block: 'nearest' });
   }
 
   private _dismissContextMenu(): void {
@@ -231,6 +285,7 @@ export class PivotalExplorerWidget extends Widget {
     this._dismissContextMenu();
     const menu = document.createElement('div');
     menu.className = 'pv-explorer-context-menu';
+
     const deleteItem = document.createElement('div');
     deleteItem.className = 'pv-explorer-context-item';
     deleteItem.textContent = 'Delete';
@@ -239,9 +294,10 @@ export class PivotalExplorerWidget extends Widget {
       this._dismissContextMenu();
       this._deleteCb?.(name);
     });
+
     menu.appendChild(deleteItem);
     menu.style.left = `${x}px`;
-    menu.style.top  = `${y}px`;
+    menu.style.top = `${y}px`;
     document.body.appendChild(menu);
     this._contextMenu = menu;
   }
@@ -254,6 +310,54 @@ export class PivotalExplorerWidget extends Widget {
     this._listEl.appendChild(empty);
   }
 
+  private _activateFocused(expandOnly: boolean): void {
+    if (!this._focusedName) return;
+    if (this._focusedName.includes('::')) {
+      const value = this._getValueInfoByPath(this._focusedName.split('::'));
+      if (this._isValueExpandable(value) && !this._expanded.has(this._focusedName)) {
+        this._expanded.add(this._focusedName);
+        this._render();
+      } else if (!expandOnly && this._isValueExpandable(value)) {
+        this._expanded.delete(this._focusedName);
+        this._render();
+      }
+      return;
+    }
+
+    const item = this._items.find(it => it.name === this._focusedName);
+    if (!item) return;
+    if (this._hasChildren(item) && !this._expanded.has(item.name)) {
+      this._expanded.add(item.name);
+      this._render();
+      return;
+    }
+    if (!expandOnly) {
+      if (item.type === 'value' && this._hasChildren(item)) {
+        this._expanded.delete(item.name);
+        this._render();
+      } else if (item.type !== 'value') {
+        this._clickCb?.(item.name);
+      }
+    } else if (item.type !== 'value') {
+      this._clickCb?.(item.name);
+    }
+  }
+
+  private _collapseFocused(): void {
+    if (!this._focusedName) return;
+    if (this._focusedName.includes('::')) {
+      const parentKey = this._focusedName.split('::').slice(0, -1).join('::');
+      this._expanded.delete(this._focusedName);
+      this._focusedName = parentKey;
+      this._render();
+      return;
+    }
+    if (this._expanded.has(this._focusedName)) {
+      this._expanded.delete(this._focusedName);
+      this._render();
+    }
+  }
+
   private _render(): void {
     this._listEl.innerHTML = '';
     if (!this._items.length) {
@@ -261,20 +365,15 @@ export class PivotalExplorerWidget extends Widget {
       return;
     }
 
-    const dfs    = this._items.filter(it => it.type === 'dataframe');
-    const charts = this._items.filter(it => it.type === 'chart');
-    const tables = this._items.filter(it => it.type === 'gt_table');
-
-    this._renderFolder('data',   'Data',   dfs);
-    this._renderFolder('charts', 'Charts', charts);
-    this._renderFolder('tables', 'Tables', tables);
+    for (const [items, folderId, label] of this._groups()) {
+      this._renderFolder(folderId, label, items);
+    }
   }
 
   private _renderFolder(id: string, label: string, items: ExplorerItem[]): void {
     if (!items.length) return;
 
     const isCollapsed = this._collapsedFolders.has(id);
-
     const header = document.createElement('div');
     header.className = 'pv-explorer-folder-header';
 
@@ -285,7 +384,7 @@ export class PivotalExplorerWidget extends Widget {
 
     const labelEl = document.createElement('span');
     labelEl.className = 'pv-explorer-folder-label';
-    labelEl.textContent = `${label}`;
+    labelEl.textContent = label;
 
     const countEl = document.createElement('span');
     countEl.className = 'pv-explorer-folder-count';
@@ -301,7 +400,6 @@ export class PivotalExplorerWidget extends Widget {
     });
 
     this._listEl.appendChild(header);
-
     if (!isCollapsed) {
       for (const item of items) {
         this._renderItem(item);
@@ -311,27 +409,30 @@ export class PivotalExplorerWidget extends Widget {
 
   private _renderItem(item: ExplorerItem): void {
     const isExpanded = this._expanded.has(item.name);
-    const hasColumns = item.type === 'dataframe' && !!(item.columns?.length);
-    const isCurrent  = item.type === 'dataframe' && item.name === this._currentTable;
-    const isViewing  = item.name === this._viewingItem;
+    const hasChildren = this._hasChildren(item);
+    const isCurrent = item.type === 'dataframe' && item.name === this._currentTable;
+    const isViewing = item.name === this._viewingItem;
 
-    // --- Row ---
     const row = document.createElement('div');
     row.className = 'pv-explorer-row';
-    if (isCurrent)                       row.classList.add('pv-current-table');
+    if (isCurrent) row.classList.add('pv-current-table');
     if (item.name === this._focusedName) row.classList.add('pv-focused');
     row.setAttribute('role', 'row');
 
     const toggle = document.createElement('span');
     toggle.className = 'pv-explorer-toggle';
-    toggle.textContent = hasColumns ? (isExpanded ? '▼' : '▶') : '';
+    toggle.textContent = hasChildren ? (isExpanded ? '▼' : '▶') : '';
     toggle.setAttribute('aria-hidden', 'true');
 
     const icon = document.createElement('span');
     icon.className = 'pv-explorer-icon';
-    icon.innerHTML = item.type === 'dataframe' ? DF_ICON
-                   : item.type === 'chart'     ? CHART_ICON
-                   : GT_TABLE_ICON;
+    icon.innerHTML = item.type === 'dataframe'
+      ? DF_ICON
+      : item.type === 'chart'
+        ? CHART_ICON
+        : item.type === 'gt_table'
+          ? GT_TABLE_ICON
+          : this._valueIcon(item.value);
 
     const nameEl = document.createElement('span');
     nameEl.className = 'pv-explorer-name';
@@ -347,6 +448,19 @@ export class PivotalExplorerWidget extends Widget {
       shapeEl.className = 'pv-explorer-shape';
       shapeEl.textContent = `${item.shape[0].toLocaleString()}×${item.shape[1]}`;
       row.appendChild(shapeEl);
+    } else if (item.type === 'value') {
+      const badge = this._valueBadge(item.value);
+      if (badge) {
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'pv-explorer-col-type pv-col-type-string';
+        badgeEl.textContent = badge;
+        badgeEl.title = badge;
+        row.appendChild(badgeEl);
+      }
+      const summaryEl = document.createElement('span');
+      summaryEl.className = 'pv-explorer-shape';
+      summaryEl.textContent = this._valueSummary(item.value);
+      row.appendChild(summaryEl);
     }
 
     if (isViewing) {
@@ -359,7 +473,7 @@ export class PivotalExplorerWidget extends Widget {
 
     toggle.addEventListener('click', e => {
       e.stopPropagation();
-      if (!hasColumns) return;
+      if (!hasChildren) return;
       if (isExpanded) this._expanded.delete(item.name);
       else this._expanded.add(item.name);
       this._render();
@@ -368,7 +482,14 @@ export class PivotalExplorerWidget extends Widget {
     row.addEventListener('click', () => {
       this._focusedName = item.name;
       this.node.focus();
-      this._clickCb?.(item.name);
+      if (item.type !== 'value') this._clickCb?.(item.name);
+      else if (hasChildren) {
+        if (this._expanded.has(item.name)) this._expanded.delete(item.name);
+        else this._expanded.add(item.name);
+        this._render();
+      } else {
+        this._render();
+      }
     });
 
     row.addEventListener('contextmenu', e => {
@@ -380,11 +501,10 @@ export class PivotalExplorerWidget extends Widget {
 
     this._listEl.appendChild(row);
 
-    // --- Column tree (when expanded) ---
-    if (hasColumns && isExpanded) {
+    if (item.type === 'dataframe' && isExpanded) {
       const colList = document.createElement('div');
       colList.className = 'pv-explorer-cols';
-      for (const col of item.columns!) {
+      for (const col of item.columns ?? []) {
         const navKey = `${item.name}::${col.name}`;
         const colRow = document.createElement('div');
         colRow.className = 'pv-explorer-col';
@@ -420,5 +540,95 @@ export class PivotalExplorerWidget extends Widget {
       }
       this._listEl.appendChild(colList);
     }
+
+    if (item.type === 'value' && isExpanded) {
+      this._renderValueChildren(item.name, item.value, 1);
+    }
+  }
+
+  private _renderValueChildren(prefix: string, value: ValueInfo | undefined, depth: number): void {
+    if (!value?.children || !Object.keys(value.children).length) return;
+
+    const childList = document.createElement('div');
+    childList.className = 'pv-explorer-cols pv-explorer-values';
+    childList.style.marginLeft = `${22 + Math.max(0, depth - 1) * 14}px`;
+
+    const appendChildren = (container: HTMLElement, keyPrefix: string, info: ValueInfo, level: number) => {
+      if (!info.children) return;
+      for (const [childKey, childValue] of Object.entries(info.children)) {
+        const navKey = `${keyPrefix}::${childKey}`;
+        const childRow = document.createElement('div');
+        childRow.className = 'pv-explorer-col';
+        if (this._focusedName === navKey) childRow.classList.add('pv-focused');
+
+        const toggle = document.createElement('span');
+        toggle.className = 'pv-explorer-toggle';
+        toggle.textContent = this._isValueExpandable(childValue)
+          ? (this._expanded.has(navKey) ? '▼' : '▶')
+          : '';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'pv-explorer-col-name';
+        nameEl.textContent = childKey;
+        nameEl.title = childKey;
+
+        const iconEl = document.createElement('span');
+        iconEl.className = 'pv-explorer-icon pv-explorer-value-icon';
+        iconEl.innerHTML = this._valueIcon(childValue);
+
+        const summaryEl = document.createElement('span');
+        summaryEl.className = 'pv-explorer-col-dtype';
+        summaryEl.textContent = this._valueSummary(childValue);
+
+        const badge = this._valueBadge(childValue);
+        if (badge) {
+          const kindEl = document.createElement('span');
+          kindEl.className = 'pv-explorer-col-type pv-col-type-string';
+          kindEl.textContent = badge;
+          kindEl.title = badge;
+          childRow.appendChild(toggle);
+          childRow.appendChild(iconEl);
+          childRow.appendChild(nameEl);
+          childRow.appendChild(kindEl);
+          childRow.appendChild(summaryEl);
+        } else {
+          childRow.appendChild(toggle);
+          childRow.appendChild(iconEl);
+          childRow.appendChild(nameEl);
+          childRow.appendChild(summaryEl);
+        }
+
+        childRow.addEventListener('click', e => {
+          e.stopPropagation();
+          this._focusedName = navKey;
+          if (this._isValueExpandable(childValue)) {
+            if (this._expanded.has(navKey)) this._expanded.delete(navKey);
+            else this._expanded.add(navKey);
+          }
+          this._render();
+        });
+
+        toggle.addEventListener('click', e => {
+          e.stopPropagation();
+          if (!this._isValueExpandable(childValue)) return;
+          if (this._expanded.has(navKey)) this._expanded.delete(navKey);
+          else this._expanded.add(navKey);
+          this._render();
+        });
+
+        container.appendChild(childRow);
+
+        if (this._expanded.has(navKey)) {
+          const nested = document.createElement('div');
+          nested.className = 'pv-explorer-cols pv-explorer-values';
+          nested.style.marginLeft = `${22 + level * 14}px`;
+          container.appendChild(nested);
+          appendChildren(nested, navKey, childValue, level + 1);
+        }
+      }
+    };
+
+    appendChildren(childList, prefix, value, depth);
+    this._listEl.appendChild(childList);
   }
 }

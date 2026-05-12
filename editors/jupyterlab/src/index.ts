@@ -28,7 +28,7 @@ import { PageConfig } from '@jupyterlab/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
 
 import { pivotalLanguage } from './language';
-import { PivotalViewerWidget, ViewerMessage } from './viewer';
+import { PivotalViewerWidget, ViewerMessage, ExplorerItem } from './viewer';
 import { PivotalExplorerWidget } from './explorer';
 
 const MAGIC_RE = /^%%pivotal(\s|$)/;
@@ -837,8 +837,17 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       app.shell.activateById(viewer.id);
     };
 
+    let latestViewerItems: ExplorerItem[] = [];
+    const valueExplorerItems = new Map<string, ExplorerItem>();
+    const refreshExplorerItems = () => {
+      explorer.setItems([...latestViewerItems, ...valueExplorerItems.values()]);
+    };
+
     // Keep explorer in sync with viewer content and viewing state
-    viewer.setContentChangedCallback(items => explorer.setItems(items));
+    viewer.setContentChangedCallback(items => {
+      latestViewerItems = items;
+      refreshExplorerItems();
+    });
     viewer.setViewingItemCallback(name => explorer.setViewingItem(name));
 
     // Insert a gui cell into the active notebook
@@ -1160,16 +1169,31 @@ const viewerPlugin: JupyterFrontEndPlugin<void> = {
       kernel.registerCommTarget('pivotal_viewer', (comm: any) => {
         viewer.setComm(comm);
         comm.onMsg = (msg: any) => {
-          const data = msg?.content?.data as (ViewerMessage & { name?: string }) | undefined;
+          const data = msg?.content?.data as (ViewerMessage & {
+            name?: string;
+            value?: ValueInfo;
+            type?: string;
+          }) | undefined;
           if (data?.type === 'dataframe' || data?.type === 'chart' || data?.type === 'gt_table') {
             viewer.push(data as ViewerMessage);
             // Show panel when new data arrives
             activateViewer();
+          } else if ((data as any)?.type === 'value' && (data as any)?.name) {
+            const valueData = data as unknown as { name: string; value?: ValueInfo };
+            valueExplorerItems.set(valueData.name, {
+              name: valueData.name,
+              type: 'value',
+              value: valueData.value,
+            });
+            refreshExplorerItems();
           } else if ((data as any)?.type === 'current_table') {
             explorer.setCurrentTable((data as any).name ?? null);
           } else if ((data as any)?.type === 'delete') {
             // Python-initiated delete: remove from viewer only (Python already removed from namespace)
-            viewer.deleteItem((data as any).name ?? '');
+            const name = (data as any).name ?? '';
+            viewer.deleteItem(name);
+            valueExplorerItems.delete(name);
+            refreshExplorerItems();
           } else if ((data as any)?.type === 'insert_cell') {
             // Load GUI: always insert a fresh cell
             const panel = tracker.currentWidget;

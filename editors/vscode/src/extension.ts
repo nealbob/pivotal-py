@@ -18,6 +18,7 @@ interface TableInfo {
 interface ValueInfo {
   kind: 'scalar' | 'list' | 'dict';
   value_type?: string;
+  preview?: string;
   item_type?: string | null;
   length?: number;
   size?: number;
@@ -1459,7 +1460,8 @@ function _buildViewerHtml(webview: vscode.Webview): string {
 type ExplorerNode =
   | { kind: 'category'; label: string; itemType: string }
   | { kind: 'item';     type: string; name: string; payload: Record<string, unknown> }
-  | { kind: 'column';   parent: string; col: string; dtype: string; semType: string };
+  | { kind: 'column';   parent: string; col: string; dtype: string; semType: string }
+  | { kind: 'valueChild'; root: string; path: string[]; label: string; value: ValueInfo };
 
 /** Shared store: name → full bridge payload, updated on every bridge message. */
 const _explorerItems = new Map<string, Record<string, unknown>>();
@@ -1475,7 +1477,33 @@ const _CATEGORIES = [
   { label: 'Data',   itemType: 'dataframe' },
   { label: 'Charts', itemType: 'chart'     },
   { label: 'Tables', itemType: 'gt_table'  },
+  { label: 'Values', itemType: 'value'     },
 ];
+
+function _isValueExpandable(value: ValueInfo | null | undefined): boolean {
+  return !!value?.children && Object.keys(value.children).length > 0;
+}
+
+function _valueSummary(value: ValueInfo | null | undefined): string {
+  if (!value) return '';
+  if (value.kind === 'scalar') {
+    const preview = value.preview ?? '';
+    const suffix = value.value_type ? ` <${value.value_type}>` : '';
+    return `${preview}${suffix}`.trim();
+  }
+  if (value.kind === 'list') {
+    const length = value.length ?? 0;
+    return `${length} item${length === 1 ? '' : 's'}`;
+  }
+  const size = value.size ?? 0;
+  return `${size} entr${size === 1 ? 'y' : 'ies'}`;
+}
+
+function _valueDescription(value: ValueInfo | null | undefined): string {
+  if (!value) return '';
+  if (value.kind === 'scalar') return _valueSummary(value);
+  return `${value.kind} ${_valueSummary(value)}`.trim();
+}
 
 class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
   private readonly _emitter = new vscode.EventEmitter<ExplorerNode | undefined>();
@@ -1509,14 +1537,34 @@ class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
       return item;
     }
 
+    if (node.kind === 'valueChild') {
+      const item = new vscode.TreeItem(
+        node.label,
+        _isValueExpandable(node.value)
+          ? vscode.TreeItemCollapsibleState.Collapsed
+          : vscode.TreeItemCollapsibleState.None,
+      );
+      const iconMap: Record<string, string> = {
+        scalar: 'symbol-value',
+        list: 'list-tree',
+        dict: 'json',
+      };
+      item.description = _valueDescription(node.value);
+      item.iconPath = new vscode.ThemeIcon(iconMap[node.value.kind] ?? 'symbol-value');
+      item.contextValue = 'pivotalValueChild';
+      return item;
+    }
+
     // kind === 'item'
     const p = node.payload;
     const hasColumns = node.type === 'dataframe'
       && Array.isArray(p.columns) && (p.columns as string[]).length > 0;
+    const valueInfo = node.type === 'value' ? (p.value as ValueInfo | undefined) : undefined;
+    const hasValueChildren = node.type === 'value' && _isValueExpandable(valueInfo);
 
     const item = new vscode.TreeItem(
       node.name,
-      hasColumns
+      (hasColumns || hasValueChildren)
         ? vscode.TreeItemCollapsibleState.Collapsed
         : vscode.TreeItemCollapsibleState.None,
     );
@@ -1530,13 +1578,24 @@ class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
       item.description  = 'chart';
       item.iconPath     = new vscode.ThemeIcon('graph');
       item.contextValue = 'pivotalChart';
+    } else if (node.type === 'value') {
+      const iconMap: Record<string, string> = {
+        scalar: 'symbol-value',
+        list: 'list-tree',
+        dict: 'json',
+      };
+      item.description = _valueDescription(valueInfo);
+      item.iconPath = new vscode.ThemeIcon(iconMap[valueInfo?.kind ?? 'scalar'] ?? 'symbol-value');
+      item.contextValue = 'pivotalValue';
     } else {
       item.description  = 'table';
       item.iconPath     = new vscode.ThemeIcon('list-flat');
       item.contextValue = 'pivotalTable';
     }
 
-    item.command = { command: 'pivotal.explorer.view', title: 'View', arguments: [node] };
+    if (node.type !== 'value') {
+      item.command = { command: 'pivotal.explorer.view', title: 'View', arguments: [node] };
+    }
     return item;
   }
 
@@ -1569,6 +1628,27 @@ class _ExplorerProvider implements vscode.TreeDataProvider<ExplorerNode> {
         col,
         dtype:   dtypes[col]   ?? '',
         semType: colTypes[col] ?? 'string',
+      }));
+    }
+    if (node.kind === 'item' && node.type === 'value') {
+      const info = node.payload.value as ValueInfo | undefined;
+      if (!info?.children) return [];
+      return Object.entries(info.children).map(([label, value]) => ({
+        kind: 'valueChild' as const,
+        root: node.name,
+        path: [node.name, label],
+        label,
+        value,
+      }));
+    }
+    if (node.kind === 'valueChild') {
+      if (!node.value.children) return [];
+      return Object.entries(node.value.children).map(([label, value]) => ({
+        kind: 'valueChild' as const,
+        root: node.root,
+        path: [...node.path, label],
+        label,
+        value,
       }));
     }
     return [];
@@ -2330,7 +2410,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const explorerView = vscode.commands.registerCommand(
     'pivotal.explorer.view',
     (node: ExplorerNode) => {
-      if (node.kind !== 'item') { return; }
+      if (node.kind !== 'item' || node.type === 'value') { return; }
       const panel = _getOrCreateViewerPanel(context, true);
       panel.webview.postMessage({ type: 'focus', name: node.name });
     },
@@ -2359,12 +2439,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showInformationMessage('No Pivotal data loaded yet.');
         return;
       }
-      const iconMap: Record<string, string> = { dataframe: '$(table)', chart: '$(graph)', gt_table: '$(list-flat)' };
+      const iconMap: Record<string, string> = { dataframe: '$(table)', chart: '$(graph)', gt_table: '$(list-flat)', value: '$(symbol-value)' };
       const picks = [..._explorerItems.entries()].map(([name, p]) => {
         const t = p.type as string;
         const shape = t === 'dataframe' && Array.isArray((p as any).shape)
           ? `${((p as any).shape as [number,number])[0].toLocaleString()} × ${((p as any).shape as [number,number])[1]}`
-          : t === 'chart' ? 'chart' : 'table';
+          : t === 'chart' ? 'chart' : t === 'gt_table' ? 'table' : _valueDescription((p as any).value as ValueInfo | undefined);
         return { label: `${iconMap[t] ?? '$(database)'}  ${name}`, description: shape, name };
       });
       const chosen = await vscode.window.showQuickPick(picks, {
@@ -2375,9 +2455,11 @@ export function activate(context: vscode.ExtensionContext): void {
       // Reveal in explorer tree (without stealing focus from editor)
       const node = { kind: 'item' as const, type: _explorerItems.get(chosen.name)?.type as string, name: chosen.name, payload: _explorerItems.get(chosen.name)! };
       _pivotalTreeView?.reveal(node, { select: true, focus: false, expand: true }).then(undefined, () => {});
-      // Show in viewer
-      const panel = _getOrCreateViewerPanel(context, true);
-      panel.webview.postMessage({ type: 'focus', name: chosen.name });
+      const chosenType = _explorerItems.get(chosen.name)?.type as string | undefined;
+      if (chosenType && chosenType !== 'value') {
+        const panel = _getOrCreateViewerPanel(context, true);
+        panel.webview.postMessage({ type: 'focus', name: chosen.name });
+      }
     },
   );
 
@@ -2676,7 +2758,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // --- Bridge handler: forward Python viewer messages to viewer + explorer ---
   onBridgeMessage((msg: Record<string, unknown>) => {
     const t = msg.type as string;
-    if (t === 'dataframe' || t === 'chart' || t === 'gt_table') {
+    if (t === 'dataframe' || t === 'chart' || t === 'gt_table' || t === 'value') {
       const isFirstItem = _explorerItems.size === 0;
       _explorerItems.set(msg.name as string, msg);
       _refreshExplorer(t);
@@ -2687,9 +2769,11 @@ export function activate(context: vscode.ExtensionContext): void {
       // Ensure the viewer panel exists.  If the webview has already
       // confirmed 'ready', post immediately; otherwise the item is stored
       // in _explorerItems and will be replayed when 'ready' fires.
-      const panel = _getOrCreateViewerPanel(context);
-      if (_viewerReady) {
-        panel.webview.postMessage(msg);
+      if (t !== 'value') {
+        const panel = _getOrCreateViewerPanel(context);
+        if (_viewerReady) {
+          panel.webview.postMessage(msg);
+        }
       }
     } else if (t === 'delete') {
       const existing = _explorerItems.get(msg.name as string);
