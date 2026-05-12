@@ -2403,6 +2403,23 @@ def test_fillna_per_col_column_reference(parser):
     assert ns['t']['revenue'].tolist() == [10.0, 20.0, 30.0]
 
 
+def test_fillna_then_assignment_regression(parser):
+    """Assignments should parse normally after fillna/dropna/cast/rank statements."""
+    dsl = (
+        'with t\n'
+        '    cast sale_date as datetime\n'
+        '    dropna sale_date\n'
+        '    med_rev = median(revenue)\n'
+        '        by product\n'
+        '    fillna revenue med_rev\n'
+        '    sale_year = year(sale_date)\n'
+        '    rank revenue pct as p90\n'
+        '    is_high_value = revenue >= p90\n'
+    )
+    ast = parser.parse(dsl)
+    assert not isinstance(ast, dict)
+
+
 def test_fillna_all_unchanged(parser):
     """fillna with a scalar still fills all columns."""
     df = pd.DataFrame({'a': [1.0, None], 'b': [None, 2.0]})
