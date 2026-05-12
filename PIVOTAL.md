@@ -630,6 +630,8 @@ with sales
     python sales["flag"] = sales["amount"] > 1000
 ```
 
+Please DO NOT use Python blocks if it is possible to produce the same operation / outcome with native Pivotal code.
+
 ## Show
 
 Display the active table (or a preview of it) without saving:
