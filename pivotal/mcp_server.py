@@ -73,6 +73,14 @@ _CORE_GUIDANCE = (
     "    sort total_revenue desc\n"
 )
 
+_VERIFICATION_GUIDANCE = (
+    "Before giving Pivotal code to a user, compile it with pivotal_compile at "
+    "minimum to catch syntax and code-generation errors. When input data or "
+    "expected outputs are available, prefer pivotal_run or pivotal_compare for "
+    "stronger verification. For polished presentation, use pivotal_highlight "
+    "after the code compiles successfully. "
+)
+
 _HIGHLIGHT_CSS = """
 .pvt-code-block {
   position: relative;
@@ -988,6 +996,7 @@ def create_mcp_server(
         instructions=(
             "Tools for generating, running, and comparing Pivotal DSL code. "
             f"{_CORE_GUIDANCE}"
+            f"{_VERIFICATION_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then verify generated code "
             "with pivotal_run or pivotal_compare before giving a final answer. "
@@ -1020,6 +1029,7 @@ def create_readonly_mcp_server(
         instructions=(
             "Read-only tools for learning and compiling Pivotal DSL code. "
             f"{_CORE_GUIDANCE}"
+            f"{_VERIFICATION_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then use pivotal_compile "
             "to check that the source parses and compiles. "

@@ -190,6 +190,8 @@ def test_mcp_server_startup_instructions_include_core_guidance():
     assert "`with table` sets the active DataFrame" in server.instructions
     assert "Canonical example:" in server.instructions
     assert "with sales as report" in server.instructions
+    assert "compile it with pivotal_compile at minimum" in server.instructions
+    assert "use pivotal_highlight after the code compiles successfully" in server.instructions
     assert "pivotal_docs_search" in server.instructions
 
 
