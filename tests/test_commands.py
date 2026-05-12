@@ -11,6 +11,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pivotal
+from pivotal.magic import PivotalMagics
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,11 @@ def test_show_shape_and_columns_codegen_pandas(parser):
 
     assert '_ipyd(sales.shape)' in shape_code
     assert '_ipyd(list(sales.columns))' in columns_code
+
+
+def test_pivotal_magic_defaults_canvas_to_a4():
+    """Fresh Jupyter magic settings default canvas to A4."""
+    assert PivotalMagics.DEFAULT_SETTINGS['canvas'] == 'a4'
 
 
 # ---------------------------------------------------------------------------

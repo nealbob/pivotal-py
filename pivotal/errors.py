@@ -23,7 +23,7 @@ def _make_suggestion(name: str, candidates: list[str]) -> Optional[str]:
     """Return a 'did you mean X?' string if a close match exists, else None."""
     if not candidates:
         return None
-    matches = difflib.get_close_matches(name, candidates, n=1, cutoff=0.6)
+    matches = difflib.get_close_matches(str(name), [str(c) for c in candidates], n=1, cutoff=0.6)
     if matches:
         return f"Did you mean '{matches[0]}'?"
     return None

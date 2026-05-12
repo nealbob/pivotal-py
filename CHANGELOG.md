@@ -35,6 +35,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Fixed
 
+- Changed the default Jupyter `%pivotal_set` canvas from `none` to `a4` for viewer output in JupyterLab and VS Code notebooks.
 - Fixed and expanded the test suite around command parsing and backend behavior, including pandas, Polars, DuckDB, and SQL CTE coverage.
 - Fixed MCP compile validation so incomplete inline Python such as `python def ...:` is rejected instead of reporting successful code generation.
 - Fixed MCP syntax topic lookup so aliases such as `melt` and `reshape` return specific pivot/unpivot guidance instead of the start of `PIVOTAL.md`.

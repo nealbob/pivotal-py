@@ -63,6 +63,19 @@ def _col_errors(col_refs: list, current_cols: Optional[set],
         return []
     errors = []
     for col in col_refs:
+        if col is not None and not isinstance(col, str):
+            errors.append(PivotalError(
+                message=(
+                    f"Expected a column name in '{statement}' on table '{table_name}', "
+                    f"but got {type(col).__name__} value {col!r}"
+                ),
+                error_type="Validation Error",
+                suggestion=(
+                    "If this came from a scalar or dict reference, make it resolve to a "
+                    "column name string or a list of column name strings."
+                ),
+            ))
+            continue
         if col and col not in current_cols:
             suggestion = _make_suggestion(col, list(current_cols))
             errors.append(PivotalError(

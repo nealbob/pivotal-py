@@ -168,6 +168,13 @@ class TestSemanticValidation:
         errors = self._validate(parser, 'with sales\n    select region, reveune', ns)
         assert any('reveune' in e.message for e in errors)
 
+    def test_scalar_wrong_type_in_select_returns_validation_error(self, parser, ns):
+        errors = self._validate(parser, 'scalar temp = 10\nwith sales\n    select temp', ns)
+        assert len(errors) == 1
+        assert errors[0].error_type == 'Validation Error'
+        assert "Expected a column name" in errors[0].message
+        assert "int value 10" in errors[0].message
+
     def test_unknown_column_in_group_by(self, parser, ns):
         errors = self._validate(parser, 'with sales\n    group by regon\n        agg sum revenue as total', ns)
         assert any('regon' in e.message for e in errors)
