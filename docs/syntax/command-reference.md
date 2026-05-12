@@ -377,6 +377,10 @@ Aggregation item forms:
 ```pivotal
 <func> <col-or-python-var> [as <new_col>]
 <func>(<col-or-python-var>) [as <new_col>]
+quantile <col-or-python-var> <q> [as <new_col>]
+quantile(<col-or-python-var>, <q>) [as <new_col>]
+percentile <col-or-python-var> <p> [as <new_col>]
+percentile(<col-or-python-var>, <p>) [as <new_col>]
 wmean(<col-or-python-var>, <weight-col-or-python-var>) [as <new_col>]
 wmean <weight-col-or-python-var> <col-or-python-var> [as <new_col>]
 wmean <weight-col-or-python-var> <col1> <col2> ...
@@ -385,7 +389,7 @@ wmean <weight-col-or-python-var> <col1> <col2> ...
 ```
 
 Built-in aggregation functions accepted by the grammar are `mean`, `avg`, `sum`,
-`min`, `max`, `count`, `median`, `std`, and `nunique`.
+`min`, `max`, `count`, `median`, `std`, `nunique`, `quantile`, and `percentile`.
 
 Older `wavg` syntax is accepted as a backward-compatible alias for `wmean`, but
 new code should use `wmean`.
@@ -553,6 +557,8 @@ Display the active table:
 show
 show head
 show summary
+show shape
+show columns
 ```
 
 ### `plot`

@@ -66,6 +66,15 @@ def run(parser, code, ns):
     return ns
 
 
+def test_show_shape_and_columns_codegen_pandas(parser):
+    """show shape and show columns generate display calls for pandas tables."""
+    shape_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow shape\n')))
+    columns_code = '\n'.join(parser.generate_code(parser.parse('with sales\nshow columns\n')))
+
+    assert '_ipyd(sales.shape)' in shape_code
+    assert '_ipyd(list(sales.columns))' in columns_code
+
+
 # ---------------------------------------------------------------------------
 # Existing commands (smoke tests to catch regressions)
 # ---------------------------------------------------------------------------
@@ -561,6 +570,23 @@ def test_assign_agg_by_group(parser):
     assert s_rows['pct'].sum() == pytest.approx(1.0)
 
 
+def test_assign_quantile_by_group(parser):
+    """quantile(col, q) with by computes per-group quantiles."""
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\np90 = quantile(amount, 0.9)\n    by region\n', ns)
+    assert ns['data'].loc[0, 'p90'] == pytest.approx(280.0)
+    assert ns['data'].loc[2, 'p90'] == pytest.approx(380.0)
+
+
+def test_assign_percentile_alias(parser):
+    """percentile(col, p) is sugar for quantile(col, p / 100)."""
+    df = pd.DataFrame({'amount': [100, 200, 300]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\np90 = percentile(amount, 90)\n', ns)
+    assert ns['data']['p90'].iloc[0] == pytest.approx(280.0)
+
+
 def test_assign_agg_multiple_calls(parser):
     """Multiple agg calls in one expression all get substituted."""
     df = pd.DataFrame({'amount': [100, 200, 300, 400]})
@@ -629,6 +655,22 @@ def test_groupby_wavg(parser):
     s_wa = ns['data'][ns['data']['region'] == 'S'].iloc[0]['wa']
     assert n_wa == pytest.approx(250.0)   # (100*1 + 300*3) / (1+3)
     assert s_wa == pytest.approx(300.0)   # (200*2 + 400*2) / (2+2)
+
+
+def test_groupby_quantile_and_percentile(parser):
+    """quantile/percentile work as built-in aggregation functions."""
+    df = pd.DataFrame({'region': ['N', 'N', 'S', 'S'], 'amount': [100, 300, 200, 400]})
+    ns = {'pd': pd, 'data': df}
+    run(
+        parser,
+        'with data\ngroup by region\n    agg quantile amount 0.9 as p90, percentile(amount, 90) as p90b\n',
+        ns,
+    )
+    n_row = ns['data'][ns['data']['region'] == 'N'].iloc[0]
+    s_row = ns['data'][ns['data']['region'] == 'S'].iloc[0]
+    assert n_row['p90'] == pytest.approx(280.0)
+    assert n_row['p90b'] == pytest.approx(280.0)
+    assert s_row['p90'] == pytest.approx(380.0)
 
 
 def test_assign_wavg_whole_table(parser):
@@ -2351,6 +2393,14 @@ def test_fillna_per_col_comma_syntax(parser):
     run(parser, 'with t\n    fillna price 0, name "unknown"\n', ns)
     assert ns['t']['price'].tolist() == [1.0, 0.0, 3.0]
     assert ns['t']['name'].tolist() == ['a', 'unknown', 'c']
+
+
+def test_fillna_per_col_column_reference(parser):
+    """fillna col other_col fills nulls from another column."""
+    df = pd.DataFrame({'revenue': [10.0, None, None], 'med_rev': [8.0, 20.0, 30.0]})
+    ns = {'pd': pd, 't': df.copy()}
+    run(parser, 'with t\n    fillna revenue med_rev\n', ns)
+    assert ns['t']['revenue'].tolist() == [10.0, 20.0, 30.0]
 
 
 def test_fillna_all_unchanged(parser):

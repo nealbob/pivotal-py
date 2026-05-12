@@ -275,9 +275,11 @@ with sales
     pct = amount / sum(amount)            # percent of group total
         by region
     z = (amount - mean(amount)) / std(amount)
+    p90 = quantile(amount, 0.9)
+        by region
 ```
 
-Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  wmean(col, weight)`
+Supported agg functions in expressions: `sum  mean  min  max  count  std  median  var  nunique  quantile(col, q)  percentile(col, p)  wmean(col, weight)`
 
 Multi-case (CASE WHEN equivalent) — use explicit `else` for the default branch:
 ```pivotal
@@ -334,9 +336,10 @@ with sales as detail
         agg nunique customer_id as customers
 ```
 
-Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  wmean weight col`
+Agg functions: `sum  mean/avg  min  max  count  median  std  nunique  quantile col q  percentile col p  wmean weight col`
 
 Both space and bracket syntax are accepted: `agg sum revenue as total` or `agg sum(revenue) as total`.
+For quantiles, use column-first order: `agg quantile revenue 0.9 as p90` or `agg percentile(revenue, 90) as p90`.
 
 To apply one aggregation function to multiple columns, list the extra columns after commas:
 `agg mean price, cost, margin` is equivalent to `agg mean price, mean cost, mean margin`.
@@ -512,6 +515,15 @@ with raw as clean
     fillna price 0, name "unknown", region "N/A"
 ```
 
+Unquoted fill values in per-column `fillna` statements are treated as column references:
+
+```pivotal
+with sales
+    med_rev = median(revenue)
+        by product
+    fillna revenue med_rev
+```
+
 ## Plotting
 
 ```pivotal
@@ -627,6 +639,8 @@ with sales
     show                # display the full table
     show head           # display the first rows
     show summary        # display descriptive statistics
+    show shape          # display row/column counts
+    show columns        # display column names
 ```
 
 ## Apply

@@ -312,6 +312,11 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
             per_col = node.get('per_col', {})
             if per_col:
                 errors.extend(_col_errors(list(per_col.keys()), current_cols, tbl, 'fillna'))
+                fill_cols = [
+                    value for value in per_col.values()
+                    if isinstance(value, str) and type(value) is str
+                ]
+                errors.extend(_col_errors(fill_cols, current_cols, tbl, 'fillna'))
 
         elif t == 'round':
             cols = node.get('columns', [])

@@ -23,6 +23,8 @@ with sales as summary
 | `median` | Median |
 | `std` | Standard deviation |
 | `nunique` | Count of unique values |
+| `quantile` | Quantile, with `q` from 0 to 1 |
+| `percentile` | Percentile, with `p` from 0 to 100 |
 | `wmean` | Weighted average |
 
 Both space and bracket syntax are accepted:
@@ -30,6 +32,8 @@ Both space and bracket syntax are accepted:
 ```pivotal
 agg sum revenue as total              # space syntax
 agg sum(revenue) as total             # bracket syntax — both are equivalent
+agg quantile revenue 0.9 as p90       # quantile: value column first
+agg percentile(revenue, 90) as p90    # percentile: value column first
 agg wmean quantity price as avg       # space syntax: wmean weight_col value_col
 agg wmean(price, quantity) as avg     # bracket syntax: wmean(value_col, weight_col)
 ```
@@ -113,6 +117,17 @@ with products
 ```
 
 `wavg` is accepted as a backward-compatible alias for `wmean`.
+
+## Quantiles and percentiles
+
+`quantile <value_col> <q>` uses a probability from 0 to 1. `percentile <value_col> <p>` is equivalent but uses 0 to 100.
+
+```pivotal
+with sales as thresholds
+    group by product
+        agg quantile revenue 0.9 as p90
+        agg percentile(revenue, 95) as p95
+```
 
 ## Custom Python aggregations
 

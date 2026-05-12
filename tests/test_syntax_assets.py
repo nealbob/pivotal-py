@@ -13,6 +13,8 @@ def test_syntax_tokens_include_recent_language_features():
 
     assert "round" in tokens["statement_keywords"]
     assert "min_periods" in tokens["clause_keywords"]
+    assert "shape" in tokens["clause_keywords"]
+    assert "columns" in tokens["clause_keywords"]
     assert "date_format" in tokens["builtin_functions"]
     assert "regex_extract" in tokens["builtin_functions"]
 

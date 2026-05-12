@@ -138,6 +138,8 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   { label: 'show' },
   { label: 'show head',    detail: 'show head [<n>]' },
   { label: 'show summary', detail: 'show summary' },
+  { label: 'show shape',   detail: 'show shape' },
+  { label: 'show columns', detail: 'show columns' },
   { label: 'save',   snippet: 'save "${1:path}"', detail: 'save "<path>"' },
   { label: 'apply',  detail: 'apply <func>' },
   { label: 'table',  detail: 'table' },
@@ -145,7 +147,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   { label: 'python', detail: 'python' },
 ];
 
-const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg'];
+const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg', 'quantile', 'percentile'];
 const CHART_TYPES = ['line', 'bar', 'scatter', 'hist', 'box', 'area'];
 
 function findActiveTable(
@@ -246,10 +248,10 @@ function detectContext(
     if (/^(rows|cols|id|order|stub|left_on|right_on)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
-    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|quantile|percentile|wavg|wmean)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
-    if (/^(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+    if (/^(mean|sum|count|min|max|avg|median|std|nunique|quantile|percentile|wavg|wmean)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
   }
@@ -1667,7 +1669,7 @@ function _buildPlotGuiHtml(): string {
   const addYBtn      = document.getElementById('addYBtn');
   const byEl         = document.getElementById('by');
 
-  const AGG_FUNCS = ['mean','sum','count','min','max','median'];
+  const AGG_FUNCS = ['mean','sum','count','min','max','median','quantile','percentile'];
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
