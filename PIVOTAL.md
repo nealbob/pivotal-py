@@ -183,15 +183,47 @@ Pivotal lists define reusable compile-time lists of identifiers or values:
 ```pivotal
 list money_cols = price, cost, revenue
 list regions = "AU", "NZ", "US"
+list limits = -5, 5
 
 with sales
     for col in money_cols
         col = col / cpi
 
     filter region in regions
+    filter zscore > limits[0] and zscore < limits[1]
 ```
 
-Use `:name` only for Python runtime values such as variables or callables. A Pivotal `list` is expanded before backend code generation, so it works with SQL export when all values are literal.
+Pivotal also supports compile-time scalar and dictionary values. These are expanded before backend code generation, so they work with SQL export when the resolved values are literal:
+```pivotal
+scalar gst = 0.1
+
+dict config
+    thresholds
+        low = -5
+        high = 5
+    columns
+        money = price, cost, revenue
+    labels
+        AU = "Australia"
+        NZ = "New Zealand"
+
+with sales
+    filter zscore > config.thresholds.low and zscore < config.thresholds.high
+    select product, config.columns.money
+    tax = price * gst
+```
+
+Dictionary/config values can also be loaded from JSON or YAML based on file extension:
+```pivotal
+dict config from "config.json"
+dict labels from "labels.yml"
+
+with sales
+    filter amount > config.thresholds.high
+    region_name = labels.regions.AU
+```
+
+Use `:name` only for Python runtime values such as variables or callables. Pivotal `list`, `scalar`, and `dict` definitions are compile-time values.
 
 Loop assignment targets can build new names with string suffixes or prefixes:
 ```pivotal

@@ -91,6 +91,28 @@ keep_money(sales, sales_money, money_cols)
     assert 'money_cols' not in sql
 
 
+def test_compile_time_config_values_expand_before_sql_codegen(parser):
+    sql = gen_sql(parser, '''
+scalar low = 100
+list limits = 100, 500
+dict config
+    thresholds
+        low = low
+        high = limits[1]
+    columns
+        money = price, quantity
+
+with sales
+    filter price > config.thresholds.low and price < config.thresholds.high
+    select product, config.columns.money
+''')
+
+    assert 'WHERE price > 100 AND price < 500' in sql
+    assert 'SELECT product, price, quantity' in sql
+    assert 'config.' not in sql
+    assert 'limits' not in sql
+
+
 def test_bulk_load_sql_backend_is_skipped(parser):
     sql = gen_sql(parser, 'bulk load :files as all_data\n')
     assert 'bulk load requires pandas, polars, or duckdb backend' in sql

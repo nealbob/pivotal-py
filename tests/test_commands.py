@@ -247,6 +247,73 @@ with sales
     assert list(ns['sales']['region']) == ['AU', 'NZ']
 
 
+def test_compile_time_scalar_dict_lookup_and_list_index(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'region': ['AU', 'NZ', 'US'],
+            'colA': [-10, 0, 10],
+            'price': [1, 2, 3],
+            'cost': [4, 5, 6],
+        }),
+    }
+
+    run(parser, '''
+scalar low = -5
+list limits = -5, 5
+dict config
+    regions = "AU", "NZ"
+    thresholds
+        low = low
+        high = limits[1]
+    columns
+        money = price, cost
+
+with sales
+    filter region in config.regions
+    filter colA > config.thresholds.low and colA < config.thresholds.high
+    select region, config.columns.money
+''', ns)
+
+    assert list(ns['sales']['region']) == ['NZ']
+    assert list(ns['sales'].columns) == ['region', 'price', 'cost']
+
+
+def test_compile_time_dict_from_json_and_yaml(parser, tmp_path):
+    json_path = tmp_path / 'config.json'
+    yaml_path = tmp_path / 'labels.yml'
+    json_path.write_text(
+        '{"thresholds": {"low": -5, "high": 5}, "columns": {"money": ["price", "cost"]}}',
+        encoding='utf-8',
+    )
+    yaml_path.write_text(
+        'regions:\n  AU: Australia\n  NZ: New Zealand\n',
+        encoding='utf-8',
+    )
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'region': ['AU', 'NZ', 'US'],
+            'colA': [-10, 0, 10],
+            'price': [1, 2, 3],
+            'cost': [4, 5, 6],
+        }),
+    }
+
+    run(parser, f'''
+dict config from "{json_path}"
+dict labels from "{yaml_path}"
+
+with sales
+    filter colA > config.thresholds.low and colA < config.thresholds.high
+    select region, config.columns.money
+    label = labels.regions.NZ
+''', ns)
+
+    assert list(ns['sales']['region']) == ['NZ']
+    assert ns['sales']['label'].tolist() == ['New Zealand']
+
+
 def test_function_expands_pipeline_with_named_list_and_keyword_default(parser):
     ns = {
         'pd': pd,

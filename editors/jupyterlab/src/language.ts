@@ -30,6 +30,8 @@ const keywords: Record<string, true> = {
   function: true,
   return: true,
   list: true,
+  scalar: true,
+  dict: true,
   filter: true,
   assert: true,
   check: true,

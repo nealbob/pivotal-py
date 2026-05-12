@@ -30,7 +30,7 @@ _WAVG_CALL_RE = re.compile(
 PIVOTAL_KEYWORDS = frozenset({
     # Statement keywords
     'with', 'load', 'bulk', 'filter', 'assert', 'check', 'select', 'sort', 'order', 'save', 'all', 'delete',
-    'for', 'function', 'return', 'list',
+    'for', 'function', 'return', 'list', 'scalar', 'dict',
     'merge', 'pivot', 'unpivot', 'group', 'python', 'plot', 'drop', 'fillna',
     'dropna', 'distinct', 'concat', 'rename', 'round', 'apply', 'table',
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
@@ -76,6 +76,8 @@ grammar_indented = r"""
                | function_definition
                | return_statement
                | list_statement
+               | scalar_statement
+               | dict_statement
                | load_statement
                | from_statement
                | dataframe_statement
@@ -124,6 +126,16 @@ grammar_indented = r"""
 
     list_statement: "list" IDENTIFIER "=" list_items _NL?
     list_items: function_arg_value ("," function_arg_value)*
+
+    scalar_statement: "scalar" IDENTIFIER "=" function_arg_value _NL?
+
+    dict_statement: "dict" IDENTIFIER "from" (STRING | PATH) _NL? -> dict_from_file
+                  | "dict" IDENTIFIER _NL _INDENT dict_entries _DEDENT
+    dict_entries: dict_entry+
+    dict_entry: IDENTIFIER "=" dict_entry_items _NL? -> dict_value_entry
+              | IDENTIFIER ":" dict_entry_items _NL? -> dict_value_entry
+              | IDENTIFIER _NL _INDENT dict_entries _DEDENT -> dict_nested_entry
+    dict_entry_items: function_arg_value ("," function_arg_value)*
 
     function_call_statement: FUNCTION_CALL_NAME "(" function_args? ")" _NL?
     function_args: function_arg ("," function_arg)*
@@ -233,7 +245,7 @@ grammar_indented = r"""
 
     groupby_statement: "group" "by" group_cols (_NL _INDENT agg_clause _DEDENT)? _NL?
 
-    group_cols: (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))*
+    group_cols: (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))*
 
     agg_clause: agg_line+
 
@@ -330,7 +342,7 @@ grammar_indented = r"""
     select_statement: "select" select_item ("," select_item)* _NL?
                     | "select" "matches" STRING _NL? -> select_matches_statement
 
-    select_item: (IDENTIFIER | PYTHON_VAR) ("as" IDENTIFIER)?
+    select_item: (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("as" IDENTIFIER)?
 
     agg_statement: "agg" agg_item ("," agg_item)* _NL?
 
@@ -338,14 +350,14 @@ grammar_indented = r"""
 
     pivot_args: (agg_clause | pivot_rows | pivot_cols)+
 
-    pivot_rows: "rows" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
-    pivot_cols: "cols" (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL?
+    pivot_rows: "rows" (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))* _NL?
+    pivot_cols: "cols" (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))* _NL?
 
     unpivot_statement: "unpivot" _NL _INDENT unpivot_args _DEDENT
 
     unpivot_args: unpivot_arg+
-    unpivot_arg: "id"     (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_id
-               | "cols"   (IDENTIFIER | PYTHON_VAR) ("," (IDENTIFIER | PYTHON_VAR))* _NL? -> unpivot_cols
+    unpivot_arg: "id"     (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))* _NL? -> unpivot_id
+               | "cols"   (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))* _NL? -> unpivot_cols
                | "variable" STRING _NL?                                                     -> unpivot_name
                | "value"  STRING _NL?                                                       -> unpivot_value_name
 
@@ -368,7 +380,7 @@ grammar_indented = r"""
               | "order" IDENTIFIER                  _NL? -> window_order
               | "min_periods" "="? NUMBER           _NL? -> window_min_periods
 
-    sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR) SORT_TYPE?)* _NL?
+    sort_statement: ("sort" | "order" "by") (IDENTIFIER | PYTHON_VAR | COMPILE_REF) SORT_TYPE? ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF) SORT_TYPE?)* _NL?
 
     SORT_TYPE.2: "asc" | "desc"
 
@@ -384,9 +396,11 @@ grammar_indented = r"""
     condition: IDENTIFIER COMPARATOR (value | list_value)
              | IDENTIFIER "in" list_value       -> condition_in_list
              | IDENTIFIER "in" PYTHON_VAR       -> condition_in_var
+             | IDENTIFIER "in" COMPILE_REF      -> condition_in_ref
              | IDENTIFIER "in" IDENTIFIER       -> condition_in_name
              | IDENTIFIER "not" "in" list_value -> condition_not_in_list
              | IDENTIFIER "not" "in" PYTHON_VAR -> condition_not_in_var
+             | IDENTIFIER "not" "in" COMPILE_REF -> condition_not_in_ref
              | IDENTIFIER "not" "in" IDENTIFIER -> condition_not_in_name
 
     condition_list: condition (AOR condition)*
@@ -436,7 +450,7 @@ grammar_indented = r"""
 
     file_path: PATH
 
-    value: BOOLEAN | SIGNED_NUMBER | NUMBER | STRING | IDENTIFIER | PATH | NONE | PYTHON_VAR
+    value: BOOLEAN | SIGNED_NUMBER | NUMBER | STRING | COMPILE_REF | IDENTIFIER | PATH | NONE | PYTHON_VAR
     list_value: "[" [value ("," value)*] "]"
               | "(" value "," value ("," value)* ")"
               | [value "," value ("," value)*]
@@ -446,6 +460,7 @@ grammar_indented = r"""
     AOR.2: /and/i | /or/i
     NOT_NULL.3: /not[ \t]+null/i
     PYTHON_VAR: ":" IDENTIFIER
+    COMPILE_REF.3: /[a-zA-Z_][a-zA-Z0-9_]*(?:(?:\.[a-zA-Z_][a-zA-Z0-9_]*)|(?:\[-?\d+\]))+/
     FUNCTION_CALL_NAME.3: /[a-zA-Z][a-zA-Z0-9_]*(?=\()/
     IDENTIFIER: /[a-zA-Z][a-zA-Z0-9_]*/
     IDENT_LIST.2: IDENTIFIER ("," IDENTIFIER)*
@@ -525,6 +540,28 @@ class DSLTransformer(Transformer):
 
     def list_items(self, *items):
         return list(items)
+
+    def scalar_statement(self, name, value):
+        return {'type': 'scalar_def', 'name': str(name), 'value': value}
+
+    def dict_from_file(self, name, path):
+        return {'type': 'dict_def', 'name': str(name), 'source': str(path)}
+
+    def dict_statement(self, name, entries):
+        return {'type': 'dict_def', 'name': str(name), 'items': entries}
+
+    def dict_entries(self, *entries):
+        return dict(entries)
+
+    def dict_value_entry(self, key, items):
+        return (str(key), items)
+
+    def dict_nested_entry(self, key, entries):
+        return (str(key), entries)
+
+    def dict_entry_items(self, *items):
+        converted = [self._convert_value(item) for item in items]
+        return converted[0] if len(converted) == 1 else converted
 
     def function_call_statement(self, name, args=None):
         return {'type': 'function_call', 'name': str(name), 'args': args or []}
@@ -1132,7 +1169,7 @@ class DSLTransformer(Transformer):
 
         for item in items:
             if isinstance(item, dict):
-                if item.get('type') == 'var':
+                if item.get('type') in ('var', 'compile_ref'):
                     columns.append(item)
                 else:
                     col = item['column']
@@ -1178,13 +1215,18 @@ class DSLTransformer(Transformer):
              # Variable reference cannot have alias in this simple implementation
              # or we could support it if it's a single column
              return col
+        if isinstance(col, dict) and col.get('type') == 'compile_ref' and not alias:
+            return col
         
         if alias:
-            return {'column': str(col), 'alias': str(alias)}
-        return {'column': str(col)}
+            return {'column': col if isinstance(col, dict) else str(col), 'alias': str(alias)}
+        return {'column': col if isinstance(col, dict) else str(col)}
     
     def PYTHON_VAR(self, token):
         return {'type': 'var', 'name': str(token)[1:]}
+
+    def COMPILE_REF(self, token):
+        return {'type': 'compile_ref', 'path': str(token)}
 
     def drop_statement(self, *cols):
         return {
@@ -2206,6 +2248,9 @@ class DSLTransformer(Transformer):
     def condition_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'in', 'value': var}
 
+    def condition_in_ref(self, column, ref):
+        return {'column': str(column), 'comparator': 'in', 'value': ref}
+
     def condition_in_name(self, column, name):
         return {'column': str(column), 'comparator': 'in', 'value': {'type': 'list_ref', 'name': str(name)}}
 
@@ -2214,6 +2259,9 @@ class DSLTransformer(Transformer):
 
     def condition_not_in_var(self, column, var):
         return {'column': str(column), 'comparator': 'not in', 'value': var}
+
+    def condition_not_in_ref(self, column, ref):
+        return {'column': str(column), 'comparator': 'not in', 'value': ref}
 
     def condition_not_in_name(self, column, name):
         return {'column': str(column), 'comparator': 'not in', 'value': {'type': 'list_ref', 'name': str(name)}}
@@ -7989,11 +8037,167 @@ class DSLParser:
 
         return ''.join(result)
 
+    _COMPILE_REF_RE = re.compile(
+        r'[a-zA-Z_][a-zA-Z0-9_]*(?:(?:\.[a-zA-Z_][a-zA-Z0-9_]*)|(?:\[-?\d+\]))+'
+    )
+
+    def _parse_compile_ref_path(self, path):
+        parts = []
+        i = 0
+        while i < len(path):
+            match = re.match(r'[a-zA-Z_][a-zA-Z0-9_]*', path[i:])
+            if not match:
+                raise ValueError(f"Invalid compile-time lookup '{path}'.")
+            parts.append(match.group(0))
+            i += len(match.group(0))
+            while i < len(path):
+                if path[i] == '.':
+                    i += 1
+                    break
+                if path[i] == '[':
+                    end = path.find(']', i)
+                    if end == -1:
+                        raise ValueError(f"Invalid compile-time lookup '{path}'.")
+                    idx_text = path[i + 1:end].strip()
+                    try:
+                        parts.append(int(idx_text))
+                    except ValueError:
+                        raise ValueError(
+                            f"List indexes in compile-time lookup '{path}' must be integers."
+                        )
+                    i = end + 1
+                    continue
+                raise ValueError(f"Invalid compile-time lookup '{path}'.")
+            else:
+                break
+        return parts
+
+    def _resolve_compile_ref(self, path, values):
+        parts = self._parse_compile_ref_path(path)
+        root = parts[0]
+        if root not in values:
+            raise ValueError(f"Compile-time value '{root}' was not defined.")
+        current = copy.deepcopy(values[root])
+        for part in parts[1:]:
+            if isinstance(part, int):
+                if not isinstance(current, list):
+                    raise ValueError(f"Cannot index non-list value in compile-time lookup '{path}'.")
+                try:
+                    current = current[part]
+                except IndexError:
+                    raise ValueError(f"List index {part} is out of range in compile-time lookup '{path}'.")
+            else:
+                if not isinstance(current, dict):
+                    raise ValueError(f"Cannot access key '{part}' on non-dict value in compile-time lookup '{path}'.")
+                if part not in current:
+                    raise ValueError(f"Key '{part}' was not found in compile-time lookup '{path}'.")
+                current = current[part]
+        return copy.deepcopy(current)
+
+    def _compile_literal_for_expression(self, value):
+        if isinstance(value, _LiteralStr):
+            return repr(str(value))
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return repr([str(v) if isinstance(v, _LiteralStr) else v for v in value])
+        if isinstance(value, dict):
+            return repr(value)
+        return repr(value)
+
+    def _replace_compile_refs_in_text(self, text, values):
+        if not isinstance(text, str) or not text:
+            return text
+
+        result = []
+        i = 0
+        quote = None
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                result.append(ch)
+                if ch == '\\' and i + 1 < len(text):
+                    i += 1
+                    result.append(text[i])
+                elif ch == quote:
+                    quote = None
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                quote = ch
+                result.append(ch)
+                i += 1
+                continue
+
+            match = self._COMPILE_REF_RE.match(text, i)
+            if match and (i == 0 or text[i - 1] != ':'):
+                ref = match.group(0)
+                value = self._resolve_compile_ref(ref, values)
+                result.append(self._compile_literal_for_expression(value))
+                i = match.end()
+                continue
+
+            result.append(ch)
+            i += 1
+
+        return ''.join(result)
+
+    def _normalise_compile_value(self, value, values):
+        if isinstance(value, dict):
+            node_type = value.get('type')
+            if node_type == 'var' and 'name' in value:
+                return copy.deepcopy(value)
+            if node_type == 'compile_ref' and 'path' in value:
+                return self._resolve_compile_ref(value['path'], values)
+            if node_type == 'list_ref' and 'name' in value:
+                return self._resolve_compile_value(value, values)
+            return {k: self._normalise_compile_value(v, values) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._normalise_compile_value(item, values) for item in value]
+        if isinstance(value, str) and not isinstance(value, _LiteralStr) and value in values:
+            return copy.deepcopy(values[value])
+        return copy.deepcopy(value)
+
+    def _mark_loaded_strings_literal(self, value):
+        if isinstance(value, dict):
+            return {str(k): self._mark_loaded_strings_literal(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._mark_loaded_strings_literal(item) for item in value]
+        if isinstance(value, str):
+            return _LiteralStr(value)
+        return value
+
+    def _load_compile_dict(self, source):
+        path = Path(source)
+        suffix = path.suffix.lower()
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError as exc:
+            raise ValueError(f"Could not read dict file '{source}': {exc}")
+
+        if suffix == '.json':
+            data = json.loads(text)
+        elif suffix in ('.yaml', '.yml'):
+            try:
+                import yaml
+            except ImportError:
+                raise ValueError("Loading YAML dict files requires PyYAML to be installed.")
+            data = yaml.safe_load(text)
+        else:
+            raise ValueError("Dict files must use .json, .yaml, or .yml extension.")
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Dict file '{source}' must contain an object/mapping at the top level.")
+        return self._mark_loaded_strings_literal(data)
+
     def _resolve_compile_value(self, value, lists):
-        if isinstance(value, dict) and value.get('type') == 'list_ref':
+        if isinstance(value, dict) and value.get('type') == 'compile_ref' and 'path' in value:
+            return self._resolve_compile_ref(value['path'], lists)
+        if isinstance(value, dict) and value.get('type') == 'list_ref' and 'name' in value:
             name = value.get('name')
             if name not in lists:
-                raise ValueError(f"List '{name}' was not defined.")
+                raise ValueError(f"Compile-time value '{name}' was not defined.")
             return copy.deepcopy(lists[name])
         if isinstance(value, str) and value in lists:
             return copy.deepcopy(lists[value])
@@ -8001,9 +8205,11 @@ class DSLParser:
 
     def _substitute_compile_values(self, value, bindings, lists, field=None):
         if isinstance(value, dict):
-            if value.get('type') == 'var':
+            if value.get('type') == 'var' and 'name' in value:
                 return copy.deepcopy(value)
-            if value.get('type') == 'list_ref':
+            if value.get('type') == 'compile_ref' and 'path' in value:
+                return self._resolve_compile_ref(value['path'], lists)
+            if value.get('type') == 'list_ref' and 'name' in value:
                 return self._resolve_compile_value(value, lists)
             result = {}
             for key, child in value.items():
@@ -8011,7 +8217,11 @@ class DSLParser:
                     result[key] = child
                 elif key in ('expression', 'query_str') and isinstance(child, str):
                     exact = bindings.get(child)
-                    result[key] = copy.deepcopy(exact) if exact is not None else self._replace_bound_identifier(child, bindings)
+                    if exact is not None:
+                        result[key] = copy.deepcopy(exact)
+                    else:
+                        replaced = self._replace_bound_identifier(child, bindings)
+                        result[key] = self._replace_compile_refs_in_text(replaced, lists)
                 else:
                     result[key] = self._substitute_compile_values(child, bindings, lists, field=key)
             return result
@@ -8045,7 +8255,17 @@ class DSLParser:
                 continue
             node_type = node.get('type')
             if node_type == 'list_def':
-                lists[node['name']] = self._substitute_compile_values(node.get('items', []), {}, lists)
+                lists[node['name']] = self._normalise_compile_value(node.get('items', []), lists)
+            elif node_type == 'scalar_def':
+                lists[node['name']] = self._normalise_compile_value(node.get('value'), lists)
+            elif node_type == 'dict_def':
+                if node.get('source') is not None:
+                    lists[node['name']] = self._normalise_compile_value(
+                        self._load_compile_dict(node['source']),
+                        lists,
+                    )
+                else:
+                    lists[node['name']] = self._normalise_compile_value(node.get('items', {}), lists)
             elif node_type == 'function_def':
                 name = node['name']
                 if name in PIVOTAL_KEYWORDS:

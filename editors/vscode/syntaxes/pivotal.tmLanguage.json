@@ -162,7 +162,7 @@
     "keywords-primary": {
       "comment": "Statement-opening commands",
       "name": "keyword.control.pivotal",
-      "match": "\\b(load|bulk|with|from|for|function|return|list|filter|assert|check|select|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|intersect|exclude|rename|round|apply|save|end|delete|show|unpivot|rolling|rank|lag|lead|cumsum|cummean|cummin|cummax|cast|agg|table|all)\\b"
+      "match": "\\b(load|bulk|with|from|for|function|return|list|scalar|dict|filter|assert|check|select|sort|order|group|merge|pivot|python|plot|drop|fillna|dropna|distinct|concat|intersect|exclude|rename|round|apply|save|end|delete|show|unpivot|rolling|rank|lag|lead|cumsum|cummean|cummin|cummax|cast|agg|table|all)\\b"
     },
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",

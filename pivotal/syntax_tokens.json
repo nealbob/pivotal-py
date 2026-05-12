@@ -8,6 +8,8 @@
     "function",
     "return",
     "list",
+    "scalar",
+    "dict",
     "filter",
     "assert",
     "check",

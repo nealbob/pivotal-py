@@ -187,6 +187,8 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'load', type: 'keyword', apply: snippet('load ${tbl} ${path}'), detail: 'load <table> <path>' },
   { label: 'bulk load', type: 'keyword', apply: snippet('bulk load :${files} as ${table}'), detail: 'bulk load :files as <table> or aliases' },
   { label: 'list', type: 'keyword', apply: snippet('list ${name} = ${item1}, ${item2}'), detail: 'list <name> = <item>, ...' },
+  { label: 'scalar', type: 'keyword', apply: snippet('scalar ${name} = ${value}'), detail: 'scalar <name> = <value>' },
+  { label: 'dict', type: 'keyword', apply: snippet('dict ${name}\n    ${key} = ${value}'), detail: 'dict <name> or dict <name> from <file>' },
   { label: 'function', type: 'keyword', apply: snippet('function ${name}(${input}, ${output})\n    with ${input} as ${output}\n        ${statement}\n    return ${output}'), detail: 'function <name>(...)' },
   { label: 'return', type: 'keyword', apply: snippet('return ${output}'), detail: 'return <table>[, ...]' },
 
