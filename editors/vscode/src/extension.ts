@@ -15,8 +15,18 @@ interface TableInfo {
   dtypes: Record<string, string>;
 }
 
+interface ValueInfo {
+  kind: 'scalar' | 'list' | 'dict';
+  value_type?: string;
+  item_type?: string | null;
+  length?: number;
+  size?: number;
+  children?: Record<string, ValueInfo>;
+}
+
 interface AutocompleteData {
   tables: Record<string, TableInfo>;
+  values?: Record<string, ValueInfo>;
   current_table?: string;
 }
 
@@ -24,6 +34,8 @@ type CompletionCtx =
   | { type: 'command' }
   | { type: 'table' }
   | { type: 'column'; table: string }
+  | { type: 'value' }
+  | { type: 'value_path'; path: string[] }
   | { type: 'agg' }
   | { type: 'charttype' }
   | { type: 'none' };
@@ -80,6 +92,8 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   { label: 'load',   snippet: 'load ${1:path} as ${2:tbl}',   detail: 'load <path> as <table>' },
   { label: 'from',   snippet: 'from ${1:path}\n\tload ${2:table} as ${3:df}', detail: 'from <database>\n    load <table> as <df>\n    query "SELECT..." as <df>' },
   { label: 'list',   snippet: 'list ${1:name} = ${2:item1}, ${3:item2}', detail: 'list <name> = <item>, ...' },
+  { label: 'scalar', snippet: 'scalar ${1:name} = ${2:value}', detail: 'scalar <name> = <value>' },
+  { label: 'dict',   snippet: 'dict ${1:name}\n\t${2:key} = ${3:value}', detail: 'dict <name> or dict <name> from <file>' },
   { label: 'function', snippet: 'function ${1:name}(${2:input}, ${3:output})\n    with ${2:input} as ${3:output}\n        ${4:statement}\n    return ${3:output}', detail: 'function <name>(...)' },
   { label: 'return', snippet: 'return ${1:output}', detail: 'return <table>[, ...]' },
 
@@ -150,6 +164,58 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
 const AGG_KEYWORDS = ['mean', 'sum', 'count', 'min', 'max', 'median', 'std', 'avg', 'quantile', 'percentile'];
 const CHART_TYPES = ['line', 'bar', 'scatter', 'hist', 'box', 'area'];
 
+function getValueMap(ac: AutocompleteData | null): Record<string, ValueInfo> {
+  return ac?.values ?? {};
+}
+
+function getValueInfoAtPath(ac: AutocompleteData | null, path: string[]): ValueInfo | null {
+  if (!ac || !path.length) return null;
+  let current: ValueInfo | undefined = getValueMap(ac)[path[0]];
+  for (let i = 1; i < path.length && current; i++) {
+    current = current.children?.[path[i]];
+  }
+  return current ?? null;
+}
+
+function detectValuePathContext(upToCursor: string): { path: string[] } | null {
+  const match = upToCursor.match(/([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\.(\w*)$/);
+  if (!match) return null;
+  return { path: match[1].split('.') };
+}
+
+function buildValueItems(ac: AutocompleteData | null): vscode.CompletionItem[] {
+  return Object.entries(getValueMap(ac)).map(([label, info]) => {
+    const kind = info.kind === 'dict'
+      ? vscode.CompletionItemKind.Class
+      : vscode.CompletionItemKind.Variable;
+    const item = new vscode.CompletionItem(label, kind);
+    item.detail = info.kind;
+    return item;
+  });
+}
+
+function buildValuePathItems(ac: AutocompleteData | null, path: string[]): vscode.CompletionItem[] {
+  const info = getValueInfoAtPath(ac, path);
+  if (!info?.children) return [];
+  return Object.entries(info.children).map(([label, child]) => {
+    const kind = child.kind === 'dict'
+      ? vscode.CompletionItemKind.Class
+      : vscode.CompletionItemKind.Field;
+    const item = new vscode.CompletionItem(label, kind);
+    item.detail = child.kind;
+    return item;
+  });
+}
+
+function dedupeItems(items: vscode.CompletionItem[]): vscode.CompletionItem[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (seen.has(item.label.toString())) return false;
+    seen.add(item.label.toString());
+    return true;
+  });
+}
+
 function findActiveTable(
   lines: string[],
   cursorLine: number,
@@ -191,8 +257,10 @@ function detectContext(
   const upToCursor = raw.substring(0, cursorCol);
   const trimmed = upToCursor.trimStart();
   const indent = upToCursor.length - trimmed.length;
+  const valuePath = detectValuePathContext(upToCursor);
 
   if (trimmed === '' && indent === 0) return { type: 'command' };
+  if (valuePath) return { type: 'value_path', path: valuePath.path };
 
   if (/^with\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^with\s+\w+\s+as\s+\w*$/.test(trimmed)) return { type: 'table' };
@@ -256,6 +324,10 @@ function detectContext(
     }
   }
 
+  if (/^:?[_A-Za-z]\w*$/.test(trimmed) || /[=\s(,:]\s*[_A-Za-z]\w*$/.test(upToCursor)) {
+    return { type: 'value' };
+  }
+
   if (indent > 0 && /\s/.test(trimmed)) {
     return { type: 'none' };
   }
@@ -286,15 +358,21 @@ function buildItems(ctx: CompletionCtx, ac: AutocompleteData | null): vscode.Com
     case 'column': {
       if (!ac) return [];
       const info = ac.tables[ctx.table];
-      if (!info) return [];
-      return info.columns.map(col => {
+      const columns = info ? info.columns.map(col => {
         const label = Array.isArray(col) ? col.join('.') : String(col);
         const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Field);
         const dtype = info.dtypes?.[label];
         if (dtype) item.detail = dtype;
         return item;
-      });
+      }) : [];
+      return dedupeItems([...columns, ...buildValueItems(ac)]);
     }
+
+    case 'value':
+      return buildValueItems(ac);
+
+    case 'value_path':
+      return buildValuePathItems(ac, ctx.path);
 
     case 'agg':
       return AGG_KEYWORDS.map(kw =>

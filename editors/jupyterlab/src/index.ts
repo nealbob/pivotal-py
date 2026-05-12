@@ -166,8 +166,18 @@ interface TableInfo {
   dtypes: Record<string, string>;
 }
 
+interface ValueInfo {
+  kind: 'scalar' | 'list' | 'dict';
+  value_type?: string;
+  item_type?: string | null;
+  length?: number;
+  size?: number;
+  children?: Record<string, ValueInfo>;
+}
+
 interface AutocompleteData {
   tables: Record<string, TableInfo>;
+  values?: Record<string, ValueInfo>;
   current_table?: string;
 }
 
@@ -175,6 +185,8 @@ type CompletionCtx =
   | { type: 'command' }
   | { type: 'table' }
   | { type: 'column'; table: string }
+  | { type: 'value' }
+  | { type: 'value_path'; path: string[] }
   | { type: 'agg' }
   | { type: 'charttype' }
   | { type: 'none' };
@@ -405,6 +417,58 @@ function getNotebookDir(app: JupyterFrontEnd): string {
   return '';
 }
 
+function getValueMap(ac: AutocompleteData | null): Record<string, ValueInfo> {
+  return ac?.values ?? {};
+}
+
+function getValueInfoAtPath(
+  ac: AutocompleteData | null,
+  path: string[],
+): ValueInfo | null {
+  if (!ac || !path.length) return null;
+  let current: ValueInfo | undefined = getValueMap(ac)[path[0]];
+  for (let i = 1; i < path.length && current; i++) {
+    current = current.children?.[path[i]];
+  }
+  return current ?? null;
+}
+
+function detectValuePathContext(upToCursor: string): { path: string[] } | null {
+  const match = upToCursor.match(/([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\.(\w*)$/);
+  if (!match) return null;
+  return { path: match[1].split('.') };
+}
+
+function buildValueCompletions(ac: AutocompleteData | null): Completion[] {
+  return Object.entries(getValueMap(ac)).map(([label, info]) => ({
+    label,
+    type: info.kind === 'dict' ? 'class' : 'variable',
+    detail: info.kind,
+  }));
+}
+
+function buildValuePathCompletions(
+  ac: AutocompleteData | null,
+  path: string[],
+): Completion[] {
+  const info = getValueInfoAtPath(ac, path);
+  if (!info?.children) return [];
+  return Object.entries(info.children).map(([label, child]) => ({
+    label,
+    type: child.kind === 'dict' ? 'class' : 'property',
+    detail: child.kind,
+  }));
+}
+
+function dedupeCompletions(options: Completion[]): Completion[] {
+  const seen = new Set<string>();
+  return options.filter(option => {
+    if (seen.has(option.label)) return false;
+    seen.add(option.label);
+    return true;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Context detection
 // ---------------------------------------------------------------------------
@@ -436,8 +500,10 @@ function detectContext(
   const upToCursor = raw.substring(0, cursorCol);
   const trimmed = upToCursor.trimStart();
   const indent = upToCursor.length - trimmed.length;
+  const valuePath = detectValuePathContext(upToCursor);
 
   if (trimmed === '' && indent === 0) return { type: 'command' };
+  if (valuePath) return { type: 'value_path', path: valuePath.path };
 
   if (/^df\s+\w*$/.test(trimmed)) return { type: 'table' };
   if (/^df\s+\w+\s+from\s+\w*$/.test(trimmed)) return { type: 'table' };
@@ -512,6 +578,10 @@ function detectContext(
     }
   }
 
+  if (/^:?[_A-Za-z]\w*$/.test(trimmed) || /[=\s(,:]\s*[_A-Za-z]\w*$/.test(upToCursor)) {
+    return { type: 'value' };
+  }
+
   // On an indented line with multi-word content that matched no known pattern,
   // return none rather than command. This prevents command keyword suggestions
   // appearing inside sub-clauses (agg lines, window opts, pivot args) and inside
@@ -538,13 +608,17 @@ function buildCompletions(ctx: CompletionCtx, ac: AutocompleteData | null): Comp
     case 'column': {
       if (!ac) return [];
       const info = ac.tables[ctx.table];
-      if (!info) return [];
-      return info.columns.map(col => {
+      const columns = info ? info.columns.map(col => {
         const label = Array.isArray(col) ? col.join('.') : String(col);
         const dtype = info.dtypes?.[label];
         return { label, type: 'property', detail: dtype };
-      });
+      }) : [];
+      return dedupeCompletions([...columns, ...buildValueCompletions(ac)]);
     }
+    case 'value':
+      return buildValueCompletions(ac);
+    case 'value_path':
+      return buildValuePathCompletions(ac, ctx.path);
     case 'agg':
       return AGG_KEYWORDS.map(kw => ({ label: kw, type: 'function' }));
     case 'charttype':
@@ -587,7 +661,8 @@ function makePivotalCompletionSource(app: JupyterFrontEnd) {
 
     if (!options.length && !context.explicit) return null;
 
-    const word = context.matchBefore(/\w*/);
+    const valuePath = detectValuePathContext(lineInfo.text.substring(0, cursorCol));
+    const word = valuePath ? context.matchBefore(/\w*/) : context.matchBefore(/[A-Za-z_]\w*/);
     const from = word ? word.from : context.pos;
 
     return { from, options, validFor: /^\w*$/ };

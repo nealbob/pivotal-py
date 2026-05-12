@@ -314,6 +314,35 @@ with sales
     assert ns['sales']['label'].tolist() == ['New Zealand']
 
 
+def test_autocomplete_metadata_includes_pivotal_values(parser, tmp_path):
+    import json
+
+    parser.autocomplete_file = tmp_path / 'pivotal_autocomplete.json'
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({'price': [1.0], 'cost': [0.5]}),
+        '__table_name__': 'sales',
+    }
+
+    run(parser, '''
+scalar threshold = 10
+list money_cols = price, cost
+dict config
+    thresholds
+        high = threshold
+''', ns)
+
+    payload = json.loads(parser.autocomplete_file.read_text(encoding='utf-8'))
+
+    assert payload['current_table'] == 'sales'
+    assert payload['tables']['sales']['columns'] == ['price', 'cost']
+    assert payload['values']['threshold']['kind'] == 'scalar'
+    assert payload['values']['money_cols']['kind'] == 'list'
+    assert payload['values']['money_cols']['length'] == 2
+    assert payload['values']['config']['kind'] == 'dict'
+    assert payload['values']['config']['children']['thresholds']['children']['high']['kind'] == 'scalar'
+
+
 def test_pivotal_values_persist_across_execute_calls(parser):
     ns = {
         'pd': pd,

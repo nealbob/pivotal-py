@@ -7750,10 +7750,11 @@ class DSLParser:
         self.code_generator = CodeGenerator(backend)
         self.autocomplete_file = Path('pivotal_autocomplete.json')
         self.table_info = {}
+        self.autocomplete_snapshot = None
         self._pivotal_registry_name = '_pivotal_values'
 
     def update_autocomplete_info(self, globals_dict=None):
-        """Update the autocomplete JSON file with current table information"""
+        """Update the autocomplete JSON file with current table/value information."""
         if globals_dict is None:
             globals_dict = {}
             
@@ -7775,21 +7776,27 @@ class DSLParser:
                     'has_multiindex_columns': isinstance(obj.columns, pd.MultiIndex)
                 }
         
-        # Check if table info has actually changed to avoid unnecessary file I/O
-        if table_info == self.table_info:
-            return  # No changes, skip file write
-            
+        value_info = self._build_autocomplete_value_info(self._get_pivotal_values(globals_dict))
+        payload = {
+            'tables': table_info,
+            'values': value_info,
+            'timestamp': pd.Timestamp.now().isoformat(),
+            'current_table': globals_dict.get('__table_name__')
+        }
+
+        # Check if autocomplete metadata has actually changed to avoid unnecessary file I/O
+        snapshot = {k: v for k, v in payload.items() if k != 'timestamp'}
+        if snapshot == self.autocomplete_snapshot:
+            return
+
         # Update our internal tracking
         self.table_info = table_info
+        self.autocomplete_snapshot = snapshot
         
         # Write to file for VS Code extension only when there are changes
         try:
             with open(self.autocomplete_file, 'w') as f:
-                json.dump({
-                    'tables': table_info,
-                    'timestamp': pd.Timestamp.now().isoformat(),
-                    'current_table' : globals_dict.get('__table_name__')
-                }, f, indent=2)
+                json.dump(payload, f, indent=2)
         except Exception as e:
             print(f"Warning: Could not update autocomplete file: {e}")
     
@@ -7798,6 +7805,38 @@ class DSLParser:
         if table_name:
             return self.table_info.get(table_name, {}).get('columns', [])
         return self.table_info
+
+    def _build_autocomplete_value_info(self, values):
+        """Serialize named Pivotal values for editor autocomplete."""
+        def summarize(value, depth=0):
+            if depth >= 5:
+                return {'kind': 'scalar', 'value_type': type(value).__name__}
+
+            if isinstance(value, dict):
+                children = {}
+                for key, child in value.items():
+                    key_text = str(key)
+                    if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', key_text):
+                        children[key_text] = summarize(child, depth + 1)
+                return {
+                    'kind': 'dict',
+                    'children': children,
+                    'size': len(value),
+                }
+
+            if isinstance(value, (list, tuple)):
+                return {
+                    'kind': 'list',
+                    'length': len(value),
+                    'item_type': type(value[0]).__name__ if value else None,
+                }
+
+            return {
+                'kind': 'scalar',
+                'value_type': type(value).__name__,
+            }
+
+        return {name: summarize(value) for name, value in values.items()}
 
     def _get_pivotal_values(self, namespace=None):
         if namespace is None:
