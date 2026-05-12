@@ -114,12 +114,23 @@ export interface GtTablePayload {
 
 export type ViewerMessage = DataFramePayload | ChartPayload | GtTablePayload;
 
+export interface ValueInfo {
+  kind: 'scalar' | 'list' | 'dict';
+  value_type?: string;
+  preview?: string;
+  item_type?: string | null;
+  length?: number;
+  size?: number;
+  children?: Record<string, ValueInfo>;
+}
+
 export interface ExplorerItem {
   name: string;
-  type: 'dataframe' | 'chart' | 'gt_table';
+  type: 'dataframe' | 'chart' | 'gt_table' | 'value';
   shape?: [number, number];
   columns?: { name: string; dtype: string; col_type?: SemanticColType }[];
   source_df?: string;
+  value?: ValueInfo;
 }
 
 // ---------------------------------------------------------------------------

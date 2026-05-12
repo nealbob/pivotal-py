@@ -608,6 +608,11 @@
   overflow: hidden;
 }
 
+.pv-explorer-value-icon {
+  width: 14px;
+  justify-content: center;
+}
+
 .pv-explorer-col-name {
   flex: 1;
   overflow: hidden;

@@ -349,6 +349,25 @@ dict config
     assert payload['values']['config']['children']['thresholds']['children']['high']['kind'] == 'scalar'
 
 
+def test_explorer_value_info_includes_list_children_and_non_identifier_dict_keys(parser):
+    info = parser.build_explorer_value_info({
+        'config': {
+            'display name': 'Revenue',
+            'thresholds': [10, {'high-water': 20}],
+        }
+    })
+
+    assert info['config']['kind'] == 'dict'
+    assert info['config']['children']['display name']['kind'] == 'scalar'
+    assert info['config']['children']['display name']['preview'] == "'Revenue'"
+    assert info['config']['children']['thresholds']['kind'] == 'list'
+    assert info['config']['children']['thresholds']['children']['[0]']['kind'] == 'scalar'
+    assert info['config']['children']['thresholds']['children']['[0]']['preview'] == '10'
+    assert info['config']['children']['thresholds']['children']['[1]']['kind'] == 'dict'
+    assert info['config']['children']['thresholds']['children']['[1]']['children']['high-water']['kind'] == 'scalar'
+    assert info['config']['children']['thresholds']['children']['[1]']['children']['high-water']['preview'] == '20'
+
+
 def test_pivotal_values_persist_across_execute_calls(parser):
     ns = {
         'pd': pd,

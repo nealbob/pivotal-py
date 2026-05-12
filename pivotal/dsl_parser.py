@@ -7807,37 +7807,97 @@ class DSLParser:
             return self.table_info.get(table_name, {}).get('columns', [])
         return self.table_info
 
-    def _build_autocomplete_value_info(self, values):
-        """Serialize named Pivotal values for editor autocomplete."""
-        def summarize(value, depth=0):
-            if depth >= 5:
-                return {'kind': 'scalar', 'value_type': type(value).__name__}
+    def _summarize_pivotal_value(self, value, depth=0, *, include_non_identifier_keys=False,
+                                 include_list_children=False, max_depth=5, max_children=25):
+        """Serialize a native Pivotal value for editor tooling."""
+        def preview_scalar(obj):
+            if obj is None:
+                return 'None'
+            if isinstance(obj, str):
+                text = repr(obj)
+            elif isinstance(obj, bool):
+                text = 'True' if obj else 'False'
+            else:
+                text = repr(obj)
+            if len(text) > 40:
+                text = text[:37] + '...'
+            return text
 
-            if isinstance(value, dict):
-                children = {}
-                for key, child in value.items():
-                    key_text = str(key)
-                    if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', key_text):
-                        children[key_text] = summarize(child, depth + 1)
-                return {
-                    'kind': 'dict',
-                    'children': children,
-                    'size': len(value),
-                }
-
-            if isinstance(value, (list, tuple)):
-                return {
-                    'kind': 'list',
-                    'length': len(value),
-                    'item_type': type(value[0]).__name__ if value else None,
-                }
-
+        if depth >= max_depth:
             return {
                 'kind': 'scalar',
                 'value_type': type(value).__name__,
+                'preview': preview_scalar(value),
             }
 
-        return {name: summarize(value) for name, value in values.items()}
+        if isinstance(value, dict):
+            children = {}
+            count = 0
+            for key, child in value.items():
+                key_text = str(key)
+                if (not include_non_identifier_keys
+                        and not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', key_text)):
+                    continue
+                children[key_text] = self._summarize_pivotal_value(
+                    child,
+                    depth + 1,
+                    include_non_identifier_keys=include_non_identifier_keys,
+                    include_list_children=include_list_children,
+                    max_depth=max_depth,
+                    max_children=max_children,
+                )
+                count += 1
+                if count >= max_children:
+                    break
+            return {
+                'kind': 'dict',
+                'children': children,
+                'size': len(value),
+            }
+
+        if isinstance(value, (list, tuple)):
+            summary = {
+                'kind': 'list',
+                'length': len(value),
+                'item_type': type(value[0]).__name__ if value else None,
+            }
+            if include_list_children:
+                children = {}
+                for idx, child in enumerate(value[:max_children]):
+                    children[f'[{idx}]'] = self._summarize_pivotal_value(
+                        child,
+                        depth + 1,
+                        include_non_identifier_keys=include_non_identifier_keys,
+                        include_list_children=include_list_children,
+                        max_depth=max_depth,
+                        max_children=max_children,
+                    )
+                summary['children'] = children
+            return summary
+
+        return {
+            'kind': 'scalar',
+            'value_type': type(value).__name__,
+            'preview': preview_scalar(value),
+        }
+
+    def _build_autocomplete_value_info(self, values):
+        """Serialize named Pivotal values for editor autocomplete."""
+        return {
+            name: self._summarize_pivotal_value(value)
+            for name, value in values.items()
+        }
+
+    def build_explorer_value_info(self, values):
+        """Serialize named Pivotal values for the object explorer."""
+        return {
+            name: self._summarize_pivotal_value(
+                value,
+                include_non_identifier_keys=True,
+                include_list_children=True,
+            )
+            for name, value in values.items()
+        }
 
     def _get_pivotal_values(self, namespace=None):
         if namespace is None:
