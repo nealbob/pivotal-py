@@ -133,9 +133,10 @@ grammar_indented = r"""
                   | "dict" IDENTIFIER "from" (STRING | PATH) _NL? -> dict_from_file
                   | "dict" IDENTIFIER _NL _INDENT dict_entries _DEDENT
     dict_entries: dict_entry+
-    dict_entry: IDENTIFIER "=" dict_entry_items _NL? -> dict_value_entry
-              | IDENTIFIER ":" dict_entry_items _NL? -> dict_value_entry
-              | IDENTIFIER _NL _INDENT dict_entries _DEDENT -> dict_nested_entry
+    dict_entry: dict_key "=" dict_entry_items _NL? -> dict_value_entry
+              | dict_key ":" dict_entry_items _NL? -> dict_value_entry
+              | dict_key _NL _INDENT dict_entries _DEDENT -> dict_nested_entry
+    dict_key: IDENTIFIER | NUMBER | SIGNED_NUMBER | STRING
     dict_entry_items: function_arg_value ("," function_arg_value)*
 
     function_call_statement: FUNCTION_CALL_NAME "(" function_args? ")" _NL?
@@ -173,7 +174,7 @@ grammar_indented = r"""
     delete_statement: "delete" IDENTIFIER _NL?
 
     show_statement: "show" SHOW_MODE? _NL?
-    SHOW_MODE: "head" | "summary" | "shape" | "columns"
+    SHOW_MODE.2: "head" | "summary" | "shape" | "columns"
 
     apply_statement: "apply" (PYTHON_VAR | IDENTIFIER) _NL?
 
@@ -557,6 +558,11 @@ class DSLTransformer(Transformer):
 
     def dict_entries(self, *entries):
         return dict(entries)
+
+    def dict_key(self, key):
+        if isinstance(key, Token) and key.type == 'STRING':
+            return ast.literal_eval(str(key))
+        return str(key)
 
     def dict_value_entry(self, key, items):
         return (str(key), items)

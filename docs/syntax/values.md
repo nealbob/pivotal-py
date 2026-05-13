@@ -64,6 +64,9 @@ dict config
     labels
         AU = "Australia"
         NZ = "New Zealand"
+    class_names
+        1 = "1st"
+        2 = "2nd"
 
 with sales
     filter zscore > config.thresholds.low and zscore < config.thresholds.high
@@ -78,6 +81,15 @@ dict config
     thresholds
         low: -5
         high: 5
+```
+
+Keys can be identifiers, quoted strings, or numbers. Numeric keys in inline dictionaries are stored as string keys:
+
+```pivotal
+dict class_names
+    1 = "1st"
+    2 = "2nd"
+    3 = "3rd"
 ```
 
 Values separated by commas become lists:
@@ -137,4 +149,3 @@ with sales
 ```
 
 Once a native value has been defined, it also exists in the Python namespace, so `:money_cols` or `:config["thresholds"]["high"]` can work in later cells. For Pivotal expressions, prefer native lookup such as `money_cols`, `config.thresholds.high`, and `limits[0]` when possible.
-

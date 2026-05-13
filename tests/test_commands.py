@@ -285,6 +285,32 @@ with sales
     assert list(ns['sales'].columns) == ['region', 'price', 'cost']
 
 
+def test_inline_dict_accepts_numeric_keys(parser):
+    ns = {'pd': pd}
+
+    run(parser, '''
+dict class_names
+    1 = "1st"
+    2 = "2nd"
+    3 = "3rd"
+''', ns)
+
+    assert ns['class_names'] == {'1': '1st', '2': '2nd', '3': '3rd'}
+
+
+def test_inline_dict_accepts_numeric_nested_keys(parser):
+    ns = {'pd': pd}
+
+    run(parser, '''
+dict labels
+    class_names
+        1: "1st"
+        2: "2nd"
+''', ns)
+
+    assert ns['labels']['class_names'] == {'1': '1st', '2': '2nd'}
+
+
 def test_compile_time_dict_from_json_and_yaml(parser, tmp_path):
     json_path = tmp_path / 'config.json'
     yaml_path = tmp_path / 'labels.yml'

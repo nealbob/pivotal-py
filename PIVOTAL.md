@@ -208,6 +208,10 @@ dict config
     labels
         AU = "Australia"
         NZ = "New Zealand"
+    class_names
+        1 = "1st"
+        2 = "2nd"
+        3 = "3rd"
 
 with sales
     filter zscore > config.thresholds.low and zscore < config.thresholds.high
@@ -228,6 +232,8 @@ with sales
 ```
 
 Pivotal `list`, `scalar`, and `dict` definitions can be used either through native Pivotal syntax such as `config.thresholds.high` and `limits[0]`, or through `:` runtime references once they exist in the Python namespace. Prefer native lookup inside Pivotal code when the value belongs to the pipeline; use `:pythonvar` references when the value is owned by surrounding Python code. Python integration syntax is covered in more detail below.
+
+Inline dictionary keys may be identifiers, quoted strings, or numbers. Numeric keys are stored as string keys in the Python dictionary, matching the rest of Pivotal's inline dict syntax.
 
 ## Column loops
 
