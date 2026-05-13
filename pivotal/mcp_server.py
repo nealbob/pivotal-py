@@ -31,12 +31,14 @@ _DOC_FILES = (
     "docs/syntax/joining.md",
     "docs/syntax/missing-data.md",
     "docs/syntax/output.md",
+    "docs/syntax/pipeline-control.md",
     "docs/syntax/python-interop.md",
     "docs/syntax/reshaping.md",
     "docs/syntax/saving.md",
     "docs/syntax/selection.md",
     "docs/syntax/sorting.md",
     "docs/syntax/transformation.md",
+    "docs/syntax/values.md",
     "docs/syntax/window-functions.md",
     "docs/jupyter.md",
 )
@@ -51,6 +53,13 @@ _TOPIC_ALIASES = {
     "gather": ("unpivot", "melt", "reshaping"),
     "wavg": ("wmean", "weighted mean", "aggregation"),
     "weighted average": ("wmean", "weighted mean", "aggregation"),
+    "values": ("scalar", "dict", "list", "config"),
+    "scalar": ("scalar", "values", "config"),
+    "dict": ("dict", "dictionary", "config", "values"),
+    "dictionary": ("dict", "dictionary", "config", "values"),
+    "config": ("dict", "scalar", "list", "values"),
+    "loops": ("for", "function", "assert", "check"),
+    "pipeline control": ("for", "function", "assert", "check"),
 }
 
 _CORE_GUIDANCE = (

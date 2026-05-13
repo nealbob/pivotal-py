@@ -53,10 +53,10 @@ nav:
     - syntax/index.md
     - Data Sources: syntax/data-sources.md
     - Filtering: syntax/filtering.md
-    - Data Quality: syntax/data-quality.md
+    - Values: syntax/values.md
+    - Pipeline Control: syntax/pipeline-control.md
     - Selection: syntax/selection.md
     - Column Expressions: syntax/transformation.md
-    - Lists and Functions: syntax/functions.md
     - Sorting: syntax/sorting.md
     - Grouping & Aggregation: syntax/grouping.md
     - Merge and Concatenate: syntax/joining.md

@@ -71,12 +71,14 @@ load "path/to/file.csv" as data
 | [`load`](data-sources.md) | Load a file into a table |
 | [`with`](data-sources.md) | Set or create a table |
 | [`filter`](filtering.md) | Filter rows |
-| [`assert` / `check`](data-quality.md) | Validate data quality |
+| [`list` / `scalar` / `dict`](values.md) | Define reusable values and config |
+| [`assert` / `check`](pipeline-control.md) | Validate data quality |
 | [`select`](selection.md) | Keep specific columns |
 | [`drop`](selection.md) | Remove specific columns |
 | [`distinct`](selection.md) | Remove duplicate rows |
 | [`assign`](transformation.md) | Create or modify columns |
-| [`for`](transformation.md) | Apply column operations across multiple columns |
+| [`for`](pipeline-control.md) | Apply column operations across multiple columns |
+| [`function`](pipeline-control.md) | Define reusable pipeline functions |
 | [`cast`](transformation.md) | Cast a column to a different type |
 | [`rename`](selection.md) | Rename columns |
 | [`sort`](sorting.md) | Sort rows |

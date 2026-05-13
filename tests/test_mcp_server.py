@@ -51,6 +51,8 @@ def test_pivotal_docs_index_lists_command_reference():
     paths = {doc["path"] for doc in result["documents"]}
     assert result["ok"] is True
     assert "docs/syntax/command-reference.md" in paths
+    assert "docs/syntax/values.md" in paths
+    assert "docs/syntax/pipeline-control.md" in paths
     assert "PIVOTAL.md" in paths
 
 

@@ -10,7 +10,7 @@ for longer examples and explanation.
 |-------------|---------|
 | `<table>` | Pivotal table/DataFrame name |
 | `<col>` | Column name |
-| `<name>` | Identifier used for a table, column, chart, function, or list |
+| `<name>` | Identifier used for a table, column, chart, function, or native value |
 | `<value>` | Boolean, number, string, identifier, path, `None`, or Python variable |
 | `<expr>` | Raw expression text parsed by the selected backend |
 | `<condition>` | One or more comparisons joined by `and` or `or` |
@@ -36,6 +36,8 @@ None
 'text'
 identifier
 :python_variable
+:python_list[0]
+:python_dict["key"]
 path/to/file.csv
 ```
 
@@ -68,6 +70,81 @@ Conditions use a column on the left:
 ```
 
 Multiple conditions may be joined with `and` or `or`.
+
+## Native Values
+
+### `list`
+
+Define a reusable list:
+
+```pivotal
+list <name> = <value>, ...
+```
+
+List values may be literals, identifiers, paths, or Python variables. Named
+lists can be used in column lists, filter value lists, loop sources, and
+function arguments.
+
+Index into a known list with square brackets:
+
+```pivotal
+list limits = -5, 5
+
+with sales
+    filter zscore > limits[0] and zscore < limits[1]
+```
+
+### `scalar`
+
+Define a reusable single value:
+
+```pivotal
+scalar <name> = <value>
+```
+
+Examples:
+
+```pivotal
+scalar gst = 0.1
+scalar cutoff = :python_cutoff
+```
+
+### `dict`
+
+Define a nested dictionary inline:
+
+```pivotal
+dict <name>
+    <key> = <value>, ...
+    <key>: <value>, ...
+    <nested_key>
+        <key> = <value>
+```
+
+Load a dictionary from JSON or YAML:
+
+```pivotal
+dict <name> from "<path>.json"
+dict <name> from "<path>.yml"
+dict <name> from "<path>.yaml"
+```
+
+Bind an existing Python dictionary:
+
+```pivotal
+dict <name> = :python_dict
+```
+
+Access known dictionary values with dot paths:
+
+```pivotal
+config.thresholds.high
+config.columns.money
+```
+
+Native values persist in the Python namespace. Later cells may also use
+`:name`, `:name[0]`, or `:name["key"]` runtime references, but native lookup is
+preferred inside Pivotal code when the value belongs to the pipeline.
 
 ## Data Sources
 
@@ -707,17 +784,7 @@ Remove a table from the session namespace:
 delete <table>
 ```
 
-## Compile-Time Lists and Functions
-
-### `list`
-
-Define a compile-time list:
-
-```pivotal
-list <name> = <value>, ...
-```
-
-List values may be literals, identifiers, paths, or Python variables.
+## Pipeline Functions
 
 ### `function`
 

@@ -179,6 +179,8 @@ with sales
 
 Python-list loops are not supported by the plain SQL backend because SQL export needs concrete column names.
 
+## Reusable values: lists, scalars, and dicts
+
 Pivotal lists define reusable values that also persist into the Python namespace in notebooks and `%%pivotal` cells:
 ```pivotal
 list money_cols = price, cost, revenue
@@ -225,7 +227,9 @@ with sales
     filter amount > pivotal_dict.thresholds.high
 ```
 
-Pivotal `list`, `scalar`, and `dict` definitions can be used either through native Pivotal syntax such as `config.thresholds.high` and `limits[0]`, or through `:` runtime references once they exist in the Python namespace.
+Pivotal `list`, `scalar`, and `dict` definitions can be used either through native Pivotal syntax such as `config.thresholds.high` and `limits[0]`, or through `:` runtime references once they exist in the Python namespace. Prefer native lookup inside Pivotal code when the value belongs to the pipeline; use `:pythonvar` references when the value is owned by surrounding Python code. Python integration syntax is covered in more detail below.
+
+## Column loops
 
 Loop assignment targets can build new names with string suffixes or prefixes:
 ```pivotal

@@ -31,42 +31,8 @@ Bare function calls are for Pivotal built-ins such as `upper(name)` or backend-n
 
 ## Column loops
 
-Use a `for` block to apply assignment statements to several columns:
-
-```pivotal
-with sales
-    for col in price, cost, revenue
-        col = col / cpi
-```
-
-The loop variable is a placeholder for each listed column. Only exact bare identifier matches are replaced, so a loop variable named `x` does not alter a column named `colx`.
-
-Use a Python list variable when the column list is prepared in Python:
-
-```pivotal
-with sales
-    for col in :money_cols
-        col = col / cpi
-```
-
-Python-list loops work when Pivotal has a runtime namespace, such as notebook execution. They are not supported by the plain SQL backend because SQL export needs concrete column names.
-
-Build new column names by combining the loop variable with string literals:
-
-```pivotal
-with sales
-    for col in price, cost, revenue
-        col + "_real" = col / cpi
-```
-
-Column loops also support column-oriented operations such as `cast`, `fillna`, `drop`, `dropna`, and window functions:
-
-```pivotal
-with sales
-    for col in price, cost, revenue
-        fillna col 0
-        cast col as float
-```
+Column loops are covered with checks and pipeline functions in
+[Pipeline Control](pipeline-control.md).
 
 ## String functions
 
