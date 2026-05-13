@@ -439,6 +439,21 @@ with sales
     assert ns['sales']['region'].tolist() == ['AU', 'NZ']
 
 
+def test_python_indexed_runtime_ref_string_assignment(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({'amount': [10, 20]}),
+        'class_names': {'1': '1st'},
+    }
+
+    parser.execute('''
+with sales
+    test = :class_names["1"]
+''', ns, verbose=False)
+
+    assert ns['sales']['test'].tolist() == ['1st', '1st']
+
+
 def test_dict_can_bind_existing_python_dict_for_native_lookup(parser):
     ns = {
         'pd': pd,

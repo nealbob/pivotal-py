@@ -3407,9 +3407,16 @@ class CodeGenerator:
         if default_expr is not None:
             default_expr = _re_pa.sub(r':([a-zA-Z_][a-zA-Z0-9_]*)', r'@\1', default_expr)
 
+        def _python_ref_name(expr_value):
+            match = _re_pa.fullmatch(r'\s*@([a-zA-Z_][a-zA-Z0-9_]*)\s*', expr_value or '')
+            return match.group(1) if match else None
+
         def _default_rhs(expr_value):
             if expr_value is None:
                 return None
+            ref_name = _python_ref_name(expr_value)
+            if ref_name is not None:
+                return ref_name
             string_code = self._parse_string_expr(expr_value, table)
             if string_code is not None:
                 return f"({string_code})"
@@ -3498,7 +3505,10 @@ class CodeGenerator:
                         f"{table}.loc[condition, '{target}'] = "
                         f"{func}({table}['{col}'])")
             else:
-                if self._is_scalar_expr(expr):
+                ref_name = _python_ref_name(expr)
+                if ref_name is not None:
+                    rhs = ref_name
+                elif self._is_scalar_expr(expr):
                     rhs = expr
                 else:
                     rhs = f"{table}.eval('{expr}')"
@@ -3511,6 +3521,9 @@ class CodeGenerator:
             if user_call:
                 func, col = user_call
                 return f"{table}['{target}'] = {func}({table}['{col}'])"
+            ref_name = _python_ref_name(expr)
+            if ref_name is not None:
+                return f"{table}['{target}'] = {ref_name}"
             if self._is_scalar_expr(expr):
                 return f"{table}['{target}'] = {expr}"
             return f"{table}['{target}'] = {table}.eval('{expr}')"
