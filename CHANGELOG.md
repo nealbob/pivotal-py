@@ -46,6 +46,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added embedded Python syntax highlighting in VS Code for inline `python <code>` statements and multi-line `python`/`end` blocks in Pivotal files.
 - Fixed per-column `fillna` so unquoted fill values can reference another column, while quoted strings remain literal fill values.
 - Fixed canvas viewer chart rendering in VS Code and JupyterLab so charts that exceed the printable canvas are scaled down proportionally with a small fit notice.
+- Fixed duplicated/clipped AG Grid filter icons in the VS Code viewer header row.
 
 ## [0.3.0]
 

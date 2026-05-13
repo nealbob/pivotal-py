@@ -3302,7 +3302,10 @@ class CodeGenerator:
                 return expr
             return f"{table}.eval({expr!r})"
 
-        conds = ', '.join(f"{table}.eval({b['query_str']!r})" for b in branches)
+        conds = ', '.join(
+            self._pandas_condition_eval(table, b['conditions'], b['operators'])
+            for b in branches
+        )
         choices = ', '.join(_eval_expr(b['expression']) for b in branches)
 
         if defaults:
@@ -3316,6 +3319,11 @@ class CodeGenerator:
                 f"    [{choices}],\n"
                 f"    default={default_str},\n"
                 f")")
+
+    def _pandas_condition_eval(self, table, conditions, operators):
+        query_str, needs_python_engine = self._build_query_string(conditions, operators)
+        engine = ", engine='python'" if needs_python_engine else ""
+        return f"{table}.eval({query_str!r}{engine})"
 
     def _substitute_agg_calls(self, expr, table, by_cols):
         """Replace agg(col), quantile(col, q), and wavg(col, wt) calls with @_agg_N locals."""
@@ -3384,7 +3392,7 @@ class CodeGenerator:
         expr = ast_node['expression']
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
-        query_str = ast_node.get('query_str')
+        operators = ast_node.get('operators', [])
         default_expr = ast_node.get('default_expr')
 
         # Convert :varname Python variable refs to @varname for df.eval()
@@ -3423,7 +3431,7 @@ class CodeGenerator:
             if scalar_code is not None:
                 lines.insert(0, "import numpy as np")
                 if conditions:
-                    lines.append(f"_cond = {table}.eval({query_str!r})")
+                    lines.append(f"_cond = {self._pandas_condition_eval(table, conditions, operators)}")
                     lines.append(
                         f"{table}.loc[_cond, {target!r}] = ({scalar_code})"
                     )
@@ -3435,7 +3443,7 @@ class CodeGenerator:
                     lines.append(f"{table}[{target!r}] = {scalar_code}")
                 return '\n'.join(lines)
             if conditions:
-                lines.append(f"_cond = {table}.eval({query_str!r})")
+                lines.append(f"_cond = {self._pandas_condition_eval(table, conditions, operators)}")
                 lines.append(
                     f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})"
                 )
@@ -3451,7 +3459,8 @@ class CodeGenerator:
         string_code = self._parse_string_expr(expr, table)
         if string_code is not None:
             if conditions:
-                code = (f"condition = {table}.eval({query_str!r})\n"
+                condition_expr = self._pandas_condition_eval(table, conditions, operators)
+                code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = ({string_code})")
                 if default_rhs is not None:
                     code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
@@ -3461,8 +3470,9 @@ class CodeGenerator:
         scalar_minmax = self._try_scalar_minmax_pandas(expr, table)
         if scalar_minmax is not None:
             if conditions:
+                condition_expr = self._pandas_condition_eval(table, conditions, operators)
                 code = (f"import numpy as np\n"
-                        f"condition = {table}.eval({query_str!r})\n"
+                        f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = ({scalar_minmax})")
                 if default_rhs is not None:
                     code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
@@ -3475,9 +3485,10 @@ class CodeGenerator:
             self._raise_bare_python_func_call(bare_func)
 
         if conditions:
+            condition_expr = self._pandas_condition_eval(table, conditions, operators)
             if user_call:
                 func, col = user_call
-                code = (f"condition = {table}.eval({query_str!r})\n"
+                code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = "
                         f"{func}({table}['{col}'])")
             else:
@@ -3485,7 +3496,7 @@ class CodeGenerator:
                     rhs = expr
                 else:
                     rhs = f"{table}.eval('{expr}')"
-                code = (f"condition = {table}.eval({query_str!r})\n"
+                code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = {rhs}")
             if default_rhs is not None:
                 code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"

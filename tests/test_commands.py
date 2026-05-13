@@ -657,6 +657,14 @@ def test_assign_where_scalar(parser, sample_df):
     assert all(non_electronics['flag'].isna())
 
 
+def test_assign_where_between(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, 'with sales\nflag = 1\n    where price between [100, 400]', ns)
+    expected = sample_df['price'].between(100, 400)
+    assert ns['sales'].loc[expected, 'flag'].eq(1).all()
+    assert ns['sales'].loc[~expected, 'flag'].isna().all()
+
+
 # ---------------------------------------------------------------------------
 # assign: multi-case
 # ---------------------------------------------------------------------------
@@ -709,6 +717,17 @@ def test_assign_case_first_match_wins(parser):
     assert ns['data'].loc[1, 'label'] == 50
     # x=1 matches neither; default = 0
     assert ns['data'].loc[2, 'label'] == 0
+
+
+def test_assign_case_between(parser, sample_df):
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = ('with sales\ntier =\n'
+           '    where price between [100, 400]; "mid"\n'
+           '    else "other"\n')
+    run(parser, dsl, ns)
+    expected = sample_df['price'].between(100, 400)
+    assert ns['sales'].loc[expected, 'tier'].eq('mid').all()
+    assert ns['sales'].loc[~expected, 'tier'].eq('other').all()
 
 
 def test_assign_case_no_default(parser):

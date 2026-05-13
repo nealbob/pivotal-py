@@ -758,6 +758,16 @@ function _buildViewerHtml(webview: vscode.Webview): string {
   .pv-page-chart-img { position: absolute; }
   /* AG Grid */
   .ag-theme-alpine { --ag-font-size: 12px; }
+  .ag-theme-alpine .ag-header-icon .ag-icon-filter {
+    display: inline-block;
+    overflow: hidden;
+    line-height: var(--ag-icon-size);
+  }
+  .ag-theme-alpine .ag-header-icon .ag-icon-filter::before {
+    display: block;
+    height: var(--ag-icon-size);
+    line-height: var(--ag-icon-size);
+  }
   .ag-theme-alpine .ag-popup .ag-popup-child {
     background: #ffffff !important; border: 1px solid #d4d4d4; color: #1f1f1f !important;
   }
