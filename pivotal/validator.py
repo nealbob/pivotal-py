@@ -33,6 +33,33 @@ def _extract_col_names(items) -> list:
     return [item for item in items if isinstance(item, str)]
 
 
+def _resolve_col_names(items, namespace: dict) -> tuple[list, bool]:
+    """Resolve static and runtime-var column refs when possible.
+
+    Returns (columns, fully_known). If a runtime reference cannot be resolved,
+    columns contains only the known string refs and fully_known is False.
+    """
+    cols: list = []
+    fully_known = True
+    for item in items:
+        if isinstance(item, str):
+            cols.append(item)
+            continue
+        if isinstance(item, dict) and item.get('type') == 'var':
+            name = item.get('name')
+            if name not in namespace:
+                fully_known = False
+                continue
+            value = namespace[name]
+            if isinstance(value, list):
+                cols.extend(str(col) for col in value)
+            else:
+                cols.append(str(value))
+            continue
+        fully_known = False
+    return cols, fully_known
+
+
 def _available_tables(namespace: dict) -> list:
     """Return names of DataFrames in the namespace."""
     return [k for k, v in namespace.items() if hasattr(v, 'columns') and not k.startswith('_')]
@@ -194,14 +221,18 @@ def validate(ast: list, namespace: dict, source_code: str = "") -> list:
             # column set unchanged
 
         elif t == 'select':
-            cols = node.get('columns', [])
+            raw_cols = node.get('columns', [])
+            cols, cols_known = _resolve_col_names(raw_cols, namespace)
             if node.get('column_match') and current_cols is not None:
                 pattern = _decode_pattern(node.get('column_match'))
                 cols = [c for c in current_cols if re.search(pattern, c)]
+                cols_known = True
             errors.extend(_col_errors(cols, current_cols, tbl, 'select'))
-            if current_cols is not None:
+            if current_cols is not None and cols_known:
                 renames = node.get('renames', {})
                 current_cols = {renames.get(c, c) for c in cols if c in current_cols}
+            elif current_cols is not None:
+                current_cols = None
 
         elif t == 'drop':
             cols = node.get('columns', [])

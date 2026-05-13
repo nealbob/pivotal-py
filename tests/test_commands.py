@@ -12,6 +12,7 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pivotal
 from pivotal.magic import PivotalMagics
+from pivotal.validator import validate
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +459,25 @@ with sales
 ''', ns, verbose=False)
 
     assert ns['sales']['region'].tolist() == ['AU', 'NZ']
+
+
+def test_select_indexed_runtime_ref_validates_after_previous_cell(parser):
+    ns = {
+        'pd': pd,
+        'temp': pd.DataFrame({'colA': [1], 'colB': [2]}),
+        'pyvar': 'Hello from Python!',
+        'pylist': ['colA', 'colB', 'colC'],
+    }
+
+    ast = parser.parse('''
+with temp as temp2
+    colC = :pyvar
+    select :pylist[2]
+''', ns)
+
+    errors = validate(ast, ns, '')
+
+    assert errors == []
 
 
 def test_python_indexed_runtime_ref_string_assignment(parser):
