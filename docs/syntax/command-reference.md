@@ -590,15 +590,13 @@ plot line sales_chart
     y revenue "Revenue"
 ```
 
-### `pivot plot` / `agg plot`
+### `pivot plot`
 
 Group, aggregate, and plot in one command:
 
 ```pivotal
 pivot plot <name>
 pivot plot <kind> <name>
-agg plot <name>
-agg plot <kind> <name>
     x <col> ["label"]
     y <func> <col>, <func> <col>, ... ["label"]
     by <col>
@@ -606,8 +604,6 @@ agg plot <kind> <name>
     canvas <name>
     show
 ```
-
-`agg plot` is accepted as an alias for `pivot plot`.
 
 ### `table`
 

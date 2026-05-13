@@ -65,7 +65,7 @@
     "outputDir": "pivotal_jupyterlab/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static\\remoteEntry.61209c19369f05a43dc1.js",
+      "load": "static\\remoteEntry.26736ee9423aacea99c6.js",
       "extension": "./extension",
       "style": "./style"
     }

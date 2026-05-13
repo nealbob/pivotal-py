@@ -560,6 +560,19 @@ with sales
 
 ## Plotting
 
+Standard `plot` creates a chart from the active table:
+
+```pivotal
+with summary
+    plot revenue_chart
+        kind bar
+        x category
+        y total
+        title "Revenue by Category"
+```
+
+Or use the shorthand form with the chart type after `plot`:
+
 ```pivotal
 with summary
     plot bar revenue_chart
@@ -568,6 +581,15 @@ with summary
         title "Revenue by Category"
         by region
         cols 2
+```
+
+Labels can be supplied after plotted values:
+
+```pivotal
+with summary
+    plot line sales_chart
+        x month "Month"
+        y revenue "Revenue"
 ```
 
 `pivot plot` produces a plot directly from a grouped aggregation without creating a separate summary table. Each `y` entry is a `func col` pair; multiple pairs are comma-separated. An optional `filter` before the statement pre-filters the data:
@@ -591,6 +613,8 @@ Chart types: `line  bar  scatter  hist  box  area`
 
 ## Tables (Great Tables)
 
+Use `table` to turn the active table into a formatted report table:
+
 ```pivotal
 with results
     table my_table
@@ -600,6 +624,9 @@ with results
         format revenue as currency GBP
         stripe
 ```
+
+Useful options include `subtitle`, `font size`, `font`, `label`, `summary`,
+`spanner`, `canvas`, `style`, and `show`.
 
 ## Runtime variables
 

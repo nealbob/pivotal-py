@@ -799,6 +799,7 @@ export class PivotalViewerWidget extends Widget {
       <button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>
       <button class="pv-btn pv-zoom-out"   title="Zoom out">−</button>
       <button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>
+      <span class="pv-canvas-fit-note" title="The original chart is larger than the canvas and was scaled down."></span>
       <span class="pv-canvas-label">${cm.label} · ${cm.margin_mm}mm margins</span>
     `;
 
@@ -822,6 +823,7 @@ export class PivotalViewerWidget extends Widget {
     // ResizeObserver feedback loops (scrollbar appearing/disappearing cycles).
     let lastAvailW = -1;
     let rafId = 0;
+    const fitNote = toolbar.querySelector('.pv-canvas-fit-note');
 
     const apply = () => {
       // Base scale: fit page width into available panel width (32px padding each side)
@@ -832,14 +834,24 @@ export class PivotalViewerWidget extends Widget {
       rafId = 0;
 
       const pxPerMm = (availW / cm.page_width_mm) * userScale;
+      const usableWmm = Math.max(cm.page_width_mm - 2 * cm.margin_mm, 1);
+      const usableHmm = Math.max(cm.page_height_mm - 2 * cm.margin_mm, 1);
+      const requestedWmm = Math.max(cm.chart_width_mm ?? usableWmm, 1);
+      const requestedHmm = Math.max(cm.chart_height_mm ?? usableHmm, 1);
+      const fitScale = Math.min(1, usableWmm / requestedWmm, usableHmm / requestedHmm);
+      const chartWmm = requestedWmm * fitScale;
+      const chartHmm = requestedHmm * fitScale;
 
       page.style.width  = `${cm.page_width_mm  * pxPerMm}px`;
       page.style.height = `${cm.page_height_mm * pxPerMm}px`;
 
-      img.style.width  = `${(cm.chart_width_mm  ?? cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm}px`;
-      img.style.height = `${(cm.chart_height_mm ?? cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm}px`;
+      img.style.width  = `${chartWmm * pxPerMm}px`;
+      img.style.height = `${chartHmm * pxPerMm}px`;
       img.style.left   = `${cm.margin_mm * pxPerMm}px`;
       img.style.top    = `${cm.margin_mm * pxPerMm}px`;
+      if (fitNote) {
+        fitNote.textContent = fitScale < 0.999 ? `Scaled ${Math.round(fitScale * 100)}% to fit canvas` : '';
+      }
     };
 
     // Zoom buttons bypass the width-change guard since userScale changed

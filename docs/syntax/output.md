@@ -1,6 +1,15 @@
-# Output
+# Charts, Tables, and Output
 
 ## `show` — display inline
+
+Pivotal has three main output commands:
+
+- `show` previews the active table inline.
+- `plot` creates a chart from the active table.
+- `table` creates a formatted report table from the active table.
+
+Use `pivot plot` when you want to aggregate and chart in one step without
+creating a separate summary table.
 
 Display the current state of the active table inline in the notebook or terminal output.
 
@@ -42,11 +51,14 @@ Create a matplotlib chart from the active table.
 ```pivotal
 with summary
     plot <chart_name>
-        kind "<chart_type>"
+        kind <chart_type>
         x <col>
         y <col>
         title "<title>"
 ```
+
+`plot` uses the current active table as its source, so it fits naturally after
+`group by`, `pivot`, `select`, or other reshaping steps.
 
 ### Shorthand kind
 
@@ -86,6 +98,15 @@ with summary
 | `cols <n>` | Number of columns in faceted layout |
 | `style "<file>"` | Path to a matplotlib style file |
 | `show` | Render inline (in addition to viewer) |
+
+Labels can be supplied after a plotted value:
+
+```pivotal
+with summary
+    plot line sales_chart
+        x month "Month"
+        y revenue "Revenue"
+```
 
 ### Examples
 
@@ -166,8 +187,6 @@ with sales
 | `show` | Render inline in addition to viewer |
 
 Aggregation functions: `mean  sum  count  min  max  median`
-
-> **Note:** `agg plot` is accepted as a silent alias for backward compatibility.
 
 ---
 

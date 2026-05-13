@@ -32,6 +32,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added `show shape` and `show columns` output variants.
 - Added `quantile` and `percentile` as built-in aggregation functions for assignment expressions and `agg` statements.
 - Added persistent native `scalar` and `dict` definitions, JSON/YAML config dict loading, dot-path config lookup, Pivotal list indexing, and indexed `:` runtime references for lists/dicts.
+- Added clearer plotting and table documentation, including explicit `plot`, `pivot plot`, and `table` syntax coverage in the user docs and syntax reference.
 
 ### Fixed
 
@@ -44,6 +45,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Fixed the JupyterLab extension asset copy step so local builds and editable installs work on Windows.
 - Added embedded Python syntax highlighting in VS Code for inline `python <code>` statements and multi-line `python`/`end` blocks in Pivotal files.
 - Fixed per-column `fillna` so unquoted fill values can reference another column, while quoted strings remain literal fill values.
+- Fixed canvas viewer chart rendering in VS Code and JupyterLab so charts that exceed the printable canvas are scaled down proportionally with a small fit notice.
 
 ## [0.3.0]
 

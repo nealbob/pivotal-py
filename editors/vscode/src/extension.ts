@@ -724,6 +724,7 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     border-bottom: 1px solid var(--vscode-panel-border, #444); flex-shrink: 0;
   }
   .pv-canvas-label { font-size: 11px; opacity: 0.7; margin-left: 8px; }
+  .pv-canvas-fit-note { font-size: 11px; opacity: 0.65; margin-left: 6px; }
   /* AG Grid container */
   .pv-ag-container { height: 100%; width: 100%; }
   .pv-ag-idx { color: var(--vscode-editorLineNumber-foreground, #858585) !important;
@@ -1230,7 +1231,8 @@ function _buildViewerHtml(webview: vscode.Webview): string {
       '<button class="pv-btn pv-zoom-in"    title="Zoom in">+</button>' +
       '<button class="pv-btn pv-zoom-out"   title="Zoom out">&#8722;</button>' +
       '<button class="pv-btn pv-zoom-reset" title="Fit to panel">Fit</button>' +
-      '<span class="pv-canvas-label">' + cm.label + ' \\xB7 ' + cm.margin_mm + 'mm margins</span>';
+      '<span class="pv-canvas-label">' + cm.label + ' \\xB7 ' + cm.margin_mm + 'mm margins</span>' +
+      '<span class="pv-canvas-fit-note" title="The original chart is larger than the canvas and was scaled down."></span>';
 
     const outer = document.createElement('div');
     outer.className = 'pv-page-view';
@@ -1249,17 +1251,28 @@ function _buildViewerHtml(webview: vscode.Webview): string {
     bodyEl.appendChild(outer);
 
     let lastAvailW = -1, rafId = 0;
+    const fitNote = toolbar.querySelector('.pv-canvas-fit-note');
     const apply = () => {
       const availW = Math.max(outer.clientWidth - 64, 80);
       if (Math.abs(availW - lastAvailW) < 1 && rafId === 0) return;
       lastAvailW = availW; rafId = 0;
       const pxPerMm = (availW / cm.page_width_mm) * userScale;
+      const usableWmm = Math.max(cm.page_width_mm - 2 * cm.margin_mm, 1);
+      const usableHmm = Math.max(cm.page_height_mm - 2 * cm.margin_mm, 1);
+      const requestedWmm = Math.max(cm.chart_width_mm ?? usableWmm, 1);
+      const requestedHmm = Math.max(cm.chart_height_mm ?? usableHmm, 1);
+      const fitScale = Math.min(1, usableWmm / requestedWmm, usableHmm / requestedHmm);
+      const chartWmm = requestedWmm * fitScale;
+      const chartHmm = requestedHmm * fitScale;
       page.style.width  = (cm.page_width_mm  * pxPerMm) + 'px';
       page.style.height = (cm.page_height_mm * pxPerMm) + 'px';
-      img.style.width   = ((cm.chart_width_mm  ?? cm.page_width_mm  - 2 * cm.margin_mm) * pxPerMm) + 'px';
-      img.style.height  = ((cm.chart_height_mm ?? cm.page_height_mm - 2 * cm.margin_mm) * pxPerMm) + 'px';
+      img.style.width   = (chartWmm * pxPerMm) + 'px';
+      img.style.height  = (chartHmm * pxPerMm) + 'px';
       img.style.left    = (cm.margin_mm * pxPerMm) + 'px';
       img.style.top     = (cm.margin_mm * pxPerMm) + 'px';
+      if (fitNote) {
+        fitNote.textContent = fitScale < 0.999 ? 'Scaled ' + Math.round(fitScale * 100) + '% to fit canvas' : '';
+      }
     };
     const applyForced = () => { lastAvailW = -1; apply(); };
     _panelResizeCb = applyForced;

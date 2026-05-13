@@ -64,7 +64,7 @@ nav:
     - Window Functions: syntax/window-functions.md
     - Missing Data: syntax/missing-data.md
     - Python Integration: syntax/python-interop.md
-    - Output: syntax/output.md
+    - Charts, Tables, and Output: syntax/output.md
     - Saving: syntax/saving.md
   - Syntax Reference: syntax/command-reference.md
   - Backends: backends.md
