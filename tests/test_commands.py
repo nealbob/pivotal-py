@@ -285,6 +285,27 @@ with sales
     assert list(ns['sales'].columns) == ['region', 'price', 'cost']
 
 
+def test_compile_time_scalar_lookup_in_assign_expression(parser):
+    ns = {
+        'pd': pd,
+        'sales': pd.DataFrame({
+            'price': [10, 20],
+        }),
+    }
+
+    run(parser, '''
+scalar gst = 0.1
+scalar label = "taxed"
+
+with sales
+    tax = price * gst
+    status = label
+''', ns)
+
+    assert ns['sales']['tax'].tolist() == [1.0, 2.0]
+    assert ns['sales']['status'].tolist() == ['taxed', 'taxed']
+
+
 def test_inline_dict_accepts_numeric_keys(parser):
     ns = {'pd': pd}
 

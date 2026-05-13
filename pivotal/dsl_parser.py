@@ -8352,6 +8352,55 @@ class DSLParser:
             return repr(value)
         return repr(value)
 
+    def _replace_compile_identifiers_in_text(self, text, values):
+        """Replace bare scalar/config identifiers in expression text, preserving strings."""
+        if not isinstance(text, str) or not text:
+            return text
+
+        result = []
+        i = 0
+        quote = None
+        ident_re = re.compile(r'[a-zA-Z][a-zA-Z0-9_]*')
+
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                result.append(ch)
+                if ch == '\\' and i + 1 < len(text):
+                    i += 1
+                    result.append(text[i])
+                elif ch == quote:
+                    quote = None
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                quote = ch
+                result.append(ch)
+                i += 1
+                continue
+
+            match = ident_re.match(text, i)
+            if match:
+                token = match.group(0)
+                prev = text[i - 1] if i > 0 else ''
+                value = values.get(token)
+                if (
+                    token in values
+                    and prev != ':'
+                    and isinstance(value, (int, float, bool, str, _LiteralStr))
+                ):
+                    result.append(self._compile_literal_for_expression(value))
+                else:
+                    result.append(token)
+                i = match.end()
+                continue
+
+            result.append(ch)
+            i += 1
+
+        return ''.join(result)
+
     def _replace_compile_refs_in_text(self, text, values):
         if not isinstance(text, str) or not text:
             return text
@@ -8468,7 +8517,8 @@ class DSLParser:
                         result[key] = copy.deepcopy(exact)
                     else:
                         replaced = self._replace_bound_identifier(child, bindings)
-                        result[key] = self._replace_compile_refs_in_text(replaced, lists)
+                        replaced = self._replace_compile_refs_in_text(replaced, lists)
+                        result[key] = self._replace_compile_identifiers_in_text(replaced, lists)
                 else:
                     result[key] = self._substitute_compile_values(child, bindings, lists, field=key)
             return result
