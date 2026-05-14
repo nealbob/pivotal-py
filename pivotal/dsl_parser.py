@@ -2447,6 +2447,44 @@ class CodeGenerator:
             "    raise ValueError('bulk load requires at least one file')",
         ]
 
+    def _bulk_expand_sources_lines(self):
+        return [
+            "def _pvt_expand_sources(_pvt_raw_sources):",
+            "    if isinstance(_pvt_raw_sources, (str, os.PathLike)):",
+            "        _pvt_iter = [_pvt_raw_sources]",
+            "    else:",
+            "        _pvt_iter = list(_pvt_raw_sources)",
+            "    _pvt_expanded = []",
+            "    _pvt_supported_exts = {'csv', 'parquet'}",
+            "    for _pvt_item in _pvt_iter:",
+            "        _pvt_path = os.fspath(_pvt_item)",
+            "        if os.path.isdir(_pvt_path):",
+            "            _pvt_names = sorted(os.listdir(_pvt_path))",
+            "            if not _pvt_names:",
+            "                raise ValueError(f'bulk load folder is empty: {_pvt_path}')",
+            "            _pvt_dir_files = []",
+            "            _pvt_dir_exts = set()",
+            "            for _pvt_name in _pvt_names:",
+            "                _pvt_file = os.path.join(_pvt_path, _pvt_name)",
+            "                if not os.path.isfile(_pvt_file):",
+            "                    raise ValueError(f'bulk load folder contains non-file entry: {_pvt_file}')",
+            "                _pvt_ext = _pvt_file.rsplit('.', 1)[-1].lower() if '.' in _pvt_file else ''",
+            "                if _pvt_ext not in _pvt_supported_exts:",
+            "                    raise ValueError(f'bulk load folder supports only CSV and Parquet files, got: {_pvt_file}')",
+            "                _pvt_dir_exts.add(_pvt_ext)",
+            "                _pvt_dir_files.append(_pvt_file)",
+            "            if len(_pvt_dir_exts) > 1:",
+            "                _pvt_formats = ', '.join(sorted(_pvt_dir_exts))",
+            "                raise ValueError(f'bulk load folder must contain one file format, got: {_pvt_formats}')",
+            "            _pvt_expanded.extend(_pvt_dir_files)",
+            "        else:",
+            "            _pvt_ext = _pvt_path.rsplit('.', 1)[-1].lower() if '.' in _pvt_path else ''",
+            "            if _pvt_ext not in _pvt_supported_exts:",
+            "                raise ValueError(f'bulk load supports CSV and Parquet files, got: {_pvt_path}')",
+            "            _pvt_expanded.append(_pvt_path)",
+            "    return _pvt_expanded",
+        ]
+
     def _bulk_validate_aliases_lines(self):
         return [
             "_pvt_aliases = list(_pvt_aliases)",
@@ -2467,7 +2505,9 @@ class CodeGenerator:
         lines = [
             "import os",
             "import re",
+            *self._bulk_expand_sources_lines(),
             f"_pvt_sources = {src_expr}",
+            "_pvt_sources = _pvt_expand_sources(_pvt_sources)",
             *self._bulk_validate_sources_lines(),
             *self._bulk_read_pandas_lines(),
         ]
@@ -2859,7 +2899,9 @@ class CodeGenerator:
         lines = [
             "import os",
             "import re",
+            *self._bulk_expand_sources_lines(),
             f"_pvt_sources = {src_expr}",
+            "_pvt_sources = _pvt_expand_sources(_pvt_sources)",
             *self._bulk_validate_sources_lines(),
             *self._bulk_read_polars_lines(),
         ]

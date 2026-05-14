@@ -22,9 +22,9 @@ load :my_file_path as data
 
 ## `bulk load` - load generated file lists
 
-Load many CSV or Parquet files from a Python list. With one alias, Pivotal
-concatenates the files into one table and adds a `source` column containing the
-input filename.
+Load many CSV or Parquet files from a Python list or folder. With one alias,
+Pivotal concatenates the files into one table and adds a `source` column
+containing the input filename.
 
 ```python
 files = ["data/jan.csv", "data/feb.csv", "data/mar.csv"]
@@ -32,10 +32,14 @@ files = ["data/jan.csv", "data/feb.csv", "data/mar.csv"]
 
 ```pivotal
 bulk load :files as sales
+bulk load "data/monthly" as sales
 ```
 
 The concat mode unions columns by name, so files with extra or missing columns
 are combined with missing values where needed.
+
+When the source is a folder, files are loaded in sorted filename order. The
+folder must be non-empty and contain only CSV files or only Parquet files.
 
 Customize the provenance column:
 

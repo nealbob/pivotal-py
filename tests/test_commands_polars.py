@@ -116,6 +116,19 @@ def test_bulk_load_concat_from_python_file_list(parser, tmp_path):
     assert ns['all_data']['source'].to_list() == ['jan.csv', 'feb.csv']
 
 
+def test_bulk_load_concat_from_folder_path(parser, tmp_path):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    pl.DataFrame({'id': [2], 'amount': [20]}).write_csv(folder / "02_feb.csv")
+    pl.DataFrame({'id': [1], 'amount': [10]}).write_csv(folder / "01_jan.csv")
+
+    ns = {}
+    run(parser, f'bulk load "{folder.as_posix()}" as all_data', ns)
+
+    assert ns['all_data']['id'].to_list() == [1, 2]
+    assert ns['all_data']['source'].to_list() == ['01_jan.csv', '02_feb.csv']
+
+
 def test_bulk_load_separate_from_alias_list(parser, tmp_path):
     jan = tmp_path / "jan.csv"
     feb = tmp_path / "feb.csv"

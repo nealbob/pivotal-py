@@ -118,6 +118,32 @@ def test_bulk_load_concat_from_python_file_list(parser, tmp_path):
     assert list(ns['all_data']['source']) == ['jan.csv', 'feb.csv']
 
 
+def test_bulk_load_concat_from_folder_path(parser, tmp_path):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    pd.DataFrame({'id': [2], 'amount': [20]}).to_csv(folder / "02_feb.csv", index=False)
+    pd.DataFrame({'id': [1], 'amount': [10]}).to_csv(folder / "01_jan.csv", index=False)
+
+    ns = {'pd': pd}
+    run(parser, f'bulk load "{folder.as_posix()}" as all_data', ns)
+
+    assert list(ns['all_data']['id']) == [1, 2]
+    assert list(ns['all_data']['source']) == ['01_jan.csv', '02_feb.csv']
+
+
+def test_bulk_load_concat_from_folder_variable(parser, tmp_path):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    pd.DataFrame({'id': [1]}).to_csv(folder / "01_jan.csv", index=False)
+    pd.DataFrame({'id': [2]}).to_csv(folder / "02_feb.csv", index=False)
+
+    ns = {'pd': pd, 'folder': folder}
+    run(parser, 'bulk load :folder as all_data', ns)
+
+    assert list(ns['all_data']['id']) == [1, 2]
+    assert list(ns['all_data']['source']) == ['01_jan.csv', '02_feb.csv']
+
+
 def test_bulk_load_concat_unions_columns_and_custom_source(parser, tmp_path):
     jan = tmp_path / "jan.csv"
     feb = tmp_path / "feb.csv"
@@ -144,6 +170,19 @@ def test_bulk_load_separate_from_static_aliases(parser, tmp_path):
     assert list(ns['feb_data']['id']) == [2]
 
 
+def test_bulk_load_separate_from_folder_path(parser, tmp_path):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    pd.DataFrame({'id': [2]}).to_csv(folder / "02_feb.csv", index=False)
+    pd.DataFrame({'id': [1]}).to_csv(folder / "01_jan.csv", index=False)
+
+    ns = {'pd': pd}
+    run(parser, f'bulk load "{folder.as_posix()}" as jan_data, feb_data', ns)
+
+    assert list(ns['jan_data']['id']) == [1]
+    assert list(ns['feb_data']['id']) == [2]
+
+
 def test_bulk_load_separate_from_alias_list(parser, tmp_path):
     jan = tmp_path / "jan.csv"
     feb = tmp_path / "feb.csv"
@@ -155,6 +194,42 @@ def test_bulk_load_separate_from_alias_list(parser, tmp_path):
 
     assert list(ns['jan_data']['id']) == [1]
     assert list(ns['feb_data']['id']) == [2]
+
+
+def test_bulk_load_folder_rejects_empty_folder(parser, tmp_path, capsys):
+    folder = tmp_path / "empty"
+    folder.mkdir()
+
+    ns = {'pd': pd}
+    run(parser, f'bulk load "{folder.as_posix()}" as all_data', ns)
+
+    assert "bulk load folder is empty" in capsys.readouterr().out
+    assert 'all_data' not in ns
+
+
+def test_bulk_load_folder_rejects_unsupported_files(parser, tmp_path, capsys):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    (folder / "notes.txt").write_text("not data", encoding="utf-8")
+
+    ns = {'pd': pd}
+    run(parser, f'bulk load "{folder.as_posix()}" as all_data', ns)
+
+    assert "supports only CSV and Parquet" in capsys.readouterr().out
+    assert 'all_data' not in ns
+
+
+def test_bulk_load_folder_rejects_mixed_file_formats(parser, tmp_path, capsys):
+    folder = tmp_path / "monthly"
+    folder.mkdir()
+    pd.DataFrame({'id': [1]}).to_csv(folder / "jan.csv", index=False)
+    (folder / "feb.parquet").write_text("placeholder", encoding="utf-8")
+
+    ns = {'pd': pd}
+    run(parser, f'bulk load "{folder.as_posix()}" as all_data', ns)
+
+    assert "must contain one file format" in capsys.readouterr().out
+    assert 'all_data' not in ns
 
 
 def test_load_excel(parser, tmp_path, sample_df):

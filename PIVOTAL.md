@@ -62,12 +62,18 @@ load "data/sales.csv" as sales
 load :my_path_variable as sales
 ```
 
-Bulk load CSV or Parquet files from a Python list. A single alias concatenates
-all files into one table and adds a `source` column with the input filename:
+Bulk load CSV or Parquet files from a Python list or folder. A single alias
+concatenates all files into one table and adds a `source` column with the input
+filename:
 
 ```pivotal
 bulk load :monthly_files as sales
+bulk load "data/monthly" as sales
 ```
+
+When a folder is provided, Pivotal loads the files inside it in sorted filename
+order. The folder must be non-empty and contain only CSV files or only Parquet
+files.
 
 Use multiple aliases, or a Python list of aliases, to load each file into a
 separate table instead:
