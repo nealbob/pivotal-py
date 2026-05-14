@@ -38,6 +38,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 ### Fixed
 
 - Changed the default Jupyter `%pivotal_set` canvas from `none` to `a4` for viewer output in JupyterLab and VS Code notebooks.
+- Fixed `pivot plot` / `agg plot` so extra plotting keyword arguments such as `title`, `xlabel`, and `ylabel` are accepted and forwarded like standard `plot`.
+- Fixed `barh` plot axis labels so Pivotal `x`/`y` labels follow the semantic fields rather than the raw horizontal/vertical axis names.
+- Fixed single-series plots to default `legend=False` unless the user explicitly requests a legend, reducing redundant legends on simple charts.
 - Fixed and expanded the test suite around command parsing and backend behavior, including pandas, Polars, DuckDB, and SQL CTE coverage.
 - Fixed MCP compile validation so incomplete inline Python such as `python def ...:` is rejected instead of reporting successful code generation.
 - Fixed MCP syntax topic lookup so aliases such as `melt` and `reshape` return specific pivot/unpivot guidance instead of the start of `PIVOTAL.md`.

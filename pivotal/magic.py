@@ -1451,6 +1451,7 @@ class PivotalMagics(Magics):
             display_error(err, cell)
             return
         self.parser._store_pivotal_values(self.shell.user_ns, defs.get('defined_values', {}))
+        self.parser._store_pivotal_functions(self.shell.user_ns, defs.get('defined_functions', {}))
 
         # Semantic validation — collect errors but don't block execution.
         # Only surfaced if the cell actually errors at runtime (avoids false

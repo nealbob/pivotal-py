@@ -382,6 +382,23 @@ with sales
     assert ns['sales']['status'].tolist() == ['taxed', 'taxed']
 
 
+def test_assign_bare_string_column_copies_series(parser):
+    ns = {
+        'pd': pd,
+        'df': pd.DataFrame({
+            'colB': ['alpha', 'beta'],
+            'colC': [1, 2],
+        }),
+    }
+
+    code = 'with df\n    colA = colB\n'
+    generated = '\n'.join(parser.generate_code(parser.parse(code, ns)))
+    assert "df['colA'] = df['colB']" in generated
+
+    run(parser, code, ns)
+    assert ns['df']['colA'].tolist() == ['alpha', 'beta']
+
+
 def test_inline_dict_accepts_numeric_keys(parser):
     ns = {'pd': pd}
 
@@ -618,6 +635,85 @@ clean_sales(sales, sales_clean, money_cols, min_amount=10)
     assert list(ns['sales_clean'].columns) == ['price', 'cost', 'region']
 
 
+def test_function_definitions_persist_across_execute_calls(parser):
+    ns = {
+        'pd': pd,
+        'afl_games': pd.DataFrame({
+            'team_1_team_name': ['Cats', 'Tigers', 'Cats'],
+            'winner': ['Cats', 'Lions', 'Cats'],
+            'year': [1989, 1992, 1995],
+            'finals': [0, 1, 0],
+        }),
+    }
+
+    parser.execute('''
+function ha_games(input, output, col)
+    with input as output
+        select col, winner, year, finals
+        win = 1
+            where col == winner
+            else 0
+        select col as team, win, year, finals
+        filter year >= 1990
+''', ns, verbose=False)
+
+    parser.execute('ha_games(afl_games, home_games, team_1_team_name)', ns, verbose=False)
+
+    assert 'home_games' in ns
+    assert ns['home_games']['team'].tolist() == ['Tigers', 'Cats']
+    assert ns['home_games']['win'].tolist() == [0, 1]
+
+
+def test_function_redefinition_overwrites_prior_persisted_definition(parser):
+    ns = {'pd': pd, 'sales': pd.DataFrame({'amount': [1, 2, 3]})}
+
+    parser.execute('''
+function keep_high(input, output)
+    with input as output
+        filter amount >= 3
+''', ns, verbose=False)
+
+    parser.execute('''
+function keep_high(input, output)
+    with input as output
+        filter amount >= 2
+''', ns, verbose=False)
+
+    parser.execute('keep_high(sales, filtered)', ns, verbose=False)
+
+    assert ns['filtered']['amount'].tolist() == [2, 3]
+
+
+def test_function_select_alias_and_rename_substitute_column_argument(parser):
+    ns = {
+        'pd': pd,
+        'afl_games': pd.DataFrame({
+            'team_1_team_name': ['Cats', 'Tigers', 'Cats'],
+            'winner': ['Cats', 'Lions', 'Cats'],
+            'year': [1989, 1992, 1995],
+            'finals': [0, 1, 0],
+        }),
+    }
+
+    run(parser, '''
+function ha_games(input, output, col)
+    with input as output
+        select col, winner, year, finals
+        win = 1
+            where col == winner
+            else 0
+        select col as team, win, year, finals
+        rename team as home_team
+        filter year >= 1990
+
+ha_games(afl_games, home_games, team_1_team_name)
+''', ns)
+
+    assert list(ns['home_games'].columns) == ['home_team', 'win', 'year', 'finals']
+    assert ns['home_games']['home_team'].tolist() == ['Tigers', 'Cats']
+    assert ns['home_games']['win'].tolist() == [0, 1]
+
+
 def test_function_accepts_inline_round_bracket_list(parser):
     ns = {
         'pd': pd,
@@ -840,6 +936,29 @@ def test_assign_case_basic(parser, sample_df):
     assert mid['tier'].eq(mid['price']).all()
     low = df[df['price'] <= 100]
     assert low['tier'].eq(0).all()
+
+
+def test_assign_case_bare_string_columns_copy_series(parser):
+    ns = {
+        'pd': pd,
+        'df': pd.DataFrame({
+            'flag': [1, 0, 1],
+            'colB': ['alpha', 'beta', 'gamma'],
+            'colC': ['fallback-a', 'fallback-b', 'fallback-c'],
+        }),
+    }
+
+    code = '''with df
+colA =
+    where flag == 1: colB
+    else colC
+'''
+    generated = '\n'.join(parser.generate_code(parser.parse(code, ns)))
+    assert "df['colB']" in generated
+    assert "df['colC']" in generated
+
+    run(parser, code, ns)
+    assert ns['df']['colA'].tolist() == ['alpha', 'fallback-b', 'gamma']
 
 
 def test_assign_where_else_default(parser, sample_df):
@@ -1253,6 +1372,83 @@ def test_custom_agg_rejects_series_result(parser):
     code = '\n'.join(parser.generate_code(nodes, backend='pandas'))
     with pytest.raises(ValueError, match='must return a scalar value'):
         exec(code, ns)
+
+
+# ---------------------------------------------------------------------------
+# plot
+# ---------------------------------------------------------------------------
+
+def test_barh_plot_swaps_semantic_x_y_axis_labels(parser):
+    df = pd.DataFrame({
+        'category': ['A', 'B'],
+        'amount': [10, 20],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\nplot barh revenue_chart\n    x category "Category label"\n    y amount "Amount label"\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    ax = fig.axes[0]
+    assert ax.get_xlabel() == 'Amount label'
+    assert ax.get_ylabel() == 'Category label'
+
+
+def test_single_y_plot_hides_legend_by_default(parser):
+    df = pd.DataFrame({
+        'category': ['A', 'B'],
+        'amount': [10, 20],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\nplot bar revenue_chart\n    x category\n    y amount\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    ax = fig.axes[0]
+    assert ax.get_legend() is None
+
+
+# ---------------------------------------------------------------------------
+# pivot plot
+# ---------------------------------------------------------------------------
+
+def test_pivot_plot_forwards_plot_kwargs(parser):
+    df = pd.DataFrame({
+        'category': ['A', 'A', 'B', 'B'],
+        'amount': [10, 15, 20, 25],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\npivot plot bar revenue_chart\n    x category\n    y sum amount\n    title "Sales by category"\n',
+        ns,
+    )
+
+    assert '_pivotal_charts' in ns
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    assert fig.axes[0].get_title() == 'Sales by category'
+
+
+def test_single_y_pivot_plot_hides_legend_by_default(parser):
+    df = pd.DataFrame({
+        'category': ['A', 'A', 'B', 'B'],
+        'amount': [10, 15, 20, 25],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\npivot plot bar revenue_chart\n    x category\n    y sum amount\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    ax = fig.axes[0]
+    assert ax.get_legend() is None
 
 
 # ---------------------------------------------------------------------------

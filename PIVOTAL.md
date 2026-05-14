@@ -608,7 +608,7 @@ with summary
         y revenue "Revenue"
 ```
 
-`pivot plot` produces a plot directly from a grouped aggregation without creating a separate summary table. Each `y` entry is a `func col` pair; multiple pairs are comma-separated. An optional `filter` before the statement pre-filters the data:
+`pivot plot` produces a plot directly from a grouped aggregation without creating a separate summary table. Each `y` entry is a `func col` pair; multiple pairs are comma-separated. Like `plot`, extra keyword arguments such as `title`, `xlabel`, `ylabel`, `legend`, and `figsize` are passed through to pandas plotting. An optional `filter` before the statement pre-filters the data:
 ```pivotal
 with sales
     pivot plot bar revenue_chart

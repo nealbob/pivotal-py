@@ -189,6 +189,11 @@ grammar_indented = r"""
                   | "by" IDENTIFIER _NL?                                        -> agg_plot_by
                   | "cols" NUMBER _NL?                                          -> agg_plot_cols
                   | "canvas" IDENTIFIER _NL?                                    -> agg_plot_canvas
+                  | IDENTIFIER value STRING _NL?                                 -> agg_plot_labeled_param
+                  | IDENTIFIER value _NL?                                        -> agg_plot_value_param
+                  | IDENTIFIER "=" value _NL?                                    -> agg_plot_value_param
+                  | IDENTIFIER "=" list_value _NL?                               -> agg_plot_list_param
+                  | IDENTIFIER list_value _NL?                                   -> agg_plot_list_param
                   | "show" _NL?                                                 -> agg_plot_show
 
     plot_statement: "plot" IDENTIFIER IDENTIFIER? plot_on? (_NL | _NL _INDENT plot_params _DEDENT)?
@@ -1988,6 +1993,7 @@ class DSLTransformer(Transformer):
         n_cols = None
         canvas = None
         show = False
+        kwargs = {}
         for p in params:
             k = p.get('key')
             if k == 'x':
@@ -2005,6 +2011,10 @@ class DSLTransformer(Transformer):
                 canvas = p['value']
             elif k == 'show':
                 show = True
+            else:
+                extra_kwarg = {kk: vv for kk, vv in p.items() if kk in ('key', 'value', 'label')}
+                if extra_kwarg:
+                    kwargs.update(self._plot_kwargs([extra_kwarg])[0])
 
         return {
             'type': 'pivot_plot',
@@ -2018,6 +2028,7 @@ class DSLTransformer(Transformer):
             'by': by_col,
             'cols': n_cols,
             'canvas': canvas,
+            'kwargs': kwargs,
             'show': show,
         }
 
@@ -2053,6 +2064,15 @@ class DSLTransformer(Transformer):
 
     def agg_plot_canvas(self, val):
         return {'key': 'canvas', 'value': str(val)}
+
+    def agg_plot_labeled_param(self, key, val, label):
+        return self.plot_labeled_param(key, val, label)
+
+    def agg_plot_value_param(self, key, val):
+        return self.plot_value_param(key, val)
+
+    def agg_plot_list_param(self, key, val):
+        return self.plot_list_param(key, val)
 
     def table_statement(self, *args):
         # @v_args(inline=True) unpacks tree children as individual args:
@@ -3345,9 +3365,16 @@ class CodeGenerator:
         branches = [c for c in cases if c['type'] == 'case_branch']
         defaults = [c for c in cases if c['type'] == 'case_default']
 
+        def _column_ref_name(expr):
+            match = re.fullmatch(r'\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*', expr or '')
+            return match.group(1) if match else None
+
         def _eval_expr(expr):
             if self._is_scalar_expr(expr):
                 return expr
+            col_name = _column_ref_name(expr)
+            if col_name is not None:
+                return f"{table}[{col_name!r}]"
             return f"{table}.eval({expr!r})"
 
         conds = ', '.join(
@@ -3453,6 +3480,16 @@ class CodeGenerator:
             match = _re_pa.fullmatch(r'\s*@([a-zA-Z_][a-zA-Z0-9_]*)\s*', expr_value or '')
             return match.group(1) if match else None
 
+        def _column_ref_name(expr_value):
+            match = _re_pa.fullmatch(r'\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*', expr_value or '')
+            return match.group(1) if match else None
+
+        def _pandas_assign_rhs(expr_value):
+            col_name = _column_ref_name(expr_value)
+            if col_name is not None:
+                return f"{table}[{col_name!r}]"
+            return f"{table}.eval({expr_value!r})"
+
         def _default_rhs(expr_value):
             if expr_value is None:
                 return None
@@ -3474,7 +3511,7 @@ class CodeGenerator:
                 self._raise_bare_python_func_call(bare_func)
             if self._is_scalar_expr(expr_value):
                 return expr_value
-            return f"{table}.eval('{expr_value}')"
+            return _pandas_assign_rhs(expr_value)
 
         default_rhs = _default_rhs(default_expr)
 
@@ -3553,7 +3590,7 @@ class CodeGenerator:
                 elif self._is_scalar_expr(expr):
                     rhs = expr
                 else:
-                    rhs = f"{table}.eval('{expr}')"
+                    rhs = _pandas_assign_rhs(expr)
                 code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = {rhs}")
             if default_rhs is not None:
@@ -3568,7 +3605,7 @@ class CodeGenerator:
                 return f"{table}['{target}'] = {ref_name}"
             if self._is_scalar_expr(expr):
                 return f"{table}['{target}'] = {expr}"
-            return f"{table}['{target}'] = {table}.eval('{expr}')"
+            return f"{table}['{target}'] = {_pandas_assign_rhs(expr)}"
 
     def generate_apply_pandas(self, ast_node):
         table = ast_node['table_name']
@@ -5293,15 +5330,34 @@ class CodeGenerator:
             return value['name']
         return repr(value)
 
+    def _plot_label_keys_for_kind(self, kind):
+        """Map semantic x/y labels to the rendered axes for each plot kind."""
+        if kind == 'barh':
+            return 'ylabel', 'xlabel'
+        return 'xlabel', 'ylabel'
+
+    def _plot_value_is_single_series(self, value):
+        """Return True when a plot y= value definitely names a single series."""
+        if isinstance(value, list):
+            return len(value) == 1
+        if isinstance(value, dict) and value.get('type') == 'var':
+            return False
+        return isinstance(value, str)
+
     def generate_plot_pandas(self, ast_node):
         kind = ast_node['kind']
-        kwargs = ast_node.get('kwargs', {})
+        kwargs = dict(ast_node.get('kwargs', {}))
         table = ast_node['table_name']
         chart_key = ast_node['name']
         on = ast_node.get('on')
         by_col = ast_node.get('by')
         n_cols = int(ast_node.get('cols') or 2)
         style = ast_node.get('style')
+        semantic_xlabel = kwargs.pop('xlabel', None)
+        semantic_ylabel = kwargs.pop('ylabel', None)
+        x_label_key, y_label_key = self._plot_label_keys_for_kind(kind)
+        if not on and 'legend' not in kwargs and self._plot_value_is_single_series(kwargs.get('y')):
+            kwargs['legend'] = False
 
         arg_parts = []
         if kind:
@@ -5337,8 +5393,8 @@ class CodeGenerator:
 
         if on:
             # Layer onto an existing single-axis figure
-            preserve_xlabel = 'xlabel' not in kwargs
-            preserve_ylabel = 'ylabel' not in kwargs
+            preserve_xlabel = semantic_xlabel is None
+            preserve_ylabel = semantic_ylabel is None
             lines += [
                 f"if '_pivotal_charts' not in globals() or {on!r} not in globals()['_pivotal_charts']:",
                 f"    raise KeyError(\"plot 'on' target {on!r} not found - make sure it is created first\")",
@@ -5353,6 +5409,10 @@ class CodeGenerator:
                 lines.append(f"_ax.set_xlabel(_prev_xlabel)")
             if preserve_ylabel:
                 lines.append(f"_ax.set_ylabel(_prev_ylabel)")
+            if semantic_xlabel is not None:
+                lines.append(f"_ax.set_{x_label_key}({self._format_plot_kwarg_value(semantic_xlabel)})")
+            if semantic_ylabel is not None:
+                lines.append(f"_ax.set_{y_label_key}({self._format_plot_kwarg_value(semantic_ylabel)})")
         elif not by_col:
             # Simple plot — existing behaviour
             lines += [
@@ -5361,6 +5421,10 @@ class CodeGenerator:
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _ax.get_figure(), 'data': {table}.copy()}}",
                 f"{chart_key} = _ax.get_figure()",
             ]
+            if semantic_xlabel is not None:
+                lines.append(f"_ax.set_{x_label_key}({self._format_plot_kwarg_value(semantic_xlabel)})")
+            if semantic_ylabel is not None:
+                lines.append(f"_ax.set_{y_label_key}({self._format_plot_kwarg_value(semantic_ylabel)})")
         else:
             # Faceted subplots: one per unique value of by_col
             lines += [
@@ -5378,6 +5442,10 @@ class CodeGenerator:
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _fig, 'data': {table}.copy()}}",
                 f"{chart_key} = _fig",
             ]
+            if semantic_xlabel is not None:
+                lines.insert(-4, f"    _axes[_i].set_{x_label_key}({self._format_plot_kwarg_value(semantic_xlabel)})")
+            if semantic_ylabel is not None:
+                lines.insert(-4, f"    _axes[_i].set_{y_label_key}({self._format_plot_kwarg_value(semantic_ylabel)})")
 
         # Apply custom style keys that matplotlib doesn't support natively
         if style:
@@ -5407,23 +5475,40 @@ class CodeGenerator:
         y_label = ast_node.get('y_label')
         by_col  = ast_node.get('by')
         n_cols  = int(ast_node.get('cols') or 2)
+        kwargs  = dict(ast_node.get('kwargs') or {})
+        x_label_key, y_label_key = self._plot_label_keys_for_kind(kind)
         df_name = f"{name}_df"
 
         lines = ["import matplotlib.pyplot as plt"]
 
         y_cols   = [item['col'] for item in y_items]
         agg_dict = {item['col']: item['func'] for item in y_items}
+        title_kwarg = kwargs.pop('title', None)
+        if 'legend' not in kwargs:
+            if not by_col and len(y_cols) == 1:
+                kwargs['legend'] = False
+            elif by_col and len(y_items) > 1:
+                # Keep pandas default legend for faceted charts with multiple series.
+                pass
+        plot_kwargs_str = ', '.join(
+            f"{key}={self._format_plot_kwarg_value(value)}"
+            for key, value in kwargs.items()
+        )
+        if plot_kwargs_str:
+            plot_kwargs_str = ', ' + plot_kwargs_str
 
         if not by_col:
             # No faceting — groupby x, aggregate each y col (possibly with different funcs)
             lines += [
                 f"{df_name} = {table}.groupby({x_col!r})[{y_cols!r}].agg({agg_dict!r}).reset_index()",
                 f"{df_name}.columns = {df_name}.columns.astype(str)",
-                f"_ax = {df_name}.plot(x={x_col!r}, y={y_cols!r}, kind={kind!r})",
+                f"_ax = {df_name}.plot(x={x_col!r}, y={y_cols!r}, kind={kind!r}{plot_kwargs_str})",
                 f"{name} = _ax.get_figure()",
             ]
-            if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
-            if y_label: lines.append(f"_ax.set_ylabel({y_label!r})")
+            if x_label and 'xlabel' not in kwargs: lines.append(f"_ax.set_{x_label_key}({x_label!r})")
+            if y_label and 'ylabel' not in kwargs: lines.append(f"_ax.set_{y_label_key}({y_label!r})")
+            if title_kwarg is not None:
+                lines.append(f"_ax.set_title({self._format_plot_kwarg_value(title_kwarg)})")
         elif len(y_items) == 1:
             # Single y + by → pivot so each by-value becomes a column
             y_col    = y_items[0]['col']
@@ -5433,11 +5518,12 @@ class CodeGenerator:
                 f"{df_name}.columns = [str(c) for c in {df_name}.columns]",
                 f"{df_name} = {df_name}.reset_index()",
                 f"_pivot_y = [c for c in {df_name}.columns if c != {x_col!r}]",
-                f"_ax = {df_name}.plot(x={x_col!r}, y=_pivot_y, kind={kind!r})",
-                f"_ax.set_ylabel({(y_label or y_col)!r})",
+                f"_ax = {df_name}.plot(x={x_col!r}, y=_pivot_y, kind={kind!r}{plot_kwargs_str})",
                 f"{name} = _ax.get_figure()",
             ]
-            if x_label: lines.append(f"_ax.set_xlabel({x_label!r})")
+            if x_label and 'xlabel' not in kwargs: lines.append(f"_ax.set_{x_label_key}({x_label!r})")
+            if 'ylabel' not in kwargs:
+                lines.append(f"_ax.set_{y_label_key}({(y_label or y_col)!r})")
         else:
             # Multiple y cols + by → faceted subplots per by value
             lines += [
@@ -5448,16 +5534,22 @@ class CodeGenerator:
                 f"_fig, _axes = plt.subplots(_n_rows, _n_cols, figsize=(7 * _n_cols, 5 * _n_rows))",
                 f"_axes = _axes.flatten() if hasattr(_axes, 'flatten') else [_axes]",
                 f"for _i, _val in enumerate(_by_vals):",
-                f"    _sub = {df_name}[{df_name}[{by_col!r}] == _val].plot(x={x_col!r}, y={y_cols!r}, kind={kind!r}, ax=_axes[_i], title=str(_val))",
+                f"    _sub = {df_name}[{df_name}[{by_col!r}] == _val].plot(x={x_col!r}, y={y_cols!r}, kind={kind!r}{plot_kwargs_str}, ax=_axes[_i], title=str(_val))",
             ]
-            if x_label: lines.append(f"    _sub.set_xlabel({x_label!r})")
-            if y_label: lines.append(f"    _sub.set_ylabel({y_label!r})")
+            if x_label and 'xlabel' not in kwargs: lines.append(f"    _sub.set_{x_label_key}({x_label!r})")
+            if y_label and 'ylabel' not in kwargs: lines.append(f"    _sub.set_{y_label_key}({y_label!r})")
             lines += [
                 f"for _ax in _axes[len(_by_vals):]:",
                 f"    _ax.set_visible(False)",
                 f"plt.tight_layout()",
                 f"{name} = _fig",
             ]
+            if title_kwarg is not None:
+                lines.insert(-2, f"_fig.suptitle({self._format_plot_kwarg_value(title_kwarg)})")
+                lines.insert(-2, "plt.tight_layout(rect=(0, 0, 1, 0.96))")
+
+        if by_col and len(y_items) <= 1 and title_kwarg is not None:
+            lines.append(f"_ax.set_title({self._format_plot_kwarg_value(title_kwarg)})")
 
         lines += [
             f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
@@ -7825,6 +7917,7 @@ class DSLParser:
         self.table_info = {}
         self.autocomplete_snapshot = None
         self._pivotal_registry_name = '_pivotal_values'
+        self._pivotal_function_registry_name = '_pivotal_functions'
 
     def update_autocomplete_info(self, globals_dict=None):
         """Update the autocomplete JSON file with current table/value information."""
@@ -7975,6 +8068,18 @@ class DSLParser:
         if namespace is None:
             return {}
         return namespace.setdefault(self._pivotal_registry_name, {})
+
+    def _get_pivotal_functions(self, namespace=None):
+        if namespace is None:
+            return {}
+        return namespace.setdefault(self._pivotal_function_registry_name, {})
+
+    def _store_pivotal_functions(self, namespace, functions):
+        if namespace is None:
+            return
+        registry = self._get_pivotal_functions(namespace)
+        for name, function_def in functions.items():
+            registry[name] = copy.deepcopy(function_def)
 
     def _runtime_var_expr(self, var_node):
         expr = var_node['name']
@@ -8551,18 +8656,21 @@ class DSLParser:
                 return self._resolve_compile_value(value, lists)
             result = {}
             for key, child in value.items():
+                result_key = key
+                if field in ('renames', 'per_col') and isinstance(key, str):
+                    result_key = self._substitute_compile_values(key, bindings, lists, field=field)
                 if key == 'type':
-                    result[key] = child
+                    result[result_key] = child
                 elif key in ('expression', 'query_str') and isinstance(child, str):
                     exact = bindings.get(child)
                     if exact is not None:
-                        result[key] = copy.deepcopy(exact)
+                        result[result_key] = copy.deepcopy(exact)
                     else:
                         replaced = self._replace_bound_identifier(child, bindings)
                         replaced = self._replace_compile_refs_in_text(replaced, lists)
-                        result[key] = self._replace_compile_identifiers_in_text(replaced, lists)
+                        result[result_key] = self._replace_compile_identifiers_in_text(replaced, lists)
                 else:
-                    result[key] = self._substitute_compile_values(child, bindings, lists, field=key)
+                    result[result_key] = self._substitute_compile_values(child, bindings, lists, field=key)
             return result
 
         if isinstance(value, list):
@@ -8583,11 +8691,13 @@ class DSLParser:
         return copy.deepcopy(value)
 
     def _collect_compile_defs(self, ast_list, namespace=None):
-        functions = {}
+        functions = copy.deepcopy(self._get_pivotal_functions(namespace))
         lists = copy.deepcopy(self._get_pivotal_values(namespace))
         executable = []
         defined_values = {}
+        defined_functions = {}
         last_function = None
+        seen_function_names = set()
 
         for node in ast_list:
             if not isinstance(node, dict):
@@ -8622,10 +8732,13 @@ class DSLParser:
                 name = node['name']
                 if name in PIVOTAL_KEYWORDS:
                     raise ValueError(f"'{name}' is a Pivotal reserved keyword and cannot be used as a function name.")
-                if name in functions:
+                if name in seen_function_names:
                     raise ValueError(f"Function '{name}' is already defined.")
-                functions[name] = node
-                last_function = node
+                fn_node = copy.deepcopy(node)
+                functions[name] = fn_node
+                defined_functions[name] = copy.deepcopy(fn_node)
+                seen_function_names.add(name)
+                last_function = fn_node
             elif node_type == 'return':
                 if last_function is not None:
                     last_function.setdefault('body', []).append(node)
@@ -8634,7 +8747,7 @@ class DSLParser:
                 last_function = None
                 executable.append(node)
 
-        return executable, functions, lists, defined_values
+        return executable, functions, lists, defined_values, defined_functions
 
     def _bind_function_args(self, fn, call, lists):
         params = fn.get('params', [])
@@ -8714,7 +8827,7 @@ class DSLParser:
         return expanded
 
     def _expand_compile_time_features(self, ast_list, namespace=None):
-        executable, functions, lists, _ = self._collect_compile_defs(ast_list, namespace)
+        executable, functions, lists, _, _ = self._collect_compile_defs(ast_list, namespace)
         return self._expand_function_calls(executable, functions, lists)
 
     def _resolve_loop_target(self, target, loop_var, column):
@@ -8878,8 +8991,14 @@ class DSLParser:
             processed_code = self.preprocess_code(code)
             processed_code, _ = self._rewrite_runtime_refs(processed_code, namespace)
             result = self.parser.parse(processed_code)
-            executable, functions, lists, defined_values = self._collect_compile_defs(result, namespace)
-            return {'executable': executable, 'functions': functions, 'lists': lists, 'defined_values': defined_values}
+            executable, functions, lists, defined_values, defined_functions = self._collect_compile_defs(result, namespace)
+            return {
+                'executable': executable,
+                'functions': functions,
+                'lists': lists,
+                'defined_values': defined_values,
+                'defined_functions': defined_functions,
+            }
         except ValueError as e:
             return {'error': PivotalError(message=str(e), error_type="Error")}
         except (UnexpectedToken, UnexpectedCharacters, UnexpectedEOF, VisitError) as e:
@@ -9045,6 +9164,7 @@ class DSLParser:
             print(f"Parse error: {defs['error']}")
             return None
         self._store_pivotal_values(globals_dict, defs.get('defined_values', {}))
+        self._store_pivotal_functions(globals_dict, defs.get('defined_functions', {}))
 
         try:
             if backend != 'sql':
