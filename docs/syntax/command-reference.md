@@ -183,10 +183,11 @@ load <table>
 
 ### `bulk load`
 
-Load a list of CSV or Parquet files.
+Load a list or folder of CSV or Parquet files.
 
 ```pivotal
 bulk load :files as <table>
+bulk load "<folder>" as <table>
 bulk load "<file1>", "<file2>" as <table>
 bulk load :files as <table1>, <table2>, ...
 bulk load :files as :aliases
@@ -199,6 +200,9 @@ bulk load :files as <table>
 With one static alias, files are concatenated into one table and a source column
 is added. With multiple aliases, or with a Python alias list, each file is loaded
 as a separate table.
+
+Folder sources are expanded in sorted filename order. A folder must be non-empty
+and contain only CSV files or only Parquet files.
 
 Defaults:
 
