@@ -184,6 +184,106 @@ function detectValuePathContext(upToCursor: string): { path: string[] } | null {
   return { path: match[1].split('.') };
 }
 
+function findCommentStart(line: string): number {
+  let inSingle = false;
+  let inDouble = false;
+  let escaped = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const next = line[i + 1];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if ((inSingle || inDouble) && ch === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (!inDouble && ch === '\'') {
+      inSingle = !inSingle;
+      continue;
+    }
+
+    if (!inSingle && ch === '"') {
+      inDouble = !inDouble;
+      continue;
+    }
+
+    if (inSingle || inDouble) continue;
+
+    if (ch === '#') return i;
+    if (ch === '-' && next === '-') return i;
+  }
+
+  return -1;
+}
+
+function isInsideComment(lines: string[], cursorLine: number, cursorCol: number): boolean {
+  let inBlockComment = false;
+
+  for (let i = 0; i <= cursorLine; i++) {
+    const line = lines[i] ?? '';
+    const limit = i === cursorLine ? Math.min(cursorCol, line.length) : line.length;
+    let inSingle = false;
+    let inDouble = false;
+    let escaped = false;
+
+    for (let j = 0; j < limit; j++) {
+      const ch = line[j];
+      const next = line[j + 1];
+
+      if (inBlockComment) {
+        if (ch === '*' && next === '/') {
+          inBlockComment = false;
+          j++;
+        }
+        continue;
+      }
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if ((inSingle || inDouble) && ch === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (!inDouble && ch === '\'') {
+        inSingle = !inSingle;
+        continue;
+      }
+
+      if (!inSingle && ch === '"') {
+        inDouble = !inDouble;
+        continue;
+      }
+
+      if (inSingle || inDouble) continue;
+
+      if (ch === '/' && next === '*') {
+        inBlockComment = true;
+        j++;
+        continue;
+      }
+
+      if (ch === '#' || (ch === '-' && next === '-')) {
+        if (i === cursorLine && j < cursorCol) return true;
+        break;
+      }
+    }
+
+    if (i === cursorLine && inBlockComment) return true;
+  }
+
+  return false;
+}
+
 function buildValueItems(ac: AutocompleteData | null): vscode.CompletionItem[] {
   return Object.entries(getValueMap(ac)).map(([label, info]) => {
     const kind = info.kind === 'dict'
@@ -255,7 +355,11 @@ function detectContext(
   ac: AutocompleteData | null,
 ): CompletionCtx {
   const raw = lines[cursorLine] ?? '';
-  const upToCursor = raw.substring(0, cursorCol);
+  if (isInsideComment(lines, cursorLine, cursorCol)) return { type: 'none' };
+
+  const commentStart = findCommentStart(raw);
+  const effectiveRaw = commentStart >= 0 ? raw.slice(0, commentStart) : raw;
+  const upToCursor = effectiveRaw.substring(0, Math.min(cursorCol, effectiveRaw.length));
   const trimmed = upToCursor.trimStart();
   const indent = upToCursor.length - trimmed.length;
   const valuePath = detectValuePathContext(upToCursor);

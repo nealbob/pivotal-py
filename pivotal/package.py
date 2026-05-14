@@ -80,6 +80,10 @@ class Package:
         include_set = set(include) if include is not None else None
         exclude_set = set(exclude or [])
 
+        n_tables = 0
+        n_charts = 0
+        n_gt = 0
+
         # --- Save tables ---
         for var_name, obj in namespace.items():
             if var_name.startswith("_") or not isinstance(obj, pd.DataFrame):
@@ -89,6 +93,7 @@ class Package:
             if var_name in exclude_set:
                 continue
             cls._write_table(pkg_path, config, var_name, obj, fmt)
+            n_tables += 1
 
         # --- Save charts ---
         chart_dict = namespace.get("_pivotal_charts", {})
@@ -98,6 +103,7 @@ class Package:
             if chart_name in exclude_set:
                 continue
             cls._write_chart(pkg_path, config, chart_name, entry, chart_fmt)
+            n_charts += 1
 
         # --- Save GT tables ---
         gt_tables = namespace.get('_pivotal_gt_tables', {})
@@ -107,15 +113,13 @@ class Package:
             if tbl_name in exclude_set:
                 continue
             cls._write_gt_table(pkg_path, config, tbl_name, entry)
+            n_gt += 1
 
         # Write datapackage.json
         dp_path = os.path.join(pkg_path, "datapackage.json")
         with open(dp_path, "w", encoding="utf-8") as fh:
             json.dump(config, fh, indent=2)
 
-        n_tables = sum(1 for r in config["resources"] if r["mediatype"] in ("text/csv", "application/parquet"))
-        n_charts = sum(1 for r in config["resources"] if r["mediatype"] == "image/png")
-        n_gt = sum(1 for r in config["resources"] if r["mediatype"] == "text/html")
         parts = [f"{n_tables} dataframe(s)"]
         if n_charts: parts.append(f"{n_charts} chart(s)")
         if n_gt: parts.append(f"{n_gt} table(s)")

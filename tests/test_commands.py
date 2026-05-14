@@ -8,6 +8,10 @@ import sys
 import os
 import pytest
 import pandas as pd
+import matplotlib
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pivotal
@@ -1413,6 +1417,30 @@ def test_single_y_plot_hides_legend_by_default(parser):
     assert ax.get_legend() is None
 
 
+def test_plot_show_displays_then_closes_figure(parser, monkeypatch):
+    displayed = []
+
+    def _fake_display(obj):
+        displayed.append(obj)
+
+    monkeypatch.setattr('IPython.display.display', _fake_display)
+
+    df = pd.DataFrame({
+        'category': ['A', 'B'],
+        'amount': [10, 20],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\nplot bar revenue_chart\n    x category\n    y amount\n    show\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    assert displayed == [fig]
+    assert not plt.fignum_exists(fig.number)
+
+
 # ---------------------------------------------------------------------------
 # pivot plot
 # ---------------------------------------------------------------------------
@@ -1449,6 +1477,30 @@ def test_single_y_pivot_plot_hides_legend_by_default(parser):
     fig = ns['_pivotal_charts']['revenue_chart']['fig']
     ax = fig.axes[0]
     assert ax.get_legend() is None
+
+
+def test_pivot_plot_show_displays_then_closes_figure(parser, monkeypatch):
+    displayed = []
+
+    def _fake_display(obj):
+        displayed.append(obj)
+
+    monkeypatch.setattr('IPython.display.display', _fake_display)
+
+    df = pd.DataFrame({
+        'category': ['A', 'A', 'B', 'B'],
+        'amount': [10, 15, 20, 25],
+    })
+    ns = {'pd': pd, 'sales': df}
+    run(
+        parser,
+        'with sales\npivot plot bar revenue_chart\n    x category\n    y sum amount\n    show\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['revenue_chart']['fig']
+    assert displayed == [fig]
+    assert not plt.fignum_exists(fig.number)
 
 
 # ---------------------------------------------------------------------------

@@ -5461,6 +5461,7 @@ class CodeGenerator:
             lines += [
                 "from IPython.display import display as _ipyd",
                 f"_ipyd({chart_key})",
+                f"plt.close({chart_key})",
             ]
 
         return "\n".join(lines)
@@ -5560,6 +5561,7 @@ class CodeGenerator:
             lines += [
                 "from IPython.display import display as _ipyd",
                 f"_ipyd({name})",
+                f"plt.close({name})",
             ]
 
         return "\n".join(lines)
