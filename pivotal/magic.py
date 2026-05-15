@@ -10,6 +10,16 @@ except ImportError:
     def line_magic(func): return func
     display = print
 
+try:
+    from IPython.core.completer import context_matcher, SimpleCompletion
+except ImportError:
+    SimpleCompletion = None
+
+    def context_matcher(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from .dsl_parser import DSLParser
 from .errors import PivotalError, display_error, run_cell_with_error_filter
 from .validator import validate as _validate_ast
@@ -1121,17 +1131,18 @@ class PivotalMagics(Magics):
 
         # Try to register a custom completer for auto mode
         try:
-            from IPython.core.completer import Completer
-            # We can't easily inject into the main completer logic without being a proper extension
-            # But we can try to add a hook that runs for all cells if auto_pivotal is on
-            pass
+            completer = getattr(self.shell, 'Completer', None)
+            matchers = getattr(completer, 'custom_matchers', None)
+            if matchers is not None and self._pivotal_cell_matcher not in matchers:
+                matchers.insert(0, self._pivotal_cell_matcher)
         except ImportError:
             pass
+        except Exception:
+            pass
 
-    def pivotal_completer(self, event):
-        """Custom completer for Pivotal DSL"""
-        # Basic keywords list
-        keywords = [
+    @staticmethod
+    def _pivotal_completion_keywords():
+        return [
             'load', 'df', 'filter', 'assert', 'check', 'select', 'sort',
             'group by', 'merge', 'pivot', 'plot', 'python', 'apply',
             'drop', 'dropna', 'fillna', 'distinct', 'concat', 'rename',
@@ -1142,6 +1153,54 @@ class PivotalMagics(Magics):
             'between', 'contains', 'not contains', 'startswith', 'endswith',
             'unique', 'not null',
         ]
+
+    @context_matcher()
+    def _pivotal_cell_matcher(self, context):
+        """IPython matcher for completions inside %%pivotal cell bodies."""
+        if SimpleCompletion is None:
+            return {'completions': [], 'suppress': False}
+
+        full_text = getattr(context, 'full_text', '') or ''
+        if not full_text.startswith('%%pivotal'):
+            return {'completions': [], 'suppress': False}
+
+        lines = full_text.splitlines() or ['']
+        cursor_line = getattr(context, 'cursor_line', 0) or 0
+        if cursor_line <= 0 or cursor_line >= len(lines):
+            return {'completions': [], 'suppress': False}
+
+        current_line = lines[cursor_line]
+        cursor_column = getattr(context, 'cursor_column', len(current_line)) or 0
+        if current_line[:cursor_column].lstrip().startswith('#'):
+            return {'completions': [], 'suppress': True}
+
+        token = getattr(context, 'token', '') or ''
+        options = []
+        for keyword in self._pivotal_completion_keywords():
+            if keyword.startswith(token):
+                options.append(SimpleCompletion(text=keyword, type='keyword'))
+
+        if hasattr(self.parser, 'table_info'):
+            for table_name, info in self.parser.table_info.items():
+                if str(table_name).startswith(token):
+                    options.append(SimpleCompletion(text=str(table_name), type='variable'))
+                if 'columns' in info:
+                    for col in info['columns']:
+                        values = [str(c) for c in col] if isinstance(col, list) else [str(col)]
+                        for value in values:
+                            if value.startswith(token):
+                                options.append(SimpleCompletion(text=value, type='property'))
+
+        return {
+            'completions': options,
+            'suppress': bool(options),
+            'matched_fragment': token,
+        }
+
+    def pivotal_completer(self, event):
+        """Custom completer for Pivotal DSL"""
+        # Basic keywords list
+        keywords = self._pivotal_completion_keywords()
 
         # Add table names and columns from parser state
         if hasattr(self.parser, 'table_info'):

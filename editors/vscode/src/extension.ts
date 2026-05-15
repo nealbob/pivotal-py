@@ -429,13 +429,13 @@ function detectContext(
     }
   }
 
-  // At the start of a top-level statement, a partial identifier is more likely
-  // to be a command keyword than a scalar/list/dict value name.
-  if (indent === 0 && /^[A-Za-z_]\w*$/.test(trimmed)) {
+  // A single partial word at statement start is most likely a command/snippet.
+  // Keep value completions for expression positions such as "= foo" or ":cfg".
+  if (/^[_A-Za-z]\w*$/.test(trimmed)) {
     return { type: 'command' };
   }
 
-  if (/^:?[_A-Za-z]\w*$/.test(trimmed) || /[=\s(,:]\s*[_A-Za-z]\w*$/.test(upToCursor)) {
+  if (/^:[_A-Za-z]\w*$/.test(trimmed) || /[=\s(,:]\s*[_A-Za-z]\w*$/.test(upToCursor)) {
     return { type: 'value' };
   }
 
