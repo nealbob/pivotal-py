@@ -464,6 +464,42 @@ with sales
     assert ns['sales']['label'].tolist() == ['New Zealand']
 
 
+def test_compile_time_dict_from_yaml_warns_for_non_identifier_keys_once(parser, tmp_path):
+    yaml_path = tmp_path / 'labels.yml'
+    yaml_path.write_text(
+        'display name: Revenue\nthresholds:\n  1: high\n  high-water: 20\n',
+        encoding='utf-8',
+    )
+
+    ns = {'pd': pd}
+    import warnings
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        run(parser, f'dict labels from "{yaml_path}"', ns)
+
+    key_warns = [w for w in caught if 'Python-style runtime indexing' in str(w.message)]
+    assert len(key_warns) == 1
+    assert 'native Pivotal dot lookup' in str(key_warns[0].message)
+
+    assert 'labels' in ns['_pivotal_values']
+
+
+def test_compile_time_dict_from_json_with_identifier_keys_has_no_warning(parser, tmp_path):
+    json_path = tmp_path / 'config.json'
+    json_path.write_text(
+        '{"thresholds": {"low": -5, "high": 5}, "labels": {"AU": "Australia"}}',
+        encoding='utf-8',
+    )
+
+    import warnings
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        parser.parse_definitions(f'dict config from "{json_path}"')
+
+    key_warns = [w for w in caught if 'native Pivotal dot lookup' in str(w.message)]
+    assert not key_warns
+
+
 def test_autocomplete_metadata_includes_pivotal_values(parser, tmp_path):
     import json
 

@@ -7920,6 +7920,7 @@ class DSLParser:
         self.autocomplete_snapshot = None
         self._pivotal_registry_name = '_pivotal_values'
         self._pivotal_function_registry_name = '_pivotal_functions'
+        self._warned_dict_key_signatures = set()
 
     def update_autocomplete_info(self, globals_dict=None):
         """Update the autocomplete JSON file with current table/value information."""
@@ -8613,6 +8614,45 @@ class DSLParser:
             return _LiteralStr(value)
         return value
 
+    def _collect_non_identifier_dict_keys(self, value, prefix=""):
+        issues = []
+        if isinstance(value, dict):
+            for key, child in value.items():
+                key_str = str(key)
+                path = f"{prefix}.{key_str}" if prefix else key_str
+                if not re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', key_str):
+                    issues.append(path)
+                issues.extend(self._collect_non_identifier_dict_keys(child, path))
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                child_prefix = f"{prefix}[{idx}]" if prefix else f"[{idx}]"
+                issues.extend(self._collect_non_identifier_dict_keys(child, child_prefix))
+        return issues
+
+    def _warn_on_non_identifier_loaded_dict_keys(self, source, data):
+        issue_paths = self._collect_non_identifier_dict_keys(data)
+        if not issue_paths:
+            return
+
+        signature = (str(source), tuple(issue_paths))
+        if signature in self._warned_dict_key_signatures:
+            return
+        self._warned_dict_key_signatures.add(signature)
+
+        preview = ', '.join(repr(path) for path in issue_paths[:5])
+        if len(issue_paths) > 5:
+            preview += f", and {len(issue_paths) - 5} more"
+
+        warnings.warn(
+            (
+                f"[Pivotal] Dict file '{source}' contains key paths that cannot be accessed with native "
+                f"Pivotal dot lookup: {preview}. These values will still work with Python-style runtime "
+                f"indexing such as :mydict[\"key with spaces\"] or :mydict[\"1\"]."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+
     def _load_compile_dict(self, source):
         path = Path(source)
         suffix = path.suffix.lower()
@@ -8634,6 +8674,7 @@ class DSLParser:
 
         if not isinstance(data, dict):
             raise ValueError(f"Dict file '{source}' must contain an object/mapping at the top level.")
+        self._warn_on_non_identifier_loaded_dict_keys(source, data)
         return self._mark_loaded_strings_literal(data)
 
     def _resolve_compile_value(self, value, lists):

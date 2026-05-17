@@ -39,6 +39,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 ### Fixed
 
 - Changed the default Jupyter `%pivotal_set` canvas from `none` to `a4` for viewer output in JupyterLab and VS Code notebooks.
+- Added a warning when JSON/YAML-loaded dicts contain non-identifier keys that will not work with native Pivotal dot lookup, while pointing users to `:` Python-style indexing as the fallback.
 - Fixed `pivot plot` / `agg plot` so extra plotting keyword arguments such as `title`, `xlabel`, and `ylabel` are accepted and forwarded like standard `plot`.
 - Fixed `barh` plot axis labels so Pivotal `x`/`y` labels follow the semantic fields rather than the raw horizontal/vertical axis names.
 - Fixed single-series plots to default `legend=False` unless the user explicitly requests a legend, reducing redundant legends on simple charts.
