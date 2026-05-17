@@ -1,8 +1,6 @@
 # Tutorial: 10 minutes to Pivotal
 
-This is a short introduction to Pivotal, for more detail see the [User Guide](https://nealbob.github.io/pivotal-py/syntax/) or the [Syntax Reference](https://nealbob.github.io/pivotal-py/syntax/command-reference/).
-
-This tutorial runs in a Jupyter notebook (`tutorial.ipynb`) and makes use of the Pivotal JupyterLab extension. For installation details see [Getting Started](https://nealbob.github.io/pivotal-py/getting-started/) and [JupyterLab](https://nealbob.github.io/pivotal-py/jupyter/).
+This is a short introduction to Pivotal, for more detail see the [User Guide](https://nealbob.github.io/pivotal-py/syntax/) or the [Syntax Reference](https://nealbob.github.io/pivotal-py/syntax/command-reference/). This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see [Getting Started](https://nealbob.github.io/pivotal-py/getting-started/) and [JupyterLab](https://nealbob.github.io/pivotal-py/jupyter/).
 
 ## Import Pivotal and load some data
 
@@ -177,7 +175,7 @@ with titanic
 
 As with dataframes, plots can be viewed inline with the `show` command or via the Pivotal Viewer pane (as shown here).
 
-![screenshot](assets/tutorial2.png)
+![screenshot](assets/pivotal_animation1.gif)
 
 ## Create new data-frame (filter, select)
 
