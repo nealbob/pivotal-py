@@ -254,7 +254,7 @@ with titanic as oldest_passengers
 
 ## Error handling
 
-Pivotal offers native error messages, which are generally easier to interpret than full Python tracebacks (although these are still available if required).
+Pivotal offers native error messages which are easier to interpret than full Python tracebacks (although these are still available if required).
 
 
 ```pivotal
@@ -762,11 +762,6 @@ save "titanic_results"
 ```
 
     Package 'titanic_results' saved to C:\Code_win\pivotal-demo\tutorial\titanic_results (6 dataframe(s), 2 chart(s), 1 table(s), 3 parameter(s))
-    
-
-
-
-
     <pivotal.package.Package at 0x1e16213a270>
 
 
