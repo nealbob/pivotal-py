@@ -48,6 +48,7 @@ nav:
   - Home: index.md
   - Why Pivotal?: whypivotal.md
   - Getting Started: getting-started.md
+  - Tutorial: tutorial.md
   - Pandas Cheatsheet: pandas-cheatsheet.md
   - User Guide:
     - syntax/index.md
