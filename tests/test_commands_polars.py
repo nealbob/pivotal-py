@@ -679,6 +679,17 @@ def test_assign_case_basic(parser, sample_df):
     assert all(v == 0 for v in low['tier'].to_list())
 
 
+def test_assign_case_map_alias(parser):
+    df = pl.DataFrame({'region': ['NSW', 'VIC', 'QLD']})
+    ns = {'data': df}
+    dsl = ('with data\nregion_name =\n'
+           '    map region == "NSW"; "New South Wales"\n'
+           '    map region == "VIC"; "Victoria"\n'
+           '    else region\n')
+    run(parser, dsl, ns)
+    assert ns['data']['region_name'].to_list() == ['New South Wales', 'Victoria', 'QLD']
+
+
 def test_assign_case_first_match_wins(parser):
     df = pl.DataFrame({'x': [10, 5, 1]})
     ns = {'data': df}

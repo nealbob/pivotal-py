@@ -275,6 +275,8 @@ Multi-case assignment:
     else <expr>
 ```
 
+`map` can be used instead of `where` as an alias in multi-case assignment.
+
 The `else` branch is optional. Without it, unmatched rows receive the backend's
 missing value.
 

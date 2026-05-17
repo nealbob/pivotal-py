@@ -11,6 +11,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - *Pivotal syntax*
   - Added `bulk load` for CSV/Parquet file lists or folders, including concat-with-source-column mode and separate-table loading from static aliases or Python alias lists.
   - Added column `for` loops for applying assignment statements and column-oriented operations across multiple columns, including Python list variables and generated assignment target names.
+  - Added `map` as an alias for `where` inside multi-case assignment, making AI-generated remapping code easier to express in native Pivotal syntax.
   - Added aggregation shorthand support so a single aggregation function can be applied across multiple columns.
   - Added pandas custom aggregation functions with `agg :function col1 col2 ... as name` syntax for whole-table and grouped aggregations, plus bracket syntax for keyword arguments.
   - Added Polars support for custom aggregation functions via a pandas fallback.

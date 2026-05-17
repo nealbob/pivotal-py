@@ -36,7 +36,7 @@ PIVOTAL_KEYWORDS = frozenset({
     'rank', 'lag', 'lead', 'cumsum', 'cummean', 'cummin', 'cummax', 'rolling', 'agg',
     'intersect', 'exclude', 'cast',
     # Clause keywords
-    'from', 'where', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
+    'from', 'where', 'map', 'as', 'on', 'by', 'rows', 'cols', 'include', 'exclude',
     # Comparators / logic
     'in', 'not', 'between', 'contains', 'startswith', 'endswith',
     'and', 'or',
@@ -329,11 +329,11 @@ grammar_indented = r"""
               | "else" expression _NL? -> assign_else
 
     case_list: case_branch+ case_default?
-    case_branch: "where" condition_list (";" | ":") CASE_BRANCH_EXPR _NL
+    case_branch: ("where" | "map") condition_list (";" | ":") CASE_BRANCH_EXPR _NL
     case_default: "else" expression _NL?
                 | CASE_DEFAULT_EXPR _NL
     CASE_BRANCH_EXPR: /[^\n]+/
-    CASE_DEFAULT_EXPR: /(?!where\b)[^\n]+/
+    CASE_DEFAULT_EXPR: /(?!where\b|map\b)[^\n]+/
 
     filter_statement: "filter" condition_list  _NL?
 

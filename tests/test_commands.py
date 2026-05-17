@@ -1046,6 +1046,18 @@ def test_assign_case_between(parser, sample_df):
     assert ns['sales'].loc[~expected, 'tier'].eq('other').all()
 
 
+def test_assign_case_map_alias(parser):
+    """`map` is accepted as an alias for multi-case `where` branches."""
+    df = pd.DataFrame({'region': ['NSW', 'VIC', 'QLD']})
+    ns = {'pd': pd, 'data': df}
+    dsl = ('with data\nregion_name =\n'
+           '    map region == "NSW"; "New South Wales"\n'
+           '    map region == "VIC"; "Victoria"\n'
+           '    else region\n')
+    run(parser, dsl, ns)
+    assert ns['data']['region_name'].tolist() == ['New South Wales', 'Victoria', 'QLD']
+
+
 def test_assign_case_no_default(parser):
     """Multi-case with no default gives pd.NA for unmatched rows."""
     df = pd.DataFrame({'x': [10, 1]})

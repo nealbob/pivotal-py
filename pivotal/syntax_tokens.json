@@ -52,6 +52,7 @@
   "clause_keywords": [
     "query",
     "where",
+    "map",
     "else",
     "as",
     "on",

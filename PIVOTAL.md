@@ -340,6 +340,15 @@ with sales
         else "low"
 ```
 
+`map` is accepted as an alias for `where` in multi-case assignment, mainly to help AI/code-conversion workflows:
+```pivotal
+with sales
+    region_name =
+        map region == "NSW"; "New South Wales"
+        map region == "VIC"; "Victoria"
+        else region
+```
+
 String functions:
 ```pivotal
 with sales

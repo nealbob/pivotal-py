@@ -235,3 +235,5 @@ with sales
 ```
 
 The conditions are evaluated in order; the first match wins. The `else` line is the default value.
+
+`map` is also accepted as an alias for `where` in this form. It behaves the same way and is mainly intended as a friendlier keyword for exact remapping examples and AI-generated code.

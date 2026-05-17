@@ -167,7 +167,7 @@
     "keywords-clause": {
       "comment": "Sub-clause and structural keywords",
       "name": "keyword.other.pivotal",
-      "match": "\\b(query|where|else|as|on|by|rows|cols|agg|head|summary|shape|columns|strict|stub|format|id|order|variable|value|left_on|right_on|suffixes|header|names|path|include|exclude|chart_format|title|subtitle|font|size|spanner|auto|label|stripe|canvas|style|kind|colormap|legend|x|y|c|source|column|min_periods)\\b"
+      "match": "\\b(query|where|map|else|as|on|by|rows|cols|agg|head|summary|shape|columns|strict|stub|format|id|order|variable|value|left_on|right_on|suffixes|header|names|path|include|exclude|chart_format|title|subtitle|font|size|spanner|auto|label|stripe|canvas|style|kind|colormap|legend|x|y|c|source|column|min_periods)\\b"
     },
     "keywords-merge-type": {
       "comment": "Merge type modifiers",

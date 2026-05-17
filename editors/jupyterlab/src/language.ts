@@ -72,6 +72,7 @@ const keywords: Record<string, true> = {
   all: true,
   query: true,
   where: true,
+  map: true,
   else: true,
   as: true,
   on: true,
