@@ -71,7 +71,7 @@ Conditions use a column on the left:
 
 Multiple conditions may be joined with `and` or `or`.
 
-## Native Values
+## Parameters (scalar, list and dict)
 
 ### `list`
 
