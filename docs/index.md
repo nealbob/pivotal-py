@@ -10,7 +10,7 @@ Pivotal is a data analysis language for Python. It offers a concise syntax for c
     <strong>Getting Started</strong>
   </a>
   <a class="home-tile" href="tutorial/">
-    <strong>Tutorial (10 minutes to Pivotal)</strong>
+    <strong>Tutorial<br>(10 minutes to Pivotal)</strong>
   </a>
   <a class="home-tile" href="syntax/">
     <strong>User Guide</strong>
