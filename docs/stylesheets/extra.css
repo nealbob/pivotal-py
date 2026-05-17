@@ -67,3 +67,39 @@
     word-break: normal;
   }
 }
+
+/* Notebook-exported tutorial outputs */
+.md-typeset table.dataframe {
+  width: auto;
+  border: 0 !important;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.md-typeset table.dataframe th,
+.md-typeset table.dataframe td {
+  border-color: #e5e7eb !important;
+  border-width: 1px !important;
+}
+
+.md-typeset table.dataframe thead th {
+  border-top: 0 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  background: #f8fafc;
+}
+
+.md-typeset table.dataframe tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.md-typeset .gt_table,
+.md-typeset .gt_table th,
+.md-typeset .gt_table td {
+  border-color: #e5e7eb !important;
+}
+
+.md-typeset .gt_table {
+  border-top-width: 1px !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}

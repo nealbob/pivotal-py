@@ -17,7 +17,7 @@ Now we can start a Pivotal cell by typing `%%pivotal` (or using the ALT + P shor
 
 
 ```pivotal
-
+%%pivotal
 load data\titanic.csv as titanic
 ```
 
@@ -43,6 +43,7 @@ If using JupyterLab (or VS Code) the Pivotal Viewer provides a convenient way to
 
 
 ```pivotal
+%%pivotal
 with titanic
     sort Age
     drop Name
@@ -163,6 +164,7 @@ The `plot` command wraps the [Pandas plot](https://pandas.pydata.org/docs/refere
 
 
 ```pivotal
+%%pivotal
 with titanic 
     pivot plot bar survival_by_class
         x Pclass
@@ -183,6 +185,7 @@ Add an alias to the `with` statement to create a new dataframe. Here the`titanic
 
 
 ```pivotal
+%%pivotal
 with titanic as oldest_passengers
     filter Age > 70
     select Age, Pclass, Survived
@@ -255,6 +258,7 @@ Pivotal offers native error messages, which are generally easier to interpret th
 
 
 ```pivotal
+%%pivotal
 with wrong_table
     select Age
 ```
@@ -273,6 +277,7 @@ NameError: name &#x27;wrong_table&#x27; is not defined
 
 
 ```pivotal
+%%pivotal
 with titanic
     select age
 ```
@@ -317,6 +322,7 @@ Following Pandas and R style syntax aggregation requires two commands: first `gr
 
 
 ```pivotal
+%%pivotal
 with titanic as titanic_survival_rates
     group by Pclass, Sex
         agg mean Survived
@@ -395,6 +401,7 @@ Now lets try the same aggregation, but this time use `pivot` to reshape the outp
 
 
 ```pivotal
+%%pivotal
 with titanic as titanic_survival_rates
     pivot 
         rows Pclass
@@ -457,6 +464,7 @@ Pivotal supports generation of publication-ready tables via the Great Tables pac
 
 
 ```pivotal
+%%pivotal
 with titanic_survival_rates
     cast Pclass as string
 
@@ -521,6 +529,7 @@ In Pivotal the sole purpose of these parameter objects is to pass metadata to da
 
 
 ```pivotal
+%%pivotal
 list mylist = Age, Survived, Pclass
 
 scalar myvar = 20
@@ -571,6 +580,7 @@ pyvar = 3
 
 
 ```pivotal
+%%pivotal
 with titanic as temp
     filter Parch > :pyvar
     select :pylist
@@ -637,6 +647,7 @@ Columns can be modified and added with a simple `newcol = <expression>` syntax. 
 
 
 ```pivotal
+%%pivotal
 with titanic as X
     family = Parch + SibSp
 
@@ -655,6 +666,7 @@ Last we include an `assert` command as a quality check on our data preparation p
 
 
 ```pivotal
+%%pivotal
 list features = Age, Age2, family, male, Fare
 
 with X
@@ -672,6 +684,7 @@ with X
 
 
 ```pivotal
+%%pivotal
 with titanic
     # Some NAs here 
     assert Age not null
@@ -742,6 +755,7 @@ At this point we have accumulated 6 data-frames, 2 charts and 1 table. We can ch
 
 
 ```pivotal
+%%pivotal
 save "titanic_results"
 ```
 
@@ -788,6 +802,7 @@ The `bulk load` command can be applied here to loop over all the data files in a
 
 
 ```pivotal
+%%pivotal
 bulk load "data\AFL\matches" as afl_games
 ```
 
@@ -799,6 +814,7 @@ The last statement is a "Case assignment" which allow for multiple `where` condi
 
 
 ```pivotal
+%%pivotal
 with afl_games 
     team_2_score = team_2_final_goals*6 + team_2_final_behinds 
     team_1_score = team_1_final_goals*6 + team_1_final_behinds
@@ -822,9 +838,7 @@ with afl_games
 ```
 
 
-    
 ![png](tutorial_files/tutorial_46_0.png)
-    
 
 
 ## Pipeline functions 
@@ -837,6 +851,7 @@ Pivotal functions are non-recursive (i.e., more like Excel macros than Python fu
 
 
 ```pivotal
+%%pivotal
 function ha_games(input, output, col)
 
     with input as output
@@ -866,9 +881,7 @@ with all_games as all_games_mean
 ```
 
 
-    
 ![png](tutorial_files/tutorial_48_0.png)
-    
 
 
 ## Merging 
@@ -877,7 +890,7 @@ The syntax of the Pivotal `merge` command should be familiar to regular Pandas u
 
 
 ```pivotal
-
+%%pivotal
 load data\AFL\lineups\team_lineups_geelong.csv as cats_lineup
 
 with cats_lineup
@@ -890,17 +903,11 @@ with all_games as games_with_lineup
 ```
 
 
-    (13366, 4)
-
-
-
-    (832, 5)
-
-
-
-```python
-
+```text
+(13366, 4)
+(832, 5)
 ```
+
 
 ## Self-indulgent Gary Ablett reference 
 
@@ -908,6 +915,7 @@ No new syntax here. Just some stats showing the Geelong Cats win-rate with and w
 
 
 ```pivotal
+%%pivotal
 with games_with_lineup
     ablett = "With Ablett"
         where players contains "Gary Ablett"
@@ -928,7 +936,5 @@ with games_with_lineup
 ```
 
 
-    
 ![png](tutorial_files/tutorial_53_0.png)
-    
 
