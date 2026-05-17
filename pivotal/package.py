@@ -83,6 +83,7 @@ class Package:
         n_tables = 0
         n_charts = 0
         n_gt = 0
+        n_parameters = 0
 
         # --- Save tables ---
         for var_name, obj in namespace.items():
@@ -115,6 +116,12 @@ class Package:
             cls._write_gt_table(pkg_path, config, tbl_name, entry)
             n_gt += 1
 
+        # --- Save native Pivotal parameters ---
+        parameters = cls._get_exportable_parameters(namespace)
+        if parameters:
+            cls._write_parameters(pkg_path, config, parameters)
+            n_parameters = len(parameters)
+
         # Write datapackage.json
         dp_path = os.path.join(pkg_path, "datapackage.json")
         with open(dp_path, "w", encoding="utf-8") as fh:
@@ -123,6 +130,7 @@ class Package:
         parts = [f"{n_tables} dataframe(s)"]
         if n_charts: parts.append(f"{n_charts} chart(s)")
         if n_gt: parts.append(f"{n_gt} table(s)")
+        if n_parameters: parts.append(f"{n_parameters} parameter(s)")
         print(f"Package '{name}' saved to {pkg_path} ({', '.join(parts)})")
 
         return cls(name, pkg_path, config)
@@ -202,6 +210,42 @@ class Package:
             {"name": name, "path": f"tables/{name}.html", "mediatype": "text/html"}
         )
 
+    @staticmethod
+    def _json_safe_value(value):
+        """Convert native Pivotal parameter values into JSON-safe data."""
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, (list, tuple)):
+            return [Package._json_safe_value(item) for item in value]
+        if isinstance(value, dict):
+            return {str(key): Package._json_safe_value(child) for key, child in value.items()}
+        return str(value)
+
+    @classmethod
+    def _get_exportable_parameters(cls, namespace: dict) -> dict:
+        """Return native Pivotal parameters stored in the session namespace."""
+        values = namespace.get('_pivotal_values', {})
+        if not isinstance(values, dict):
+            return {}
+        return {
+            str(name): cls._json_safe_value(value)
+            for name, value in values.items()
+        }
+
+    @classmethod
+    def _write_parameters(cls, pkg_path: str, config: dict, parameters: dict) -> None:
+        fpath = os.path.join(pkg_path, "parameters.json")
+        with open(fpath, "w", encoding="utf-8") as fh:
+            json.dump(parameters, fh, indent=2)
+        config["resources"].append(
+            {
+                "name": "parameters",
+                "path": "parameters.json",
+                "mediatype": "application/json",
+                "pivotal_type": "parameters",
+            }
+        )
+
     # ------------------------------------------------------------------
     # Open / load
     # ------------------------------------------------------------------
@@ -254,6 +298,15 @@ class Package:
             elif ext == ".csv":
                 tables[stem] = pd.read_csv(full_path)
         return tables
+
+    def load_parameters(self) -> dict:
+        """Load exported native Pivotal parameters from ``parameters.json``."""
+        params_path = os.path.join(self.path, "parameters.json")
+        if not os.path.exists(params_path):
+            return {}
+        with open(params_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
 
     # ------------------------------------------------------------------
     # Backwards-compat shim: open_or_create still works for load workflows

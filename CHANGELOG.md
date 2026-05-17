@@ -34,6 +34,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Added `quantile` and `percentile` as built-in aggregation functions for assignment expressions and `agg` statements.
 - Added persistent native `scalar` and `dict` definitions, JSON/YAML config dict loading, dot-path config lookup, Pivotal list indexing, and indexed `:` runtime references for lists/dicts.
 - Added clearer plotting and table documentation, including explicit `plot`, `pivot plot`, and `table` syntax coverage in the user docs and syntax reference.
+- Added native Pivotal parameter export in datapackages, writing `list` / `scalar` / `dict` definitions to `parameters.json` alongside tables, charts, and rendered tables.
 
 ### Fixed
 

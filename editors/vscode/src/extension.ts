@@ -1610,7 +1610,7 @@ const _CATEGORIES = [
   { label: 'Data',   itemType: 'dataframe' },
   { label: 'Charts', itemType: 'chart'     },
   { label: 'Tables', itemType: 'gt_table'  },
-  { label: 'Values', itemType: 'value'     },
+  { label: 'Parameters', itemType: 'value'     },
 ];
 
 function _isValueExpandable(value: ValueInfo | null | undefined): boolean {

@@ -2135,6 +2135,37 @@ def test_save_datapackage_json(parser, tmp_path, sample_df):
     assert any(r['name'] == 'sales' for r in dp['resources'])
 
 
+def test_save_exports_native_parameters(parser, tmp_path, sample_df):
+    """save writes native Pivotal parameters to parameters.json."""
+    import json as _json
+
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    run(parser, '''
+scalar threshold = 10
+list money_cols = price, quantity
+dict config
+    thresholds
+        high = threshold
+''', ns)
+    run(parser, f'save "params"\n    path "{tmp_path}"', ns)
+
+    params_path = tmp_path / "params" / "parameters.json"
+    assert params_path.is_file()
+
+    payload = _json.loads(params_path.read_text(encoding='utf-8'))
+    assert payload == {
+        'threshold': 10,
+        'money_cols': ['price', 'quantity'],
+        'config': {'thresholds': {'high': 10}},
+    }
+
+    dp = _json.loads((tmp_path / "params" / "datapackage.json").read_text(encoding='utf-8'))
+    assert any(
+        r['name'] == 'parameters' and r['path'] == 'parameters.json'
+        for r in dp['resources']
+    )
+
+
 def test_load_package_table(parser, tmp_path, sample_df):
     """load tablename (no path) loads from the active package."""
     import pivotal
@@ -2161,6 +2192,28 @@ def test_load_all(parser, tmp_path, sample_df):
     run(parser, 'load all', ns)
     assert 'part1' in ns
     assert 'part2' in ns
+
+
+def test_package_load_parameters(tmp_path, sample_df):
+    """Package.load_parameters returns exported native Pivotal parameters."""
+    import pivotal
+
+    namespace = {
+        'sales': sample_df.copy(),
+        '_pivotal_values': {
+            'threshold': 5,
+            'regions': ['AU', 'NZ'],
+            'config': {'enabled': True, 'limit': 25},
+        },
+    }
+    pivotal.Package.export("paramload", namespace, path=str(tmp_path))
+    pkg = pivotal.Package.open("paramload", path=str(tmp_path))
+
+    assert pkg.load_parameters() == {
+        'threshold': 5,
+        'regions': ['AU', 'NZ'],
+        'config': {'enabled': True, 'limit': 25},
+    }
 
 
 def test_full_pipeline_save_reload(parser, tmp_path, sample_df):

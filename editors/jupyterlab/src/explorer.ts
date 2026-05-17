@@ -177,7 +177,7 @@ export class PivotalExplorerWidget extends Widget {
       [this._items.filter(it => it.type === 'dataframe'), 'data', 'Data'],
       [this._items.filter(it => it.type === 'chart'), 'charts', 'Charts'],
       [this._items.filter(it => it.type === 'gt_table'), 'tables', 'Tables'],
-      [this._items.filter(it => it.type === 'value'), 'values', 'Values'],
+      [this._items.filter(it => it.type === 'value'), 'values', 'Parameters'],
     ];
   }
 
