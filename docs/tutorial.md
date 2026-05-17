@@ -540,6 +540,8 @@ dict config
     thresholds
         adult_age = 18
 
+# dict config from config.json   # load from json or yaml
+
 with titanic as temp
     filter Age > myvar
     select mylist
