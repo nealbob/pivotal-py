@@ -56,6 +56,9 @@ def _resolve_col_names(items, namespace: dict) -> tuple[list, bool]:
             else:
                 cols.append(str(value))
             continue
+        # Preserve unsupported literal/runtime values so column validation can
+        # report a helpful type error instead of silently skipping them.
+        cols.append(item)
         fully_known = False
     return cols, fully_known
 

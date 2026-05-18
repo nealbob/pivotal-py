@@ -6,6 +6,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-18
+
 ### Added
 
 - *Pivotal syntax*
@@ -24,7 +26,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   - Added `quantile` and `percentile` as built-in aggregation functions for assignment expressions and `agg` statements.
   - Added persistent native `list`, `scalar` and `dict` definitions, JSON/YAML config dict loading, dot-path config lookup, Pivotal list indexing, and indexed `:` runtime references for lists/dicts.
   - Added native Pivotal parameter export in datapackages, writing `list` / `scalar` / `dict` definitions to `parameters.json` alongside tables, charts, and rendered tables.
-  - 
+
 - *AI support (MCP server)*
   - Added `pivotal.run_pivotal()` as a structured execution API for AI tools and automation, returning JSON-friendly parse, codegen, runtime, warning, and table-preview results.
   - Added `pivotal.run_pivotal_isolated()` to execute structured Pivotal verifier calls in a clean subprocess with timeout handling.
@@ -36,14 +38,14 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
   - Added a copy-to-clipboard button to the default `pivotal_highlight` HTML output.
   - Added MCP documentation tools for indexing, reading, and searching Pivotal docs, including command-reference and topic docs.
   - Updated `PIVOTAL.md` AI instructions
-- 
+
 - *Documentation*
   - Added and reorganized documentation, including a complete syntax reference, a pandas-to-Pivotal cheatsheet, clearer backend and Pivotal-vs-Python navigation, and a discoverable MCP Server page.
   - Added clearer plotting and table documentation, including explicit `plot`, `pivot plot`, and `table` syntax coverage in the user docs and syntax reference.
-  
+
 - *Packaging*
   - Added package extras for test dependencies.
-   
+
 ### Fixed
 
 - Changed the default Jupyter `%pivotal_set` canvas from `none` to `a4` for viewer output in JupyterLab and VS Code notebooks.

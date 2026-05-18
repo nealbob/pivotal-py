@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,13 +14,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install mkdocs-material ".[all]"
+        run: pip install -e ".[docs]"
 
-      - name: Deploy to GitHub Pages
-        run: mkdocs gh-deploy --force
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy dev docs
+        run: mike deploy --push dev
+
+      - name: Set default docs version
+        run: |
+          if mike list | grep -Eq '(^|[[:space:]])stable([[:space:]]|$)'; then
+            mike set-default --push stable
+          else
+            mike set-default --push dev
+          fi

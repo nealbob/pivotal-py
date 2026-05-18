@@ -1,1 +1,2 @@
 mkdocs-material>=9.0
+mike>=2.1.3
