@@ -1,0 +1,161 @@
+/* Logo size */
+.md-header__button.md-logo img {
+  height: 48px;
+  width:  48px;
+}
+
+/* Pivotal brand colours — drawn from the logo */
+
+/* Light scheme */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:        #1E293B;   /* dark navy — logo background */
+  --md-primary-fg-color--light: #334155;
+  --md-primary-fg-color--dark:  #0F172A;
+  --md-primary-bg-color:        #ffffff;   /* white text on dark header */
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color:              #D97706;   /* amber/gold from logo */
+  --md-accent-fg-color--transparent: rgba(217, 119, 6, 0.1);
+  --md-accent-bg-color:              #ffffff;
+  --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
+}
+
+/* Dark scheme */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #1E293B;
+  --md-primary-fg-color--light: #334155;
+  --md-primary-fg-color--dark:  #0F172A;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color:              #FCD34D;   /* brighter amber for dark bg */
+  --md-accent-fg-color--transparent: rgba(252, 211, 77, 0.1);
+  --md-accent-bg-color:              #ffffff;
+  --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
+}
+
+/* Main left navigation emphasis */
+.md-sidebar--primary .md-nav__link[href*="syntax/command-reference"],
+.md-sidebar--primary .md-nav__link[href$="/command-reference/"],
+.md-sidebar--primary .md-nav__link[href="../command-reference/"] {
+  font-weight: 700;
+}
+
+.md-sidebar--primary .md-nav__item:has(> .md-nav__link[href*="syntax/command-reference"]),
+.md-sidebar--primary .md-nav__item:has(> .md-nav__link[href$="/command-reference/"]),
+.md-sidebar--primary .md-nav__item:has(> .md-nav__link[href="../command-reference/"]) {
+  margin-bottom: 0.6rem;
+}
+
+/* Cheatsheet and print-friendly tables */
+.md-typeset table .highlight {
+  margin: 0;
+}
+
+.md-typeset table .highlight pre {
+  margin: 0;
+}
+
+@media print {
+  .md-typeset table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .md-typeset table code {
+    white-space: pre-wrap;
+    word-break: normal;
+  }
+}
+
+/* Notebook-exported tutorial outputs */
+.md-typeset table.dataframe {
+  width: auto;
+  border: 0 !important;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.md-typeset table.dataframe th,
+.md-typeset table.dataframe td {
+  border-color: #e5e7eb !important;
+  border-width: 1px !important;
+}
+
+.md-typeset table.dataframe thead th {
+  border-top: 0 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  background: #f8fafc;
+}
+
+.md-typeset table.dataframe tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.md-typeset .gt_table,
+.md-typeset .gt_table th,
+.md-typeset .gt_table td {
+  border-color: #e5e7eb !important;
+}
+
+.md-typeset .gt_table {
+  border-top-width: 1px !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* Home page navigation tiles */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.home-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7rem;
+  padding: 1rem;
+  text-align: center;
+  text-decoration: none;
+  color: inherit !important;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.95));
+  border: 1px solid #dbe4ee;
+  border-radius: 0.9rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.home-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+
+.home-tile strong {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+[data-md-color-scheme="slate"] .home-tile {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92));
+  border-color: #334155;
+}
+
+[data-md-color-scheme="slate"] .home-tile:hover {
+  border-color: #475569;
+}
+
+@media (max-width: 900px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}

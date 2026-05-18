@@ -1,0 +1,25 @@
+- Pivotal grammer extensions
+    - Custom aggregation functions (agg myfunc colA)
+    - Bulk load of mutiple data files (loop with option to concat or merge all)
+    - Regex operatons on string columns
+
+- AI support
+    - LLM pivotal code generation from user prompt 
+    - LLM pivotal code generation from Python code 
+    - Give LLM PIVOTAL.md syntax plus a Pivotal parse test
+
+- GUI / extension features
+    - Minor visual fixes (AG grid rendering in VS Code)
+    - matplotlib style file support via GUI menu
+    - AG Grid GUI operations generate  Pivtal code (i.e., "no code" functionality)
+
+- Plot and table backends 
+    - Multiple plotting backends including plotly 
+    - Native MS office (via python-docx) tables
+
+- Data packages
+    - Support saving data packages to excel workbook format
+
+- Web broswer app (no notebook)
+    Data package (ouptut) viewer with navigation, thumbnails, and viewer pane
+    Background Python / Pivotal execution via GUI (i.e., "no code" functionality) 
