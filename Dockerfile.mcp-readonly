@@ -10,4 +10,4 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["python", "-m", "pivotal.mcp_server", "--read-only", "--transport", "streamable-http"]
+CMD ["python", "-m", "pivotal.mcp_server", "--read-only", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
