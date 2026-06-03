@@ -1,0 +1,21 @@
+app = "pivotal-website"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile.website"
+
+[env]
+  PORT = "8080"
+  PIVOTAL_DOCS_URL = "https://docs.pivotal-lang.org/"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

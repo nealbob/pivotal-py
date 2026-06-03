@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pivotal - Data transformation syntax for Python</title>
+    <meta
+      name="description"
+      content="Pivotal is a concise data transformation language for Python, Jupyter, Pandas, Polars, DuckDB, editors, and AI coding workflows."
+    />
+    <link rel="icon" href="/images/pivotal_logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="Pivotal home">
+        <img src="/images/pivotal_logo.svg" alt="" />
+        <span>Pivotal</span>
+      </a>
+      <nav>
+        <a href="https://docs.pivotal-lang.org/">Docs</a>
+        <a href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">Demo</a>
+        <a href="https://github.com/nealbob/pivotal-py">GitHub</a>
+        <a href="https://mcp.pivotal-lang.org/mcp">MCP</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <img class="hero-image" src="/images/ataglance.png" alt="Pivotal code and generated Python shown side by side" />
+        <div class="hero-shade"></div>
+        <div class="hero-content">
+          <img class="hero-logo" src="/images/pivotal_logo.svg" alt="" />
+          <h1>Pivotal</h1>
+          <p class="lede">
+            A concise data analysis language for Python.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://docs.pivotal-lang.org/">Read the docs</a>
+            <a class="button secondary" href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">Open Binder demo</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="install-band" aria-label="Install Pivotal">
+        <div class="section-inner install-grid">
+          <div>
+            <p class="section-kicker">Install</p>
+            <h2>Get started with Pivotal</h2>
+            <p>
+              Install the Pivotal language and JupyterLab extension via <code>pip</code> and the
+              <a class="inline-link" href="https://marketplace.visualstudio.com/items?itemName=NealHughes.pivotal-language">VS Code extension</a>
+              via marketplace.
+            </p>
+          </div>
+          <div class="terminal-pair">
+            <div class="copy-block">
+              <pre><code id="install-command">pip install pivotal-lang pivotal-lab</code></pre>
+              <button class="copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-inner code-section">
+        <div class="section-copy">
+          <p class="section-kicker">Syntax</p>
+          <h2>Readable pipelines that compile to Python</h2>
+          <p>
+            Write transformations in a compact DSL and run against common Python data backends (Pandas, Polars,
+            DuckDB).
+          </p>
+        </div>
+        <div class="code-tabs">
+          <div class="tab-list" role="tablist" aria-label="Code comparison">
+            <button class="tab-button active" type="button" role="tab" id="tab-pivotal" aria-selected="true" aria-controls="panel-pivotal">
+              Pivotal
+            </button>
+            <button class="tab-button" type="button" role="tab" id="tab-pandas" aria-selected="false" aria-controls="panel-pandas">
+              Pandas
+            </button>
+          </div>
+          <div class="tab-panel" id="panel-pivotal" role="tabpanel" aria-labelledby="tab-pivotal">
+            <pre class="code-sample"><code><span class="pvt-keyword">with</span> <span class="pvt-name">players</span>
+    <span class="pvt-keyword">filter</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">&gt;=</span> <span class="pvt-number">900</span>
+    <span class="pvt-name">goals_per_90</span> <span class="pvt-operator">=</span> <span class="pvt-name">goals</span> <span class="pvt-operator">/</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">*</span> <span class="pvt-number">90</span>
+    <span class="pvt-keyword">sort</span> <span class="pvt-name">goals_per_90</span> <span class="pvt-clause">desc</span>
+    <span class="pvt-keyword">select</span> <span class="pvt-name">player</span><span class="pvt-punctuation">,</span> <span class="pvt-name">team</span><span class="pvt-punctuation">,</span> <span class="pvt-name">goals_per_90</span></code></pre>
+          </div>
+          <div class="tab-panel" id="panel-pandas" role="tabpanel" aria-labelledby="tab-pandas" hidden>
+            <pre class="code-sample pandas-sample"><code><span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"minutes"</span><span class="py-punctuation">]</span> <span class="py-operator">&gt;=</span> <span class="py-number">900</span><span class="py-punctuation">]</span><span class="py-punctuation">.</span><span class="py-name">copy</span><span class="py-punctuation">()</span>
+<span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">]</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"goals"</span><span class="py-punctuation">]</span> <span class="py-operator">/</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"minutes"</span><span class="py-punctuation">]</span> <span class="py-operator">*</span> <span class="py-number">90</span>
+<span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-punctuation">(</span>
+    <span class="py-name">players</span>
+    <span class="py-punctuation">.</span><span class="py-name">sort_values</span><span class="py-punctuation">(</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">,</span> <span class="py-name">ascending</span><span class="py-operator">=</span><span class="py-keyword">False</span><span class="py-punctuation">)</span>
+    <span class="py-punctuation">[[</span><span class="py-string">"player"</span><span class="py-punctuation">,</span> <span class="py-string">"team"</span><span class="py-punctuation">,</span> <span class="py-string">"goals_per_90"</span><span class="py-punctuation">]]</span>
+<span class="py-punctuation">)</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-band" aria-label="Binder demo">
+        <div class="section-inner demo-inner">
+          <div class="demo-copy">
+            <p class="section-kicker">Notebook and editor support</p>
+            <h2>Use Pivotal in Jupyter and VS Code</h2>
+            <p>
+              Use Pivotal in either Jupyter Notebooks or VS Code with syntax highlighting, autocomplete, and visual
+              data explorer / viewer.
+            </p>
+          </div>
+          <a class="demo-link" href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">
+            <img src="/images/pivotal_lab_animation2.gif" alt="Pivotal running in a JupyterLab Binder demo" />
+          </a>
+        </div>
+      </section>
+
+      <section class="section-inner mcp-section">
+        <div>
+          <p class="section-kicker">MCP server</p>
+          <h2>Generate Pivotal code with AI</h2>
+          <p>
+            Connect the public Pivotal MCP server to your AI agent, giving it access to concise Pivotal syntax
+            descriptions, full Pivotal documentation, code generation checks and highlighting. Local MCP servers expose
+            further execution and comparison tools for private data.
+          </p>
+        </div>
+        <div class="endpoint">
+          <span>Hosted endpoint</span>
+          <code>https://mcp.pivotal-lang.org/mcp</code>
+          <a href="https://docs.pivotal-lang.org/mcp-hosting/">MCP setup notes</a>
+        </div>
+      </section>
+
+      <section class="section-inner links-section" aria-label="Project links">
+        <a href="https://docs.pivotal-lang.org/">
+          <span>Documentation</span>
+          <small>Syntax reference, user guide, API, and backend notes</small>
+        </a>
+        <a href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">
+          <span>Binder demo</span>
+          <small>Run the football demo notebook in JupyterLab</small>
+        </a>
+        <a href="https://pypi.org/project/pivotal-lang/">
+          <span>PyPI package</span>
+          <small>Install the core package as pivotal-lang</small>
+        </a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=NealHughes.pivotal-language">
+          <span>VS Code extension</span>
+          <small>Editor support for .pivotal files and notebooks</small>
+        </a>
+        <a href="https://github.com/nealbob/pivotal-py">
+          <span>GitHub</span>
+          <small>Source code, issues, examples, and releases</small>
+        </a>
+      </section>
+    </main>
+
+    <footer>
+      <div class="section-inner footer-inner">
+        <span>Pivotal is released under the MIT License.</span>
+        <a href="https://github.com/nealbob/pivotal-py">github.com/nealbob/pivotal-py</a>
+      </div>
+    </footer>
+    <script>
+      async function copyText(text) {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.appendChild(fallback);
+        fallback.select();
+        document.execCommand("copy");
+        fallback.remove();
+      }
+
+      document.querySelectorAll("[data-copy-target]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.getElementById(button.dataset.copyTarget);
+          if (!target) return;
+
+          await copyText(target.textContent.trim());
+          button.textContent = "Copied";
+          window.setTimeout(() => {
+            button.textContent = "Copy";
+          }, 1600);
+        });
+      });
+
+      document.querySelectorAll(".code-tabs").forEach((tabs) => {
+        const buttons = Array.from(tabs.querySelectorAll("[role='tab']"));
+        const panels = Array.from(tabs.querySelectorAll("[role='tabpanel']"));
+
+        buttons.forEach((button) => {
+          button.addEventListener("click", () => {
+            buttons.forEach((item) => {
+              const selected = item === button;
+              item.classList.toggle("active", selected);
+              item.setAttribute("aria-selected", String(selected));
+            });
+
+            panels.forEach((panel) => {
+              panel.hidden = panel.id !== button.getAttribute("aria-controls");
+            });
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

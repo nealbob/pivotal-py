@@ -1,6 +1,6 @@
 site_name: Pivotal
 site_description: A pipeline-oriented data transformation DSL for Python and Jupyter
-site_url: https://nealbob.github.io/pivotal-py/
+site_url: https://docs.pivotal-lang.org/
 repo_url: https://github.com/nealbob/pivotal-py
 repo_name: nealbob/pivotal-py
 
