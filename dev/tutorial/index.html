@@ -1711,7 +1711,7 @@
 
 
 <h1 id="tutorial-10-minutes-to-pivotal">Tutorial: 10 minutes to Pivotal</h1>
-<p>This is a short introduction to Pivotal, for more detail see the <a href="https://nealbob.github.io/pivotal-py/syntax/">User Guide</a> or the <a href="https://nealbob.github.io/pivotal-py/syntax/command-reference/">Syntax Reference</a>. This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see <a href="https://nealbob.github.io/pivotal-py/getting-started/">Getting Started</a> and <a href="https://nealbob.github.io/pivotal-py/jupyter/">JupyterLab</a>.</p>
+<p>This is a short introduction to Pivotal, for more detail see the <a href="https://docs.pivotal-lang.org/syntax/">User Guide</a> or the <a href="https://docs.pivotal-lang.org/syntax/command-reference/">Syntax Reference</a>. This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see <a href="https://docs.pivotal-lang.org/getting-started/">Getting Started</a> and <a href="https://docs.pivotal-lang.org/jupyter/">JupyterLab</a>.</p>
 <h2 id="import-pivotal-and-load-some-data">Import Pivotal and load some data</h2>
 <p>To begin import the Pivotal Python package.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pivotal</span>
@@ -1721,12 +1721,12 @@
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">load</span> <span class="n">data</span><span class="err">\</span><span class="n">titanic</span><span class="err">.</span><span class="n">csv</span> <span class="kd">as</span> <span class="n">titanic</span>
 </code></pre></div>
 <p>The <code>load</code> command requires a filepath (with or without quotes, windows or unix style paths, local or relative paths or URLs). Data can be in CSV, Parquet or Excel format (detected from the file extension).</p>
-<p>Data from SQL databases can also be loaded via the <a href="https://nealbob.github.io/pivotal-py/syntax/data-sources/"><code>from</code></a> command.</p>
+<p>Data from SQL databases can also be loaded via the <a href="https://docs.pivotal-lang.org/syntax/data-sources/"><code>from</code></a> command.</p>
 <h2 id="the-pivotal-ide-jupyterlab-extension">The Pivotal IDE (JupyterLab extension)</h2>
 <p>Once the data has loaded, the Pivotal Explorer (left pane) and Viewer (right pane) will become visible within JupyterLab:</p>
 <p><img alt="screenshot" src="../assets/tutorial1.png" /></p>
 <p>The object explorer contains a list of all the objects in the current Pivotal session (dataframes, plots, tables, values) for now it will just contain the <code>titanic</code> dataframe. The Viewer provides a spreadsheet version of the <code>titanic</code> table with ability to scroll, sort, filter interactively (without editing the underlying data).</p>
-<p>The Explorer and Viewer pane will automatically update after each Pivotal cell is executed, with the Viewer showing the most recently modified / added object. Users can then navigate to view any object via mouse or <a href="https://nealbob.github.io/pivotal-py/jupyter/#keyboard-shortcuts">keyboard shortcuts</a>. </p>
+<p>The Explorer and Viewer pane will automatically update after each Pivotal cell is executed, with the Viewer showing the most recently modified / added object. Users can then navigate to view any object via mouse or <a href="https://docs.pivotal-lang.org/jupyter/#keyboard-shortcuts">keyboard shortcuts</a>.</p>
 <h2 id="modify-a-data-frame-in-place-sort-drop">Modify a data-frame in-place (sort, drop)</h2>
 <p>To modfy a dataframe in-place we can start a new <code>with</code> block. In this case we <code>sort</code> by <code>Age</code> and <code>drop</code> the <code>Name</code> column. Note that column and dataframe names do not need quotations in Pivotal.</p>
 <p>If using JupyterLab (or VS Code) the Pivotal Viewer provides a convenient way to inspect output, however results can also be viewed inline via the <code>show</code> command.</p>
@@ -1843,7 +1843,7 @@
 </div>
 
 <h2 id="plotting">Plotting</h2>
-<p>The <code>plot</code> command wraps the <a href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.plot.html">Pandas plot</a> function; see <a href="https://nealbob.github.io/pivotal-py/syntax/output/">Charts, Tables, and Output</a> for details. The <code>pivot plot</code> command combines aggregation (<code>group by</code> or <code>pivot</code>) and plotting in one command similar to an Excel pivot chart. </p>
+<p>The <code>plot</code> command wraps the <a href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.plot.html">Pandas plot</a> function; see <a href="https://docs.pivotal-lang.org/syntax/output/">Charts, Tables, and Output</a> for details. The <code>pivot plot</code> command combines aggregation (<code>group by</code> or <code>pivot</code>) and plotting in one command similar to an Excel pivot chart.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">with</span> <span class="n">titanic</span> 
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">bar</span> <span class="n">survival_by_class</span>
@@ -1975,7 +1975,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 </pre></details></div>
 
 <h2 id="aggregation-group-by">Aggregation (group by)</h2>
-<p>Following Pandas and R style syntax aggregation requires two commands: first <code>group by</code>, then <code>agg</code>. See <a href="https://nealbob.github.io/pivotal-py/syntax/grouping/">Grouping &amp; Aggregation</a> for details. </p>
+<p>Following Pandas and R style syntax aggregation requires two commands: first <code>group by</code>, then <code>agg</code>. See <a href="https://docs.pivotal-lang.org/syntax/grouping/">Grouping &amp; Aggregation</a> for details.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">titanic_survival_rates</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">Pclass</span><span class="p">,</span> <span class="n">Sex</span>
@@ -2103,7 +2103,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 </div>
 
 <h2 id="tables">Tables</h2>
-<p>Pivotal supports generation of publication-ready tables via the Great Tables package, including ability to define merged cell headings via <code>spanner</code> command and apply number formats via <code>format</code> command. See <a href="https://nealbob.github.io/pivotal-py/syntax/output/">Charts, Tables, and Output</a> for the full table syntax.</p>
+<p>Pivotal supports generation of publication-ready tables via the Great Tables package, including ability to define merged cell headings via <code>spanner</code> command and apply number formats via <code>format</code> command. See <a href="https://docs.pivotal-lang.org/syntax/output/">Charts, Tables, and Output</a> for the full table syntax.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">with</span> <span class="n">titanic_survival_rates</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">cast</span> <span class="n">Pclass</span> <span class="kd">as</span> <span class="nb">string</span>
@@ -2159,7 +2159,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 </div>
 
 <h2 id="parameters-scalars-lists-and-dictionaries">Parameters (Scalars, Lists, and Dictionaries)</h2>
-<p>Pivotal also supports definition of Scalars, Lists and Dictionaries. Note that within Pivotal brackets for lists are optional. See <a href="https://nealbob.github.io/pivotal-py/syntax/values/">Values: Scalars, Dicts, and Lists</a> for more detail. </p>
+<p>Pivotal also supports definition of Scalars, Lists and Dictionaries. Note that within Pivotal brackets for lists are optional. See <a href="https://docs.pivotal-lang.org/syntax/values/">Values: Scalars, Dicts, and Lists</a> for more detail.</p>
 <p>In Pivotal the sole purpose of these parameter objects is to pass metadata to dataframe operations:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">list</span> <span class="n">mylist</span> <span class="o">=</span> <span class="n">Age</span><span class="p">,</span> <span class="n">Survived</span><span class="p">,</span> <span class="n">Pclass</span>
@@ -2403,7 +2403,7 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <h2 id="pipeline-functions">Pipeline functions</h2>
 <p>Pivotal also supports functions, which group together a reusable sequence of data operations (a pipeline).</p>
 <p>In this example we apply the same operations (via the <code>ha_games</code> function) to the home and away teams in the <code>afl_games</code> table, then combine them into a single set of results for each team in each round.  </p>
-<p>Pivotal functions are non-recursive (i.e., more like Excel macros than Python functions), but they can still be called from within Python code if needed; see <a href="https://nealbob.github.io/pivotal-py/syntax/pipeline-control/">Pipeline Control</a> for details.  </p>
+<p>Pivotal functions are non-recursive (i.e., more like Excel macros than Python functions), but they can still be called from within Python code if needed; see <a href="https://docs.pivotal-lang.org/syntax/pipeline-control/">Pipeline Control</a> for details.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="k">function</span> <span class="n">ha_games</span><span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
 <a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
