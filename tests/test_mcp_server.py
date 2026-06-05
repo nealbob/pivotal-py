@@ -50,10 +50,18 @@ def test_pivotal_docs_index_lists_command_reference():
 
     paths = {doc["path"] for doc in result["documents"]}
     assert result["ok"] is True
+    assert result["website_url"] == "https://www.pivotal-lang.org/"
+    assert result["docs_url"] == "https://docs.pivotal-lang.org/"
+    assert result["mcp_url"] == "https://mcp.pivotal-lang.org/mcp"
     assert "docs/syntax/command-reference.md" in paths
     assert "docs/syntax/values.md" in paths
     assert "docs/syntax/pipeline-control.md" in paths
     assert "PIVOTAL.md" in paths
+
+    urls_by_path = {doc["path"]: doc["url"] for doc in result["documents"]}
+    assert urls_by_path["README.md"] == "https://www.pivotal-lang.org/"
+    assert urls_by_path["PIVOTAL.md"] == "https://docs.pivotal-lang.org/syntax/command-reference/"
+    assert urls_by_path["docs/syntax/index.md"] == "https://docs.pivotal-lang.org/syntax/"
 
 
 def test_pivotal_docs_can_read_command_reference_by_path():
@@ -196,6 +204,9 @@ def test_mcp_server_startup_instructions_include_core_guidance():
     assert "with sales as report" in server.instructions
     assert "compile it with pivotal_compile at minimum" in server.instructions
     assert "use pivotal_highlight after the code compiles successfully" in server.instructions
+    assert "https://www.pivotal-lang.org/" in server.instructions
+    assert "https://docs.pivotal-lang.org/" in server.instructions
+    assert "https://mcp.pivotal-lang.org/mcp" in server.instructions
     assert "pivotal_docs_search" in server.instructions
 
 

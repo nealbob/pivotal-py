@@ -15,7 +15,9 @@ from .dsl_parser import DSLParser
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SYNTAX_PATH = _REPO_ROOT / "PIVOTAL.md"
-_PUBLIC_DOCS_BASE_URL = "https://nealbob.github.io/pivotal-py"
+_PUBLIC_WEBSITE_URL = "https://www.pivotal-lang.org/"
+_PUBLIC_DOCS_BASE_URL = "https://docs.pivotal-lang.org"
+_PUBLIC_MCP_URL = "https://mcp.pivotal-lang.org/mcp"
 _FULL_SYNTAX_MAX_CHARS = 25000
 
 _DOC_FILES = (
@@ -88,6 +90,12 @@ _VERIFICATION_GUIDANCE = (
     "expected outputs are available, prefer pivotal_run or pivotal_compare for "
     "stronger verification. For polished presentation, use pivotal_highlight "
     "after the code compiles successfully. "
+)
+
+_PUBLIC_URL_GUIDANCE = (
+    f"Public Pivotal URLs: website {_PUBLIC_WEBSITE_URL}, "
+    f"documentation {_PUBLIC_DOCS_BASE_URL}/, hosted read-only MCP endpoint "
+    f"{_PUBLIC_MCP_URL}. "
 )
 
 _HIGHLIGHT_CSS = """
@@ -233,7 +241,7 @@ def _public_doc_url(relative_path: str) -> str:
     if relative_path == "PIVOTAL.md":
         return f"{_PUBLIC_DOCS_BASE_URL}/syntax/command-reference/"
     if relative_path == "README.md":
-        return _PUBLIC_DOCS_BASE_URL
+        return _PUBLIC_WEBSITE_URL
     if relative_path.startswith("docs/") and relative_path.endswith(".md"):
         page = relative_path.removeprefix("docs/").removesuffix(".md")
         if page.endswith("/index"):
@@ -411,7 +419,13 @@ def get_pivotal_docs_index() -> dict[str, Any]:
                 for section in sections
             ],
         })
-    return {"ok": True, "documents": documents}
+    return {
+        "ok": True,
+        "website_url": _PUBLIC_WEBSITE_URL,
+        "docs_url": f"{_PUBLIC_DOCS_BASE_URL}/",
+        "mcp_url": _PUBLIC_MCP_URL,
+        "documents": documents,
+    }
 
 
 def get_pivotal_docs(
@@ -1006,6 +1020,7 @@ def create_mcp_server(
             "Tools for generating, running, and comparing Pivotal DSL code. "
             f"{_CORE_GUIDANCE}"
             f"{_VERIFICATION_GUIDANCE}"
+            f"{_PUBLIC_URL_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then verify generated code "
             "with pivotal_run or pivotal_compare before giving a final answer. "
@@ -1039,6 +1054,7 @@ def create_readonly_mcp_server(
             "Read-only tools for learning and compiling Pivotal DSL code. "
             f"{_CORE_GUIDANCE}"
             f"{_VERIFICATION_GUIDANCE}"
+            f"{_PUBLIC_URL_GUIDANCE}"
             "When syntax is uncertain, call pivotal_docs_search, pivotal_docs, "
             "or pivotal_syntax before writing code, then use pivotal_compile "
             "to check that the source parses and compiles. "

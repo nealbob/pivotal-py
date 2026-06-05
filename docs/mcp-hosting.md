@@ -3,6 +3,12 @@
 Pivotal includes an optional MCP server for connecting Pivotal syntax, docs,
 compilation, execution, and comparison tools to MCP-capable AI clients.
 
+Public Pivotal links:
+
+- Website: <https://www.pivotal-lang.org/>
+- Documentation: <https://docs.pivotal-lang.org/>
+- Hosted read-only MCP endpoint: <https://mcp.pivotal-lang.org/mcp>
+
 There are two main ways to run it:
 
 | Mode | Best for | Tools exposed |
@@ -149,6 +155,12 @@ https://YOUR_HOST/mcp
 ```
 
 Use that URL as the custom MCP connector URL in a remote client.
+
+The public Pivotal hosted read-only MCP endpoint is:
+
+```text
+https://mcp.pivotal-lang.org/mcp
+```
 
 ## Notes
 

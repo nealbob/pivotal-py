@@ -1,6 +1,6 @@
 # Tutorial: 10 minutes to Pivotal
 
-This is a short introduction to Pivotal, for more detail see the [User Guide](https://nealbob.github.io/pivotal-py/syntax/) or the [Syntax Reference](https://nealbob.github.io/pivotal-py/syntax/command-reference/). This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see [Getting Started](https://nealbob.github.io/pivotal-py/getting-started/) and [JupyterLab](https://nealbob.github.io/pivotal-py/jupyter/).
+This is a short introduction to Pivotal, for more detail see the [User Guide](https://docs.pivotal-lang.org/syntax/) or the [Syntax Reference](https://docs.pivotal-lang.org/syntax/command-reference/). This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see [Getting Started](https://docs.pivotal-lang.org/getting-started/) and [JupyterLab](https://docs.pivotal-lang.org/jupyter/).
 
 ## Import Pivotal and load some data
 
@@ -21,7 +21,7 @@ load data\titanic.csv as titanic
 
 The `load` command requires a filepath (with or without quotes, windows or unix style paths, local or relative paths or URLs). Data can be in CSV, Parquet or Excel format (detected from the file extension).
 
-Data from SQL databases can also be loaded via the [`from`](https://nealbob.github.io/pivotal-py/syntax/data-sources/) command.
+Data from SQL databases can also be loaded via the [`from`](https://docs.pivotal-lang.org/syntax/data-sources/) command.
 
 ## The Pivotal IDE (JupyterLab extension)
 
@@ -31,7 +31,7 @@ Once the data has loaded, the Pivotal Explorer (left pane) and Viewer (right pan
 
 The object explorer contains a list of all the objects in the current Pivotal session (dataframes, plots, tables, values) for now it will just contain the `titanic` dataframe. The Viewer provides a spreadsheet version of the `titanic` table with ability to scroll, sort, filter interactively (without editing the underlying data).
 
-The Explorer and Viewer pane will automatically update after each Pivotal cell is executed, with the Viewer showing the most recently modified / added object. Users can then navigate to view any object via mouse or [keyboard shortcuts](https://nealbob.github.io/pivotal-py/jupyter/#keyboard-shortcuts). 
+The Explorer and Viewer pane will automatically update after each Pivotal cell is executed, with the Viewer showing the most recently modified / added object. Users can then navigate to view any object via mouse or [keyboard shortcuts](https://docs.pivotal-lang.org/jupyter/#keyboard-shortcuts).
 
 ## Modify a data-frame in-place (sort, drop)
 
@@ -158,7 +158,7 @@ with titanic
 
 ## Plotting
 
-The `plot` command wraps the [Pandas plot](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.plot.html) function; see [Charts, Tables, and Output](https://nealbob.github.io/pivotal-py/syntax/output/) for details. The `pivot plot` command combines aggregation (`group by` or `pivot`) and plotting in one command similar to an Excel pivot chart. 
+The `plot` command wraps the [Pandas plot](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.plot.html) function; see [Charts, Tables, and Output](https://docs.pivotal-lang.org/syntax/output/) for details. The `pivot plot` command combines aggregation (`group by` or `pivot`) and plotting in one command similar to an Excel pivot chart.
 
 
 ```pivotal
@@ -316,7 +316,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 
 ## Aggregation (group by)
 
-Following Pandas and R style syntax aggregation requires two commands: first `group by`, then `agg`. See [Grouping & Aggregation](https://nealbob.github.io/pivotal-py/syntax/grouping/) for details. 
+Following Pandas and R style syntax aggregation requires two commands: first `group by`, then `agg`. See [Grouping & Aggregation](https://docs.pivotal-lang.org/syntax/grouping/) for details.
 
 
 ```pivotal
@@ -458,7 +458,7 @@ with titanic as titanic_survival_rates
 
 ## Tables 
 
-Pivotal supports generation of publication-ready tables via the Great Tables package, including ability to define merged cell headings via `spanner` command and apply number formats via `format` command. See [Charts, Tables, and Output](https://nealbob.github.io/pivotal-py/syntax/output/) for the full table syntax.
+Pivotal supports generation of publication-ready tables via the Great Tables package, including ability to define merged cell headings via `spanner` command and apply number formats via `format` command. See [Charts, Tables, and Output](https://docs.pivotal-lang.org/syntax/output/) for the full table syntax.
 
 
 ```pivotal
@@ -521,7 +521,7 @@ with titanic_survival_rates
 
 ## Parameters (Scalars, Lists, and Dictionaries)
 
-Pivotal also supports definition of Scalars, Lists and Dictionaries. Note that within Pivotal brackets for lists are optional. See [Values: Scalars, Dicts, and Lists](https://nealbob.github.io/pivotal-py/syntax/values/) for more detail. 
+Pivotal also supports definition of Scalars, Lists and Dictionaries. Note that within Pivotal brackets for lists are optional. See [Values: Scalars, Dicts, and Lists](https://docs.pivotal-lang.org/syntax/values/) for more detail.
 
 In Pivotal the sole purpose of these parameter objects is to pass metadata to dataframe operations:
 
@@ -842,7 +842,7 @@ Pivotal also supports functions, which group together a reusable sequence of dat
 
 In this example we apply the same operations (via the `ha_games` function) to the home and away teams in the `afl_games` table, then combine them into a single set of results for each team in each round.  
 
-Pivotal functions are non-recursive (i.e., more like Excel macros than Python functions), but they can still be called from within Python code if needed; see [Pipeline Control](https://nealbob.github.io/pivotal-py/syntax/pipeline-control/) for details.  
+Pivotal functions are non-recursive (i.e., more like Excel macros than Python functions), but they can still be called from within Python code if needed; see [Pipeline Control](https://docs.pivotal-lang.org/syntax/pipeline-control/) for details.
 
 
 ```pivotal
@@ -932,4 +932,3 @@ with games_with_lineup
 
 
 ![png](tutorial_files/tutorial_53_0.png)
-
