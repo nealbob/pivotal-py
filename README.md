@@ -14,6 +14,15 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 [![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
+## What's New In 0.5.0
+
+- New language features including `bulk load`, column `for` loops, regex string operations, regex-based column selection, `assert` / `check`, native `list` / `scalar` / `dict` values, pipeline `function`s, and richer output commands
+- Expanded AI and automation support with structured run / verify / compare APIs, a local MCP server, a hosted read-only MCP mode, docs search tools, and syntax highlighting metadata
+- Major documentation expansion including the full syntax reference, command reference, backend guide, and MCP server docs
+- Improved editor and notebook experience across JupyterLab and VS Code, including better highlighting, autocomplete, viewer behavior, and packaging fixes
+
+See the full changelog at: <https://github.com/nealbob/pivotal-py/blob/master/CHANGELOG.md>
+
 ## Features
 
 **Readable, writable syntax** — write data transformations in a concise declarative syntax that feels familiar to SQL and Pandas users
@@ -120,6 +129,13 @@ Neal Hughes
   - Scalar `min()` and `max()` in column expressions, supported across all backends
   - Fixed syntax highlighting gaps in VS Code and JupyterLab extensions
   - Fixed Pygments lexer missing keywords (`else`, `end`, and others)
+
+- **v0.5.0** - Major syntax, MCP, docs, and editor release
+  - Added `bulk load`, column `for` loops, regex transforms, regex selection, data-quality commands, native values, and pipeline functions
+  - Added structured AI verification / comparison APIs and both local and hosted MCP server modes
+  - Added complete syntax and command-reference docs, plus versioned online docs
+  - Improved JupyterLab and VS Code highlighting, autocomplete, viewer rendering, and packaging
+  - See `CHANGELOG.md` on GitHub for the full release notes
 
 ---
 

@@ -20,6 +20,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/nealbob/pivotal-py"
 Repository = "https://github.com/nealbob/pivotal-py"
+"Changelog" = "https://github.com/nealbob/pivotal-py/blob/master/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pivotal_jupyterlab"]

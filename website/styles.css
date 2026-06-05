@@ -244,8 +244,11 @@ h3 {
   position: absolute;
   top: 10px;
   right: 10px;
-  min-width: 64px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
   min-height: 34px;
+  padding: 0;
   border: 1px solid rgba(237, 244, 255, 0.28);
   border-radius: 6px;
   background: rgba(237, 244, 255, 0.1);
@@ -254,6 +257,25 @@ h3 {
   font: inherit;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.copy-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.copy-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .copy-button:hover {
@@ -283,12 +305,16 @@ pre code {
 
 .code-section {
   padding: 88px 0;
-  grid-template-columns: minmax(400px, 0.98fr) minmax(0, 1.02fr);
-  gap: clamp(30px, 4vw, 56px);
+  grid-template-columns: minmax(540px, 1.18fr) minmax(0, 0.82fr);
+  gap: clamp(28px, 4vw, 48px);
 }
 
 .code-sample {
   border-left: 6px solid var(--green);
+}
+
+.code-section h2 {
+  font-size: clamp(2rem, 3.2vw, 3rem);
 }
 
 .code-tabs {
@@ -325,6 +351,10 @@ pre code {
 
 .tab-panel[hidden] {
   display: none;
+}
+
+.code-tabs pre code {
+  font-size: 0.88rem;
 }
 
 .pvt-keyword {

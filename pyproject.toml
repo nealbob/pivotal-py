@@ -114,6 +114,7 @@ pivotal = "pivotal.lexer:PivotalLexer"
 [project.urls]
 Homepage = "https://github.com/nealbob/pivotal-py"
 Repository = "https://github.com/nealbob/pivotal-py"
+"Changelog" = "https://github.com/nealbob/pivotal-py/blob/master/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/nealbob/pivotal-py/issues"
 
 [tool.setuptools.packages.find]

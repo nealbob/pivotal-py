@@ -185,6 +185,8 @@ Before pushing demo repo changes, run the local Jupyter demo test from this repo
 
 Binder rebuilds from the pushed `pivotal-demo` repository. After pushing demo changes, open the Binder link from `README.md` and confirm the notebook starts with the pinned commit from `binder/postBuild`.
 
+If the local `C:\Code_win\pivotal-demo` checkout has unrelated edits, prefer using a clean temporary worktree from `origin/main` to make the Binder pin/update commit rather than mixing release maintenance with local notebook work.
+
 ## PyPI Release Workflow
 
 There are two PyPI packages:
@@ -223,7 +225,29 @@ Before publishing:
 - Move `CHANGELOG.md` entries from `Unreleased` into the new version section.
 - Run the relevant tests, preferably `python -m pytest` for grammar/backend changes.
 - Build locally and check that `dist/` contains the expected wheel and source distribution.
+- Upload only the current release artifacts, not every historical file in `dist/`. Prefer explicit filenames such as `dist/pivotal_lang-0.5.0*` and `editors/jupyterlab/dist/pivotal_lab-0.5.0*`.
+- Run `twine check` on both the root and JupyterLab release artifacts before upload.
+- After upload, verify PyPI is serving the new versions, for example with `python -m pip index versions pivotal-lang` and `python -m pip index versions pivotal-lab`, or by installing the exact versions into a fresh temporary virtual environment.
 - Use TestPyPI first if credentials or packaging changes are uncertain.
+
+Windows notes:
+
+- The active `python` on Windows may not see `twine`, `build`, or other user-installed scripts even after `pip install --user`. If `python -m twine` fails, use the installed executable directly from a path such as `C:\Users\<user>\AppData\Roaming\Python\Python312\Scripts\twine.exe`.
+- `release.sh` is still useful, but the manual PowerShell flow is safer when you want explicit control over which artifacts are uploaded.
+
+Recommended release order:
+
+1. Update versions and finalize `CHANGELOG.md`.
+2. Run tests and local builds.
+3. Create a release commit.
+4. Create an annotated tag such as `v0.5.0` from that exact release commit.
+5. Push the commit and tag.
+6. Publish `pivotal-lang` and `pivotal-lab`.
+7. Verify installability from PyPI.
+
+Important git note:
+
+- Do not create the release commit and the release tag in parallel. Create the commit first, then tag that specific commit, then verify `git show v0.5.0` points at the intended release commit before publishing anything that depends on the tag.
 
 ## VS Code Extension Build And Marketplace
 
@@ -271,6 +295,10 @@ Publishing requires marketplace credentials/a Personal Access Token configured f
 npx @vscode/vsce publish --packagePath .\pivotal-language-<version>.vsix
 ```
 
+Release note:
+
+- The VS Code extension version can move independently from the Python package version. Do not assume it should exactly match `pivotal-lang`; use the next sensible extension version in `editors/vscode/package.json` and `editors/vscode/package-lock.json`.
+
 When syntax changes, check both runtime grammar and editor grammars: `pivotal/dsl_parser.py`, `editors/vscode/syntaxes/`, `editors/jupyterlab/src/`, and the generated/built extension outputs as appropriate.
 
 ## Documentation Expectations
@@ -289,14 +317,69 @@ Prefer short, concrete examples over abstract descriptions.
 
 GitHub Actions automatically rebuilds and deploys the documentation when changes are pushed to the `master` branch on GitHub.
 
-The workflow is `.github/workflows/docs.yml`. It installs MkDocs dependencies and runs:
+The workflow is `.github/workflows/docs.yml`. Docs are versioned with Mike:
 
 ```bash
-mkdocs gh-deploy --force
+mike deploy --push dev
 ```
+
+Current docs layout:
+
+- `stable/`: current released documentation
+- `dev/`: current `master`
+- `<version>/`: immutable release docs such as `0.5.0/`
+
+The site root should redirect to `stable/`, not `dev/`.
+
+For the first release that introduces a new stable docs version, or when repairing docs version state manually, use:
+
+```powershell
+mike deploy --push --update-aliases 0.5.0 stable
+mike deploy --push dev
+mike set-default -F mkdocs.yml --push stable
+```
+
+Windows notes:
+
+- Mike may need the user scripts directory on `PATH`, for example `C:\Users\<user>\AppData\Roaming\Python\Python312\Scripts`, so that `mike`, `mkdocs`, and `ghp-import` can find each other.
+- If Mike reports that the local `gh-pages` branch is unrelated to `origin/gh-pages`, recreate the local branch from the remote before deploying.
+- If `mike deploy` fails while cleaning the local `site/` directory because a file is locked on Windows, remove and recreate `site/` and retry.
 
 This means edits to `docs/`, `mkdocs.yml`, `README.md` references, or related package documentation should be committed and pushed to `master` before expecting the online docs to update.
 
 ## Release Notes
 
 Add notable user-facing changes to `CHANGELOG.md` under `Unreleased` as the change lands. At release time, move those entries into a versioned section with the release date, then create a fresh empty `Unreleased` section.
+
+PyPI does not automatically use `CHANGELOG.md` as the release description; PyPI uses `README.md`. If you want GitHub release notes to match the changelog, prepare a dedicated notes file such as `release-notes-0.5.0.md` from the `CHANGELOG.md` section and use it when creating the GitHub release.
+
+Typical GitHub release command once `gh` is authenticated:
+
+```powershell
+gh release create v0.5.0 --title "Pivotal 0.5.0" --notes-file release-notes-0.5.0.md
+```
+
+## MCP Fly Deployment
+
+The read-only hosted MCP server is deployed on Fly using `fly.toml` and `Dockerfile.mcp-readonly`.
+
+Current hosted app:
+
+- `pivotal-mcp-readonly`
+
+Typical deployment flow:
+
+```powershell
+fly deploy --remote-only -a pivotal-mcp-readonly
+fly logs -a pivotal-mcp-readonly --no-tail
+```
+
+Smoke-test the public endpoint:
+
+- `https://pivotal-mcp-readonly.fly.dev/mcp`
+
+Notes:
+
+- The container must bind to `0.0.0.0:$PORT`. If Fly warns that the app is not listening on the expected address, check the Docker `CMD` and pass `--host 0.0.0.0 --port 8000` to `python -m pivotal.mcp_server`.
+- A `406 Not Acceptable` response from `/mcp` without the right streaming `Accept` header is still useful evidence that the route is live; it is better than a timeout or `404`.
+- If replacing an older Fly-hosted MCP app, either destroy the old app or scale it to zero and disable autostart so only the intended service remains active.

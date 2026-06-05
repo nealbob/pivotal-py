@@ -21,7 +21,6 @@
         <a href="https://docs.pivotal-lang.org/">Docs</a>
         <a href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">Demo</a>
         <a href="https://github.com/nealbob/pivotal-py">GitHub</a>
-        <a href="https://mcp.pivotal-lang.org/mcp">MCP</a>
       </nav>
     </header>
 
@@ -37,29 +36,7 @@
           </p>
           <div class="hero-actions">
             <a class="button primary" href="https://docs.pivotal-lang.org/">Read the docs</a>
-            <a class="button secondary" href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">Open Binder demo</a>
-          </div>
-        </div>
-      </section>
-
-      <section class="install-band" aria-label="Install Pivotal">
-        <div class="section-inner install-grid">
-          <div>
-            <p class="section-kicker">Install</p>
-            <h2>Get started with Pivotal</h2>
-            <p>
-              Install the Pivotal language and JupyterLab extension via <code>pip</code> and the
-              <a class="inline-link" href="https://marketplace.visualstudio.com/items?itemName=NealHughes.pivotal-language">VS Code extension</a>
-              via marketplace.
-            </p>
-          </div>
-          <div class="terminal-pair">
-            <div class="copy-block">
-              <pre><code id="install-command">pip install pivotal-lang pivotal-lab</code></pre>
-              <button class="copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
-                Copy
-              </button>
-            </div>
+            <a class="button secondary" href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">Try the demo</a>
           </div>
         </div>
       </section>
@@ -67,10 +44,10 @@
       <section class="section-inner code-section">
         <div class="section-copy">
           <p class="section-kicker">Syntax</p>
-          <h2>Readable pipelines that compile to Python</h2>
+          <h2>Python data pipelines,<br />without the boilerplate</h2>
           <p>
-            Write transformations in a compact DSL and run against common Python data backends (Pandas, Polars,
-            DuckDB).
+            Write data transformations in concise, readable Pivotal syntax and run against common Python data backends
+            (Pandas, Polars, DuckDB).
           </p>
         </div>
         <div class="code-tabs">
@@ -84,19 +61,50 @@
           </div>
           <div class="tab-panel" id="panel-pivotal" role="tabpanel" aria-labelledby="tab-pivotal">
             <pre class="code-sample"><code><span class="pvt-keyword">with</span> <span class="pvt-name">players</span>
+    <span class="pvt-clause">left</span> <span class="pvt-keyword">merge</span> <span class="pvt-name">results</span>
+        <span class="pvt-clause">on</span> <span class="pvt-name">player</span>
     <span class="pvt-keyword">filter</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">&gt;=</span> <span class="pvt-number">900</span>
     <span class="pvt-name">goals_per_90</span> <span class="pvt-operator">=</span> <span class="pvt-name">goals</span> <span class="pvt-operator">/</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">*</span> <span class="pvt-number">90</span>
-    <span class="pvt-keyword">sort</span> <span class="pvt-name">goals_per_90</span> <span class="pvt-clause">desc</span>
-    <span class="pvt-keyword">select</span> <span class="pvt-name">player</span><span class="pvt-punctuation">,</span> <span class="pvt-name">team</span><span class="pvt-punctuation">,</span> <span class="pvt-name">goals_per_90</span></code></pre>
+
+<span class="pvt-keyword">with</span> <span class="pvt-name">players</span> <span class="pvt-clause">as</span> <span class="pvt-name">scoring_rates</span>
+    <span class="pvt-keyword">group</span> <span class="pvt-clause">by</span> <span class="pvt-name">player</span>
+        <span class="pvt-keyword">agg</span> <span class="pvt-builtin">mean</span> <span class="pvt-name">goals_per_90</span>
+    <span class="pvt-keyword">sort</span> <span class="pvt-name">goals_per_90</span> <span class="pvt-clause">desc</span></code></pre>
           </div>
           <div class="tab-panel" id="panel-pandas" role="tabpanel" aria-labelledby="tab-pandas" hidden>
-            <pre class="code-sample pandas-sample"><code><span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"minutes"</span><span class="py-punctuation">]</span> <span class="py-operator">&gt;=</span> <span class="py-number">900</span><span class="py-punctuation">]</span><span class="py-punctuation">.</span><span class="py-name">copy</span><span class="py-punctuation">()</span>
+            <pre class="code-sample pandas-sample"><code><span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">.</span><span class="py-name">merge</span><span class="py-punctuation">(</span><span class="py-name">results</span><span class="py-punctuation">,</span> <span class="py-name">how</span><span class="py-operator">=</span><span class="py-string">"left"</span><span class="py-punctuation">,</span> <span class="py-name">on</span><span class="py-operator">=</span><span class="py-string">"player"</span><span class="py-punctuation">)</span>
+<span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"minutes"</span><span class="py-punctuation">]</span> <span class="py-operator">&gt;=</span> <span class="py-number">900</span><span class="py-punctuation">]</span><span class="py-punctuation">.</span><span class="py-name">copy</span><span class="py-punctuation">()</span>
 <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">]</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"goals"</span><span class="py-punctuation">]</span> <span class="py-operator">/</span> <span class="py-name">players</span><span class="py-punctuation">[</span><span class="py-string">"minutes"</span><span class="py-punctuation">]</span> <span class="py-operator">*</span> <span class="py-number">90</span>
-<span class="py-name">players</span> <span class="py-operator">=</span> <span class="py-punctuation">(</span>
-    <span class="py-name">players</span>
-    <span class="py-punctuation">.</span><span class="py-name">sort_values</span><span class="py-punctuation">(</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">,</span> <span class="py-name">ascending</span><span class="py-operator">=</span><span class="py-keyword">False</span><span class="py-punctuation">)</span>
-    <span class="py-punctuation">[[</span><span class="py-string">"player"</span><span class="py-punctuation">,</span> <span class="py-string">"team"</span><span class="py-punctuation">,</span> <span class="py-string">"goals_per_90"</span><span class="py-punctuation">]]</span>
-<span class="py-punctuation">)</span></code></pre>
+
+<span class="py-name">scoring_rates</span> <span class="py-operator">=</span> <span class="py-name">players</span><span class="py-punctuation">.</span><span class="py-name">groupby</span><span class="py-punctuation">(</span><span class="py-string">"player"</span><span class="py-punctuation">)[</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">]</span><span class="py-punctuation">.</span><span class="py-name">mean</span><span class="py-punctuation">()</span>
+<span class="py-name">scoring_rates</span> <span class="py-operator">=</span> <span class="py-name">scoring_rates</span><span class="py-punctuation">.</span><span class="py-name">reset_index</span><span class="py-punctuation">()</span>
+<span class="py-name">scoring_rates</span> <span class="py-operator">=</span> <span class="py-name">scoring_rates</span><span class="py-punctuation">.</span><span class="py-name">sort_values</span><span class="py-punctuation">(</span><span class="py-string">"goals_per_90"</span><span class="py-punctuation">,</span> <span class="py-name">ascending</span><span class="py-operator">=</span><span class="py-keyword">False</span><span class="py-punctuation">)</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="install-band" aria-label="Install Pivotal">
+        <div class="section-inner install-grid">
+          <div>
+            <p class="section-kicker">Install</p>
+            <h2>Getting started</h2>
+            <p>
+              Install the Pivotal language and JupyterLab extension with <code>pip</code>, and the
+              <a class="inline-link" href="https://marketplace.visualstudio.com/items?itemName=NealHughes.pivotal-language">VS Code extension</a>
+              via marketplace.
+            </p>
+          </div>
+          <div class="terminal-pair">
+            <div class="copy-block">
+              <pre><code id="install-command">pip install pivotal-lang pivotal-lab</code></pre>
+              <button class="copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span class="copy-status" aria-live="polite">Copy</span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -108,7 +116,7 @@
             <h2>Use Pivotal in Jupyter and VS Code</h2>
             <p>
               Use Pivotal in either Jupyter Notebooks or VS Code with syntax highlighting, autocomplete, and visual
-              data explorer / viewer.
+              data explorer.
             </p>
           </div>
           <a class="demo-link" href="https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb">
@@ -117,7 +125,7 @@
         </div>
       </section>
 
-      <section class="section-inner mcp-section">
+      <section class="section-inner mcp-section" id="mcp">
         <div>
           <p class="section-kicker">MCP server</p>
           <h2>Generate Pivotal code with AI</h2>
@@ -188,9 +196,12 @@
           if (!target) return;
 
           await copyText(target.textContent.trim());
-          button.textContent = "Copied";
+          const status = button.querySelector(".copy-status");
+          if (status) status.textContent = "Copied";
+          button.setAttribute("aria-label", "Copied install command");
           window.setTimeout(() => {
-            button.textContent = "Copy";
+            if (status) status.textContent = "Copy";
+            button.setAttribute("aria-label", "Copy install command");
           }, 1600);
         });
       });
