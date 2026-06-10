@@ -399,7 +399,7 @@ grammar_indented = r"""
     table_name: IDENTIFIER
     copy_table: IDENTIFIER
 
-    expression: UNQUOTED_STRING
+    expression: UNQUOTED_STRING+
 
     condition: IDENTIFIER COMPARATOR (value | list_value)
              | IDENTIFIER "in" list_value       -> condition_in_list
@@ -473,12 +473,13 @@ grammar_indented = r"""
     IDENTIFIER: /[a-zA-Z][a-zA-Z0-9_]*/
     IDENT_LIST.2: IDENTIFIER ("," IDENTIFIER)*
     STRING: /"[^"]*"/ | /'[^']*'/
-    UNQUOTED_STRING: /[^\n]+/
+    UNQUOTED_STRING: /(?:[^\n\\]|\\(?![ \t]*\r?\n))+/
     PATH: /[a-zA-Z0-9_]+[:\\\/][a-zA-Z0-9_:\/\\\.\-]+|[\\\/][a-zA-Z0-9_:\/\\\.\-]+|[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+/
     SIGNED_NUMBER.1: /-\d+(\.\d+)?/
     NUMBER: /\d+(\.\d+)?/
     COMMENT: /#[^\n]*/ | /--[^\n]*/
     MULTILINE_COMMENT:  /\/\*[\s\S]*?\*\//
+    LINE_CONTINUATION.10: /\\[ \t]*\r?\n[ \t]*/
 
     _NL: (/\r?\n[\t ]*/)+
 
@@ -486,6 +487,7 @@ grammar_indented = r"""
     %ignore WS_INLINE
     %ignore COMMENT
     %ignore MULTILINE_COMMENT
+    %ignore LINE_CONTINUATION
 """
 
 # Define the Indenter for our DSL
@@ -1120,8 +1122,8 @@ class DSLTransformer(Transformer):
     def target(self, identifier):
         return str(identifier)
     
-    def expression(self, expr):
-        return str(expr)
+    def expression(self, *parts):
+        return ' '.join(str(part).strip() for part in parts)
     
     def filter_statement(self, condition_list):
         """Handle filter statements with conditions"""

@@ -2290,8 +2290,57 @@ def test_full_pipeline_save_reload(parser, tmp_path, sample_df):
 
 
 # ---------------------------------------------------------------------------
-# Comment handling regression tests
+# Line continuation and comment handling regression tests
 # ---------------------------------------------------------------------------
+
+def test_backslash_continues_select_statement(parser, sample_df):
+    """A trailing backslash continues a statement onto the next source line."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = (
+        'with sales\n'
+        'select id, product, \\\n'
+        '    price, quantity\n'
+    )
+    run(parser, dsl, ns)
+    assert list(ns['sales'].columns) == ['id', 'product', 'price', 'quantity']
+
+
+def test_backslash_continues_filter_statement(parser, sample_df):
+    """Continuation works for commands other than comma-separated column lists."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = (
+        'with sales\n'
+        'filter price > 100 and \\\n'
+        '    quantity < 50\n'
+    )
+    run(parser, dsl, ns)
+    assert ns['sales']['product'].tolist() == ['Laptop', 'Desk', 'Chair', 'Monitor']
+
+
+def test_backslash_continues_assignment_expression(parser, sample_df):
+    """Continuation is not swallowed by the free-form assignment expression token."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = (
+        'with sales\n'
+        'total = price * \\\n'
+        '    quantity\n'
+    )
+    run(parser, dsl, ns)
+    assert ns['sales']['total'].tolist() == (
+        sample_df['price'] * sample_df['quantity']
+    ).tolist()
+
+
+def test_backslash_continuation_preserves_following_error_line(parser):
+    """Ignoring a continuation newline must not shift later parser line numbers."""
+    result = parser.parse(
+        'with sales\n'
+        'select id, \\\n'
+        '    product\n'
+        'filter @@@\n'
+    )
+    assert result['error'].line == 4
+
 
 def test_comment_between_statements_dash(parser, sample_df):
     """Comments (-- style) between statements must not cause a parse error.

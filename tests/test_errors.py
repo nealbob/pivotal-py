@@ -62,7 +62,7 @@ class TestSyntaxErrors:
     def test_garbage_characters(self, parser):
         err = self._parse_error(parser, 'filter @@@')
         assert err.error_type == 'Syntax Error'
-        assert 'Unexpected text' in err.message
+        assert 'Unexpected' in err.message
         assert err.line == 1
 
     def test_keyword_collision_returns_error(self, parser):

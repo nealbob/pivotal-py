@@ -6,6 +6,10 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Added
+
+- Added explicit `\` line continuation so long Pivotal statements can span multiple physical lines.
+
 ## [0.5.0] - 2026-05-18
 
 ### Added

@@ -765,6 +765,22 @@ delete temp_table
    comment */
 ```
 
+## Line continuation
+
+End a physical line with `\` to continue the same statement on the next line:
+
+```pivotal
+with sales
+    select customer_id, product, region, \
+        revenue, quantity, date
+
+    filter revenue > 1000 and \
+        region == "East"
+```
+
+The backslash must be the final non-whitespace character on the line. Without
+it, a newline ends the statement or starts an indented option block.
+
 ---
 
 ## Common mistakes to avoid

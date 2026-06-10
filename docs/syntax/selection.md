@@ -14,6 +14,14 @@ with sales as report
     select product, region, revenue, date
 ```
 
+Use a trailing `\` to continue a long statement:
+
+```pivotal
+with sales as report
+    select product, region, revenue, \
+        quantity, customer_id, date
+```
+
 Keep columns whose names match a regex pattern:
 
 ```pivotal

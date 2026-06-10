@@ -352,6 +352,13 @@ select matches "<regex>"
 Aliases are supported for explicit column names. A Python variable may provide a
 single column or a list of columns.
 
+End a physical line with `\` to continue a long Pivotal statement:
+
+```pivotal
+select customer_id, product, region, \
+    revenue, quantity, date
+```
+
 ### `drop`
 
 Remove columns:
