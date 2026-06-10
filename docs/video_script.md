@@ -6,11 +6,11 @@ If so, please tell me what tools are available.
 
 # Prompt 2
 
-OK Great. 
+OK Great.
 
 Can you write me some Pivotal code to process my CSV data. I have a file named farms.csv it has columns: year, region, revenue, cost and weight. 
 
-I want to read it in and generate a profit column as revenue less costs. Then group by year and region compute the weighted average. Then save to a data package.
+I want to read it in and generate a profit column as revenue less costs. Then group by year and region compute the weighted average. Plot mean profit by year and region, then save to a data package.
 
 Please use the MCP server to check the code compiles and then apply syntax highlighting.
 

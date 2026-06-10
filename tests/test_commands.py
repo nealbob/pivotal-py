@@ -1465,6 +1465,35 @@ def test_single_y_plot_hides_legend_by_default(parser):
     assert ax.get_legend() is None
 
 
+def test_faceted_plot_with_title_registers_populated_chart(parser):
+    df = pd.DataFrame({
+        'year': [2020, 2021, 2020, 2021],
+        'region': ['North', 'North', 'South', 'South'],
+        'profit_wavg': [40, 45, 60, 65],
+    })
+    ns = {'pd': pd, 'summary': df}
+    run(
+        parser,
+        'with summary\n'
+        'plot line profit_by_year_region\n'
+        '    x year "Year"\n'
+        '    y profit_wavg "Weighted Avg Profit"\n'
+        '    title "Weighted Average Farm Profit by Year and Region"\n'
+        '    by region\n',
+        ns,
+    )
+
+    fig = ns['_pivotal_charts']['profit_by_year_region']['fig']
+    visible_axes = [ax for ax in fig.axes if ax.get_visible()]
+
+    assert ns['profit_by_year_region'] is fig
+    assert fig._suptitle.get_text() == 'Weighted Average Farm Profit by Year and Region'
+    assert [ax.get_title() for ax in visible_axes] == ['North', 'South']
+    assert all(ax.get_xlabel() == 'Year' for ax in visible_axes)
+    assert all(ax.get_ylabel() == 'Weighted Avg Profit' for ax in visible_axes)
+    assert all(len(ax.lines) == 1 for ax in visible_axes)
+
+
 def test_plot_show_displays_then_closes_figure(parser, monkeypatch):
     displayed = []
 

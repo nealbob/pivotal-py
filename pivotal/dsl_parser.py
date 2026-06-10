@@ -5357,6 +5357,7 @@ class CodeGenerator:
         style = ast_node.get('style')
         semantic_xlabel = kwargs.pop('xlabel', None)
         semantic_ylabel = kwargs.pop('ylabel', None)
+        title_kwarg = kwargs.pop('title', None) if by_col and not on else None
         x_label_key, y_label_key = self._plot_label_keys_for_kind(kind)
         if not on and 'legend' not in kwargs and self._plot_value_is_single_series(kwargs.get('y')):
             kwargs['legend'] = False
@@ -5437,17 +5438,27 @@ class CodeGenerator:
                 f"_axes = _axes.flatten() if hasattr(_axes, 'flatten') else [_axes]",
                 f"for _i, _val in enumerate(_by_vals):",
                 f"    {table}[{table}[{repr(by_col)}] == _val].plot({args_str}, ax=_axes[_i], title=str(_val))",
+            ]
+            if semantic_xlabel is not None:
+                lines.append(f"    _axes[_i].set_{x_label_key}({self._format_plot_kwarg_value(semantic_xlabel)})")
+            if semantic_ylabel is not None:
+                lines.append(f"    _axes[_i].set_{y_label_key}({self._format_plot_kwarg_value(semantic_ylabel)})")
+            lines += [
                 f"for _ax in _axes[len(_by_vals):]:",
                 f"    _ax.set_visible(False)",
-                f"plt.tight_layout()",
+            ]
+            if title_kwarg is not None:
+                lines += [
+                    f"_fig.suptitle({self._format_plot_kwarg_value(title_kwarg)})",
+                    f"plt.tight_layout(rect=(0, 0, 1, 0.96))",
+                ]
+            else:
+                lines.append(f"plt.tight_layout()")
+            lines += [
                 f"if '_pivotal_charts' not in globals(): globals()['_pivotal_charts'] = {{}}",
                 f"globals()['_pivotal_charts'][{repr(chart_key)}] = {{'fig': _fig, 'data': {table}.copy()}}",
                 f"{chart_key} = _fig",
             ]
-            if semantic_xlabel is not None:
-                lines.insert(-4, f"    _axes[_i].set_{x_label_key}({self._format_plot_kwarg_value(semantic_xlabel)})")
-            if semantic_ylabel is not None:
-                lines.insert(-4, f"    _axes[_i].set_{y_label_key}({self._format_plot_kwarg_value(semantic_ylabel)})")
 
         # Apply custom style keys that matplotlib doesn't support natively
         if style:

@@ -10,6 +10,10 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 - Added explicit `\` line continuation so long Pivotal statements can span multiple physical lines.
 
+### Fixed
+
+- Fixed faceted `plot ... by ...` statements with a title so they generate and register populated charts, with the overall title and axis labels applied correctly.
+
 ## [0.5.0] - 2026-05-18
 
 ### Added
