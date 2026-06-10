@@ -1447,37 +1447,42 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">report</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">select</span> <span class="n">product</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">revenue</span><span class="p">,</span> <span class="kd">date</span>
 </code></pre></div>
+<p>Use a trailing <code>\</code> to continue a long statement:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">report</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">select</span> <span class="n">product</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">revenue</span><span class="p">,</span> <span class="err">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">quantity</span><span class="p">,</span> <span class="n">customer_id</span><span class="p">,</span> <span class="kd">date</span>
+</code></pre></div>
 <p>Keep columns whose names match a regex pattern:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">metrics</span> <span class="kd">as</span> <span class="n">rates</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">select</span> <span class="ow">matches</span> <span class="s2">&quot;_rate$&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">metrics</span> <span class="kd">as</span> <span class="n">rates</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">select</span> <span class="ow">matches</span> <span class="s2">&quot;_rate$&quot;</span>
 </code></pre></div>
 <h2 id="drop-remove-columns"><code>drop</code> — remove columns</h2>
 <p>Remove specific columns, keep everything else:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">drop</span> <span class="n">internal_id</span><span class="p">,</span> <span class="n">debug_flag</span><span class="p">,</span> <span class="n">temp_col</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="k">drop</span> <span class="n">internal_id</span><span class="p">,</span> <span class="n">debug_flag</span><span class="p">,</span> <span class="n">temp_col</span>
 </code></pre></div>
 <p>Remove columns whose names match a regex pattern:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="k">drop</span> <span class="ow">matches</span> <span class="s2">&quot;^temp_&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">drop</span> <span class="ow">matches</span> <span class="s2">&quot;^temp_&quot;</span>
 </code></pre></div>
 <h2 id="distinct-remove-duplicate-rows"><code>distinct</code> — remove duplicate rows</h2>
 <h3 id="deduplicate-on-all-columns">Deduplicate on all columns</h3>
 <p>Remove rows where every column is identical to another row:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="ow">unique</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">distinct</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="ow">unique</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">distinct</span>
 </code></pre></div>
 <h3 id="deduplicate-on-specific-columns">Deduplicate on specific columns</h3>
 <p>Keep the first occurrence for each unique combination of the specified columns:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">unique_products</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">distinct</span> <span class="n">product</span><span class="p">,</span> <span class="n">category</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">unique_products</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="k">distinct</span> <span class="n">product</span><span class="p">,</span> <span class="n">category</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>When specific columns are provided, only those columns are kept in the result. If you want to deduplicate based on certain columns but keep all columns, combine with a merge or use <code>apply</code> with a Python function.</p>
 </div>
 <h2 id="rename-rename-columns"><code>rename</code> — rename columns</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">renamed</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="k">rename</span> <span class="n">product</span> <span class="kd">as</span> <span class="n">item</span><span class="p">,</span> <span class="n">quantity</span> <span class="kd">as</span> <span class="n">qty</span><span class="p">,</span> <span class="n">unit_price</span> <span class="kd">as</span> <span class="n">price</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">renamed</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">rename</span> <span class="n">product</span> <span class="kd">as</span> <span class="n">item</span><span class="p">,</span> <span class="n">quantity</span> <span class="kd">as</span> <span class="n">qty</span><span class="p">,</span> <span class="n">unit_price</span> <span class="kd">as</span> <span class="n">price</span>
 </code></pre></div>
 <p>Multiple renames in one statement, separated by commas.</p>
 
