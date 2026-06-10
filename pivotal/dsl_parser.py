@@ -13,6 +13,7 @@ import warnings
 from pathlib import Path
 from types import SimpleNamespace
 from .errors import PivotalError, _make_suggestion
+from .expression_parser import parse_expression
 
 _AGG_CALL_RE = re.compile(
     r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
@@ -9014,6 +9015,18 @@ class DSLParser:
 
         return expanded
 
+    def _attach_expression_asts(self, value):
+        """Attach best-effort expression ASTs without changing raw expressions."""
+        if isinstance(value, dict):
+            if value.get('type') == 'assign':
+                value['expression_ast'] = parse_expression(value.get('expression'))
+            for child in value.values():
+                self._attach_expression_asts(child)
+        elif isinstance(value, list):
+            for child in value:
+                self._attach_expression_asts(child)
+        return value
+
     def parse(self, code, namespace=None):
         """Parse DSL code and return AST or {'error': PivotalError}."""
         try:
@@ -9021,7 +9034,8 @@ class DSLParser:
             processed_code, _ = self._rewrite_runtime_refs(processed_code, namespace)
             result = self.parser.parse(processed_code)
             result = self._expand_compile_time_features(result, namespace)
-            return self._expand_for_loops(result, namespace)
+            result = self._expand_for_loops(result, namespace)
+            return self._attach_expression_asts(result)
         except ValueError as e:
             # Keyword-collision errors raised by the transformer — wrap cleanly.
             return {'error': PivotalError(message=str(e), error_type="Error")}

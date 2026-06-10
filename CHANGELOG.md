@@ -9,6 +9,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 ### Added
 
 - Added explicit `\` line continuation so long Pivotal statements can span multiple physical lines.
+- Added a standalone assignment expression parser and an additive `expression_ast` field on parsed assignment nodes, while preserving raw expression strings and existing backend generation.
 
 ### Fixed
 
