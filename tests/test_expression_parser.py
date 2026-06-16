@@ -1,6 +1,9 @@
 """Focused tests for the additive standalone expression parser."""
 
+import ast
 import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -163,3 +166,158 @@ def test_unsupported_assignment_keeps_raw_expression_fallback():
 
     assert nodes[1]["expression"] == ":config['value']"
     assert nodes[1]["expression_ast"] is None
+
+
+CONFORMANCE_PY_FILES = [
+    Path("tests/test_commands.py"),
+    Path("tests/test_commands_polars.py"),
+    Path("tests/test_commands_duckdb.py"),
+    Path("tests/test_phase5_sql_cte.py"),
+]
+
+CONFORMANCE_MARKDOWN_FILES = [
+    Path("PIVOTAL.md"),
+    *Path("docs").glob("*.md"),
+    *Path("docs/syntax").glob("*.md"),
+]
+
+RAW_FALLBACK_EXPRESSIONS = {
+    ':class_names["1"]',
+    "revenue >= p90",
+}
+
+REPRESENTATIVE_CORPUS_EXPRESSIONS = {
+    "price * quantity",
+    "(revenue - cost) / revenue",
+    "amount / sum(amount)",
+    "(amount - mean(amount)) / std(amount)",
+    "quantile(amount, 0.9)",
+    'regex_replace(phone, "[^0-9]", "")',
+    'first_name + " " + last_name',
+    ":clean_name(name)",
+    ':class_names["1"]',
+    "revenue >= p90",
+}
+
+
+def _literal_string_node(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _literal_string_node(node.left)
+        right = _literal_string_node(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _pivotal_sources_from_python(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        source = _literal_string_node(node)
+        if not source or "\n" not in source:
+            continue
+        stripped = source.lstrip()
+        if "with " in source or stripped.startswith(
+            ("scalar ", "list ", "dict ", "function ")
+        ):
+            yield source
+
+
+def _pivotal_sources_from_markdown(path):
+    text = path.read_text(encoding="utf-8")
+    yield from re.findall(r"```pivotal\s*\n(.*?)```", text, flags=re.IGNORECASE | re.DOTALL)
+    for inline in re.findall(r"`([^`\n]*\b[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[^`\n]+)`", text):
+        yield f"with _table\n{inline}\n"
+
+
+def _assignment_nodes(value):
+    if isinstance(value, dict):
+        if value.get("type") == "assign":
+            yield value
+        for child in value.values():
+            yield from _assignment_nodes(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _assignment_nodes(child)
+
+
+def _assignment_expressions(value):
+    for node in _assignment_nodes(value):
+        if isinstance(node.get("expression"), str):
+            yield node["expression"]
+        if isinstance(node.get("default_expr"), str):
+            yield node["default_expr"]
+        for case in node.get("cases") or []:
+            if isinstance(case, dict) and isinstance(case.get("expression"), str):
+                yield case["expression"]
+
+
+def _current_assignment_expression_corpus():
+    parser = DSLParser()
+    corpus = {}
+    sources_by_file = []
+
+    for path in CONFORMANCE_PY_FILES:
+        sources_by_file.extend((path, source) for source in _pivotal_sources_from_python(path))
+    for path in CONFORMANCE_MARKDOWN_FILES:
+        sources_by_file.extend((path, source) for source in _pivotal_sources_from_markdown(path))
+
+    for path, source in sources_by_file:
+        if "=" not in source:
+            continue
+        parsed = parser.parse(source)
+        if isinstance(parsed, dict) and "error" in parsed:
+            continue
+        for expression in _assignment_expressions(parsed):
+            corpus.setdefault(expression, set()).add(str(path))
+
+    return corpus
+
+
+def test_current_assignment_expression_corpus_conformance():
+    corpus = _current_assignment_expression_corpus()
+    fallbacks = set()
+
+    assert len(corpus) >= 100
+    assert REPRESENTATIVE_CORPUS_EXPRESSIONS <= set(corpus)
+
+    for expression in corpus:
+        expression_ast = parse_expression(expression)
+        if expression_ast is None:
+            fallbacks.add(expression)
+        else:
+            json.dumps(expression_ast)
+
+    assert fallbacks == RAW_FALLBACK_EXPRESSIONS
+
+
+def test_parser_attachment_matches_standalone_parser_for_current_corpus():
+    parser = DSLParser()
+
+    for path in CONFORMANCE_PY_FILES:
+        sources = _pivotal_sources_from_python(path)
+        for source in sources:
+            _assert_assignment_asts_match_standalone_parser(parser, source)
+
+    for path in CONFORMANCE_MARKDOWN_FILES:
+        sources = _pivotal_sources_from_markdown(path)
+        for source in sources:
+            _assert_assignment_asts_match_standalone_parser(parser, source)
+
+
+def _assert_assignment_asts_match_standalone_parser(parser, source):
+    if "=" not in source:
+        return
+    parsed = parser.parse(source)
+    if isinstance(parsed, dict) and "error" in parsed:
+        return
+
+    for node in _assignment_nodes(parsed):
+        expression = node.get("expression")
+        if expression is None:
+            continue
+        assert "expression_ast" in node
+        assert node["expression_ast"] == parse_expression(expression)
+        if node["expression_ast"] is not None:
+            json.dumps(node["expression_ast"])
