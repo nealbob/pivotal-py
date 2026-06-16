@@ -452,7 +452,8 @@ pre code {
 }
 
 .links-section a,
-.endpoint {
+.endpoint,
+.video-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
@@ -462,10 +463,23 @@ pre code {
   padding: 84px 0;
 }
 
+.mcp-copy {
+  display: grid;
+  gap: 18px;
+}
+
+.mcp-copy p {
+  margin-bottom: 0;
+}
+
 .endpoint {
   display: grid;
   gap: 12px;
   padding: 22px;
+}
+
+.endpoint-inline {
+  max-width: 620px;
 }
 
 .endpoint span {
@@ -486,6 +500,68 @@ pre code {
 .endpoint a {
   color: var(--green);
   font-weight: 750;
+}
+
+.video-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(23, 32, 51, 0.15);
+}
+
+.video-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.video-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(16, 24, 39, 0) 45%, rgba(16, 24, 39, 0.76) 100%);
+}
+
+.video-play {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 48px;
+  border-radius: 8px;
+  background: #dc2626;
+  color: white;
+  transform: translate(-50%, -50%);
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.video-play svg {
+  width: 25px;
+  height: 25px;
+  fill: currentColor;
+}
+
+.video-caption {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.video-card:hover .video-play {
+  background: #b91c1c;
+  transform: translate(-50%, -50%) scale(1.04);
 }
 
 .links-section {

@@ -70,8 +70,7 @@ When both tables have columns with the same name (other than the join key), suff
 
 ```pivotal
 with sales as result
-    left merge targets
-        on region, category
+    left merge targets on region, category
         suffixes ["_actual", "_target"]
 ```
 

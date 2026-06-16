@@ -8,6 +8,29 @@
       name="description"
       content="Pivotal is a concise data transformation language for Python, Jupyter, Pandas, Polars, DuckDB, editors, and AI coding workflows."
     />
+    <link rel="canonical" href="https://www.pivotal-lang.org/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pivotal" />
+    <meta property="og:url" content="https://www.pivotal-lang.org/" />
+    <meta property="og:title" content="Pivotal - Data transformation syntax for Python" />
+    <meta
+      property="og:description"
+      content="A concise data analysis language for Python, Jupyter, Pandas, Polars, and DuckDB."
+    />
+    <meta property="og:image" content="https://www.pivotal-lang.org/images/pivotal_social_card.png" />
+    <meta property="og:image:secure_url" content="https://www.pivotal-lang.org/images/pivotal_social_card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Pivotal - a concise data analysis language for Python" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pivotal - Data transformation syntax for Python" />
+    <meta
+      name="twitter:description"
+      content="A concise data analysis language for Python, Jupyter, Pandas, Polars, and DuckDB."
+    />
+    <meta name="twitter:image" content="https://www.pivotal-lang.org/images/pivotal_social_card.png" />
+    <meta name="twitter:image:alt" content="Pivotal - a concise data analysis language for Python" />
     <link rel="icon" href="/images/pivotal_logo.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -61,8 +84,7 @@
           </div>
           <div class="tab-panel" id="panel-pivotal" role="tabpanel" aria-labelledby="tab-pivotal">
             <pre class="code-sample"><code><span class="pvt-keyword">with</span> <span class="pvt-name">players</span>
-    <span class="pvt-clause">left</span> <span class="pvt-keyword">merge</span> <span class="pvt-name">results</span>
-        <span class="pvt-clause">on</span> <span class="pvt-name">player</span>
+    <span class="pvt-clause">left</span> <span class="pvt-keyword">merge</span> <span class="pvt-name">results</span> <span class="pvt-clause">on</span> <span class="pvt-name">player</span>
     <span class="pvt-keyword">filter</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">&gt;=</span> <span class="pvt-number">900</span>
     <span class="pvt-name">goals_per_90</span> <span class="pvt-operator">=</span> <span class="pvt-name">goals</span> <span class="pvt-operator">/</span> <span class="pvt-name">minutes</span> <span class="pvt-operator">*</span> <span class="pvt-number">90</span>
 
@@ -126,7 +148,7 @@
       </section>
 
       <section class="section-inner mcp-section" id="mcp">
-        <div>
+        <div class="mcp-copy">
           <p class="section-kicker">MCP server</p>
           <h2>Generate Pivotal code with AI</h2>
           <p>
@@ -134,12 +156,21 @@
             descriptions, full Pivotal documentation, code generation checks and highlighting. Local MCP servers expose
             further execution and comparison tools for private data.
           </p>
+          <div class="endpoint endpoint-inline">
+            <span>Hosted endpoint</span>
+            <code>https://mcp.pivotal-lang.org/mcp</code>
+            <a href="https://docs.pivotal-lang.org/mcp-hosting/">MCP setup notes</a>
+          </div>
         </div>
-        <div class="endpoint">
-          <span>Hosted endpoint</span>
-          <code>https://mcp.pivotal-lang.org/mcp</code>
-          <a href="https://docs.pivotal-lang.org/mcp-hosting/">MCP setup notes</a>
-        </div>
+        <a class="video-card" href="https://www.youtube.com/watch?v=8spqnol6LbI" aria-label="Watch the Pivotal MCP with Claude demo on YouTube">
+          <img src="https://img.youtube.com/vi/8spqnol6LbI/hqdefault.jpg" alt="Pivotal MCP with Claude YouTube demo thumbnail" />
+          <span class="video-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"></path>
+            </svg>
+          </span>
+          <span class="video-caption">Watch the Claude MCP demo</span>
+        </a>
       </section>
 
       <section class="section-inner links-section" aria-label="Project links">
