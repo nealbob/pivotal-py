@@ -159,14 +159,34 @@ def test_known_function_arity_is_validated_directly():
         normalize("upper(first, last)")
 
 
-def test_assignment_expression_ir_is_additive_and_codegen_is_unchanged():
+def test_assignment_expression_ir_drives_basic_pandas_arithmetic_codegen():
     parser = DSLParser()
     nodes = parser.parse("with sales\nrevenue = price * quantity\n")
     assignment = nodes[1]
 
     assert assignment["expression"] == "price * quantity"
     assert assignment["expression_ir"] == normalize("price * quantity")
-    assert "sales.eval('price * quantity')" in "\n".join(parser.generate_code(nodes))
+    code = "\n".join(parser.generate_code(nodes))
+    assert "sales['revenue'] = (sales['price'] * sales['quantity'])" in code
+    assert "sales.eval('price * quantity')" not in code
+
+
+@pytest.mark.parametrize(
+    ("backend", "expected"),
+    [
+        ("pandas", "sales['revenue'] = (sales['price'] * sales['quantity'])"),
+        ("polars", "((pl.col('price') * pl.col('quantity'))).alias('revenue')"),
+        ("duckdb", "(price * quantity) AS revenue"),
+        ("sql", "(price * quantity) AS revenue"),
+    ],
+)
+def test_basic_arithmetic_assignment_uses_expression_ir_across_backends(backend, expected):
+    parser = DSLParser()
+    nodes = parser.parse("with sales\nrevenue = price * quantity\n")
+
+    code = "\n".join(parser.generate_code(nodes, backend=backend))
+
+    assert expected in code
 
 
 def test_assignment_expression_ir_attached_after_expansion():
@@ -190,4 +210,6 @@ def test_expression_ir_falls_back_when_expression_ast_is_unavailable():
 
     assert nodes[1]["expression_ast"] is None
     assert nodes[1]["expression_ir"] is None
-
+    code = "\n".join(parser.generate_code(nodes))
+    assert ".eval(" in code
+    assert "config" in code

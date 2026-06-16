@@ -1,8 +1,8 @@
 """Standalone parser for additive assignment expression ASTs.
 
-This module intentionally does not participate in backend code generation yet.
-Unsupported legacy expressions return ``None`` so the public raw expression
-string remains the authoritative fallback during the migration.
+Backend generators consume supported AST/IR subsets during the staged
+migration. Unsupported legacy expressions return ``None`` so the public raw
+expression string remains the authoritative fallback.
 """
 
 import ast
@@ -158,4 +158,3 @@ def parse_expression(source: str) -> Optional[dict]:
         return _PARSER.parse(source.strip())
     except (LarkError, ValueError, SyntaxError):
         return None
-

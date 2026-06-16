@@ -1,7 +1,8 @@
 """Semantic normalization for parsed Pivotal assignment expressions.
 
-The normalizer is additive metadata for now. Backend generators still consume
-the public raw ``expression`` string, not this IR.
+The normalizer is additive metadata. Backend generators may consume supported
+IR subsets, while unsupported nodes keep using the public raw ``expression``
+fallback during the staged migration.
 """
 
 import copy
@@ -207,4 +208,3 @@ def _normalize_call(node):
     raise ExpressionIRValidationError(
         f"Function '{name}' has unknown category {category!r}."
     )
-

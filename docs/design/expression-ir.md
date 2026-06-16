@@ -12,8 +12,9 @@ The first migration stages are deliberately additive:
 - Assignment nodes retain their public `expression` string unchanged.
 - Supported assignment expressions also receive additive `expression_ast` and
   `expression_ir` fields.
-- Backend generators continue consuming `expression`; they do not consume
-  `expression_ast` or `expression_ir` yet.
+- Backend generators consume `expression_ir` for the migrated basic arithmetic
+  assignment subset and continue using the raw `expression` fallback for
+  unsupported nodes.
 
 This document defines expression nodes only. It does not define a complete
 program IR or change expression semantics.
@@ -182,9 +183,9 @@ For an unsupported legacy expression, `expression_ast` and `expression_ir` are
 expression syntax must not turn a previously valid Pivotal program into a parse
 failure.
 
-Backend generators must ignore `expression_ast` and `expression_ir` until they
-are explicitly migrated. This preserves current pandas, Polars, DuckDB, and SQL
-behavior.
+Backend generators may consume explicitly migrated `expression_ir` subsets.
+Unsupported nodes must fall back to the raw `expression` string so current
+pandas, Polars, DuckDB, and SQL behavior is preserved outside migrated slices.
 
 ## Semantic IR Node Vocabulary
 

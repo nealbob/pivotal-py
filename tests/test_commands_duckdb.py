@@ -696,8 +696,8 @@ def test_codegen_drop_duckdb(parser):
 def test_codegen_for_assign_duckdb(parser):
     nodes = parser.parse('with data\nfor col in a, b\n    col = col / cpi')
     code = '\n'.join(parser.generate_code(nodes, backend='duckdb'))
-    assert 'a / cpi AS a' in code
-    assert 'b / cpi AS b' in code
+    assert '(a / cpi) AS a' in code
+    assert '(b / cpi) AS b' in code
 
 
 def test_codegen_for_cast_and_rank_duckdb(parser):

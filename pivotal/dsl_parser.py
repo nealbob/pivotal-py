@@ -3212,6 +3212,151 @@ class CodeGenerator:
         """Return a single-quoted SQL string literal."""
         return "'" + str(value).replace("'", "''") + "'"
 
+    def _expression_ir_has_string_literal(self, node):
+        if node is None:
+            return False
+        if node.get('kind') == 'literal' and node.get('literal_type') == 'string':
+            return True
+        return any(
+            self._expression_ir_has_string_literal(child)
+            for child in (
+                node.get('left'),
+                node.get('right'),
+                node.get('operand'),
+                node.get('expression'),
+                *(node.get('arguments') or []),
+            )
+            if isinstance(child, dict)
+        )
+
+    def _expression_ir_to_pandas(self, node, table):
+        """Translate basic arithmetic expression IR to pandas code, or None."""
+        if node is None:
+            return None
+        kind = node.get('kind')
+        if kind == 'column':
+            return f"{table}[{node['name']!r}]"
+        if kind == 'runtime_reference':
+            return node['name']
+        if kind == 'literal':
+            literal_type = node.get('literal_type')
+            value = node.get('value')
+            if literal_type == 'null':
+                return 'None'
+            return repr(value)
+        if kind == 'unary':
+            operand = self._expression_ir_to_pandas(node.get('operand'), table)
+            if operand is None:
+                return None
+            operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
+            if operator is None:
+                return None
+            return f"({operator}{operand})"
+        if kind == 'binary':
+            if self._expression_ir_has_string_literal(node):
+                return None
+            left = self._expression_ir_to_pandas(node.get('left'), table)
+            right = self._expression_ir_to_pandas(node.get('right'), table)
+            operator = {
+                'add': '+',
+                'subtract': '-',
+                'multiply': '*',
+                'divide': '/',
+                'modulo': '%',
+                'power': '**',
+            }.get(node.get('operator'))
+            if left is None or right is None or operator is None:
+                return None
+            return f"({left} {operator} {right})"
+        return None
+
+    def _expression_ir_to_polars(self, node):
+        """Translate basic arithmetic expression IR to a Polars Expr, or None."""
+        if node is None:
+            return None
+        kind = node.get('kind')
+        if kind == 'column':
+            return f"pl.col({node['name']!r})"
+        if kind == 'runtime_reference':
+            return f"pl.lit({node['name']})"
+        if kind == 'literal':
+            literal_type = node.get('literal_type')
+            value = node.get('value')
+            if literal_type == 'null':
+                return 'pl.lit(None)'
+            return f"pl.lit({value!r})"
+        if kind == 'unary':
+            operand = self._expression_ir_to_polars(node.get('operand'))
+            if operand is None:
+                return None
+            operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
+            if operator is None:
+                return None
+            return f"({operator}{operand})"
+        if kind == 'binary':
+            if self._expression_ir_has_string_literal(node):
+                return None
+            left = self._expression_ir_to_polars(node.get('left'))
+            right = self._expression_ir_to_polars(node.get('right'))
+            operator = {
+                'add': '+',
+                'subtract': '-',
+                'multiply': '*',
+                'divide': '/',
+                'modulo': '%',
+                'power': '**',
+            }.get(node.get('operator'))
+            if left is None or right is None or operator is None:
+                return None
+            return f"({left} {operator} {right})"
+        return None
+
+    def _expression_ir_to_sql(self, node):
+        """Translate basic arithmetic expression IR to SQL, or None."""
+        if node is None:
+            return None
+        kind = node.get('kind')
+        if kind == 'column':
+            return node['name']
+        if kind == 'literal':
+            literal_type = node.get('literal_type')
+            value = node.get('value')
+            if literal_type == 'string':
+                return self._sql_literal(value)
+            if literal_type == 'boolean':
+                return 'TRUE' if value else 'FALSE'
+            if literal_type == 'null':
+                return 'NULL'
+            return repr(value)
+        if kind == 'unary':
+            operand = self._expression_ir_to_sql(node.get('operand'))
+            if operand is None:
+                return None
+            operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
+            if operator is None:
+                return None
+            return f"({operator}{operand})"
+        if kind == 'binary':
+            if self._expression_ir_has_string_literal(node):
+                return None
+            left = self._expression_ir_to_sql(node.get('left'))
+            right = self._expression_ir_to_sql(node.get('right'))
+            operator = {
+                'add': '+',
+                'subtract': '-',
+                'multiply': '*',
+                'divide': '/',
+                'modulo': '%',
+            }.get(node.get('operator'))
+            if left is None or right is None:
+                return None
+            if node.get('operator') == 'power':
+                return f"POWER({left}, {right})"
+            if operator is None:
+                return None
+            return f"({left} {operator} {right})"
+        return None
+
     @staticmethod
     def _quantile_alias(col, func, q):
         q_text = ("%g" % float(q)).replace('.', 'p')
@@ -3518,6 +3663,7 @@ class CodeGenerator:
             return _pandas_assign_rhs(expr_value)
 
         default_rhs = _default_rhs(default_expr)
+        ir_rhs = self._expression_ir_to_pandas(ast_node.get('expression_ir'), table)
 
         # Detect aggregate function calls — substitute before other processing
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
@@ -3593,6 +3739,8 @@ class CodeGenerator:
                     rhs = ref_name
                 elif self._is_scalar_expr(expr):
                     rhs = expr
+                elif ir_rhs is not None:
+                    rhs = ir_rhs
                 else:
                     rhs = _pandas_assign_rhs(expr)
                 code = (f"condition = {condition_expr}\n"
@@ -3609,6 +3757,8 @@ class CodeGenerator:
                 return f"{table}['{target}'] = {ref_name}"
             if self._is_scalar_expr(expr):
                 return f"{table}['{target}'] = {expr}"
+            if ir_rhs is not None:
+                return f"{table}['{target}'] = {ir_rhs}"
             return f"{table}['{target}'] = {_pandas_assign_rhs(expr)}"
 
     def generate_apply_pandas(self, ast_node):
@@ -4265,7 +4415,9 @@ class CodeGenerator:
             self._raise_bare_python_func_call(bare_func)
 
         # General arithmetic / scalar expression
-        polars_expr = self._expr_to_polars(expr, by_cols)
+        polars_expr = self._expression_ir_to_polars(ast_node.get('expression_ir'))
+        if polars_expr is None:
+            polars_expr = self._expr_to_polars(expr, by_cols)
         # If the entire expression reduced to a bare scalar (no pl.col / pl.lit
         # already present), wrap it so that .alias() can be called on it.
         # e.g. `wins = 1`  →  _expr_to_polars returns '1'
@@ -6953,6 +7105,8 @@ class CodeGenerator:
         if sql_str is None:
             sql_str, uses_pyvar_expr = self._try_sql_scalar_minmax(expr)
         if sql_str is None:
+            sql_str = self._expression_ir_to_sql(ast_node.get('expression_ir'))
+        if sql_str is None:
             sql_str, uses_pyvar_expr = self._translate_assign_expr_to_sql(expr)
 
         # ── Conditional (where clause) → CASE WHEN ─────────────────
@@ -7518,6 +7672,8 @@ class CodeGenerator:
             sql_str, upv = self._try_sql_scalar_minmax(sql_expr)
             if upv:
                 return f"-- [skipped: assign with Python variable in expression]"
+        if sql_str is None:
+            sql_str = self._expression_ir_to_sql(ast_node.get('expression_ir'))
         if sql_str is None:
             sql_str, upv = self._translate_assign_expr_to_sql(sql_expr)
             if upv:
