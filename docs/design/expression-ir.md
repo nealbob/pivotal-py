@@ -10,9 +10,10 @@ The first migration stages are deliberately additive:
 - The statement parser continues to capture assignment expressions as strings.
 - `DSLParser.parse()` continues to return the existing public syntax AST.
 - Assignment nodes retain their public `expression` string unchanged.
-- Supported assignment expressions also receive an `expression_ast` field.
+- Supported assignment expressions also receive additive `expression_ast` and
+  `expression_ir` fields.
 - Backend generators continue consuming `expression`; they do not consume
-  `expression_ast` yet.
+  `expression_ast` or `expression_ir` yet.
 
 This document defines expression nodes only. It does not define a complete
 program IR or change expression semantics.
@@ -28,7 +29,7 @@ Pivotal source
   -> compile-time expansion and column-loop lowering
   -> standalone expression parser
   -> additive expression AST
-  -> future semantic normalization
+  -> additive semantic normalization
   -> future backend generators
 ```
 
@@ -134,8 +135,8 @@ Runtime reference and runtime call:
 
 ## Function Semantics
 
-Stage 1 records generic bare calls without deciding their meaning. A later
-semantic-normalization stage will distinguish:
+Stage 1 records generic bare calls without deciding their meaning. Stage 3
+semantic normalization distinguishes:
 
 - Pivotal built-in scalar functions such as `upper(name)`
 - Pivotal aggregate functions such as `mean(amount)`
@@ -166,16 +167,82 @@ For a supported expression, an assignment node is additive:
     "operator": "multiply",
     "left": {"kind": "column", "name": "price"},
     "right": {"kind": "column", "name": "quantity"}
+  },
+  "expression_ir": {
+    "kind": "binary",
+    "operator": "multiply",
+    "left": {"kind": "column", "name": "price"},
+    "right": {"kind": "column", "name": "quantity"}
   }
 }
 ```
 
-For an unsupported legacy expression, `expression_ast` is `null` and the raw
-`expression` string remains authoritative. Unsupported expression syntax must
-not turn a previously valid Pivotal program into a parse failure.
+For an unsupported legacy expression, `expression_ast` and `expression_ir` are
+`null` and the raw `expression` string remains authoritative. Unsupported
+expression syntax must not turn a previously valid Pivotal program into a parse
+failure.
 
-Backend generators must ignore `expression_ast` until they are explicitly
-migrated. This preserves current pandas, Polars, DuckDB, and SQL behavior.
+Backend generators must ignore `expression_ast` and `expression_ir` until they
+are explicitly migrated. This preserves current pandas, Polars, DuckDB, and SQL
+behavior.
+
+## Semantic IR Node Vocabulary
+
+Stage 3 adds semantic nodes for known expression meaning.
+
+Scalar function:
+
+```json
+{
+  "kind": "scalar_function",
+  "function": "upper",
+  "arguments": [{"kind": "column", "name": "name"}]
+}
+```
+
+Aggregate:
+
+```json
+{
+  "kind": "aggregate",
+  "function": "mean",
+  "arguments": [{"kind": "column", "name": "amount"}]
+}
+```
+
+Cast:
+
+```json
+{
+  "kind": "cast",
+  "target_type": "float",
+  "expression": {"kind": "column", "name": "amount"}
+}
+```
+
+Backend function candidate:
+
+```json
+{
+  "kind": "backend_function",
+  "name": "log",
+  "arguments": [{"kind": "column", "name": "price"}]
+}
+```
+
+The Stage 3 function registry normalizes aliases and arity-dependent functions:
+
+- `avg(amount)` -> aggregate `mean`
+- `wavg(amount, weight)` and `wmean(amount, weight)` -> aggregate
+  `weighted_mean`
+- `float(amount)`, `integer(code)`, `str(code)`, and `datetime(ts)` -> `cast`
+- `max(amount)` and `min(amount)` -> aggregate `maximum` and `minimum`
+- `max(amount, 0)` and `min(amount, 0)` -> scalar `greatest` and `least`
+- unknown bare calls such as `log(price)` -> `backend_function`
+
+Known function arity is validated by the normalizer. Public parser attachment
+remains best-effort: if semantic normalization fails, `expression_ir` is `null`
+and raw-string execution remains authoritative.
 
 ## Source Locations
 
@@ -205,11 +272,8 @@ not always have a direct original-source span.
 
 The following are intentionally deferred:
 
-- Canonical scalar versus aggregate function semantics
-- Function registry and arity validation
 - Conditions and comparison operators
 - Complete program IR and schema versioning
 - Backend capability validation
 - Backend generation from expression nodes
 - Substrait lowering
-

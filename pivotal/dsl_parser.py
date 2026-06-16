@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from .errors import PivotalError, _make_suggestion
 from .expression_parser import parse_expression
+from .expression_ir import normalize_expression_ast_safe
 
 _AGG_CALL_RE = re.compile(
     r'\b(mean|avg|sum|min|max|count|std|median|var|nunique|first|last)'
@@ -9015,16 +9016,17 @@ class DSLParser:
 
         return expanded
 
-    def _attach_expression_asts(self, value):
-        """Attach best-effort expression ASTs without changing raw expressions."""
+    def _attach_expression_metadata(self, value):
+        """Attach best-effort expression metadata without changing raw expressions."""
         if isinstance(value, dict):
             if value.get('type') == 'assign':
                 value['expression_ast'] = parse_expression(value.get('expression'))
+                value['expression_ir'] = normalize_expression_ast_safe(value.get('expression_ast'))
             for child in value.values():
-                self._attach_expression_asts(child)
+                self._attach_expression_metadata(child)
         elif isinstance(value, list):
             for child in value:
-                self._attach_expression_asts(child)
+                self._attach_expression_metadata(child)
         return value
 
     def parse(self, code, namespace=None):
@@ -9035,7 +9037,7 @@ class DSLParser:
             result = self.parser.parse(processed_code)
             result = self._expand_compile_time_features(result, namespace)
             result = self._expand_for_loops(result, namespace)
-            return self._attach_expression_asts(result)
+            return self._attach_expression_metadata(result)
         except ValueError as e:
             # Keyword-collision errors raised by the transformer — wrap cleanly.
             return {'error': PivotalError(message=str(e), error_type="Error")}

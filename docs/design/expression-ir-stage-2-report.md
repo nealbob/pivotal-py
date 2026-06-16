@@ -60,9 +60,6 @@ deferred until expressions and conditions are unified in a later stage.
 
 Stage 2 does not:
 
-- migrate any backend generator to consume `expression_ast`
-- assign scalar versus aggregate function semantics
-- add a function registry
+- migrate semantic `expression_ir` into backend generators
 - validate unknown columns or function arity
 - parse conditions as expression IR
-

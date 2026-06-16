@@ -318,6 +318,9 @@ def _assert_assignment_asts_match_standalone_parser(parser, source):
         if expression is None:
             continue
         assert "expression_ast" in node
+        assert "expression_ir" in node
         assert node["expression_ast"] == parse_expression(expression)
         if node["expression_ast"] is not None:
             json.dumps(node["expression_ast"])
+        if node["expression_ir"] is not None:
+            json.dumps(node["expression_ir"])
