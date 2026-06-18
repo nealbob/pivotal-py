@@ -1129,11 +1129,12 @@ def test_assign_agg_multiple_calls(parser):
 
 
 def test_assign_agg_code_generation(parser):
-    """Agg calls produce @variable preamble lines before eval."""
+    """Agg calls use expression_ir codegen instead of eval preambles."""
     nodes = parser.parse('with sales\npct = amount / sum(amount)\n')
     code = '\n'.join(parser.generate_code(nodes))
-    assert "_agg_0 = sales['amount'].sum()" in code
-    assert '@_agg_0' in code
+    assert "sales['pct'] = (sales['amount'] / sales['amount'].sum())" in code
+    assert '_agg_0' not in code
+    assert '.eval(' not in code
 
 
 def test_assign_agg_by_code_generation(parser):

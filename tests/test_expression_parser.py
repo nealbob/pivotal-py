@@ -127,7 +127,7 @@ def test_unsupported_expression_returns_none():
     assert parse_expression("config['multiplier'] * amount") is None
 
 
-def test_assignment_expression_ast_is_additive_and_codegen_is_unchanged():
+def test_assignment_expression_ast_is_additive_and_codegen_uses_expression_ir():
     parser = DSLParser()
     nodes = parser.parse("with sales\nrevenue = price * quantity\n")
     assignment = nodes[1]
@@ -136,7 +136,9 @@ def test_assignment_expression_ast_is_additive_and_codegen_is_unchanged():
     assert assignment["expression_ast"] == binary(
         "multiply", column("price"), column("quantity")
     )
-    assert "sales.eval('price * quantity')" in "\n".join(parser.generate_code(nodes))
+    code = "\n".join(parser.generate_code(nodes))
+    assert "sales['revenue'] = (sales['price'] * sales['quantity'])" in code
+    assert "sales.eval('price * quantity')" not in code
 
 
 def test_assignment_expression_ast_attached_after_expansion():

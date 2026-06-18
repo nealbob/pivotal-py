@@ -189,6 +189,160 @@ def test_basic_arithmetic_assignment_uses_expression_ir_across_backends(backend,
     assert expected in code
 
 
+@pytest.mark.parametrize(
+    ("backend", "expected_fragments"),
+    [
+        (
+            "pandas",
+            [
+                "sales['clean'] = sales['name'].str.strip().str.upper()",
+                "sales['amount_f'] = pd.to_numeric(sales['amount'], errors='coerce')",
+                "sales['capped'] = __import__('numpy').maximum((sales['amount'] - 150), 0)",
+                "sales['yr'] = sales['sale_date'].dt.year",
+            ],
+        ),
+        (
+            "polars",
+            [
+                "pl.col('name').str.strip_chars().str.to_uppercase()",
+                "pl.col('amount').cast(pl.Float64, strict=False)",
+                "pl.max_horizontal([(pl.col('amount') - pl.lit(150)), pl.lit(0)])",
+                "pl.col('sale_date').dt.year()",
+            ],
+        ),
+        (
+            "duckdb",
+            [
+                "UPPER(TRIM(name)) AS clean",
+                "TRY_CAST(amount AS DOUBLE) AS amount_f",
+                "GREATEST((amount - 150), 0) AS capped",
+                "YEAR(sale_date) AS yr",
+            ],
+        ),
+        (
+            "sql",
+            [
+                "UPPER(TRIM(name)) AS clean",
+                "TRY_CAST(amount AS DOUBLE) AS amount_f",
+                "GREATEST((amount - 150), 0) AS capped",
+                "YEAR(sale_date) AS yr",
+            ],
+        ),
+    ],
+)
+def test_scalar_and_cast_assignment_uses_expression_ir_across_backends(
+    backend, expected_fragments
+):
+    parser = DSLParser()
+    nodes = parser.parse(
+        "with sales\n"
+        "clean = upper(trim(name))\n"
+        "amount_f = float(amount)\n"
+        "capped = max(amount - 150, 0)\n"
+        "yr = year(sale_date)\n"
+    )
+
+    assert nodes[1]["expression_ir"]["kind"] == "scalar_function"
+    assert nodes[2]["expression_ir"]["kind"] == "cast"
+    assert nodes[3]["expression_ir"]["kind"] == "scalar_function"
+    code = "\n".join(parser.generate_code(nodes, backend=backend))
+
+    for expected in expected_fragments:
+        assert expected in code
+
+
+def test_runtime_call_expression_ir_keeps_existing_codegen_fallback():
+    parser = DSLParser()
+    nodes = parser.parse("with sales\nnet = :discount(price)\n")
+
+    assert nodes[1]["expression_ir"]["kind"] == "runtime_call"
+    code = "\n".join(parser.generate_code(nodes))
+
+    assert "sales['net'] = discount(sales['price'])" in code
+
+
+@pytest.mark.parametrize(
+    ("backend", "expected_fragments"),
+    [
+        (
+            "pandas",
+            [
+                "data['pct'] = (data['amount'] / data['amount'].sum())",
+                "data['p90'] = data['amount'].quantile(0.9)",
+                "data['dev'] = (data['amount'] - ((data['amount'] * data['weight']).sum() / data['weight'].sum()))",
+                "data['band'] = __import__('numpy').minimum(__import__('numpy').maximum((data['amount'] - 150), 0), (data['amount'].max() / 2))",
+            ],
+        ),
+        (
+            "polars",
+            [
+                "(pl.col('amount') / pl.col('amount').sum())",
+                "pl.col('amount').quantile(0.9, interpolation='linear')",
+                "(pl.col('amount') - ((pl.col('amount') * pl.col('weight')).sum() / pl.col('weight').sum()))",
+                "pl.min_horizontal([pl.max_horizontal([(pl.col('amount') - pl.lit(150)), pl.lit(0)]), (pl.col('amount').max() / pl.lit(2))])",
+            ],
+        ),
+        (
+            "duckdb",
+            [
+                "(amount / SUM(amount) OVER ()) AS pct",
+                "QUANTILE_CONT(amount, 0.9) OVER () AS p90",
+                "(amount - (SUM(amount * weight) OVER ()) / NULLIF(SUM(weight) OVER (), 0)) AS dev",
+                "LEAST(GREATEST((amount - 150), 0), (MAX(amount) OVER () / 2)) AS band",
+            ],
+        ),
+        (
+            "sql",
+            [
+                "(amount / SUM(amount) OVER ()) AS pct",
+                "QUANTILE_CONT(amount, 0.9) OVER () AS p90",
+                "(amount - (SUM(amount * weight) OVER ()) / NULLIF(SUM(weight) OVER (), 0)) AS dev",
+                "LEAST(GREATEST((amount - 150), 0), (MAX(amount) OVER () / 2)) AS band",
+            ],
+        ),
+    ],
+)
+def test_aggregate_assignment_uses_expression_ir_across_backends(
+    backend, expected_fragments
+):
+    parser = DSLParser()
+    nodes = parser.parse(
+        "with data\n"
+        "pct = amount / sum(amount)\n"
+        "p90 = quantile(amount, 0.9)\n"
+        "dev = amount - wavg(amount, weight)\n"
+        "band = min(max(amount - 150, 0), max(amount) / 2)\n"
+    )
+
+    assert nodes[1]["expression_ir"]["kind"] == "binary"
+    assert nodes[2]["expression_ir"]["kind"] == "aggregate"
+    code = "\n".join(parser.generate_code(nodes, backend=backend))
+
+    for expected in expected_fragments:
+        assert expected in code
+
+
+@pytest.mark.parametrize(
+    ("backend", "expected"),
+    [
+        ("pandas", "data['pct'] = (data['amount'] / data.groupby(['region'])['amount'].transform('sum'))"),
+        ("polars", "(pl.col('amount') / pl.col('amount').sum().over('region'))"),
+        ("duckdb", "(amount / SUM(amount) OVER (PARTITION BY region)) AS pct"),
+        ("sql", "(amount / SUM(amount) OVER (PARTITION BY region)) AS pct"),
+    ],
+)
+def test_grouped_aggregate_assignment_uses_expression_ir_across_backends(
+    backend, expected
+):
+    parser = DSLParser()
+    nodes = parser.parse("with data\npct = amount / sum(amount)\n    by region\n")
+
+    assert nodes[1]["expression_ir"]["kind"] == "binary"
+    code = "\n".join(parser.generate_code(nodes, backend=backend))
+
+    assert expected in code
+
+
 def test_assignment_expression_ir_attached_after_expansion():
     parser = DSLParser()
     nodes = parser.parse(

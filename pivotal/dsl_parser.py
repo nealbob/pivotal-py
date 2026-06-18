@@ -3229,8 +3229,223 @@ class CodeGenerator:
             if isinstance(child, dict)
         )
 
-    def _expression_ir_to_pandas(self, node, table):
-        """Translate basic arithmetic expression IR to pandas code, or None."""
+    def _expression_ir_contains_kind(self, node, kind):
+        if node is None:
+            return False
+        if node.get('kind') == kind:
+            return True
+        return any(
+            self._expression_ir_contains_kind(child, kind)
+            for child in (
+                node.get('left'),
+                node.get('right'),
+                node.get('operand'),
+                node.get('expression'),
+                *(node.get('arguments') or []),
+            )
+            if isinstance(child, dict)
+        )
+
+    def _expression_ir_literal_value(self, node, literal_type=None):
+        if not isinstance(node, dict) or node.get('kind') != 'literal':
+            return None
+        if literal_type is not None and node.get('literal_type') != literal_type:
+            return None
+        return node.get('value')
+
+    def _expression_ir_arg_code(self, node, backend):
+        if not isinstance(node, dict):
+            return None
+        if node.get('kind') == 'literal':
+            literal_type = node.get('literal_type')
+            value = node.get('value')
+            if literal_type == 'string':
+                if backend == 'sql':
+                    return self._sql_literal(value)
+                return repr(value)
+            if literal_type == 'boolean':
+                if backend == 'sql':
+                    return 'TRUE' if value else 'FALSE'
+                return repr(value)
+            if literal_type == 'null':
+                return 'NULL' if backend == 'sql' else 'None'
+            return repr(value)
+        if node.get('kind') == 'runtime_reference' and backend != 'sql':
+            return node['name']
+        return None
+
+    def _expression_ir_column_name(self, node):
+        if isinstance(node, dict) and node.get('kind') == 'column':
+            return node.get('name')
+        return None
+
+    def _expression_ir_to_pandas_cast(self, node, table, by_cols=None):
+        expr = self._expression_ir_to_pandas(node.get('expression'), table, by_cols)
+        if expr is None:
+            return None
+        target_type = node.get('target_type')
+        if target_type == 'integer':
+            return f"pd.to_numeric({expr}, errors='coerce').astype('Int64')"
+        if target_type == 'float':
+            return f"pd.to_numeric({expr}, errors='coerce')"
+        if target_type == 'string':
+            return f"{expr}.astype(str)"
+        if target_type == 'boolean':
+            return f"{expr}.astype(bool)"
+        if target_type == 'datetime':
+            return f"pd.to_datetime({expr}, errors='coerce')"
+        return None
+
+    def _expression_ir_to_pandas_aggregate(self, node, table, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        by_cols = by_cols or []
+
+        if function == 'weighted_mean':
+            if len(args) != 2:
+                return None
+            col = self._expression_ir_column_name(args[0])
+            weight = self._expression_ir_column_name(args[1])
+            if col is None or weight is None:
+                return None
+            if by_cols:
+                weighted_sum = (
+                    f"{table}.groupby({by_cols!r})[{col!r}].transform("
+                    f"lambda g: (g * {table}.loc[g.index, {weight!r}]).sum())"
+                )
+                weight_sum = f"{table}.groupby({by_cols!r})[{weight!r}].transform('sum')"
+                return f"({weighted_sum} / {weight_sum})"
+            return f"(({table}[{col!r}] * {table}[{weight!r}]).sum() / {table}[{weight!r}].sum())"
+
+        if len(args) != 1 and function not in {'quantile', 'percentile'}:
+            return None
+        col = self._expression_ir_column_name(args[0]) if args else None
+        if col is None:
+            return None
+
+        if function in {'quantile', 'percentile'}:
+            if len(args) != 2:
+                return None
+            q = self._expression_ir_literal_value(args[1])
+            if q is None:
+                return None
+            if function == 'percentile':
+                q = q / 100.0
+            if by_cols:
+                return f"{table}.groupby({by_cols!r})[{col!r}].transform(lambda _s: _s.quantile({q!r}))"
+            return f"{table}[{col!r}].quantile({q!r})"
+
+        pandas_func = {
+            'mean': 'mean',
+            'sum': 'sum',
+            'count': 'count',
+            'std': 'std',
+            'median': 'median',
+            'var': 'var',
+            'nunique': 'nunique',
+            'first': 'first',
+            'last': 'last',
+            'minimum': 'min',
+            'maximum': 'max',
+        }.get(function)
+        if pandas_func is None:
+            return None
+        if by_cols:
+            return f"{table}.groupby({by_cols!r})[{col!r}].transform({pandas_func!r})"
+        return f"{table}[{col!r}].{pandas_func}()"
+
+    def _expression_ir_to_pandas_scalar_function(self, node, table, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        if not args:
+            return None
+
+        base = self._expression_ir_to_pandas(args[0], table, by_cols)
+        if base is None:
+            return None
+
+        simple_string = {
+            'upper': 'upper',
+            'lower': 'lower',
+            'trim': 'strip',
+            'ltrim': 'lstrip',
+            'rtrim': 'rstrip',
+        }
+        if function in simple_string and len(args) == 1:
+            return f"{base}.str.{simple_string[function]}()"
+        if function == 'len' and len(args) == 1:
+            return f"{base}.str.len()"
+        if function == 'left' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'pandas')
+            if width is not None:
+                return f"{base}.str[:{width}]"
+        if function == 'right' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'pandas')
+            if width is not None:
+                return f"{base}.str[-{width}:]"
+        if function == 'substr' and len(args) == 3:
+            start = self._expression_ir_arg_code(args[1], 'pandas')
+            length = self._expression_ir_arg_code(args[2], 'pandas')
+            if start is not None and length is not None:
+                return f"{base}.str[{start}:{start}+{length}]"
+        if function == 'replace' and len(args) == 3:
+            old = self._expression_ir_literal_value(args[1], 'string')
+            new = self._expression_ir_literal_value(args[2], 'string')
+            if old is not None and new is not None:
+                return f"{base}.str.replace({old!r}, {new!r}, regex=False)"
+        if function == 'regex_extract' and len(args) in (2, 3):
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            group = self._expression_ir_literal_value(args[2], 'integer') if len(args) == 3 else 0
+            if pattern is not None and group is not None:
+                if group == 0:
+                    return f"{base}.astype('string').str.extract({self._py_literal(f'({pattern})')}, expand=False)"
+                return f"{base}.astype('string').str.extract({self._py_literal(pattern)}, expand=True).iloc[:, {group - 1}]"
+        if function == 'regex_replace' and len(args) == 3:
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            repl = self._expression_ir_literal_value(args[2], 'string')
+            if pattern is not None and repl is not None:
+                return f"{base}.astype('string').str.replace({self._py_literal(pattern)}, {self._py_literal(repl)}, regex=True)"
+
+        simple_date = {
+            'year': 'year',
+            'month': 'month',
+            'day': 'day',
+            'quarter': 'quarter',
+            'dayofweek': 'dayofweek',
+            'hour': 'hour',
+            'minute': 'minute',
+        }
+        if function in simple_date and len(args) == 1:
+            return f"{base}.dt.{simple_date[function]}"
+        if function == 'date_format' and len(args) == 2:
+            fmt = self._expression_ir_arg_code(args[1], 'pandas')
+            if fmt is not None:
+                return f"{base}.dt.strftime({fmt})"
+        if function == 'to_date' and len(args) == 1:
+            return f"pd.to_datetime({base})"
+        if function == 'date_diff' and len(args) == 2:
+            start = self._expression_ir_to_pandas(args[1], table, by_cols)
+            if start is not None:
+                return f"({base} - {start}).dt.days"
+        if function == 'date_add' and len(args) == 2:
+            days = self._expression_ir_arg_code(args[1], 'pandas')
+            if days is not None:
+                return f"{base} + pd.to_timedelta({days}, unit='d')"
+
+        if function in {'least', 'greatest'} and len(args) >= 2:
+            arg_codes = [self._expression_ir_to_pandas(arg, table, by_cols) for arg in args]
+            if any(arg is None for arg in arg_codes):
+                return None
+            np_func = 'minimum' if function == 'least' else 'maximum'
+            code = arg_codes[0]
+            for arg_code in arg_codes[1:]:
+                code = f"__import__('numpy').{np_func}({code}, {arg_code})"
+            return code
+
+        return None
+
+    def _expression_ir_to_pandas(self, node, table, by_cols=None):
+        """Translate supported assignment expression IR to pandas code, or None."""
         if node is None:
             return None
         kind = node.get('kind')
@@ -3245,7 +3460,7 @@ class CodeGenerator:
                 return 'None'
             return repr(value)
         if kind == 'unary':
-            operand = self._expression_ir_to_pandas(node.get('operand'), table)
+            operand = self._expression_ir_to_pandas(node.get('operand'), table, by_cols)
             if operand is None:
                 return None
             operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
@@ -3255,8 +3470,8 @@ class CodeGenerator:
         if kind == 'binary':
             if self._expression_ir_has_string_literal(node):
                 return None
-            left = self._expression_ir_to_pandas(node.get('left'), table)
-            right = self._expression_ir_to_pandas(node.get('right'), table)
+            left = self._expression_ir_to_pandas(node.get('left'), table, by_cols)
+            right = self._expression_ir_to_pandas(node.get('right'), table, by_cols)
             operator = {
                 'add': '+',
                 'subtract': '-',
@@ -3268,10 +3483,168 @@ class CodeGenerator:
             if left is None or right is None or operator is None:
                 return None
             return f"({left} {operator} {right})"
+        if kind == 'cast':
+            return self._expression_ir_to_pandas_cast(node, table, by_cols)
+        if kind == 'scalar_function':
+            return self._expression_ir_to_pandas_scalar_function(node, table, by_cols)
+        if kind == 'aggregate':
+            return self._expression_ir_to_pandas_aggregate(node, table, by_cols)
         return None
 
-    def _expression_ir_to_polars(self, node):
-        """Translate basic arithmetic expression IR to a Polars Expr, or None."""
+    def _expression_ir_to_polars_cast(self, node, by_cols=None):
+        expr = self._expression_ir_to_polars(node.get('expression'), by_cols)
+        if expr is None:
+            return None
+        polars_types = {
+            'integer': 'pl.Int64',
+            'float': 'pl.Float64',
+            'string': 'pl.Utf8',
+            'boolean': 'pl.Boolean',
+            'datetime': 'pl.Datetime',
+        }
+        pl_type = polars_types.get(node.get('target_type'))
+        if pl_type is None:
+            return None
+        return f"{expr}.cast({pl_type}, strict=False)"
+
+    def _expression_ir_to_polars_aggregate(self, node, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        by_cols = by_cols or []
+        by_repr = repr(by_cols[0]) if len(by_cols) == 1 else repr(by_cols)
+
+        def _over(expr):
+            return f"{expr}.over({by_repr})" if by_cols else expr
+
+        if function == 'weighted_mean':
+            if len(args) != 2:
+                return None
+            col = self._expression_ir_column_name(args[0])
+            weight = self._expression_ir_column_name(args[1])
+            if col is None or weight is None:
+                return None
+            numerator = _over(f"(pl.col({col!r}) * pl.col({weight!r})).sum()")
+            denominator = _over(f"pl.col({weight!r}).sum()")
+            return f"({numerator} / {denominator})"
+
+        col = self._expression_ir_column_name(args[0]) if args else None
+        if col is None:
+            return None
+        if function in {'quantile', 'percentile'}:
+            if len(args) != 2:
+                return None
+            q = self._expression_ir_literal_value(args[1])
+            if q is None:
+                return None
+            if function == 'percentile':
+                q = q / 100.0
+            return _over(f"pl.col({col!r}).quantile({q!r}, interpolation='linear')")
+
+        polars_func = {
+            'mean': 'mean',
+            'sum': 'sum',
+            'count': 'count',
+            'std': 'std',
+            'median': 'median',
+            'var': 'var',
+            'nunique': 'nunique',
+            'first': 'first',
+            'last': 'last',
+            'minimum': 'min',
+            'maximum': 'max',
+        }.get(function)
+        if polars_func is None or len(args) != 1:
+            return None
+        return _over(f"pl.col({col!r}).{polars_func}()")
+
+    def _expression_ir_to_polars_scalar_function(self, node, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        if not args:
+            return None
+
+        base = self._expression_ir_to_polars(args[0], by_cols)
+        if base is None:
+            return None
+
+        simple_string = {
+            'upper': 'to_uppercase',
+            'lower': 'to_lowercase',
+            'trim': 'strip_chars',
+            'ltrim': 'strip_chars_start',
+            'rtrim': 'strip_chars_end',
+        }
+        if function in simple_string and len(args) == 1:
+            return f"{base}.str.{simple_string[function]}()"
+        if function == 'len' and len(args) == 1:
+            return f"{base}.str.len_chars()"
+        if function == 'left' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'polars')
+            if width is not None:
+                return f"{base}.str.slice(0, {width})"
+        if function == 'right' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'polars')
+            if width is not None:
+                return f"{base}.str.slice(-{width})"
+        if function == 'substr' and len(args) == 3:
+            start = self._expression_ir_arg_code(args[1], 'polars')
+            length = self._expression_ir_arg_code(args[2], 'polars')
+            if start is not None and length is not None:
+                return f"{base}.str.slice({start}, {length})"
+        if function == 'replace' and len(args) == 3:
+            old = self._expression_ir_literal_value(args[1], 'string')
+            new = self._expression_ir_literal_value(args[2], 'string')
+            if old is not None and new is not None:
+                return f"{base}.str.replace_all({old!r}, {new!r}, literal=True)"
+        if function == 'regex_extract' and len(args) in (2, 3):
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            group = self._expression_ir_literal_value(args[2], 'integer') if len(args) == 3 else 0
+            if pattern is not None and group is not None:
+                return f"{base}.str.extract({self._py_literal(pattern)}, group_index={group})"
+        if function == 'regex_replace' and len(args) == 3:
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            repl = self._expression_ir_literal_value(args[2], 'string')
+            if pattern is not None and repl is not None:
+                return f"{base}.str.replace_all({self._py_literal(pattern)}, {self._py_literal(repl)})"
+
+        simple_date = {
+            'year': 'year',
+            'month': 'month',
+            'day': 'day',
+            'quarter': 'quarter',
+            'hour': 'hour',
+            'minute': 'minute',
+        }
+        if function in simple_date and len(args) == 1:
+            return f"{base}.dt.{simple_date[function]}()"
+        if function == 'dayofweek' and len(args) == 1:
+            return f"{base}.dt.weekday()"
+        if function == 'date_format' and len(args) == 2:
+            fmt = self._expression_ir_arg_code(args[1], 'polars')
+            if fmt is not None:
+                return f"{base}.dt.strftime({fmt})"
+        if function == 'to_date' and len(args) == 1:
+            return f"{base}.cast(pl.Date)"
+        if function == 'date_diff' and len(args) == 2:
+            start = self._expression_ir_to_polars(args[1], by_cols)
+            if start is not None:
+                return f"({base} - {start}).dt.total_days()"
+        if function == 'date_add' and len(args) == 2:
+            days = self._expression_ir_arg_code(args[1], 'polars')
+            if days is not None:
+                return f"({base} + pl.duration(days={days}))"
+
+        if function in {'least', 'greatest'} and len(args) >= 2:
+            arg_codes = [self._expression_ir_to_polars(arg, by_cols) for arg in args]
+            if any(arg is None for arg in arg_codes):
+                return None
+            horizontal = 'min_horizontal' if function == 'least' else 'max_horizontal'
+            return f"pl.{horizontal}([{', '.join(arg_codes)}])"
+
+        return None
+
+    def _expression_ir_to_polars(self, node, by_cols=None):
+        """Translate supported assignment expression IR to a Polars Expr, or None."""
         if node is None:
             return None
         kind = node.get('kind')
@@ -3286,7 +3659,7 @@ class CodeGenerator:
                 return 'pl.lit(None)'
             return f"pl.lit({value!r})"
         if kind == 'unary':
-            operand = self._expression_ir_to_polars(node.get('operand'))
+            operand = self._expression_ir_to_polars(node.get('operand'), by_cols)
             if operand is None:
                 return None
             operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
@@ -3296,8 +3669,8 @@ class CodeGenerator:
         if kind == 'binary':
             if self._expression_ir_has_string_literal(node):
                 return None
-            left = self._expression_ir_to_polars(node.get('left'))
-            right = self._expression_ir_to_polars(node.get('right'))
+            left = self._expression_ir_to_polars(node.get('left'), by_cols)
+            right = self._expression_ir_to_polars(node.get('right'), by_cols)
             operator = {
                 'add': '+',
                 'subtract': '-',
@@ -3309,10 +3682,159 @@ class CodeGenerator:
             if left is None or right is None or operator is None:
                 return None
             return f"({left} {operator} {right})"
+        if kind == 'cast':
+            return self._expression_ir_to_polars_cast(node, by_cols)
+        if kind == 'scalar_function':
+            return self._expression_ir_to_polars_scalar_function(node, by_cols)
+        if kind == 'aggregate':
+            return self._expression_ir_to_polars_aggregate(node, by_cols)
         return None
 
-    def _expression_ir_to_sql(self, node):
-        """Translate basic arithmetic expression IR to SQL, or None."""
+    def _expression_ir_to_sql_cast(self, node, by_cols=None):
+        expr = self._expression_ir_to_sql(node.get('expression'), by_cols)
+        if expr is None:
+            return None
+        sql_types = {
+            'integer': 'INTEGER',
+            'float': 'DOUBLE',
+            'string': 'VARCHAR',
+            'boolean': 'BOOLEAN',
+            'datetime': 'TIMESTAMP',
+        }
+        sql_type = sql_types.get(node.get('target_type'))
+        if sql_type is None:
+            return None
+        return f"TRY_CAST({expr} AS {sql_type})"
+
+    def _expression_ir_to_sql_aggregate(self, node, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        by_cols = by_cols or []
+        over = f" OVER (PARTITION BY {', '.join(by_cols)})" if by_cols else " OVER ()"
+
+        if function == 'weighted_mean':
+            if len(args) != 2:
+                return None
+            col = self._expression_ir_column_name(args[0])
+            weight = self._expression_ir_column_name(args[1])
+            if col is None or weight is None:
+                return None
+            return f"(SUM({col} * {weight}){over}) / NULLIF(SUM({weight}){over}, 0)"
+
+        col = self._expression_ir_column_name(args[0]) if args else None
+        if col is None:
+            return None
+        if function in {'quantile', 'percentile'}:
+            if len(args) != 2:
+                return None
+            q = self._expression_ir_literal_value(args[1])
+            if q is None:
+                return None
+            if function == 'percentile':
+                q = q / 100.0
+            return f"QUANTILE_CONT({col}, {q!r}){over}"
+
+        sql_func = {
+            'mean': 'AVG',
+            'sum': 'SUM',
+            'count': 'COUNT',
+            'std': 'STDDEV',
+            'median': 'MEDIAN',
+            'var': 'VAR',
+            'nunique': 'COUNT',
+            'first': 'FIRST',
+            'last': 'LAST',
+            'minimum': 'MIN',
+            'maximum': 'MAX',
+        }.get(function)
+        if sql_func is None or len(args) != 1:
+            return None
+        if function == 'nunique':
+            return f"COUNT(DISTINCT {col}){over}"
+        return f"{sql_func}({col}){over}"
+
+    def _expression_ir_to_sql_scalar_function(self, node, by_cols=None):
+        function = node.get('function')
+        args = node.get('arguments') or []
+        if not args:
+            return None
+
+        base = self._expression_ir_to_sql(args[0], by_cols)
+        if base is None:
+            return None
+
+        simple = {
+            'upper': 'UPPER',
+            'lower': 'LOWER',
+            'trim': 'TRIM',
+            'ltrim': 'LTRIM',
+            'rtrim': 'RTRIM',
+            'len': 'LENGTH',
+            'year': 'YEAR',
+            'month': 'MONTH',
+            'day': 'DAY',
+            'quarter': 'QUARTER',
+            'dayofweek': 'DAYOFWEEK',
+            'hour': 'HOUR',
+            'minute': 'MINUTE',
+        }
+        if function in simple and len(args) == 1:
+            return f"{simple[function]}({base})"
+        if function == 'left' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'sql')
+            if width is not None:
+                return f"LEFT({base}, {width})"
+        if function == 'right' and len(args) == 2:
+            width = self._expression_ir_arg_code(args[1], 'sql')
+            if width is not None:
+                return f"RIGHT({base}, {width})"
+        if function == 'substr' and len(args) == 3:
+            start = self._expression_ir_arg_code(args[1], 'sql')
+            length = self._expression_ir_arg_code(args[2], 'sql')
+            if start is not None and length is not None:
+                return f"SUBSTR({base}, {start}, {length})"
+        if function == 'replace' and len(args) == 3:
+            old = self._expression_ir_literal_value(args[1], 'string')
+            new = self._expression_ir_literal_value(args[2], 'string')
+            if old is not None and new is not None:
+                return f"REPLACE({base}, {self._sql_literal(old)}, {self._sql_literal(new)})"
+        if function == 'regex_extract' and len(args) in (2, 3):
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            group = self._expression_ir_literal_value(args[2], 'integer') if len(args) == 3 else 0
+            if pattern is not None and group is not None:
+                return f"REGEXP_EXTRACT({base}, {self._sql_literal(pattern)}, {group})"
+        if function == 'regex_replace' and len(args) == 3:
+            pattern = self._expression_ir_literal_value(args[1], 'string')
+            repl = self._expression_ir_literal_value(args[2], 'string')
+            if pattern is not None and repl is not None:
+                return f"REGEXP_REPLACE({base}, {self._sql_literal(pattern)}, {self._sql_literal(repl)}, 'g')"
+
+        if function == 'date_format' and len(args) == 2:
+            fmt = self._expression_ir_literal_value(args[1], 'string')
+            if fmt is not None:
+                return f"STRFTIME({base}, {self._sql_literal(fmt)})"
+        if function == 'to_date' and len(args) == 1:
+            return f"CAST({base} AS DATE)"
+        if function == 'date_diff' and len(args) == 2:
+            start = self._expression_ir_to_sql(args[1], by_cols)
+            if start is not None:
+                return f"DATE_DIFF('day', {start}, {base})"
+        if function == 'date_add' and len(args) == 2:
+            days = self._expression_ir_arg_code(args[1], 'sql')
+            if days is not None:
+                return f"({base} + INTERVAL {days} DAY)"
+
+        if function in {'least', 'greatest'} and len(args) >= 2:
+            arg_codes = [self._expression_ir_to_sql(arg, by_cols) for arg in args]
+            if any(arg is None for arg in arg_codes):
+                return None
+            sql_func = 'LEAST' if function == 'least' else 'GREATEST'
+            return f"{sql_func}({', '.join(arg_codes)})"
+
+        return None
+
+    def _expression_ir_to_sql(self, node, by_cols=None):
+        """Translate supported assignment expression IR to SQL, or None."""
         if node is None:
             return None
         kind = node.get('kind')
@@ -3329,7 +3851,7 @@ class CodeGenerator:
                 return 'NULL'
             return repr(value)
         if kind == 'unary':
-            operand = self._expression_ir_to_sql(node.get('operand'))
+            operand = self._expression_ir_to_sql(node.get('operand'), by_cols)
             if operand is None:
                 return None
             operator = {'positive': '+', 'negative': '-'}.get(node.get('operator'))
@@ -3339,8 +3861,8 @@ class CodeGenerator:
         if kind == 'binary':
             if self._expression_ir_has_string_literal(node):
                 return None
-            left = self._expression_ir_to_sql(node.get('left'))
-            right = self._expression_ir_to_sql(node.get('right'))
+            left = self._expression_ir_to_sql(node.get('left'), by_cols)
+            right = self._expression_ir_to_sql(node.get('right'), by_cols)
             operator = {
                 'add': '+',
                 'subtract': '-',
@@ -3355,6 +3877,12 @@ class CodeGenerator:
             if operator is None:
                 return None
             return f"({left} {operator} {right})"
+        if kind == 'cast':
+            return self._expression_ir_to_sql_cast(node, by_cols)
+        if kind == 'scalar_function':
+            return self._expression_ir_to_sql_scalar_function(node, by_cols)
+        if kind == 'aggregate':
+            return self._expression_ir_to_sql_aggregate(node, by_cols)
         return None
 
     @staticmethod
@@ -3663,7 +4191,12 @@ class CodeGenerator:
             return _pandas_assign_rhs(expr_value)
 
         default_rhs = _default_rhs(default_expr)
-        ir_rhs = self._expression_ir_to_pandas(ast_node.get('expression_ir'), table)
+        expression_ir = ast_node.get('expression_ir')
+        ir_rhs = self._expression_ir_to_pandas(expression_ir, table, by_cols)
+        uses_aggregate_ir = self._expression_ir_contains_kind(expression_ir, 'aggregate')
+
+        if uses_aggregate_ir and ir_rhs is not None and not conditions and default_expr is None:
+            return f"{table}['{target}'] = {ir_rhs}"
 
         # Detect aggregate function calls — substitute before other processing
         preamble, subst_expr = self._substitute_agg_calls(expr, table, by_cols)
@@ -3696,6 +4229,16 @@ class CodeGenerator:
             else:
                 lines.append(f"{table}[{target!r}] = {table}.eval({subst_expr!r})")
             return '\n'.join(lines)
+
+        if ir_rhs is not None:
+            if conditions:
+                condition_expr = self._pandas_condition_eval(table, conditions, operators)
+                code = (f"condition = {condition_expr}\n"
+                        f"{table}.loc[condition, '{target}'] = {ir_rhs}")
+                if default_rhs is not None:
+                    code += f"\n{table}.loc[~condition, '{target}'] = {default_rhs}"
+                return code
+            return f"{table}['{target}'] = {ir_rhs}"
 
         # String function / concatenation — takes priority over eval
         string_code = self._parse_string_expr(expr, table)
@@ -4378,8 +4921,19 @@ class CodeGenerator:
             )
 
         # Agg function calls — handle inline in Polars (no preamble needed)
+        expression_ir = ast_node.get('expression_ir')
+        uses_aggregate_ir = self._expression_ir_contains_kind(expression_ir, 'aggregate')
+        polars_expr = self._expression_ir_to_polars(expression_ir, by_cols)
+        if uses_aggregate_ir and polars_expr is not None and not conditions and default_expr is None:
+            return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
+
         if _WAVG_CALL_RE.search(expr) or _QUANTILE_CALL_RE.search(expr) or _AGG_CALL_RE.search(expr):
             polars_expr = self._expr_to_polars(expr, by_cols)
+            if conditions:
+                return _conditional_wrap(polars_expr)
+            return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
+
+        if polars_expr is not None:
             if conditions:
                 return _conditional_wrap(polars_expr)
             return f"{table} = {table}.with_columns(({polars_expr}).alias('{target}'))"
@@ -4415,9 +4969,7 @@ class CodeGenerator:
             self._raise_bare_python_func_call(bare_func)
 
         # General arithmetic / scalar expression
-        polars_expr = self._expression_ir_to_polars(ast_node.get('expression_ir'))
-        if polars_expr is None:
-            polars_expr = self._expr_to_polars(expr, by_cols)
+        polars_expr = self._expr_to_polars(expr, by_cols)
         # If the entire expression reduced to a bare scalar (no pl.col / pl.lit
         # already present), wrap it so that .alias() can be called on it.
         # e.g. `wins = 1`  →  _expr_to_polars returns '1'
@@ -7086,6 +7638,16 @@ class CodeGenerator:
         default_expr = ast_node.get('default_expr')
 
         # ── By-clause agg calls → window functions ─────────────────
+        expression_ir = ast_node.get('expression_ir')
+        if (
+            self._expression_ir_contains_kind(expression_ir, 'aggregate')
+            and not conditions
+            and default_expr is None
+        ):
+            sql_expr_ir = self._expression_ir_to_sql(expression_ir, by_cols)
+            if sql_expr_ir is not None:
+                return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_ir))
+
         sql_expr_with_agg = self._substitute_agg_calls_sql(expr, by_cols)
         if sql_expr_with_agg != expr:
             sql_expr_translated, _ = self._try_sql_scalar_minmax(sql_expr_with_agg)
@@ -7094,8 +7656,10 @@ class CodeGenerator:
             return '\n'.join(self._ddb_upsert_col_lines(t, target, sql_expr_translated))
 
         # ── Translate expression to SQL ────────────────────────────
-        sql_str = self._try_sql_cast_func(expr)
         uses_pyvar_expr = False
+        sql_str = self._expression_ir_to_sql(expression_ir, by_cols)
+        if sql_str is None:
+            sql_str = self._try_sql_cast_func(expr)
         if sql_str is None:
             sql_str, uses_pyvar_expr = self._try_sql_date_func(expr)
         if sql_str is None:
@@ -7104,8 +7668,6 @@ class CodeGenerator:
             sql_str = self._try_sql_string_concat(expr)
         if sql_str is None:
             sql_str, uses_pyvar_expr = self._try_sql_scalar_minmax(expr)
-        if sql_str is None:
-            sql_str = self._expression_ir_to_sql(ast_node.get('expression_ir'))
         if sql_str is None:
             sql_str, uses_pyvar_expr = self._translate_assign_expr_to_sql(expr)
 
@@ -7658,8 +8220,19 @@ class CodeGenerator:
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
         default_expr = ast_node.get('default_expr')
+        expression_ir = ast_node.get('expression_ir')
+        if (
+            self._expression_ir_contains_kind(expression_ir, 'aggregate')
+            and not conditions
+            and default_expr is None
+        ):
+            sql_str = self._expression_ir_to_sql(expression_ir, by_cols)
+            if sql_str is not None:
+                return f"SELECT *, {sql_str} AS {target} FROM {from_alias}"
         sql_expr = self._substitute_agg_calls_sql(expr, by_cols)
-        sql_str = self._try_sql_cast_func(sql_expr)
+        sql_str = self._expression_ir_to_sql(expression_ir, by_cols)
+        if sql_str is None:
+            sql_str = self._try_sql_cast_func(sql_expr)
         if sql_str is None:
             sql_str, upv = self._try_sql_date_func(sql_expr)
             if upv:
@@ -7672,8 +8245,6 @@ class CodeGenerator:
             sql_str, upv = self._try_sql_scalar_minmax(sql_expr)
             if upv:
                 return f"-- [skipped: assign with Python variable in expression]"
-        if sql_str is None:
-            sql_str = self._expression_ir_to_sql(ast_node.get('expression_ir'))
         if sql_str is None:
             sql_str, upv = self._translate_assign_expr_to_sql(sql_expr)
             if upv:

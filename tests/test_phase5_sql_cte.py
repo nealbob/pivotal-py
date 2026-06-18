@@ -397,7 +397,7 @@ def test_codegen_for_python_list_sql_error(parser):
 
 def test_codegen_assign_scalar_max_sql(parser):
     sql = gen_sql(parser, 'with sales\ncapped = max(price - 150, 0)\n')
-    assert 'GREATEST(price - 150, 0)' in sql
+    assert 'GREATEST((price - 150), 0)' in sql
     assert 'AS capped' in sql
 
 

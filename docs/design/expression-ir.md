@@ -12,9 +12,9 @@ The first migration stages are deliberately additive:
 - Assignment nodes retain their public `expression` string unchanged.
 - Supported assignment expressions also receive additive `expression_ast` and
   `expression_ir` fields.
-- Backend generators consume `expression_ir` for the migrated basic arithmetic
-  assignment subset and continue using the raw `expression` fallback for
-  unsupported nodes.
+- Backend generators consume `expression_ir` for the migrated assignment
+  subsets: basic arithmetic, scalar functions, casts, and aggregates.
+  Unsupported nodes continue using the raw `expression` fallback.
 
 This document defines expression nodes only. It does not define a complete
 program IR or change expression semantics.
