@@ -100,6 +100,21 @@ def fetch(ns, table):
     return ns['_pivotal_ddb'].execute(f"SELECT * FROM {table}").df()
 
 
+def test_save_table_as_parquet_duckdb(parser, tmp_path, sample_df):
+    conn = make_conn('sales', sample_df)
+    destination = tmp_path / "exports" / "sales.parquet"
+    run_ddb(parser, f'save sales as "{destination}"', ddb_ns(conn))
+    result = conn.execute(f"SELECT * FROM read_parquet('{destination}')").df()
+    pd.testing.assert_frame_equal(result, sample_df)
+
+
+def test_save_table_as_catalog_duckdb(parser, sample_df):
+    conn = make_conn('sales', sample_df)
+    run_ddb(parser, 'save sales as table "sales_archive"', ddb_ns(conn))
+    result = conn.execute("SELECT * FROM sales_archive").df()
+    pd.testing.assert_frame_equal(result, sample_df)
+
+
 # ---------------------------------------------------------------------------
 # Preamble: connection is created if absent
 # ---------------------------------------------------------------------------

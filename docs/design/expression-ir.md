@@ -2,10 +2,10 @@
 
 ## Status And Scope
 
-This document defines the initial boundary between Pivotal assignment syntax and
-future backend-independent expression handling.
+This document defines the boundary between Pivotal assignment syntax and
+backend-independent expression handling.
 
-The first migration stages are deliberately additive:
+The migration is deliberately additive:
 
 - The statement parser continues to capture assignment expressions as strings.
 - `DSLParser.parse()` continues to return the existing public syntax AST.
@@ -16,8 +16,8 @@ The first migration stages are deliberately additive:
   subsets: basic arithmetic, scalar functions, casts, and aggregates.
   Unsupported nodes continue using the raw `expression` fallback.
 
-This document defines expression nodes only. It does not define a complete
-program IR or change expression semantics.
+This document defines expression and condition nodes only. It does not define
+a complete program IR or change expression semantics.
 
 ## Compiler Boundary
 
@@ -31,7 +31,7 @@ Pivotal source
   -> standalone expression parser
   -> additive expression AST
   -> additive semantic normalization
-  -> future backend generators
+  -> IR-first backend generation with legacy fallback
 ```
 
 Expression parsing happens after compile-time function/value expansion and
@@ -64,8 +64,9 @@ Operator precedence, from highest to lowest, is:
 
 Parentheses affect tree structure but are not retained as separate nodes.
 
-The initial parser does not recognize conditions, attribute access, subscripts,
-lists, dictionaries, keyword arguments, or arbitrary Python expressions.
+The initial expression parser does not recognize conditions, attribute access,
+subscripts, lists, dictionaries, keyword arguments, or arbitrary Python
+expressions.
 
 ## Node Vocabulary
 
@@ -187,6 +188,60 @@ Backend generators may consume explicitly migrated `expression_ir` subsets.
 Unsupported nodes must fall back to the raw `expression` string so current
 pandas, Polars, DuckDB, and SQL behavior is preserved outside migrated slices.
 
+## Condition IR Metadata
+
+Condition-bearing syntax nodes receive best-effort condition metadata. The
+existing public `conditions`, `operators`, and `query_str` fields are retained
+for compatibility and as the fallback for unsupported condition shapes.
+
+Condition-bearing nodes receive additive fields:
+
+```json
+{
+  "condition_ast": {
+    "kind": "predicate",
+    "operator": "greater_than",
+    "left": {"kind": "column", "name": "amount"},
+    "right": {"kind": "literal", "literal_type": "integer", "value": 100}
+  },
+  "condition_ir": {
+    "kind": "predicate",
+    "operator": "greater_than",
+    "left": {"kind": "column", "name": "amount"},
+    "right": {"kind": "literal", "literal_type": "integer", "value": 100}
+  }
+}
+```
+
+Multiple conditions are represented as left-associative logical nodes:
+
+```json
+{
+  "kind": "logical",
+  "operator": "and",
+  "left": {"kind": "predicate"},
+  "right": {"kind": "predicate"}
+}
+```
+
+Predicate operands reuse the expression node vocabulary where possible:
+columns, literals, and runtime references. Condition-specific collection and
+reference operands use `list`, `list_reference`, and `compile_reference` nodes.
+
+Stage 7 attaches condition metadata after compile-time expansion and
+column-loop lowering. Unsupported condition metadata must produce `null`
+condition fields rather than turning a previously valid Pivotal program into a
+parse failure.
+
+Stage 8 lets backend condition emitters consume supported `condition_ir` nodes
+for filters, condition-based data-quality rules, conditional assignments, and
+case branches. If `condition_ir` is absent or contains an unsupported node, the
+emitters fall back to the legacy `conditions` and `operators` fields.
+
+Stage 8 does not change the public syntax AST, accepted syntax, or backend
+surface behavior. It only moves the supported condition codegen subset onto the
+structured predicate/logical metadata.
+
 ## Semantic IR Node Vocabulary
 
 Stage 3 adds semantic nodes for known expression meaning.
@@ -273,8 +328,8 @@ not always have a direct original-source span.
 
 The following are intentionally deferred:
 
-- Conditions and comparison operators
 - Complete program IR and schema versioning
 - Backend capability validation
-- Backend generation from expression nodes
+- Backend generation from unsupported expression nodes
+- Backend generation from unsupported condition nodes
 - Substrait lowering

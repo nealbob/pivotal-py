@@ -2146,8 +2146,68 @@ def test_load_clean_columns_no_warning(parser, tmp_path, sample_df):
 # save / load_all / load_package_table
 # ---------------------------------------------------------------------------
 
+def test_save_package_as_destination(parser, tmp_path, sample_df):
+    """save package as treats its target as the complete package path."""
+    ns = {
+        'pd': pd,
+        'sales': sample_df.copy(),
+        'other': sample_df.head(1).copy(),
+    }
+    destination = tmp_path / "reports" / "myproj"
+    run(parser, f'save package as "{destination}"\n    include sales', ns)
+    assert (destination / "datapackage.json").is_file()
+    assert (destination / "data" / "sales.csv").is_file()
+    assert not (destination / "data" / "other.csv").exists()
+
+
+def test_save_table_as_csv(parser, tmp_path, sample_df):
+    """save <table> as <path> writes only the named table."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    destination = tmp_path / "exports" / "sales.csv"
+    run(parser, f'save sales as "{destination}"', ns)
+    result = pd.read_csv(destination)
+    pd.testing.assert_frame_equal(result, sample_df)
+
+
+def test_save_table_as_catalog_requires_supported_backend(parser, sample_df):
+    ast = parser.parse('save sales as table "main.analytics.sales"')
+    generated = parser.generate_code(ast, backend='pandas')
+    assert "_pivotal_save_table_catalog(sales, 'main.analytics.sales')" in generated[0]
+
+
+def test_save_spark_delta_path_is_not_treated_as_local():
+    from pivotal.table_io import save_table_file
+
+    calls = []
+
+    class FakeWriter:
+        def mode(self, value):
+            calls.append(("mode", value))
+            return self
+
+        def format(self, value):
+            calls.append(("format", value))
+            return self
+
+        def save(self, value):
+            calls.append(("save", value))
+
+    FakeSparkDataFrame = type(
+        "DataFrame",
+        (),
+        {"__module__": "pyspark.sql.dataframe", "write": FakeWriter()},
+    )
+
+    save_table_file(FakeSparkDataFrame(), "dbfs:/mnt/results/sales.delta")
+    assert calls == [
+        ("mode", "overwrite"),
+        ("format", "delta"),
+        ("save", "dbfs:/mnt/results/sales.delta"),
+    ]
+
+
 def test_save_creates_package(parser, tmp_path, sample_df):
-    """save creates the package folder structure and datapackage.json."""
+    """The legacy save form remains compatible."""
     ns = {'pd': pd, 'sales': sample_df.copy()}
     run(parser, f'save "myproj"\n    path "{tmp_path}"', ns)
     pkg_dir = tmp_path / "myproj"

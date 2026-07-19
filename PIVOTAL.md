@@ -744,10 +744,12 @@ The function must accept a DataFrame and return a DataFrame. Define it in a `pyt
 ## Save
 
 ```pivotal
-save "my_analysis"
-    path "~/output"
+save package as "~/output/my_analysis"
     format parquet
     include sales, summary, revenue_chart
+
+save sales as "~/output/sales.parquet"
+save sales as table "main.analytics.sales"
 ```
 
 ## Delete

@@ -14,6 +14,7 @@ read a previously saved package back into a session.
 import json
 import os
 import shutil
+from pathlib import Path
 
 import pandas as pd
 
@@ -29,6 +30,31 @@ class Package:
     # ------------------------------------------------------------------
     # Export (create / overwrite)
     # ------------------------------------------------------------------
+
+    @classmethod
+    def export_to(
+        cls,
+        destination,
+        namespace: dict,
+        fmt: str = "csv",
+        chart_fmt: str = "png",
+        include: list | None = None,
+        exclude: list | None = None,
+    ) -> "Package":
+        """Export a package to a complete destination directory path."""
+        target = Path(destination).expanduser()
+        if not target.name:
+            raise ValueError("Package destination must include a directory name")
+        parent = target.parent if str(target.parent) else Path(".")
+        return cls.export(
+            target.name,
+            namespace,
+            path=str(parent),
+            fmt=fmt,
+            chart_fmt=chart_fmt,
+            include=include,
+            exclude=exclude,
+        )
 
     @classmethod
     def export(

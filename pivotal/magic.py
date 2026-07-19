@@ -951,10 +951,9 @@ def save_gui():
                 output.clear_output()
                 print('Enter a package name.')
             return
-        dsl = f'%%pivotal\nsave "{name}"'
         path = path_fc.selected_path
-        if path:
-            dsl += f'\n    path "{path}"'
+        destination = os.path.join(path or os.getcwd(), name)
+        dsl = f'%%pivotal\nsave package as "{destination}"'
         dsl += f'\n    format {fmt_w.value}'
         if chart_fmt_w.value != 'png':
             dsl += f'\n    chart_format {chart_fmt_w.value}'

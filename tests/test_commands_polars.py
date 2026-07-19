@@ -61,6 +61,12 @@ def run(parser, code, ns):
     return ns
 
 
+def test_save_table_as_csv(parser, tmp_path, sample_df):
+    destination = tmp_path / "exports" / "sales.csv"
+    run(parser, f'save sales as "{destination}"', {'sales': sample_df})
+    assert pl.read_csv(destination).equals(sample_df)
+
+
 # ---------------------------------------------------------------------------
 # validate_table / copy_table
 # ---------------------------------------------------------------------------

@@ -123,6 +123,14 @@ Manage data packages — collections of tables and charts saved to disk.
 from pivotal import Package
 ```
 
+### `Package.export_to(destination, globals, fmt='csv', chart_fmt='png', include=None, exclude=None)`
+
+Save a package to a complete destination directory:
+
+```python
+Package.export_to('~/output/my_analysis', globals())
+```
+
 ### `Package.export(name, globals, path=None, fmt='csv', chart_fmt='png', include=None, exclude=None)`
 
 Save all tables and charts from the current session to a data package.

@@ -27,8 +27,7 @@ The same analysis example (based on the [PRQL website](https://prql-lang.org/)) 
         name = last_name + ", " + first_name
         select customer_id, name, sum_income
 
-    save "my_analysis"
-        path "~/projects/output"
+    save package as "~/projects/output/my_analysis"
     ```
 
 === "Pandas"

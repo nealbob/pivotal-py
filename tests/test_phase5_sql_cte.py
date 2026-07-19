@@ -65,6 +65,16 @@ def window_df():
 # CTE structure
 # ===========================================================================
 
+def test_save_table_as_catalog_sql(parser):
+    sql = gen_sql(
+        parser,
+        'with sales\nfilter price > 100\nsave sales as table "main.analytics.sales"\n',
+    )
+    assert sql.startswith('CREATE OR REPLACE TABLE "main"."analytics"."sales" AS')
+    assert 'WITH' in sql
+    assert 'SELECT * FROM _cte_0_sales' in sql
+
+
 def test_cte_structure_single_op(parser, sample_df):
     """Single filter produces WITH ... AS (...) SELECT * FROM ..."""
     sql = gen_sql(parser, 'with sales\nfilter price > 100\n')

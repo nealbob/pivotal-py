@@ -95,6 +95,7 @@ const keywords: Record<string, true> = {
   header: true,
   names: true,
   path: true,
+  package: true,
   include: true,
   chart_format: true,
   title: true,

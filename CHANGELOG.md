@@ -8,11 +8,19 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
+- Added explicit table and package save syntax: `save <table> as "<path>"`,
+  `save <table> as table "<catalog>.<schema>.<table>"`, and
+  `save package as "<path>"`, with backend-aware file and managed-table writes.
 - Added explicit `\` line continuation so long Pivotal statements can span multiple physical lines.
-- Added standalone assignment expression parsing, repository-derived expression conformance tests, and additive `expression_ast` / `expression_ir` fields on parsed assignment nodes while preserving raw expression strings and existing backend generation.
+- Added a native, backend-independent expression system with standalone parsing,
+  semantic `expression_ir` and `condition_ir`, and IR-driven code generation for
+  supported assignments and conditions across pandas, Polars, DuckDB, and SQL.
+  Unsupported legacy expressions and conditions retain their existing fallback.
 
 ### Fixed
 
+- Fixed up/down arrow-key navigation in Pivotal autocomplete menus inside
+  JupyterLab notebooks.
 - Fixed faceted `plot ... by ...` statements with a title so they generate and register populated charts, with the overall title and axis labels applied correctly.
 
 ## [0.5.0] - 2026-05-18

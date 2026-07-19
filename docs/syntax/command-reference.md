@@ -779,15 +779,24 @@ The function receives the active DataFrame and must return a DataFrame.
 Save outputs to a Pivotal data package:
 
 ```pivotal
-save "<package_name>"
-save "<package_name>"
-    path "<directory>"
-    path :python_path
+save package as "<directory>/<package_name>"
+save package as :python_path
     format <csv|parquet>
     chart_format <png|svg>
     include <name>, ...
     exclude <name>, ...
 ```
+
+Save one table to a path or managed catalog table:
+
+```pivotal
+save <table> as "<path>"
+save <table> as :python_path
+save <table> as table "<catalog>.<schema>.<table>"
+```
+
+File formats are inferred from the path suffix. Managed table support depends
+on the selected backend.
 
 ### `delete`
 

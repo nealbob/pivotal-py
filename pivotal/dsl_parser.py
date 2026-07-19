@@ -13,6 +13,7 @@ import warnings
 from pathlib import Path
 from types import SimpleNamespace
 from .errors import PivotalError, _make_suggestion
+from .condition_ir import build_condition_ast, normalize_condition_ast_safe
 from .expression_parser import parse_expression
 from .expression_ir import normalize_expression_ast_safe
 
@@ -309,7 +310,10 @@ grammar_indented = r"""
     from_query_line: "query" STRING "as" table_name _NL
     from_item: table_name "as" table_name
 
-    save_statement: "save" STRING (_NL _INDENT save_params _DEDENT)? _NL?
+    save_statement: "save" "package" "as" (STRING | PYTHON_VAR) (_NL _INDENT save_params _DEDENT)? _NL? -> save_package_as
+                  | "save" table_name "as" "table" STRING _NL?                                  -> save_table_catalog
+                  | "save" table_name "as" (STRING | PYTHON_VAR) _NL?                           -> save_table_file
+                  | "save" STRING (_NL _INDENT save_params _DEDENT)? _NL?                       -> save_legacy_package
 
     save_params: save_param+
     save_param: "path" (STRING | PYTHON_VAR) _NL?           -> save_path
@@ -812,10 +816,8 @@ class DSLTransformer(Transformer):
     # save transformer methods
     # ------------------------------------------------------------------
 
-    def save_statement(self, *args):
-        """Handle: save "name" [params]"""
-        pkg_name = str(args[0])
-        params_list = args[1] if len(args) > 1 else []
+    def _package_save_node(self, pkg_name, params_list=None, destination=None):
+        params_list = params_list or []
 
         path = None
         fmt = None
@@ -840,12 +842,38 @@ class DSLTransformer(Transformer):
 
         return {
             'type': 'save',
+            'save_kind': 'package',
             'name': pkg_name,
+            'destination': destination,
             'path': path,
             'format': fmt,
             'chart_format': chart_fmt,
             'include': include,
             'exclude': exclude,
+        }
+
+    def save_package_as(self, destination, params_list=None):
+        """Handle: save package as "<destination>" [params]."""
+        return self._package_save_node(None, params_list, destination)
+
+    def save_legacy_package(self, pkg_name, params_list=None):
+        """Handle the legacy form: save "<name>" [params]."""
+        return self._package_save_node(str(pkg_name), params_list)
+
+    def save_table_file(self, table_name, destination):
+        return {
+            'type': 'save',
+            'save_kind': 'file',
+            'table_name': str(table_name),
+            'destination': destination,
+        }
+
+    def save_table_catalog(self, table_name, destination):
+        return {
+            'type': 'save',
+            'save_kind': 'table',
+            'table_name': str(table_name),
+            'destination': str(destination),
         }
 
     def save_params(self, *params):
@@ -2391,6 +2419,15 @@ class CodeGenerator:
             return getattr(self, method_name)(ast_node)
         else:
             raise NotImplementedError(f"No generator for {statement_type} with {self.backend} backend")
+
+    @staticmethod
+    def _quote_qualified_identifier(name):
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*", name):
+            raise ValueError(
+                f"Invalid catalog table name {name!r}; "
+                "use identifiers such as catalog.schema.table"
+            )
+        return ".".join(f'"{part}"' for part in name.split("."))
     
     # Pandas code generators
     def generate_sort_pandas(self, ast_node):
@@ -4055,7 +4092,8 @@ class CodeGenerator:
             return f"{table}.eval({expr!r})"
 
         conds = ', '.join(
-            self._pandas_condition_eval(table, b['conditions'], b['operators'])
+            self._pandas_condition_eval(
+                table, b['conditions'], b['operators'], b.get('condition_ir'))
             for b in branches
         )
         choices = ', '.join(_eval_expr(b['expression']) for b in branches)
@@ -4072,8 +4110,9 @@ class CodeGenerator:
                 f"    default={default_str},\n"
                 f")")
 
-    def _pandas_condition_eval(self, table, conditions, operators):
-        query_str, needs_python_engine = self._build_query_string(conditions, operators)
+    def _pandas_condition_eval(self, table, conditions, operators, condition_ir=None):
+        query_str, needs_python_engine = self._build_query_string(
+            conditions, operators, condition_ir)
         engine = ", engine='python'" if needs_python_engine else ""
         return f"{table}.eval({query_str!r}{engine})"
 
@@ -4145,6 +4184,7 @@ class CodeGenerator:
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators = ast_node.get('operators', [])
+        condition_ir = ast_node.get('condition_ir')
         default_expr = ast_node.get('default_expr')
 
         # Convert :varname Python variable refs to @varname for df.eval()
@@ -4206,7 +4246,9 @@ class CodeGenerator:
             if scalar_code is not None:
                 lines.insert(0, "import numpy as np")
                 if conditions:
-                    lines.append(f"_cond = {self._pandas_condition_eval(table, conditions, operators)}")
+                    lines.append(
+                        f"_cond = {self._pandas_condition_eval(table, conditions, operators, condition_ir)}"
+                    )
                     lines.append(
                         f"{table}.loc[_cond, {target!r}] = ({scalar_code})"
                     )
@@ -4218,7 +4260,9 @@ class CodeGenerator:
                     lines.append(f"{table}[{target!r}] = {scalar_code}")
                 return '\n'.join(lines)
             if conditions:
-                lines.append(f"_cond = {self._pandas_condition_eval(table, conditions, operators)}")
+                lines.append(
+                    f"_cond = {self._pandas_condition_eval(table, conditions, operators, condition_ir)}"
+                )
                 lines.append(
                     f"{table}.loc[_cond, {target!r}] = {table}.eval({subst_expr!r})"
                 )
@@ -4232,7 +4276,8 @@ class CodeGenerator:
 
         if ir_rhs is not None:
             if conditions:
-                condition_expr = self._pandas_condition_eval(table, conditions, operators)
+                condition_expr = self._pandas_condition_eval(
+                    table, conditions, operators, condition_ir)
                 code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = {ir_rhs}")
                 if default_rhs is not None:
@@ -4244,7 +4289,8 @@ class CodeGenerator:
         string_code = self._parse_string_expr(expr, table)
         if string_code is not None:
             if conditions:
-                condition_expr = self._pandas_condition_eval(table, conditions, operators)
+                condition_expr = self._pandas_condition_eval(
+                    table, conditions, operators, condition_ir)
                 code = (f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = ({string_code})")
                 if default_rhs is not None:
@@ -4255,7 +4301,8 @@ class CodeGenerator:
         scalar_minmax = self._try_scalar_minmax_pandas(expr, table)
         if scalar_minmax is not None:
             if conditions:
-                condition_expr = self._pandas_condition_eval(table, conditions, operators)
+                condition_expr = self._pandas_condition_eval(
+                    table, conditions, operators, condition_ir)
                 code = (f"import numpy as np\n"
                         f"condition = {condition_expr}\n"
                         f"{table}.loc[condition, '{target}'] = ({scalar_minmax})")
@@ -4270,7 +4317,8 @@ class CodeGenerator:
             self._raise_bare_python_func_call(bare_func)
 
         if conditions:
-            condition_expr = self._pandas_condition_eval(table, conditions, operators)
+            condition_expr = self._pandas_condition_eval(
+                table, conditions, operators, condition_ir)
             if user_call:
                 func, col = user_call
                 code = (f"condition = {condition_expr}\n"
@@ -4331,7 +4379,11 @@ class CodeGenerator:
         return marker
 
     def generate_filter_polars(self, ast_node):
-        expr = self._build_polars_filter(ast_node['conditions'], ast_node['operators'])
+        expr = self._build_polars_filter(
+            ast_node['conditions'],
+            ast_node['operators'],
+            ast_node.get('condition_ir'),
+        )
         tbl = ast_node['table_name']
         return f"{tbl} = {tbl}.filter({expr})"
 
@@ -4339,7 +4391,11 @@ class CodeGenerator:
         tbl = ast_node['table_name']
         rule = ast_node.get('rule')
         if rule == 'condition':
-            expr = self._build_polars_filter(ast_node['conditions'], ast_node['operators'])
+            expr = self._build_polars_filter(
+                ast_node['conditions'],
+                ast_node['operators'],
+                ast_node.get('condition_ir'),
+            )
             lines = [f"_pvt_dq_bad = {tbl}.filter(~({expr})).height"]
         elif rule == 'unique':
             cols = ast_node['columns']
@@ -4859,7 +4915,8 @@ class CodeGenerator:
 
         chain_parts = []
         for i, branch in enumerate(branches):
-            filter_expr = self._build_polars_filter(branch['conditions'], branch['operators'])
+            filter_expr = self._build_polars_filter(
+                branch['conditions'], branch['operators'], branch.get('condition_ir'))
             val = _polars_val(branch['expression'])
             if i == 0:
                 chain_parts.append(f"pl.when({filter_expr}).then({val})")
@@ -4885,6 +4942,7 @@ class CodeGenerator:
         by_cols = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators = ast_node.get('operators') or []
+        condition_ir = ast_node.get('condition_ir')
         default_expr = ast_node.get('default_expr')
 
         def _polars_default(expr_value):
@@ -4904,7 +4962,7 @@ class CodeGenerator:
             return self._expr_to_polars(expr_value, by_cols)
 
         def _conditional_wrap(polars_expr):
-            filter_expr = self._build_polars_filter(conditions, operators)
+            filter_expr = self._build_polars_filter(conditions, operators, condition_ir)
             if default_expr is not None:
                 otherwise = _polars_default(default_expr)
             else:
@@ -4950,7 +5008,8 @@ class CodeGenerator:
         if user_call:
             func, col = user_call
             if conditions:
-                filter_expr = self._build_polars_filter(conditions, operators)
+                filter_expr = self._build_polars_filter(
+                    conditions, operators, condition_ir)
                 otherwise = (
                     f"pl.col('{target}') if '{target}' in {table}.columns else pl.lit(None)"
                 )
@@ -5419,7 +5478,11 @@ class CodeGenerator:
     generate_agg_plot_polars = generate_pivot_plot_polars
 
     def generate_filter_pandas(self, ast_node):
-        query_str, needs_python_engine = self._build_query_string(ast_node['conditions'], ast_node['operators'])
+        query_str, needs_python_engine = self._build_query_string(
+            ast_node['conditions'],
+            ast_node['operators'],
+            ast_node.get('condition_ir'),
+        )
         engine = ", engine='python'" if needs_python_engine else ""
         return f"{ast_node['table_name']} = {ast_node['table_name']}.query('{query_str}'{engine})"
 
@@ -5451,7 +5514,10 @@ class CodeGenerator:
         rule = ast_node.get('rule')
         if rule == 'condition':
             query_str, needs_python_engine = self._build_query_string(
-                ast_node['conditions'], ast_node['operators'])
+                ast_node['conditions'],
+                ast_node['operators'],
+                ast_node.get('condition_ir'),
+            )
             engine = ", engine='python'" if needs_python_engine else ""
             lines = [f"_pvt_dq_bad = len({table}.query('not ({query_str})'{engine}))"]
         elif rule == 'unique':
@@ -6559,13 +6625,18 @@ class CodeGenerator:
             return "lambda x: _gt_vals.fmt_date(x)"
         return None
 
-    def _build_query_string(self, conditions, operators):
+    def _build_query_string(self, conditions, operators, condition_ir=None):
         """Build query string from conditions and operators.
 
         Returns:
             (query_str, needs_python_engine) — the second flag signals that
             pandas must use engine='python' (e.g. for str accessor methods).
         """
+        if condition_ir is not None:
+            built = self._build_query_string_from_ir(condition_ir)
+            if built is not None:
+                return built
+
         query_parts = []
         needs_python_engine = False
 
@@ -6622,6 +6693,140 @@ class CodeGenerator:
 
         return ' '.join(query_parts), needs_python_engine
 
+    def _build_query_string_from_ir(self, condition_ir):
+        return self._pandas_condition_ir(condition_ir)
+
+    def _pandas_condition_ir(self, node):
+        kind = node.get('kind')
+        if kind == 'logical':
+            left = self._pandas_condition_ir(node.get('left'))
+            right = self._pandas_condition_ir(node.get('right'))
+            operator = node.get('operator')
+            if left is None or right is None or operator not in ('and', 'or'):
+                return None
+            return f"{left[0]} {operator} {right[0]}", left[1] or right[1]
+
+        if kind != 'predicate':
+            return None
+
+        column = self._condition_ir_column_name(node.get('left'))
+        operator = node.get('operator')
+        right = node.get('right')
+        if column is None:
+            return None
+
+        if operator == 'between':
+            values = self._condition_ir_list_values(right)
+            if values is None or len(values) != 2:
+                return None
+            lo = self._pandas_condition_value(values[0], quoted_strings=False)
+            hi = self._pandas_condition_value(values[1], quoted_strings=False)
+            if lo is None or hi is None:
+                return None
+            return f"{column} >= {lo} and {column} <= {hi}", False
+
+        if operator in ('contains', 'not_contains', 'starts_with', 'ends_with'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            method = {
+                'contains': 'contains',
+                'not_contains': 'contains',
+                'starts_with': 'startswith',
+                'ends_with': 'endswith',
+            }[operator]
+            prefix = 'not ' if operator == 'not_contains' else ''
+            return f'{prefix}{column}.str.{method}("{value}")', True
+
+        if operator in ('matches', 'not_matches'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            prefix = 'not ' if operator == 'not_matches' else ''
+            pattern = self._py_literal(self._decode_string_arg(_LiteralStr(value)))
+            return f"{prefix}{column}.str.contains({pattern}, regex=True, na=False)", True
+
+        if operator in ('in', 'not_in'):
+            value = self._pandas_condition_in_value(right)
+            if value is None:
+                return None
+            comparator = 'not in' if operator == 'not_in' else 'in'
+            return f"{column} {comparator} {value}", False
+
+        comparator = {
+            'equal': '==',
+            'not_equal': '!=',
+            'greater_than': '>',
+            'less_than': '<',
+            'greater_than_or_equal': '>=',
+            'less_than_or_equal': '<=',
+        }.get(operator)
+        if comparator is None:
+            return None
+        value = self._pandas_condition_value(right, quoted_strings=True)
+        if value is None:
+            return None
+        return f"{column} {comparator} {value}", False
+
+    def _condition_ir_column_name(self, node):
+        if isinstance(node, dict) and node.get('kind') == 'column':
+            return node.get('name')
+        return None
+
+    def _condition_ir_string_value(self, node):
+        if (
+            isinstance(node, dict)
+            and node.get('kind') == 'literal'
+            and node.get('literal_type') == 'string'
+        ):
+            return node.get('value')
+        return None
+
+    def _condition_ir_list_values(self, node):
+        if isinstance(node, dict) and node.get('kind') == 'list':
+            return node.get('values') or []
+        return None
+
+    def _pandas_condition_value(self, node, *, quoted_strings):
+        if not isinstance(node, dict):
+            return None
+        kind = node.get('kind')
+        if kind == 'column':
+            return node.get('name')
+        if kind == 'runtime_reference':
+            return f"@{node.get('name')}"
+        if kind != 'literal':
+            return None
+        literal_type = node.get('literal_type')
+        value = node.get('value')
+        if literal_type == 'string':
+            return f'"{value}"' if quoted_strings else str(value)
+        if literal_type == 'boolean':
+            return 'True' if value else 'False'
+        if literal_type == 'null':
+            return 'None'
+        if literal_type in ('integer', 'float'):
+            return str(value)
+        return None
+
+    def _pandas_condition_in_value(self, node):
+        if not isinstance(node, dict):
+            return None
+        if node.get('kind') == 'runtime_reference':
+            return f"@{node.get('name')}"
+        if node.get('kind') == 'list':
+            values = []
+            for value in node.get('values', []):
+                rendered = self._pandas_condition_value(value, quoted_strings=True)
+                if rendered is None:
+                    return None
+                values.append(rendered)
+            return f"[{', '.join(values)}]"
+        value = self._pandas_condition_value(node, quoted_strings=True)
+        if value is None:
+            return None
+        return f"[{value}]"
+
     # ------------------------------------------------------------------
     # DuckDB backend helpers
     # ------------------------------------------------------------------
@@ -6654,11 +6859,16 @@ class CodeGenerator:
     # Polars filter expression builder
     # ------------------------------------------------------------------
 
-    def _build_polars_filter(self, conditions, operators):
+    def _build_polars_filter(self, conditions, operators, condition_ir=None):
         """Build a Polars filter expression string from conditions and operators.
 
         Returns a Python expression string that evaluates to a ``pl.Expr``.
         """
+        if condition_ir is not None:
+            expr = self._build_polars_filter_from_ir(condition_ir)
+            if expr is not None:
+                return expr
+
         parts = []
         for condition in conditions:
             column = condition['column']
@@ -6718,7 +6928,127 @@ class CodeGenerator:
             result = f"({result}) {polars_op} ({parts[i + 1]})"
         return result
 
-    def _build_sql_where(self, conditions, operators):
+    def _build_polars_filter_from_ir(self, condition_ir):
+        return self._polars_condition_ir(condition_ir)
+
+    def _polars_condition_ir(self, node):
+        kind = node.get('kind')
+        if kind == 'logical':
+            left = self._polars_condition_ir(node.get('left'))
+            right = self._polars_condition_ir(node.get('right'))
+            operator = node.get('operator')
+            if left is None or right is None or operator not in ('and', 'or'):
+                return None
+            polars_op = '&' if operator == 'and' else '|'
+            return f"({left}) {polars_op} ({right})"
+
+        if kind != 'predicate':
+            return None
+
+        column = self._condition_ir_column_name(node.get('left'))
+        operator = node.get('operator')
+        right = node.get('right')
+        if column is None:
+            return None
+
+        if operator == 'between':
+            values = self._condition_ir_list_values(right)
+            if values is None or len(values) != 2:
+                return None
+            lo = self._polars_condition_literal_value(values[0])
+            hi = self._polars_condition_literal_value(values[1])
+            if lo is None or hi is None:
+                return None
+            return f"pl.col('{column}').is_between({lo}, {hi})"
+
+        if operator in ('contains', 'not_contains', 'matches', 'not_matches'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            rendered = (
+                self._py_literal(self._decode_string_arg(_LiteralStr(value)))
+                if operator.endswith('matches')
+                else f"'{value}'"
+            )
+            expr = f"pl.col('{column}').str.contains({rendered})"
+            if operator in ('not_contains', 'not_matches'):
+                expr = f"~{expr}"
+            return expr
+
+        if operator in ('starts_with', 'ends_with'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            method = 'starts_with' if operator == 'starts_with' else 'ends_with'
+            return f"pl.col('{column}').str.{method}('{value}')"
+
+        if operator in ('in', 'not_in'):
+            value = self._polars_condition_in_value(right)
+            if value is None:
+                return None
+            expr = f"pl.col('{column}').is_in({value})"
+            if operator == 'not_in':
+                expr = f"~{expr}"
+            return expr
+
+        comparator = {
+            'equal': '==',
+            'not_equal': '!=',
+            'greater_than': '>',
+            'less_than': '<',
+            'greater_than_or_equal': '>=',
+            'less_than_or_equal': '<=',
+        }.get(operator)
+        if comparator is None:
+            return None
+        value = self._polars_condition_value(right)
+        if value is None:
+            return None
+        return f"(pl.col('{column}') {comparator} {value})"
+
+    def _polars_condition_literal_value(self, node):
+        if not isinstance(node, dict) or node.get('kind') != 'literal':
+            return None
+        literal_type = node.get('literal_type')
+        value = node.get('value')
+        if literal_type == 'string':
+            return repr(value)
+        if literal_type == 'boolean':
+            return 'True' if value else 'False'
+        if literal_type == 'null':
+            return 'None'
+        if literal_type in ('integer', 'float'):
+            return str(value)
+        return None
+
+    def _polars_condition_value(self, node):
+        if not isinstance(node, dict):
+            return None
+        if node.get('kind') == 'column':
+            return f"pl.col('{node.get('name')}')"
+        if node.get('kind') == 'runtime_reference':
+            return node.get('name')
+        return self._polars_condition_literal_value(node)
+
+    def _polars_condition_in_value(self, node):
+        if not isinstance(node, dict):
+            return None
+        if node.get('kind') == 'runtime_reference':
+            return node.get('name')
+        if node.get('kind') == 'list':
+            values = []
+            for value in node.get('values', []):
+                rendered = self._polars_condition_literal_value(value)
+                if rendered is None:
+                    return None
+                values.append(rendered)
+            return f"[{', '.join(values)}]"
+        rendered = self._polars_condition_literal_value(node)
+        if rendered is None:
+            return None
+        return f"[{rendered}]"
+
+    def _build_sql_where(self, conditions, operators, condition_ir=None):
         """Build a SQL WHERE clause from filter conditions.
 
         Returns:
@@ -6727,6 +7057,11 @@ class CodeGenerator:
             preamble_lines — Python lines to emit before the execute call
             use_fstring    — if True, wrap the SQL string in f"..." for runtime injection
         """
+        if condition_ir is not None:
+            built = self._build_sql_where_from_ir(condition_ir)
+            if built is not None:
+                return built
+
         parts = []
         preamble = []
         use_fstring = False
@@ -6789,6 +7124,135 @@ class CodeGenerator:
                 parts.append(operators[i].upper())
 
         return ' '.join(parts), preamble, use_fstring
+
+    def _build_sql_where_from_ir(self, condition_ir):
+        return self._sql_condition_ir(condition_ir)
+
+    def _sql_condition_ir(self, node):
+        kind = node.get('kind')
+        if kind == 'logical':
+            left = self._sql_condition_ir(node.get('left'))
+            right = self._sql_condition_ir(node.get('right'))
+            operator = node.get('operator')
+            if left is None or right is None or operator not in ('and', 'or'):
+                return None
+            where = f"{left[0]} {operator.upper()} {right[0]}"
+            return where, left[1] + right[1], left[2] or right[2]
+
+        if kind != 'predicate':
+            return None
+
+        column = self._condition_ir_column_name(node.get('left'))
+        operator = node.get('operator')
+        right = node.get('right')
+        if column is None:
+            return None
+        sql_col = f'"{column}"' if ' ' in str(column) else column
+
+        if operator == 'between':
+            values = self._condition_ir_list_values(right)
+            if values is None or len(values) != 2:
+                return None
+            lo = self._sql_condition_value(values[0])
+            hi = self._sql_condition_value(values[1])
+            if lo is None or hi is None or lo[1] or hi[1]:
+                return None
+            return f"{sql_col} BETWEEN {lo[0]} AND {hi[0]}", [], False
+
+        if operator in ('contains', 'not_contains', 'starts_with', 'ends_with'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            if operator == 'contains':
+                where = f"{sql_col} LIKE '%{value}%'"
+            elif operator == 'not_contains':
+                where = f"{sql_col} NOT LIKE '%{value}%'"
+            elif operator == 'starts_with':
+                where = f"{sql_col} LIKE '{value}%'"
+            else:
+                where = f"{sql_col} LIKE '%{value}'"
+            return where, [], False
+
+        if operator in ('matches', 'not_matches'):
+            value = self._condition_ir_string_value(right)
+            if value is None:
+                return None
+            pattern = self._decode_string_arg(_LiteralStr(value))
+            regex = f"REGEXP_MATCHES({sql_col}, {self._sql_literal(pattern)})"
+            if operator == 'not_matches':
+                regex = f"NOT {regex}"
+            return regex, [], False
+
+        if operator in ('in', 'not_in'):
+            built = self._sql_condition_in_value(right)
+            if built is None:
+                return None
+            values, preamble, use_fstring = built
+            sql_in_op = 'NOT IN' if operator == 'not_in' else 'IN'
+            return f"{sql_col} {sql_in_op} ({values})", preamble, use_fstring
+
+        comparator = {
+            'equal': '=',
+            'not_equal': '<>',
+            'greater_than': '>',
+            'less_than': '<',
+            'greater_than_or_equal': '>=',
+            'less_than_or_equal': '<=',
+        }.get(operator)
+        if comparator is None:
+            return None
+        value = self._sql_condition_value(right)
+        if value is None:
+            return None
+        rendered, use_fstring = value
+        return f"{sql_col} {comparator} {rendered}", [], use_fstring
+
+    def _sql_condition_value(self, node):
+        if not isinstance(node, dict):
+            return None
+        kind = node.get('kind')
+        if kind == 'column':
+            name = node.get('name')
+            return (f'"{name}"' if ' ' in str(name) else name), False
+        if kind == 'runtime_reference':
+            return f"{{{node.get('name')}}}", True
+        if kind != 'literal':
+            return None
+        literal_type = node.get('literal_type')
+        value = node.get('value')
+        if literal_type == 'string':
+            return self._sql_literal(value), False
+        if literal_type == 'boolean':
+            return 'TRUE' if value else 'FALSE', False
+        if literal_type == 'null':
+            return 'NULL', False
+        if literal_type in ('integer', 'float'):
+            return str(value), False
+        return None
+
+    def _sql_condition_in_value(self, node):
+        if not isinstance(node, dict):
+            return None
+        if node.get('kind') == 'runtime_reference':
+            name = node.get('name')
+            tmp = f"_ddb_in_{name}"
+            return (
+                f"{{{tmp}}}",
+                [f"{tmp} = ', '.join(repr(v) for v in {name})"],
+                True,
+            )
+        if node.get('kind') == 'list':
+            values = []
+            for value in node.get('values', []):
+                rendered = self._sql_condition_value(value)
+                if rendered is None or rendered[1]:
+                    return None
+                values.append(rendered[0])
+            return ', '.join(values), [], False
+        rendered = self._sql_condition_value(node)
+        if rendered is None or rendered[1]:
+            return None
+        return rendered[0], [], False
 
     # ------------------------------------------------------------------
     # DuckDB code generators — Phase 1
@@ -6879,7 +7343,9 @@ class CodeGenerator:
     def generate_filter_duckdb(self, ast_node):
         t = ast_node['table_name']
         where, preamble, use_fstring = self._build_sql_where(
-            ast_node['conditions'], ast_node['operators']
+            ast_node['conditions'],
+            ast_node['operators'],
+            ast_node.get('condition_ir'),
         )
         sql = f"CREATE OR REPLACE TABLE {t} AS SELECT * FROM {t} WHERE {where}"
         lines = list(preamble)
@@ -6897,7 +7363,9 @@ class CodeGenerator:
 
         if rule == 'condition':
             where, preamble, use_fstring = self._build_sql_where(
-                ast_node['conditions'], ast_node['operators']
+                ast_node['conditions'],
+                ast_node['operators'],
+                ast_node.get('condition_ir'),
             )
             sql = f"SELECT count(*) FROM {t} WHERE NOT ({where})"
         elif rule == 'unique':
@@ -7613,7 +8081,8 @@ class CodeGenerator:
             all_preamble = []
             uses_fstr = False
             for b in branches:
-                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                where, preamble, uf = self._build_sql_where(
+                    b['conditions'], b['operators'], b.get('condition_ir'))
                 all_preamble.extend(preamble)
                 uses_fstr = uses_fstr or uf
                 sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
@@ -7635,6 +8104,7 @@ class CodeGenerator:
         by_cols   = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
+        condition_ir = ast_node.get('condition_ir')
         default_expr = ast_node.get('default_expr')
 
         # ── By-clause agg calls → window functions ─────────────────
@@ -7673,7 +8143,8 @@ class CodeGenerator:
 
         # ── Conditional (where clause) → CASE WHEN ─────────────────
         if conditions:
-            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            where, preamble, use_fstring = self._build_sql_where(
+                conditions, operators, condition_ir)
             if default_expr is not None:
                 else_sql, uses_pyvar_expr2 = self._translate_assign_expr_to_sql(default_expr)
                 uses_pyvar_expr = uses_pyvar_expr or uses_pyvar_expr2
@@ -7962,7 +8433,10 @@ class CodeGenerator:
         t = ast_node['table_name']
         from_alias = self._sql_current(t)
         where, preamble, use_fstring = self._build_sql_where(
-            ast_node['conditions'], ast_node['operators'])
+            ast_node['conditions'],
+            ast_node['operators'],
+            ast_node.get('condition_ir'),
+        )
         if use_fstring or preamble:
             return f"-- [skipped: filter with Python variable reference]"
         return f"SELECT * FROM {from_alias} WHERE {where}"
@@ -7974,7 +8448,10 @@ class CodeGenerator:
         rule = ast_node.get('rule')
         if rule == 'condition':
             where, preamble, use_fstring = self._build_sql_where(
-                ast_node['conditions'], ast_node['operators'])
+                ast_node['conditions'],
+                ast_node['operators'],
+                ast_node.get('condition_ir'),
+            )
             if use_fstring or preamble:
                 detail = 'condition with Python variable reference'
             else:
@@ -8200,7 +8677,8 @@ class CodeGenerator:
             defaults = [c for c in cases if c['type'] == 'case_default']
             when_parts = []
             for b in branches:
-                where, preamble, uf = self._build_sql_where(b['conditions'], b['operators'])
+                where, preamble, uf = self._build_sql_where(
+                    b['conditions'], b['operators'], b.get('condition_ir'))
                 if uf or preamble:
                     return f"-- [skipped: assign with Python variable in condition]"
                 sql_expr, upv = self._translate_assign_expr_to_sql(b['expression'])
@@ -8219,6 +8697,7 @@ class CodeGenerator:
         by_cols  = ast_node.get('by_cols', [])
         conditions = ast_node.get('conditions')
         operators  = ast_node.get('operators')
+        condition_ir = ast_node.get('condition_ir')
         default_expr = ast_node.get('default_expr')
         expression_ir = ast_node.get('expression_ir')
         if (
@@ -8250,7 +8729,8 @@ class CodeGenerator:
             if upv:
                 return f"-- [skipped: assign with Python variable in expression]"
         if conditions:
-            where, preamble, use_fstring = self._build_sql_where(conditions, operators)
+            where, preamble, use_fstring = self._build_sql_where(
+                conditions, operators, condition_ir)
             if use_fstring or preamble:
                 return f"-- [skipped: assign with Python variable in condition]"
             if default_expr is not None:
@@ -8393,22 +8873,45 @@ class CodeGenerator:
     # ------------------------------------------------------------------
 
     def generate_save_pandas(self, ast_node):
+        save_kind = ast_node.get('save_kind', 'package')
+        if save_kind == 'file':
+            table = ast_node['table_name']
+            destination = ast_node['destination']
+            target = destination['name'] if isinstance(destination, dict) else repr(destination)
+            return (
+                "from pivotal.table_io import save_table_file as _pivotal_save_table_file\n"
+                f"_pivotal_save_table_file({table}, {target})"
+            )
+        if save_kind == 'table':
+            table = ast_node['table_name']
+            return (
+                "from pivotal.table_io import save_table_catalog as _pivotal_save_table_catalog\n"
+                f"_pivotal_save_table_catalog({table}, {repr(ast_node['destination'])})"
+            )
+
         name = ast_node['name']
+        destination = ast_node.get('destination')
         path = ast_node.get('path')
         fmt = ast_node.get('format') or 'csv'
         chart_fmt = ast_node.get('chart_format') or 'png'
         include = ast_node.get('include')
         exclude = ast_node.get('exclude') or []
+        include_arg = f", include={repr(include)}" if include is not None else ""
+        exclude_arg = f", exclude={repr(exclude)}" if exclude else ""
 
+        if destination is not None:
+            target = destination['name'] if isinstance(destination, dict) else repr(destination)
+            return (
+                f"from pivotal.package import Package as _PivotalPackage\n"
+                f"_PivotalPackage.export_to({target}, globals(), fmt={repr(fmt)}"
+                f", chart_fmt={repr(chart_fmt)}{include_arg}{exclude_arg})"
+            )
         if isinstance(path, dict) and path.get('type') == 'var':
             path_arg = f", path={path['name']}"
         elif path:
             path_arg = f", path={repr(path)}"
         else:
             path_arg = ""
-
-        include_arg = f", include={repr(include)}" if include is not None else ""
-        exclude_arg = f", exclude={repr(exclude)}" if exclude else ""
 
         return (
             f"from pivotal.package import Package as _PivotalPackage\n"
@@ -8420,7 +8923,28 @@ class CodeGenerator:
         return self.generate_save_pandas(ast_node)
 
     def generate_save_duckdb(self, ast_node):
+        if ast_node.get('save_kind') == 'file':
+            destination = ast_node['destination']
+            target = destination['name'] if isinstance(destination, dict) else repr(destination)
+            return (
+                "from pivotal.table_io import save_duckdb_table_file as _pivotal_save_duckdb_table_file\n"
+                f"_pivotal_save_duckdb_table_file(_pvt, {repr(ast_node['table_name'])}, {target})"
+            )
+        if ast_node.get('save_kind') == 'table':
+            return (
+                "from pivotal.table_io import save_duckdb_catalog_table as _pivotal_save_duckdb_catalog_table\n"
+                f"_pivotal_save_duckdb_catalog_table(_pvt, {repr(ast_node['table_name'])}, "
+                f"{repr(ast_node['destination'])})"
+            )
         return self.generate_save_pandas(ast_node)
+
+    def generate_save_sql(self, ast_node):
+        if ast_node.get('save_kind') != 'table':
+            return "-- [skipped: SQL backend only supports 'save <source> as table <target>']"
+        return (
+            "__PIVOTAL_SAVE_TABLE__:"
+            f"{ast_node['table_name']}:{ast_node['destination']}"
+        )
 
     def generate_load_all_pandas(self, ast_node):
         return (
@@ -9749,6 +10273,10 @@ class DSLParser:
             if value.get('type') == 'assign':
                 value['expression_ast'] = parse_expression(value.get('expression'))
                 value['expression_ir'] = normalize_expression_ast_safe(value.get('expression_ast'))
+            if value.get('conditions') is not None and value.get('operators') is not None:
+                value['condition_ast'] = build_condition_ast(
+                    value.get('conditions'), value.get('operators'))
+                value['condition_ir'] = normalize_condition_ast_safe(value.get('condition_ast'))
             for child in value.values():
                 self._attach_expression_metadata(child)
         elif isinstance(value, list):
@@ -9846,6 +10374,7 @@ class DSLParser:
 
         cte_pairs = []   # [(alias, select_body), ...]
         comments  = []   # comment lines emitted above the WITH block
+        catalog_save = None
 
         for ast_node in ast_list:
             if not isinstance(ast_node, dict):
@@ -9861,6 +10390,10 @@ class DSLParser:
 
             if result is None:
                 continue
+            if isinstance(result, str) and result.startswith('__PIVOTAL_SAVE_TABLE__:'):
+                _, source, destination = result.split(':', 2)
+                catalog_save = (source, destination)
+                continue
             if isinstance(result, str) and result.startswith('--'):
                 comments.append(result)
                 continue
@@ -9872,11 +10405,26 @@ class DSLParser:
             cg._sql_state[table_name] = alias
 
         if not cte_pairs:
+            if catalog_save:
+                source, destination = catalog_save
+                target = cg._quote_qualified_identifier(destination)
+                source_sql = cg._sql_state.get(source, cg._quote_qualified_identifier(source))
+                return [f"CREATE OR REPLACE TABLE {target} AS\nSELECT * FROM {source_sql}"]
             return ['\n'.join(comments) or '-- (no SQL output)']
 
         cte_parts = [f"{alias} AS (\n  {body}\n)" for alias, body in cte_pairs]
         last_alias = cte_pairs[-1][0]
         sql = "WITH\n" + ",\n".join(cte_parts) + f"\nSELECT * FROM {last_alias}"
+        if catalog_save:
+            source, destination = catalog_save
+            target = cg._quote_qualified_identifier(destination)
+            source_sql = cg._sql_state.get(source, cg._quote_qualified_identifier(source))
+            sql = (
+                f"CREATE OR REPLACE TABLE {target} AS\n"
+                + "WITH\n"
+                + ",\n".join(cte_parts)
+                + f"\nSELECT * FROM {source_sql}"
+            )
         if comments:
             sql = '\n'.join(comments) + '\n' + sql
         return [sql]

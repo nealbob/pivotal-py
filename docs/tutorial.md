@@ -756,7 +756,7 @@ At this point we have accumulated 6 data-frames, 2 charts and 1 table. We can ch
 
 ```pivotal
 %%pivotal
-save "titanic_results"
+save package as "titanic_results"
 ```
 
     Package 'titanic_results' saved to C:\pivotal-demo\tutorial\titanic_results (6 dataframe(s), 2 chart(s), 1 table(s), 3 parameter(s))

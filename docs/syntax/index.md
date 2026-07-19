@@ -18,7 +18,7 @@ with sales as summary             # top-level: define a table
         agg sum revenue as total  #           sub-option of group by
     sort total desc               # back to with level
 
-save "report"                     # top-level: save output
+save package as "output/report"   # top-level: save output
 ```
 
 ## Indentation

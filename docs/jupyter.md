@@ -28,6 +28,13 @@ with sales as summary
 
 Run the cell normally (Shift+Enter). Results appear in the Pivotal Viewer panel.
 
+### Autocomplete
+
+Pivotal cells provide context-aware completions for commands, tables, columns,
+functions, and Pivotal values. When the completion menu is open, use the up and
+down arrow keys to move through suggestions, then press Enter or Tab to accept
+one.
+
 ### Per-cell options
 
 Pass options on the magic line to override session settings for that cell only:
@@ -57,10 +64,10 @@ Run `%pivotal_set` with no arguments to display current settings.
 
 | Setting | Values | Default | Description |
 |---------|--------|---------|-------------|
-| `backend` | `pandas`, `duckdb`, `sql` | `pandas` | Execution backend |
+| `backend` | `pandas`, `polars`, `duckdb`, `sql` | `pandas` | Execution backend |
 | `viewer` | `true`, `false` | `true` | Send results to the Viewer panel |
 | `output_code` | `true`, `false` | `false` | Print generated Python code below each cell |
-| `canvas` | `none`, `a4`, `a4_landscape`, `a3`, `a3_landscape`, `letter`, `slide` | `none` | Page size for table rendering |
+| `canvas` | `none`, `a4`, `a4_landscape`, `a3`, `a3_landscape`, `letter`, `slide` | `a4` | Page size for table rendering |
 | `margins` | float (mm) | `25.4` | Page margins for table rendering |
 | `chart_width` | `full`, `half` | `full` | Chart width as fraction of page |
 | `viewer_font` | float (em) | `1.0` | Font size in the Viewer panel |

@@ -16,9 +16,11 @@ import { Compartment, Prec, RangeSetBuilder } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import {
   autocompletion,
+  completionStatus,
   CompletionContext,
   CompletionResult,
   Completion,
+  moveCompletionSelection,
   snippet,
 } from '@codemirror/autocomplete';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
@@ -265,7 +267,8 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'show',         type: 'keyword', detail: 'show' },
   { label: 'show head',    type: 'keyword', detail: 'show head [<n>]' },
   { label: 'show summary', type: 'keyword', detail: 'show summary' },
-  { label: 'save',         type: 'keyword', apply: snippet('save "${path}"'), detail: 'save "<path>"' },
+  { label: 'save package', type: 'keyword', apply: snippet('save package as "${path}"'), detail: 'save package as "<path>"' },
+  { label: 'save table',   type: 'keyword', apply: snippet('save ${table} as "${path}"'), detail: 'save <table> as "<path>"' },
   { label: 'apply',        type: 'keyword', detail: 'apply <func>' },
   { label: 'table',        type: 'keyword', detail: 'table' },
   { label: 'delete',       type: 'keyword', detail: 'delete <table>' },
@@ -788,6 +791,30 @@ function makePivotalCompletionSource(app: JupyterFrontEnd) {
   };
 }
 
+// JupyterLab's notebook navigation can consume arrow keys before CodeMirror's
+// default completion keymap moves the active suggestion. Handle those keys at
+// the editor DOM boundary only while the completion menu is open.
+const moveToNextCompletion = moveCompletionSelection(true);
+const moveToPreviousCompletion = moveCompletionSelection(false);
+const completionNavigationExt = Prec.highest(
+  EditorView.domEventHandlers({
+    keydown(event, view) {
+      if (completionStatus(view.state) !== 'active') return false;
+
+      const move = event.key === 'ArrowDown'
+        ? moveToNextCompletion
+        : event.key === 'ArrowUp'
+          ? moveToPreviousCompletion
+          : null;
+      if (!move || !move(view)) return false;
+
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    },
+  })
+);
+
 // ---------------------------------------------------------------------------
 // Extension entry point
 // ---------------------------------------------------------------------------
@@ -821,6 +848,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       extensions: ['.pivotal'],
       load: async () => new LanguageSupport(pivotalLanguage, [
         completionExt,
+        completionNavigationExt,
         colHighlightPlugin,
         loopVarHighlightPlugin,
       ]),
@@ -845,7 +873,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
               effects: compartment.reconfigure(
                 isPivotal
                   ? [
-                      Prec.highest(new LanguageSupport(pivotalLanguage, completionExt)),
+                      Prec.highest(new LanguageSupport(pivotalLanguage, [
+                        completionExt,
+                        completionNavigationExt,
+                      ])),
                       colHighlightPlugin,
                       loopVarHighlightPlugin,
                       EditorView.editorAttributes.of({ class: 'pv-pivotal-cell' }),
