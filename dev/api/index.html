@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/logo.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1258,6 +1258,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#packageexport_todestination-globals-fmtcsv-chart_fmtpng-includenone-excludenone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package.export_to(destination, globals, fmt='csv', chart_fmt='png', include=None, exclude=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#packageexportname-globals-pathnone-fmtcsv-chart_fmtpng-includenone-excludenone" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1507,6 +1518,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#packageexport_todestination-globals-fmtcsv-chart_fmtpng-includenone-excludenone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package.export_to(destination, globals, fmt='csv', chart_fmt='png', include=None, exclude=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#packageexportname-globals-pathnone-fmtcsv-chart_fmtpng-includenone-excludenone" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1735,9 +1757,13 @@
 <p>Manage data packages — collections of tables and charts saved to disk.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Package</span>
 </code></pre></div>
+<h3 id="packageexport_todestination-globals-fmtcsv-chart_fmtpng-includenone-excludenone"><code>Package.export_to(destination, globals, fmt='csv', chart_fmt='png', include=None, exclude=None)</code></h3>
+<p>Save a package to a complete destination directory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export_to</span><span class="p">(</span><span class="s1">&#39;~/output/my_analysis&#39;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
+</code></pre></div>
 <h3 id="packageexportname-globals-pathnone-fmtcsv-chart_fmtpng-includenone-excludenone"><code>Package.export(name, globals, path=None, fmt='csv', chart_fmt='png', include=None, exclude=None)</code></h3>
 <p>Save all tables and charts from the current session to a data package.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
 <table>
@@ -1789,33 +1815,33 @@
 <hr />
 <h3 id="packageopenname-pathnone"><code>Package.open(name, path=None)</code></h3>
 <p>Load a previously saved package.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Returns:</strong> A <code>Package</code> object.</p>
 <hr />
 <h3 id="pkgload_all"><code>pkg.load_all()</code></h3>
 <p>Load all tables from the package into a dict:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_all</span><span class="p">()</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">&#39;sales&#39;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_all</span><span class="p">()</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">&#39;sales&#39;</span><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h3 id="pkgload_tablename"><code>pkg.load_table(name)</code></h3>
 <p>Load a single table by name:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s1">&#39;sales&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s1">&#39;sales&#39;</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="notebook-export-functions">Notebook export functions</h2>
 <h3 id="notebook_to_pythonpath-backendpandas"><code>notebook_to_python(path, backend='pandas')</code></h3>
 <p>Export a Jupyter notebook to a Python or SQL file.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_python</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># creates analysis.py</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_python</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># creates analysis.py</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;sql&#39;</span><span class="p">)</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># creates analysis.sql</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;sql&#39;</span><span class="p">)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># creates analysis.sql</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
 <table>
@@ -1847,10 +1873,10 @@
 <hr />
 <h3 id="notebook_to_pivotalpath"><code>notebook_to_pivotal(path)</code></h3>
 <p>Export a Jupyter notebook to a <code>.pivotal</code> file.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_pivotal</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">notebook_to_pivotal</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># creates analysis.pivotal</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_pivotal</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">notebook_to_pivotal</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">)</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># creates analysis.pivotal</span>
 </code></pre></div>
 <ul>
 <li><code>%%pivotal</code> cells are written as-is (DSL source only, magic line stripped)</li>
@@ -1916,7 +1942,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

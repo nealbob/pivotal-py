@@ -10,31 +10,27 @@
       
       
       
-        <link rel="canonical" href="https://docs.pivotal-lang.org/dev/cli/">
+        <link rel="canonical" href="https://docs.pivotal-lang.org/dev/design/expression-ir-stage-2-report/">
       
       
-        <link rel="prev" href="../api/">
-      
-      
-        <link rel="next" href="../mcp-hosting/">
       
       
         
       
       
-      <link rel="icon" href="../assets/logo.svg">
+      <link rel="icon" href="../../assets/logo.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>CLI - Pivotal</title>
+        <title>Expression IR Stage 2 Conformance Report - Pivotal</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +49,9 @@
       
     
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cli" class="md-skip">
+        <a href="#expression-ir-stage-2-conformance-report" class="md-skip">
           Skip to content
         </a>
       
@@ -100,9 +96,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Pivotal" class="md-header__button md-logo" aria-label="Pivotal" data-md-component="logo">
+    <a href="../.." title="Pivotal" class="md-header__button md-logo" aria-label="Pivotal" data-md-component="logo">
       
-  <img src="../assets/logo.svg" alt="logo">
+  <img src="../../assets/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -119,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CLI
+              Expression IR Stage 2 Conformance Report
             
           </span>
         </div>
@@ -235,9 +231,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Pivotal" class="md-nav__button md-logo" aria-label="Pivotal" data-md-component="logo">
+    <a href="../.." title="Pivotal" class="md-nav__button md-logo" aria-label="Pivotal" data-md-component="logo">
       
-  <img src="../assets/logo.svg" alt="logo">
+  <img src="../../assets/logo.svg" alt="logo">
 
     </a>
     Pivotal
@@ -264,7 +260,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -291,7 +287,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../whypivotal/" class="md-nav__link">
+      <a href="../../whypivotal/" class="md-nav__link">
         
   
   
@@ -318,7 +314,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/" class="md-nav__link">
+      <a href="../../getting-started/" class="md-nav__link">
         
   
   
@@ -345,7 +341,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorial/" class="md-nav__link">
+      <a href="../../tutorial/" class="md-nav__link">
         
   
   
@@ -372,7 +368,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pandas-cheatsheet/" class="md-nav__link">
+      <a href="../../pandas-cheatsheet/" class="md-nav__link">
         
   
   
@@ -452,7 +448,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../syntax/" class="md-nav__link ">
+            <a href="../../syntax/" class="md-nav__link ">
               
   
   
@@ -496,7 +492,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/data-sources/" class="md-nav__link">
+      <a href="../../syntax/data-sources/" class="md-nav__link">
         
   
   
@@ -524,7 +520,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/filtering/" class="md-nav__link">
+      <a href="../../syntax/filtering/" class="md-nav__link">
         
   
   
@@ -552,7 +548,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/values/" class="md-nav__link">
+      <a href="../../syntax/values/" class="md-nav__link">
         
   
   
@@ -580,7 +576,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/pipeline-control/" class="md-nav__link">
+      <a href="../../syntax/pipeline-control/" class="md-nav__link">
         
   
   
@@ -608,7 +604,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/selection/" class="md-nav__link">
+      <a href="../../syntax/selection/" class="md-nav__link">
         
   
   
@@ -636,7 +632,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/transformation/" class="md-nav__link">
+      <a href="../../syntax/transformation/" class="md-nav__link">
         
   
   
@@ -664,7 +660,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/sorting/" class="md-nav__link">
+      <a href="../../syntax/sorting/" class="md-nav__link">
         
   
   
@@ -692,7 +688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/grouping/" class="md-nav__link">
+      <a href="../../syntax/grouping/" class="md-nav__link">
         
   
   
@@ -720,7 +716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/joining/" class="md-nav__link">
+      <a href="../../syntax/joining/" class="md-nav__link">
         
   
   
@@ -748,7 +744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/reshaping/" class="md-nav__link">
+      <a href="../../syntax/reshaping/" class="md-nav__link">
         
   
   
@@ -776,7 +772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/window-functions/" class="md-nav__link">
+      <a href="../../syntax/window-functions/" class="md-nav__link">
         
   
   
@@ -804,7 +800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/missing-data/" class="md-nav__link">
+      <a href="../../syntax/missing-data/" class="md-nav__link">
         
   
   
@@ -832,7 +828,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/python-interop/" class="md-nav__link">
+      <a href="../../syntax/python-interop/" class="md-nav__link">
         
   
   
@@ -860,7 +856,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/output/" class="md-nav__link">
+      <a href="../../syntax/output/" class="md-nav__link">
         
   
   
@@ -888,7 +884,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/saving/" class="md-nav__link">
+      <a href="../../syntax/saving/" class="md-nav__link">
         
   
   
@@ -923,7 +919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../syntax/command-reference/" class="md-nav__link">
+      <a href="../../syntax/command-reference/" class="md-nav__link">
         
   
   
@@ -950,7 +946,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../backends/" class="md-nav__link">
+      <a href="../../backends/" class="md-nav__link">
         
   
   
@@ -977,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../comparison/" class="md-nav__link">
+      <a href="../../comparison/" class="md-nav__link">
         
   
   
@@ -1062,7 +1058,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../jupyter/" class="md-nav__link">
+      <a href="../../jupyter/" class="md-nav__link">
         
   
   
@@ -1090,7 +1086,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../vscode/" class="md-nav__link">
+      <a href="../../vscode/" class="md-nav__link">
         
   
   
@@ -1125,7 +1121,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -1149,37 +1145,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CLI
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
         
   
   
@@ -1195,81 +1164,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#run-a-pivotal-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Run a .pivotal file
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compile-to-python" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compile to Python
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-a-notebook-to-python-or-sql" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Export a notebook to Python or SQL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-a-notebook-to-pivotal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Export a notebook to .pivotal
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1281,7 +1175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-hosting/" class="md-nav__link">
+      <a href="../../mcp-hosting/" class="md-nav__link">
         
   
   
@@ -1328,10 +1222,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#run-a-pivotal-file" class="md-nav__link">
+  <a href="#scope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run a .pivotal file
+        Scope
       
     </span>
   </a>
@@ -1339,10 +1233,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compile-to-python" class="md-nav__link">
+  <a href="#current-result" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compile to Python
+        Current Result
       
     </span>
   </a>
@@ -1350,10 +1244,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-a-notebook-to-python-or-sql" class="md-nav__link">
+  <a href="#raw-string-fallbacks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Export a notebook to Python or SQL
+        Raw-String Fallbacks
       
     </span>
   </a>
@@ -1361,21 +1255,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-a-notebook-to-pivotal" class="md-nav__link">
+  <a href="#non-goals" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Export a notebook to .pivotal
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary
+        Non-Goals
       
     </span>
   </a>
@@ -1402,96 +1285,62 @@
   
 
 
-<h1 id="cli">CLI</h1>
-<p>The <code>pivotal</code> command is installed automatically with <code>pip install pivotal-lang</code>.</p>
-<h2 id="run-a-pivotal-file">Run a <code>.pivotal</code> file</h2>
-<p>Execute a Pivotal source file directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pivotal<span class="w"> </span>analysis.pivotal
-</code></pre></div>
-<p>Tables are computed and any <code>show</code>, <code>plot</code>, or <code>table</code> statements produce output. The script runs in a fresh Python namespace with <code>pandas</code> available.</p>
-<p>Equivalent to:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pivotal<span class="w"> </span>analysis.pivotal
-</code></pre></div>
-<hr />
-<h2 id="compile-to-python">Compile to Python</h2>
-<p>Compile a <code>.pivotal</code> file to a <code>.py</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pivotal<span class="w"> </span>--compile<span class="w"> </span>analysis.pivotal
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># creates analysis.py in the same directory</span>
-</code></pre></div>
-<p>The output file contains the generated pandas code with <code>import pandas as pd</code> at the top. Edit and run it independently of Pivotal.</p>
-<hr />
-<h2 id="export-a-notebook-to-python-or-sql">Export a notebook to Python or SQL</h2>
-<p>Convert a Jupyter notebook's <code>%%pivotal</code> cells to code:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># creates analysis.py (pandas backend)</span>
-</code></pre></div>
-<p>Specify a different backend:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb<span class="w"> </span>--backend<span class="w"> </span>duckdb
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># creates analysis.py with DuckDB code</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb<span class="w"> </span>--backend<span class="w"> </span>sql
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># creates analysis.sql</span>
-</code></pre></div>
+<h1 id="expression-ir-stage-2-conformance-report">Expression IR Stage 2 Conformance Report</h1>
+<h2 id="scope">Scope</h2>
+<p>Stage 2 adds conformance coverage for the standalone expression parser without
+changing statement parsing, semantic validation, or backend code generation.</p>
+<p>The conformance test corpus is derived from current parseable Pivotal snippets
+in:</p>
 <ul>
-<li><code>%%pivotal</code> cells are compiled to the target backend</li>
-<li>Regular Python cells are included as-is (except for <code>sql</code> backend)</li>
-<li>GUI cells are skipped</li>
+<li><code>tests/test_commands.py</code></li>
+<li><code>tests/test_commands_polars.py</code></li>
+<li><code>tests/test_commands_duckdb.py</code></li>
+<li><code>tests/test_phase5_sql_cte.py</code></li>
+<li><code>PIVOTAL.md</code></li>
+<li>Markdown files under <code>docs/</code></li>
+<li>Markdown files under <code>docs/syntax/</code></li>
 </ul>
-<hr />
-<h2 id="export-a-notebook-to-pivotal">Export a notebook to <code>.pivotal</code></h2>
-<p>Convert a Jupyter notebook to a standalone <code>.pivotal</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pivotal<span class="w"> </span>--export-pivotal<span class="w"> </span>analysis.ipynb
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># creates analysis.pivotal</span>
-</code></pre></div>
+<p>The tests collect assignment expressions from those snippets, parse each
+expression with <code>pivotal.expression_parser.parse_expression()</code>, and verify that
+non-fallback ASTs are JSON-serializable. They also verify that assignment nodes
+returned by <code>DSLParser.parse()</code> attach the same <code>expression_ast</code> produced by the
+standalone parser.</p>
+<h2 id="current-result">Current Result</h2>
+<p>At the time this report was added, the repository-derived corpus contained 131
+distinct assignment expressions from parseable snippets.</p>
 <ul>
-<li><code>%%pivotal</code> cells → written as DSL source</li>
-<li>Python cells → wrapped in <code>python...end</code> blocks</li>
-<li>GUI cells → skipped</li>
+<li>129 expressions parse to expression ASTs.</li>
+<li>2 expressions intentionally use the raw-string fallback.</li>
 </ul>
-<p>The output file is a valid <code>.pivotal</code> file that can be run with <code>pivotal analysis.pivotal</code> or opened in VS Code.</p>
-<hr />
-<h2 id="summary">Summary</h2>
-<table>
-<thead>
-<tr>
-<th>Command</th>
-<th>Output</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pivotal file.pivotal</code></td>
-<td>(runs)</td>
-<td>Execute a <code>.pivotal</code> file</td>
-</tr>
-<tr>
-<td><code>pivotal --compile file.pivotal</code></td>
-<td><code>file.py</code></td>
-<td>Compile to pandas Python</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb</code></td>
-<td><code>nb.py</code></td>
-<td>Export notebook to Python</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb --backend duckdb</code></td>
-<td><code>nb.py</code></td>
-<td>Export notebook with DuckDB</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb --backend sql</code></td>
-<td><code>nb.sql</code></td>
-<td>Export notebook to SQL</td>
-</tr>
-<tr>
-<td><code>pivotal --export-pivotal nb.ipynb</code></td>
-<td><code>nb.pivotal</code></td>
-<td>Export notebook to Pivotal DSL</td>
-</tr>
-</tbody>
-</table>
+<p>Representative covered expressions include:</p>
+<ul>
+<li><code>price * quantity</code></li>
+<li><code>(revenue - cost) / revenue</code></li>
+<li><code>amount / sum(amount)</code></li>
+<li><code>(amount - mean(amount)) / std(amount)</code></li>
+<li><code>quantile(amount, 0.9)</code></li>
+<li><code>regex_replace(phone, "[^0-9]", "")</code></li>
+<li><code>first_name + " " + last_name</code></li>
+<li><code>:clean_name(name)</code></li>
+</ul>
+<h2 id="raw-string-fallbacks">Raw-String Fallbacks</h2>
+<p>The current fallback expressions are:</p>
+<ul>
+<li><code>:class_names["1"]</code></li>
+<li><code>revenue &gt;= p90</code></li>
+</ul>
+<p>These are expected Stage 2 fallbacks.</p>
+<p><code>:class_names["1"]</code> requires runtime subscript/index handling in the expression
+grammar. Existing code generation already supports the raw string path.</p>
+<p><code>revenue &gt;= p90</code> requires comparison operators. Comparisons are intentionally
+deferred until expressions and conditions are unified in a later stage.</p>
+<h2 id="non-goals">Non-Goals</h2>
+<p>Stage 2 does not:</p>
+<ul>
+<li>migrate semantic <code>expression_ir</code> into backend generators</li>
+<li>validate unknown columns or function arity</li>
+<li>parse conditions as expression IR</li>
+</ul>
 
 
 
@@ -1547,10 +1396,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

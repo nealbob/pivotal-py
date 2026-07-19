@@ -24,7 +24,7 @@ with invoices as summary
     name = last_name + ", " + first_name
     select customer_id, name, sum_income
 
-save "my_analysis"
+save package as "my_analysis"
     path "~/projects/output"\
 """,
 
