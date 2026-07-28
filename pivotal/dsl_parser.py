@@ -9515,8 +9515,11 @@ class DSLParser:
 
         self._transformer._python_blocks = python_blocks
 
-        # Strip single-line comments line-by-line (respects string literals).
-        lines = [self._strip_line_comment(ln) for ln in code.split('\n')]
+        # Strip single-line comments line-by-line (respects string literals)
+        # and remove trailing horizontal whitespace.  Trailing spaces after a
+        # multi-case assignment header such as ``tier = `` can otherwise make
+        # the lexer treat it as a simple assignment with an empty expression.
+        lines = [self._strip_line_comment(ln).rstrip() for ln in code.split('\n')]
         code = '\n'.join(lines)
         self._validate_inline_python_statements(code)
 

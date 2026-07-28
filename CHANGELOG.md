@@ -6,6 +6,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed multi-case assignments failing with an unexpected semicolon error when
+  the assignment header ended with trailing whitespace, such as `tier = `.
+
 ## [0.6.0] - 2026-07-28
 
 ### Added

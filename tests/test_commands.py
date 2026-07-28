@@ -978,6 +978,24 @@ def test_assign_case_basic(parser, sample_df):
     assert low['tier'].eq(0).all()
 
 
+def test_assign_case_header_allows_trailing_whitespace(parser, sample_df):
+    """Trailing whitespace after ``=`` must not change multi-case parsing."""
+    ns = {'pd': pd, 'sales': sample_df.copy()}
+    dsl = ('with sales\n'
+           'tier =   \n'
+           '    where price > 300; price * 2 \n'
+           '    where price > 100; price\n'
+           '    else 0\n')
+    run(parser, dsl, ns)
+    df = ns['sales']
+    assert df.loc[df['price'] > 300, 'tier'].eq(
+        df.loc[df['price'] > 300, 'price'] * 2
+    ).all()
+    mid = df[(df['price'] > 100) & (df['price'] <= 300)]
+    assert mid['tier'].eq(mid['price']).all()
+    assert df.loc[df['price'] <= 100, 'tier'].eq(0).all()
+
+
 def test_assign_case_bare_string_columns_copy_series(parser):
     ns = {
         'pd': pd,
