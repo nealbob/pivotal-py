@@ -2,146 +2,146 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://docs.pivotal-lang.org/dev/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/AI_thoughts/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/api/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/backends/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/cli/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/comparison/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/getting-started/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/jupyter/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/mcp-hosting/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/pandas-cheatsheet/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/tutorial/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/video_script/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/vscode/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/whypivotal/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/design/expression-ir-stage-2-report/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/design/expression-ir-stage-3-report/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/design/expression-ir/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/command-reference/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/data-quality/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/data-sources/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/filtering/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/functions/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/grouping/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/joining/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/missing-data/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/output/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/pipeline-control/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/python-interop/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/reshaping/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/saving/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/selection/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/sorting/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/transformation/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/values/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
     <url>
          <loc>https://docs.pivotal-lang.org/dev/syntax/window-functions/</loc>
-         <lastmod>2026-07-19</lastmod>
+         <lastmod>2026-07-28</lastmod>
     </url>
 </urlset>
