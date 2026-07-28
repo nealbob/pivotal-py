@@ -1,0 +1,100 @@
+<svg viewBox="0 0 128 128" width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background gradient: dark navy top-left to near-black bottom-right -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#080F1C"/>
+    </linearGradient>
+
+    <!-- Per-arc radial gradients for subtle depth -->
+    <!-- grad-amber: focal point lower-left, for arc 3 (lower-left arc) -->
+    <radialGradient id="grad-amber" cx="50%" cy="50%" r="70%" gradientUnits="userSpaceOnUse"
+                    fx="28" fy="95">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </radialGradient>
+
+    <radialGradient id="grad-blue" cx="50%" cy="50%" r="70%" gradientUnits="userSpaceOnUse"
+                    fx="64" fy="100">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </radialGradient>
+
+    <!-- grad-slate: focal point upper-right, for arc 1 (upper-right arc) -->
+    <radialGradient id="grad-slate" cx="50%" cy="50%" r="70%" gradientUnits="userSpaceOnUse"
+                    fx="95" fy="28">
+      <stop offset="0%" stop-color="#CBD5E1"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </radialGradient>
+
+    <!-- Subtle glow filter for the center dot -->
+    <filter id="center-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="128" height="128" rx="22" fill="url(#bg)"/>
+
+  <!--
+    Pivot wheel: three equal 110° arcs at r=40, center=(64,64)
+    with 10° gaps between them. stroke-linecap="round" closes the
+    gaps visually and adds polish.
+
+    Angle reference (SVG convention, y-down, 0°=right, clockwise):
+      Arc 1 slate :  275° → 25°   (top through right)   ← was amber
+      Arc 2 blue  :   35° → 145°  (right through bottom)
+      Arc 3 amber :  155° → 265°  (bottom through left)  ← was slate
+
+    Gap midpoints (where radial lines sit): 270°, 30°, 150°
+
+    Coordinates at r=40 from (64,64):
+      275° → (67.49, 24.15)    25° → (100.25, 80.90)
+       35° → (96.77, 86.94)   145° → ( 31.23, 86.94)
+      155° → (27.75, 80.90)   265° → ( 60.51, 24.15)
+
+    Line endpoints at r=47 from (64,64):
+      270° → (64.00, 17.00)
+       30° → (104.70, 87.50)
+      150° → (23.30, 87.50)
+  -->
+
+  <!-- Dim track ring so gaps read as intentional -->
+  <circle cx="64" cy="64" r="40" fill="none"
+          stroke="#1E3A5F" stroke-width="15" opacity="0.45"/>
+
+  <!-- Arc 1: slate — top clockwise to lower-right -->
+  <path d="M 67.49 24.15 A 40 40 0 0 1 100.25 80.90"
+        fill="none" stroke="url(#grad-slate)" stroke-width="15"
+        stroke-linecap="round"/>
+
+  <!-- Arc 2: blue — lower-right clockwise to lower-left -->
+  <path d="M 96.77 86.94 A 40 40 0 0 1 31.23 86.94"
+        fill="none" stroke="url(#grad-blue)" stroke-width="15"
+        stroke-linecap="round"/>
+
+  <!-- Arc 3: amber — lower-left clockwise back to top -->
+  <path d="M 27.75 80.90 A 40 40 0 0 1 60.51 24.15"
+        fill="none" stroke="url(#grad-amber)" stroke-width="15"
+        stroke-linecap="round"/>
+
+  <!--
+    Radial lines from center to arc outer edge (r=47).
+    Drawn after arcs so they layer on top, but before the center dot.
+  -->
+  <!-- Line at 340° -->
+  <line x1="64" y1="64" x2="108.17" y2="47.93"
+        stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Line at 240° -->
+  <line x1="64" y1="64" x2="40.50" y2="23.30"
+        stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Center pivot point: white halo + dark core -->
+  <circle cx="64" cy="64" r="8.5" fill="white" filter="url(#center-glow)"/>
+  <circle cx="64" cy="64" r="4"   fill="#0F172A"/>
+</svg>
