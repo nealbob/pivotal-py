@@ -14,12 +14,12 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 [![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
-## What's New In 0.5.0
+## What's New In 0.6.0
 
-- New language features including `bulk load`, column `for` loops, regex string operations, regex-based column selection, `assert` / `check`, native `list` / `scalar` / `dict` values, pipeline `function`s, and richer output commands
-- Expanded AI and automation support with structured run / verify / compare APIs, a local MCP server, a hosted read-only MCP mode, docs search tools, and syntax highlighting metadata
-- Major documentation expansion including the full syntax reference, command reference, backend guide, and MCP server docs
-- Improved editor and notebook experience across JupyterLab and VS Code, including better highlighting, autocomplete, viewer behavior, and packaging fixes
+- Native backend-independent expression and condition IR, with supported assignments and filters generated consistently across pandas, Polars, DuckDB, and SQL
+- Explicit package and table persistence with `save package as`, file saves, and managed-table saves
+- Explicit `\` line continuation for long statements
+- JupyterLab autocomplete arrow-key navigation and corrected faceted-plot title handling
 
 See the full changelog at: <https://github.com/nealbob/pivotal-py/blob/master/CHANGELOG.md>
 
@@ -135,6 +135,13 @@ Neal Hughes
   - Added structured AI verification / comparison APIs and both local and hosted MCP server modes
   - Added complete syntax and command-reference docs, plus versioned online docs
   - Improved JupyterLab and VS Code highlighting, autocomplete, viewer rendering, and packaging
+  - See `CHANGELOG.md` on GitHub for the full release notes
+
+- **v0.6.0** - Native expressions, persistence syntax, and notebook fixes
+  - Added backend-independent expression and condition IR with compatibility fallbacks
+  - Added explicit package, file, and managed-table save syntax
+  - Added explicit line continuation
+  - Fixed JupyterLab autocomplete navigation and faceted plot titles
   - See `CHANGELOG.md` on GitHub for the full release notes
 
 ---

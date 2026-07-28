@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pivotal-lab"
-version = "0.5.0"
+version = "0.6.0"
 description = "JupyterLab extension for the Pivotal data transformation DSL"
 readme = "README.md"
 license = "MIT"
@@ -27,7 +27,6 @@ packages = ["pivotal_jupyterlab"]
 only-include = ["pivotal_jupyterlab"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"install.json" = "share/jupyter/labextensions/@pivotal/jupyterlab/install.json"
 "pivotal_jupyterlab/labextension" = "share/jupyter/labextensions/@pivotal/jupyterlab"
 "pivotal_jupyterlab/ipython_config.d/pivotal.py" = "etc/ipython/ipython_config.d/pivotal.py"
 

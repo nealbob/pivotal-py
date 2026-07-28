@@ -6,6 +6,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-28
+
 ### Added
 
 - Added explicit table and package save syntax: `save <table> as "<path>"`,
@@ -22,6 +24,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Fixed up/down arrow-key navigation in Pivotal autocomplete menus inside
   JupyterLab notebooks.
 - Fixed faceted `plot ... by ...` statements with a title so they generate and register populated charts, with the overall title and axis labels applied correctly.
+- Constrained Polars to versions below 1.38 pending resolution of an upstream
+  Windows CPU-feature detection failure during import.
 
 ## [0.5.0] - 2026-05-18
 
