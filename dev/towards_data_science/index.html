@@ -10,13 +10,9 @@
       
       
       
-        <link rel="canonical" href="https://docs.pivotal-lang.org/dev/cli/">
+        <link rel="canonical" href="https://docs.pivotal-lang.org/dev/towards_data_science/">
       
       
-        <link rel="prev" href="../api/">
-      
-      
-        <link rel="next" href="../mcp-hosting/">
       
       
         
@@ -27,7 +23,7 @@
     
     
       
-        <title>CLI - Pivotal</title>
+        <title>The Problem with pandas Is Not Performance. It’s Cognitive Overhead. - Pivotal</title>
       
     
     
@@ -80,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cli" class="md-skip">
+        <a href="#the-problem-with-pandas-is-not-performance-its-cognitive-overhead" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CLI
+              The Problem with pandas Is Not Performance. It’s Cognitive Overhead.
             
           </span>
         </div>
@@ -1149,37 +1145,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CLI
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -1195,81 +1164,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#run-a-pivotal-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Run a .pivotal file
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compile-to-python" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compile to Python
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-a-notebook-to-python-or-sql" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Export a notebook to Python or SQL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-a-notebook-to-pivotal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Export a notebook to .pivotal
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1328,10 +1222,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#run-a-pivotal-file" class="md-nav__link">
+  <a href="#the-tax-hidden-in-ordinary-code" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run a .pivotal file
+        The tax hidden in ordinary code
       
     </span>
   </a>
@@ -1339,10 +1233,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compile-to-python" class="md-nav__link">
+  <a href="#ai-can-write-it-now-is-only-half-an-answer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compile to Python
+        “AI can write it now” is only half an answer
       
     </span>
   </a>
@@ -1350,10 +1244,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-a-notebook-to-python-or-sql" class="md-nav__link">
+  <a href="#readability-matters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Export a notebook to Python or SQL
+        Readability matters
       
     </span>
   </a>
@@ -1361,10 +1255,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-a-notebook-to-pivotal" class="md-nav__link">
+  <a href="#the-enduring-popularity-of-visual-data-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Export a notebook to .pivotal
+        The enduring popularity of visual data tools
       
     </span>
   </a>
@@ -1372,10 +1266,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
+  <a href="#why-does-every-dataframe-need-a-new-dialect" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary
+        Why does every dataframe need a new dialect?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dsls-to-the-rescue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSLs to the rescue?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pivotal-as-an-experiment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pivotal as an experiment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#beyond-programming-languages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beyond programming languages
       
     </span>
   </a>
@@ -1402,96 +1329,100 @@
   
 
 
-<h1 id="cli">CLI</h1>
-<p>The <code>pivotal</code> command is installed automatically with <code>pip install pivotal-lang</code>.</p>
-<h2 id="run-a-pivotal-file">Run a <code>.pivotal</code> file</h2>
-<p>Execute a Pivotal source file directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pivotal<span class="w"> </span>analysis.pivotal
+<h1 id="the-problem-with-pandas-is-not-performance-its-cognitive-overhead">The Problem with pandas Is Not Performance. It’s Cognitive Overhead.</h1>
+<p><em>Faster dataframe engines are nice, but they don't reduce the amount of syntax an analyst has to hold in their head.</em></p>
+<p>For years, the conversation about pandas has focused on performance.</p>
+<p><a href="https://wesmckinney.com/blog/apache-arrow-pandas-internals/">As its creator has acknowledged</a>, pandas' foundations were not built for today’s data workloads. Over time, pandas has made real progress in this area. The recent <a href="https://pandas.pydata.org/community/blog/pandas-3.0.html">pandas 3.0</a> was a significant step forward, with PyArrow-backed string types offering big performance gains. Meanwhile, Polars and DuckDB have shown what can be achieved when modern columnar data structures are part of the design from the beginning.</p>
+<p>But performance is only one cost in data analysis. For many everyday tasks, back-end performance is a secondary concern. The dataset fits in memory. The calculation finishes in a second. But the analyst has to take time to remember an API, rearrange brackets, look up an aggregation pattern and check whether a grouping key has quietly become an index.</p>
+<p>The CPU is idle. The human is not.</p>
+<p>The deeper problem with pandas—and, to different degrees, with most dataframe APIs—is <a href="https://github.com/zakirullin/cognitive-load">cognitive overhead</a>.</p>
+<h2 id="the-tax-hidden-in-ordinary-code">The tax hidden in ordinary code</h2>
+<p>Consider a simple task: keep positive sales, calculate a margin, summarise by region and sort the result:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">margin</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">total_revenue</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">average_margin</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;margin&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;total_revenue&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
 </code></pre></div>
-<p>Tables are computed and any <code>show</code>, <code>plot</code>, or <code>table</code> statements produce output. The script runs in a fresh Python namespace with <code>pandas</code> available.</p>
-<p>Equivalent to:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pivotal<span class="w"> </span>analysis.pivotal
-</code></pre></div>
-<hr />
-<h2 id="compile-to-python">Compile to Python</h2>
-<p>Compile a <code>.pivotal</code> file to a <code>.py</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pivotal<span class="w"> </span>--compile<span class="w"> </span>analysis.pivotal
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># creates analysis.py in the same directory</span>
-</code></pre></div>
-<p>The output file contains the generated pandas code with <code>import pandas as pd</code> at the top. Edit and run it independently of Pivotal.</p>
-<hr />
-<h2 id="export-a-notebook-to-python-or-sql">Export a notebook to Python or SQL</h2>
-<p>Convert a Jupyter notebook's <code>%%pivotal</code> cells to code:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># creates analysis.py (pandas backend)</span>
-</code></pre></div>
-<p>Specify a different backend:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb<span class="w"> </span>--backend<span class="w"> </span>duckdb
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># creates analysis.py with DuckDB code</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>analysis.ipynb<span class="w"> </span>--backend<span class="w"> </span>sql
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># creates analysis.sql</span>
-</code></pre></div>
+<p>This is not bad pandas. It is not a deliberately awful example assembled to win a syntax comparison. An experienced pandas user can read it without difficulty.</p>
+<p>But notice how much of the expression is about negotiating with the API rather than detailing actual logic:</p>
 <ul>
-<li><code>%%pivotal</code> cells are compiled to the target backend</li>
-<li>Regular Python cells are included as-is (except for <code>sql</code> backend)</li>
-<li>GUI cells are skipped</li>
+<li>A column is sometimes <code>sales["revenue"]</code>, sometimes <code>df["revenue"]</code>, and sometimes the string <code>"revenue"</code>.</li>
+<li>Creating a column requires <code>assign</code> and a lambda if we want to preserve the method chain.</li>
+<li>A named aggregation is expressed as a tuple whose order is column first, function second.</li>
+<li>Descending order is expressed by setting an <code>ascending</code> option to <code>False</code>.</li>
+<li>The behaviour of the grouping key depends on <code>as_index</code>, a parameter whose significance is not obvious from the analytical task.</li>
 </ul>
-<hr />
-<h2 id="export-a-notebook-to-pivotal">Export a notebook to <code>.pivotal</code></h2>
-<p>Convert a Jupyter notebook to a standalone <code>.pivotal</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pivotal<span class="w"> </span>--export-pivotal<span class="w"> </span>analysis.ipynb
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># creates analysis.pivotal</span>
+<p>None of these details is individually difficult. But each one consumes a small piece of human working memory that could otherwise be used to think about data.</p>
+<p>pandas indexes are a good example of this tension. The familiar appearance of <code>.reset_index()</code> after a group-by is not just a few extra keystrokes; it is an annoying distraction. But of course, backward compatibility limits how radically a mature library can redesign its surface.</p>
+<h2 id="ai-can-write-it-now-is-only-half-an-answer">“AI can write it now” is only half an answer</h2>
+<p>Who cares if pandas syntax is less than perfect, you might say. AI agents can generate the pandas code for now, so what does it matter? Yes, large language models can save a great deal of time. But generating code is only one part of analytical work.</p>
+<p>Coding for data analysis is different from software development. It often begins with a question that changes as soon as the first result appears. You filter the data, notice something unexpected unexpected, inspect it, revise the grouping, discover missing values, make a chart and then realise that your original question was the wrong one.</p>
+<p>The workflow is not:</p>
+<blockquote>
+<p>specification → code → finished product</p>
+</blockquote>
+<p>It is closer to:</p>
+<blockquote>
+<p>question → transformation → result → new question → new transformation</p>
+</blockquote>
+<p>That loop is exploratory, creative and interactive. In this setting, there's value in a human being able to transform data with minimal latency. I expect that many analysts are still finding themselves typing small pieces of pandas code into a notebook, even if they now trust AI to write larger functions or modules.</p>
+<h2 id="readability-matters">Readability matters</h2>
+<p>Secondly, while AI reduces the cost of typing, it doesn't remove the cost of reading, checking and understanding.</p>
+<p>A Python data pipeline is also documentation. It tells a colleague—or your future self—what was filtered, which variables were created, and where the final number came from. The easier that path is to follow, the easier it is to review assumptions and catch mistakes.</p>
+<p>Boilerplate weakens that documentation by lowering the signal-to-noise ratio. The business logic is still present, but it is surrounded by dataframe names, column selectors, quotation marks, lambdas, aliases and API-specific options.</p>
+<p>Let's be honest: reading other people's pandas code, especially code that was built through an interactive session can be rather painful. There is no doubt that pandas code is not the most concise or readable way to express the underlying logic of a data pipeline.</p>
+<p>The rise of AI-generated code only strengthens this argument. If more code is going to be produced automatically, humans need representations that make the generated logic easy to inspect.</p>
+<h2 id="the-enduring-popularity-of-visual-data-tools">The enduring popularity of visual data tools</h2>
+<p>If you're still not convinced that any of this matters, think for a minute about the popularity of visual data tools.</p>
+<p>Excel remains embedded in analytical work across almost every industry. Tableau, Power BI, KNIME, Alteryx, Metabase, Orange, RapidMiner and many other products offer different variations on the same promise: touch the data more directly, see feedback quickly and avoid having to translate every thought into a general-purpose programming API.</p>
+<p>I use Excel a lot. There are plenty of occasions when dropping a small dataset into a pivot table is faster than writing a pandas pipeline. Visual tools can be more intuitive and help to reduce the latency from thought to result.</p>
+<p>Of course, code has a purpose. A script provides an audit trail from raw data to result. It can be reviewed, tested, versioned, rerun and shared. This is why teams move critical work out of spreadsheets in the first place. A lot of modern visual tools now also generate pandas code for this very reason, including <a href="https://code.visualstudio.com/docs/datascience/data-wrangler">Data Wrangler</a> and <a href="https://docs.trymito.io/how-to/using-the-generated-code">Mito</a>.</p>
+<p>But if "code-as-documentation" is kind of the point, why are we using boilerplate-laden pandas code as our language of choice? Why not something that is easier for humans to read?</p>
+<h2 id="why-does-every-dataframe-need-a-new-dialect">Why does every dataframe need a new dialect?</h2>
+<p>The cognitive cost is not confined to pandas.</p>
+<p>Move to Polars and the underlying analytical ideas remain the same: select, filter, derive, group, aggregate, join and sort. But the syntax changes. Move from Python to R, Julia or MATLAB and it changes again.</p>
+<p>There might be good reasons for these differences, but from an analyst’s perspective, it is strange that the same logical operation must be relearned as a new dialect in each enviornment. As a data analyst, statistical work might take me to R. Simulation or optimisation may take me to Julia or MATLAB. A larger-than-memory transformation may take me to DuckDB. Why should this also require changing the grammar in which I express <code>group by region, then sum revenue</code>?</p>
+<h2 id="dsls-to-the-rescue">DSLs to the rescue?</h2>
+<p>Most dataframe awkwardness comes from embedding a data-transformation grammar inside a general-purpose programming language.</p>
+<p>Python needs to distinguish variables, attributes, strings, list indexing, function calls and assignment. A dataframe library has to construct its language from those same pieces. That is why column names become strings, why the active dataframe is repeatedly referenced and why a simple expression can accumulate punctuation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">sales</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;margin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">]</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">)</span>
 </code></pre></div>
-<ul>
-<li><code>%%pivotal</code> cells → written as DSL source</li>
-<li>Python cells → wrapped in <code>python...end</code> blocks</li>
-<li>GUI cells → skipped</li>
-</ul>
-<p>The output file is a valid <code>.pivotal</code> file that can be run with <code>pivotal analysis.pivotal</code> or opened in VS Code.</p>
+<p>A domain-specific language (DSL) can make different choices because it has a narrower job. SQL is the strongest evidence this approach works. It gave data work a shared vocabulary that survived changes in hardware, vendors and host programming languages. Its durability is not an accident.</p>
+<p>But SQL may not be the final answer for every analytical workflow. SQL was designed for querying relational databases, not the full interactive loop of loading local data, transforming it, plotting it, calling a model and saving a collection of outputs. Its traditional clause order does not read as a top-to-bottom pipeline, and complex work often expands into nested queries or chains of  expressions.</p>
+<p>Projects such as <a href="https://prql-lang.org/">PRQL</a> and <a href="https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/pipe-syntax">pipe syntax in SQL</a> improve SQL’s top-to-bottom readability considerably, while DuckDB has made SQL feel at home in local Python workflows.</p>
+<p>DuckDB's popularity is itself an interesting case study. Its <a href="https://duckdb.org/2024/10/04/duckdb-user-survey-analysis">2024 user survey</a> showed that many users do not actualy have larger-than-memory datasets, and beyond performance they value DuckDB for its ease of use and SQL support.</p>
+<p>But DuckDB, PRQL and piped-SQL are utimately still extensions of regular SQL. DuckDB can transform tables fine, but plotting and other common analytical operations still have to be done in Python, which means switching back to a dataframe API. DuckDB may execute the transformation fast enough, but from an analyst's perspective, switching back and forth is going to interrupt flow.</p>
+<h2 id="pivotal-as-an-experiment">Pivotal as an experiment</h2>
+<p>These concerns are what led me to build <a href="https://www.pivotal-lang.org/">Pivotal</a>, an open-source DSL for data analysis in Python.</p>
+<p>Pivotal is not a replacement for the Python ecosystem. It is a compact way to express common analytical operations, which can then compile to Python code using pandas, Polars or DuckDB. The aim is to separate the logic the analyst writes from the engine that executes it.</p>
+<p>The earlier pandas example becomes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="kd">summary</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">filter</span> <span class="n">revenue</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">margin</span> <span class="o">=</span> <span class="n">revenue</span> <span class="o">-</span> <span class="n">cost</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">region</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="n">total_revenue</span><span class="p">,</span> <span class="nb">mean</span> <span class="n">margin</span> <span class="kd">as</span> <span class="n">average_margin</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">sort</span> <span class="n">total_revenue</span> <span class="kd">desc</span>
+</code></pre></div>
+<p>The difference is not just character count. Each line corresponds to an analytical idea. The active table is declared once. Columns are columns rather than strings. The grouping and its aggregations form a visible block. Reading from top to bottom follows the order in which the analyst is thinking.</p>
+<p>Because Pivotal compiles to ordinary Python, its results remain available to the rest of the Python ecosystem. Pivotal also includes commands for plots, tables and saving outputs, while regular Python remains available as an escape hatch when the DSL is not the right tool.</p>
+<p>Of course, Pivotal might not be the one syntax to rule them all. It is a young project with its own trade-offs. Users have to learn it. Tooling is limited (VS Code and Jupyter Lab only) and community support is non-existent. pandas has a lot of inertia and for teams with established codebases (including my own) a new language is a tough sell.</p>
+<p>But Pivotal is an experiment in a design space that has been underexplored. We benchmark execution time carefully. We should also care about comprehension time, error visibility and the number of concepts an analyst must keep in their head to express a simple transformation.</p>
+<h2 id="beyond-programming-languages">Beyond programming languages</h2>
+<p>It's an interesting time to be alive. When I started my career in the early 2000s, we used Excel and Visual Basic for data wrangling, and paid software like SAS and Stata for analysis. Python was still niche (at least in my circles), and <a href="https://pandas.pydata.org/about/index.html">pandas</a> and <a href="https://scikit-learn.org/stable/about.html">scikit-learn</a> were years away. Since then, the Python data ecosystem has become entrenched across academia, industry and government IT environments.</p>
+<p>While a lot has changed, this seems tame in comparison with the disruption AI is poised to unleash.</p>
+<p>The rise of AI coding agents over the past year has a lot of people wondering about the future of programming. Will we see new languages and DSLs evolve for interacting with agents? Or should agents produce more abstract or visual representations of logic instead of code, like a data pipeline diagram (e.g., an Airflow or KNIME style <a href="https://en.wikipedia.org/wiki/Directed_acyclic_graph">DAG</a>).</p>
+<p>What about the world of visual data tools? At a time when computers understand human speech, point-and-click interfaces are starting to feel a bit quaint. At the same time, we might see a convergence of these products, with tools that mix natural language, visual interaction and code generation seamlessly.</p>
+<p>I don't know what the winning interface will look like, but I know that we can do better. Because <code>df.groupby("year").reset_index()</code> cannot be the peak of human achievement.</p>
 <hr />
-<h2 id="summary">Summary</h2>
-<table>
-<thead>
-<tr>
-<th>Command</th>
-<th>Output</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pivotal file.pivotal</code></td>
-<td>(runs)</td>
-<td>Execute a <code>.pivotal</code> file</td>
-</tr>
-<tr>
-<td><code>pivotal --compile file.pivotal</code></td>
-<td><code>file.py</code></td>
-<td>Compile to pandas Python</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb</code></td>
-<td><code>nb.py</code></td>
-<td>Export notebook to Python</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb --backend duckdb</code></td>
-<td><code>nb.py</code></td>
-<td>Export notebook with DuckDB</td>
-</tr>
-<tr>
-<td><code>pivotal --export-py nb.ipynb --backend sql</code></td>
-<td><code>nb.sql</code></td>
-<td>Export notebook to SQL</td>
-</tr>
-<tr>
-<td><code>pivotal --export-pivotal nb.ipynb</code></td>
-<td><code>nb.pivotal</code></td>
-<td>Export notebook to Pivotal DSL</td>
-</tr>
-</tbody>
-</table>
+<p><em>Disclosure: I am the creator of Pivotal, which is an open-source project.</em></p>
 
 
 
