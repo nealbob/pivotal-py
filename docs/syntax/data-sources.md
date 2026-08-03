@@ -20,6 +20,16 @@ Use a Python variable for the path:
 load :my_file_path as data
 ```
 
+Use a native Pivotal scalar without a colon:
+
+```pivotal
+scalar input_path = "data/sales.csv"
+load input_path as sales
+```
+
+Compile-time dict references are also supported, for example
+`load paths.input as sales` when `paths.input` is a string.
+
 ## `bulk load` - load generated file lists
 
 Load many CSV or Parquet files from a Python list or folder. With one alias,

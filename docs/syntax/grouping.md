@@ -38,6 +38,38 @@ agg wmean quantity price as avg       # space syntax: wmean weight_col value_col
 agg wmean(price, quantity) as avg     # bracket syntax: wmean(value_col, weight_col)
 ```
 
+Named Pivotal lists can supply target columns for built-in aggregations:
+
+```pivotal
+list measures = price, cost, margin
+
+with sales as averages
+    agg mean measures
+```
+
+Use commas to apply a weighted mean to multiple value columns with one shared
+weight column. This is the canonical multi-column form:
+
+```pivotal
+agg wmean quantity price, cost, margin
+```
+
+The original space-separated form (`agg wmean quantity price cost margin`) is
+still accepted for compatibility.
+
+Named Pivotal lists are also accepted in the weighted target position:
+
+```pivotal
+list measures = price, cost, margin
+
+with sales as averages
+    agg wmean quantity measures
+```
+
+The weight must resolve to exactly one column. A multi-column target list cannot
+use one `as` alias; omit the alias for generated names, or write separate
+aggregation items when custom result names are needed.
+
 ## Basic usage
 
 ```pivotal

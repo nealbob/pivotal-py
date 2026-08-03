@@ -8,6 +8,12 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Fixed
 
+- Fixed `load` rejecting native Pivotal scalar paths unless they were incorrectly
+  prefixed with `:`, and added compile-time dict path reference support.
+- Added named Pivotal target lists for built-in aggregations, such as
+  `agg mean measures` and `agg wmean weight measures`, and made weighted
+  aggregation accept the same comma-separated multi-column shorthand as
+  unweighted aggregation (`agg wmean weight price, cost, margin`).
 - Fixed multi-case assignments failing with an unexpected semicolon error when
   the assignment header ended with trailing whitespace, such as `tier = `.
 

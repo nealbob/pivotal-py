@@ -193,6 +193,21 @@ def test_load_csv_duckdb(parser, tmp_path, sample_df):
     assert len(df) == len(sample_df)
 
 
+def test_load_csv_from_pivotal_scalar_path_duckdb(parser, tmp_path, sample_df):
+    conn = duckdb.connect()
+    ns = ddb_ns(conn)
+    csv_path = tmp_path / 'data.csv'
+    sample_df.to_csv(csv_path, index=False)
+    run_ddb(
+        parser,
+        f'scalar input_path = "{csv_path.as_posix()}"\nload input_path as sales',
+        ns,
+    )
+    df = fetch(ns, 'sales')
+    assert list(df.columns) == list(sample_df.columns)
+    assert len(df) == len(sample_df)
+
+
 def test_load_parquet_duckdb(parser, tmp_path, sample_df):
     pytest.importorskip('pyarrow')
     conn = duckdb.connect()
@@ -833,6 +848,38 @@ def test_groupby_wavg_duckdb(parser, region_df):
     assert s_wa == pytest.approx(300.0)   # (200*2 + 400*2) / (2+2)
 
 
+def test_groupby_wmean_comma_shorthand_duckdb(parser, region_df):
+    data = region_df.assign(cost=[10, 30, 20, 40])
+    conn = make_conn('data', data)
+    ns = ddb_ns(conn)
+    run_ddb(parser, 'with data\ngroup by region\n    agg wmean weight amount, cost\n', ns)
+    result = fetch(ns, 'data')
+    n = result[result['region'] == 'N'].iloc[0]
+    s = result[result['region'] == 'S'].iloc[0]
+    assert n['amount'] == pytest.approx(250.0)
+    assert n['cost'] == pytest.approx(25.0)
+    assert s['amount'] == pytest.approx(300.0)
+    assert s['cost'] == pytest.approx(30.0)
+
+
+def test_groupby_wmean_pivotal_target_list_duckdb(parser, region_df):
+    data = region_df.assign(cost=[10, 30, 20, 40])
+    conn = make_conn('data', data)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'list measures = amount, cost\nwith data\ngroup by region\n    agg wmean weight measures\n',
+        ns,
+    )
+    result = fetch(ns, 'data')
+    n = result[result['region'] == 'N'].iloc[0]
+    s = result[result['region'] == 'S'].iloc[0]
+    assert n['amount'] == pytest.approx(250.0)
+    assert n['cost'] == pytest.approx(25.0)
+    assert s['amount'] == pytest.approx(300.0)
+    assert s['cost'] == pytest.approx(30.0)
+
+
 def test_groupby_multi_agg_duckdb(parser, region_df):
     """Multiple agg functions in one groupby."""
     conn = make_conn('data', region_df)
@@ -859,6 +906,20 @@ def test_groupby_agg_function_applies_to_multiple_columns_duckdb(parser):
     conn = make_conn('data', df)
     ns = ddb_ns(conn)
     run_ddb(parser, 'with data\ngroup by region\n    agg mean amount, weight\n', ns)
+    result = fetch(ns, 'data')
+    n = result[result['region'] == 'N'].iloc[0]
+    assert n['amount'] == pytest.approx(200.0)
+    assert n['weight'] == pytest.approx(2.0)
+
+
+def test_groupby_mean_pivotal_target_list_duckdb(parser, region_df):
+    conn = make_conn('data', region_df)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'list measures = amount, weight\nwith data\ngroup by region\n    agg mean measures\n',
+        ns,
+    )
     result = fetch(ns, 'data')
     n = result[result['region'] == 'N'].iloc[0]
     assert n['amount'] == pytest.approx(200.0)

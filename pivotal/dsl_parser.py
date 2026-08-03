@@ -288,7 +288,7 @@ grammar_indented = r"""
     keys: IDENTIFIER ("," IDENTIFIER)*
     RIGHT_TABLE: IDENTIFIER
 
-    load_statement: "load" (STRING | PATH | PYTHON_VAR) "as" table_name (_NL | _NL _INDENT params _DEDENT)?
+    load_statement: "load" (STRING | PATH | PYTHON_VAR | IDENTIFIER | COMPILE_REF) "as" table_name (_NL | _NL _INDENT params _DEDENT)?
                   | "load" "all" _NL?
                   | "load" table_name _NL?
 
@@ -683,7 +683,7 @@ class DSLTransformer(Transformer):
         source, table_name = args[0], args[1]
         params = args[2] if len(args) > 2 else None
 
-        if isinstance(source, dict) and source.get('type') == 'var':
+        if isinstance(source, dict) and source.get('type') in ('var', 'compile_ref'):
             source_val = source
         else:
             source_val = str(source)
@@ -9525,8 +9525,10 @@ class DSLParser:
 
         # Allow compact aggregation syntax such as:
         #     agg mean colA, colB
+        #     agg wmean weight colA, colB
         # by expanding it to:
         #     agg mean colA, mean colB
+        #     agg wmean weight colA, wmean weight colB
         # Existing multi-function syntax like "agg sum x, max y" is left alone.
         agg_funcs = 'mean|avg|sum|min|max|count|std|median|var|nunique|first|last|quantile|percentile'
 
@@ -9563,21 +9565,29 @@ class DSLParser:
             indent, body = m.group(1), m.group(2)
             parts = _split_agg_parts(body)
             expanded = []
-            current_func = None
+            current_prefix = None
             for part in parts:
                 if not part:
                     continue
                 func_match = re.match(rf'^({agg_funcs})\b', part, flags=re.IGNORECASE)
                 special_match = re.match(r'^(wmean|wavg)\b', part, flags=re.IGNORECASE)
+                weighted_space_match = re.match(
+                    r'^(wmean|wavg)\s+(:?[a-zA-Z][a-zA-Z0-9_]*)\s+',
+                    part,
+                    flags=re.IGNORECASE,
+                )
                 custom_match = re.match(r'^:[a-zA-Z_][a-zA-Z0-9_]*\b', part)
                 if func_match:
-                    current_func = func_match.group(1)
+                    current_prefix = func_match.group(1)
+                    expanded.append(part)
+                elif weighted_space_match:
+                    current_prefix = f'{weighted_space_match.group(1)} {weighted_space_match.group(2)}'
                     expanded.append(part)
                 elif special_match or custom_match:
-                    current_func = None
+                    current_prefix = None
                     expanded.append(part)
-                elif current_func:
-                    expanded.append(f'{current_func} {part}')
+                elif current_prefix:
+                    expanded.append(f'{current_prefix} {part}')
                 else:
                     expanded.append(part)
             return f"{indent}agg {', '.join(expanded)}"
@@ -9958,6 +9968,44 @@ class DSLParser:
             return copy.deepcopy(lists[value])
         return value
 
+    @staticmethod
+    def _expand_agg_target_lists(agg_list):
+        """Expand a resolved Pivotal target list into individual agg items."""
+        expanded = []
+        for item in agg_list:
+            if not isinstance(item, dict) or 'column' not in item:
+                expanded.append(item)
+                continue
+
+            weight = item.get('weight')
+            if item.get('func') in ('wmean', 'wavg') and isinstance(weight, list):
+                raise ValueError(
+                    "Weighted aggregation requires exactly one weight column; "
+                    "a Pivotal list cannot be used as the weight."
+                )
+
+            targets = item.get('column')
+            if not isinstance(targets, list):
+                expanded.append(item)
+                continue
+            if not targets:
+                raise ValueError("Aggregation target lists cannot be empty.")
+            if len(targets) > 1 and item.get('alias'):
+                raise ValueError(
+                    "An aggregation over multiple target columns cannot use one alias. "
+                    "Remove 'as ...' to use generated names, or write separate agg items."
+                )
+
+            for target in targets:
+                if not isinstance(target, str):
+                    raise ValueError(
+                        "Aggregation target lists must contain only column names."
+                    )
+                expanded_item = copy.deepcopy(item)
+                expanded_item['column'] = target
+                expanded.append(expanded_item)
+        return expanded
+
     def _substitute_compile_values(self, value, bindings, lists, field=None):
         if isinstance(value, dict):
             if value.get('type') == 'var' and 'name' in value:
@@ -9983,6 +10031,8 @@ class DSLParser:
                         result[result_key] = self._replace_compile_identifiers_in_text(replaced, lists)
                 else:
                     result[result_key] = self._substitute_compile_values(child, bindings, lists, field=key)
+            if isinstance(result.get('agg_list'), list):
+                result['agg_list'] = self._expand_agg_target_lists(result['agg_list'])
             return result
 
         if isinstance(value, list):

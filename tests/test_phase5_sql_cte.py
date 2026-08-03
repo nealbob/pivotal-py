@@ -169,6 +169,14 @@ def test_codegen_load_csv_sql(parser):
     assert "read_csv('data/sales.csv')" in sql
 
 
+def test_codegen_load_csv_from_pivotal_scalar_path_sql(parser):
+    sql = gen_sql(
+        parser,
+        'scalar input_path = "data/sales.csv"\nload input_path as sales\n',
+    )
+    assert "read_csv('data/sales.csv')" in sql
+
+
 def test_codegen_load_parquet_sql(parser):
     """load parquet creates CTE with read_parquet."""
     sql = gen_sql(parser, 'load "data/sales.parquet" as sales\n')
@@ -292,6 +300,32 @@ def test_codegen_groupby_multi_column_agg_sql(parser):
     sql = gen_sql(parser, 'with sales\ngroup by category\n    agg mean price, quantity\n')
     assert 'AVG(price) AS price_mean' in sql
     assert 'AVG(quantity) AS quantity_mean' in sql
+
+
+def test_codegen_groupby_mean_pivotal_target_list_sql(parser):
+    sql = gen_sql(
+        parser,
+        'list measures = price, quantity\nwith sales\ngroup by category\n'
+        '    agg mean measures\n',
+    )
+    assert 'AVG(price) AS price_mean' in sql
+    assert 'AVG(quantity) AS quantity_mean' in sql
+
+
+def test_codegen_groupby_wmean_comma_shorthand_sql(parser):
+    sql = gen_sql(parser, 'with sales\ngroup by category\n    agg wmean quantity price, id\n')
+    assert 'SUM(price * quantity) / NULLIF(SUM(quantity), 0) AS price_wmean' in sql
+    assert 'SUM(id * quantity) / NULLIF(SUM(quantity), 0) AS id_wmean' in sql
+
+
+def test_codegen_groupby_wmean_pivotal_target_list_sql(parser):
+    sql = gen_sql(
+        parser,
+        'list measures = price, id\nwith sales\ngroup by category\n'
+        '    agg wmean quantity measures\n',
+    )
+    assert 'SUM(price * quantity) / NULLIF(SUM(quantity), 0) AS price_wmean' in sql
+    assert 'SUM(id * quantity) / NULLIF(SUM(quantity), 0) AS id_wmean' in sql
 
 
 def test_execute_groupby_sql(parser, sample_df):

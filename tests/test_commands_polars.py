@@ -67,6 +67,18 @@ def test_save_table_as_csv(parser, tmp_path, sample_df):
     assert pl.read_csv(destination).equals(sample_df)
 
 
+def test_load_csv_from_pivotal_scalar_path(parser, tmp_path, sample_df):
+    source = tmp_path / "sales.csv"
+    sample_df.write_csv(source)
+    ns = {}
+    run(
+        parser,
+        f'scalar input_path = "{source.as_posix()}"\nload input_path as sales',
+        ns,
+    )
+    assert ns['sales'].equals(sample_df)
+
+
 # ---------------------------------------------------------------------------
 # validate_table / copy_table
 # ---------------------------------------------------------------------------
@@ -1008,6 +1020,55 @@ def test_groupby_wavg(parser):
     result = ns['data'].sort('region')
     assert result['wa'][0] == pytest.approx(250.0)   # N: (100*1+300*3)/(1+3)
     assert result['wa'][1] == pytest.approx(300.0)   # S: (200*2+400*2)/(2+2)
+
+
+def test_groupby_wmean_comma_shorthand(parser):
+    df = pl.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'cost': [10, 30, 20, 40],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'data': df}
+    run(parser, 'with data\ngroup by region\n    agg wmean weight amount, cost\n', ns)
+    result = ns['data'].sort('region')
+    assert result['wmean_amount'].to_list() == pytest.approx([250.0, 300.0])
+    assert result['wmean_cost'].to_list() == pytest.approx([25.0, 30.0])
+
+
+def test_groupby_wmean_pivotal_target_list(parser):
+    df = pl.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'cost': [10, 30, 20, 40],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'data': df}
+    run(
+        parser,
+        'list measures = amount, cost\nwith data\ngroup by region\n    agg wmean weight measures\n',
+        ns,
+    )
+    result = ns['data'].sort('region')
+    assert result['wmean_amount'].to_list() == pytest.approx([250.0, 300.0])
+    assert result['wmean_cost'].to_list() == pytest.approx([25.0, 30.0])
+
+
+def test_groupby_mean_pivotal_target_list(parser):
+    df = pl.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'cost': [10, 30, 20, 40],
+    })
+    ns = {'data': df}
+    run(
+        parser,
+        'list measures = amount, cost\nwith data\ngroup by region\n    agg mean measures\n',
+        ns,
+    )
+    result = ns['data'].sort('region')
+    assert result['amount'].to_list() == pytest.approx([200.0, 300.0])
+    assert result['cost'].to_list() == pytest.approx([20.0, 30.0])
 
 
 def test_groupby_quantile_polars(parser):

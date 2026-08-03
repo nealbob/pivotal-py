@@ -60,6 +60,10 @@ load "data/sales.csv" as sales
 
 # Path from a Python runtime variable
 load :my_path_variable as sales
+
+# Path from a native Pivotal scalar (no colon)
+scalar sales_path = "data/sales.csv"
+load sales_path as sales
 ```
 
 Bulk load CSV or Parquet files from a Python list or folder. A single alias
@@ -402,6 +406,29 @@ For quantiles, use column-first order: `agg quantile revenue 0.9 as p90` or `agg
 
 To apply one aggregation function to multiple columns, list the extra columns after commas:
 `agg mean price, cost, margin` is equivalent to `agg mean price, mean cost, mean margin`.
+A named Pivotal list can supply the target columns for built-in aggregations:
+
+```pivotal
+list measures = price, cost, margin
+
+with sales as averages
+    agg mean measures
+```
+
+For weighted means, the weight column is shared: `agg wmean quantity price, cost, margin`.
+The older space-separated form, `agg wmean quantity price cost margin`, remains accepted.
+A named list works the same way for weighted targets:
+
+```pivotal
+list measures = price, cost, margin
+
+with sales as averages
+    agg wmean quantity measures
+```
+
+The weight must be one column. When a target list contains multiple columns,
+generated names such as `wmean_price` are used; write separate aggregation items
+if each result needs a custom alias.
 
 For pandas pipelines, custom Python functions can be used as aggregations by prefixing the function name with `:`. Each following column is passed as a Series argument to the Python function:
 

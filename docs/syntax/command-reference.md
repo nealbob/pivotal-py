@@ -153,8 +153,8 @@ preferred inside Pivotal code when the value belongs to the pipeline.
 Load a file into a table:
 
 ```pivotal
-load <path-or-string-or-python-var> as <table>
-load <path-or-string-or-python-var> as <table>
+load <path-or-string-or-pivotal-value-or-python-var> as <table>
+load <path-or-string-or-pivotal-value-or-python-var> as <table>
     <reader_option> <value>
     <reader_option> = <value>
     <reader_option> [<value>, ...]
@@ -164,6 +164,8 @@ Examples:
 
 ```pivotal
 load "sales.csv" as sales
+scalar input_path = "sales.csv"
+load input_path as sales
 load :input_path as sales
 load "sales.csv" as sales
     header 0

@@ -99,6 +99,29 @@ def test_load_csv(parser, tmp_path, sample_df):
     assert list(ns['df'].columns) == list(sample_df.columns)
 
 
+def test_load_csv_from_pivotal_scalar_path(parser, tmp_path, sample_df):
+    csv_path = tmp_path / "data.csv"
+    sample_df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    # Define and consume the scalar in separate executions, as notebook cells do.
+    run(parser, f'scalar input_path = "{csv_path.as_posix()}"', ns)
+    run(parser, 'load input_path as df', ns)
+    assert list(ns['df'].columns) == list(sample_df.columns)
+    assert len(ns['df']) == len(sample_df)
+
+
+def test_load_csv_from_pivotal_dict_path(parser, tmp_path, sample_df):
+    csv_path = tmp_path / "data.csv"
+    sample_df.to_csv(csv_path, index=False)
+    ns = {'pd': pd}
+    run(
+        parser,
+        f'dict paths\n    input = "{csv_path.as_posix()}"\nload paths.input as df',
+        ns,
+    )
+    assert len(ns['df']) == len(sample_df)
+
+
 def test_load_parquet(parser, tmp_path, sample_df):
     pytest.importorskip('pyarrow')
     path = tmp_path / "data.parquet"
@@ -1272,16 +1295,16 @@ def test_wmean_agg_whole_table_alias(parser):
 
 
 def test_wmean_agg_multi_column(parser):
-    """wmean weight col1 col2 produces one wmean column per value column."""
+    """Comma shorthand applies one weight column to multiple value columns."""
     df = pd.DataFrame({'a': [1.0, 3.0], 'b': [10.0, 30.0], 'w': [1, 3]})
     ns = {'pd': pd, 'data': df}
-    run(parser, 'with data\n    agg wmean w a b\n', ns)
+    run(parser, 'with data\n    agg wmean w a, b\n', ns)
     assert ns['data']['wmean_a'].iloc[0] == pytest.approx(2.5)   # (1+9)/4
     assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)  # (10+90)/4
 
 
 def test_wmean_groupby_multi_column(parser):
-    """wmean weight col1 col2 inside group by produces per-group wmeans."""
+    """The original space-separated weighted targets remain supported."""
     df = pd.DataFrame({
         'grp': ['A', 'A', 'B', 'B'],
         'x':   [1.0, 3.0, 2.0, 4.0],
@@ -1299,11 +1322,69 @@ def test_wmean_groupby_multi_column(parser):
     assert b['wmean_y'] == pytest.approx(30.0)
 
 
+def test_wmean_comma_shorthand_stops_at_next_agg_function(parser):
+    """Bare comma targets share the weight without consuming a later agg item."""
+    df = pd.DataFrame({'a': [1.0, 3.0], 'b': [10.0, 30.0], 'w': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(parser, 'with data\n    agg wavg w a, b, sum w as total_weight\n', ns)
+    assert ns['data']['wmean_a'].iloc[0] == pytest.approx(2.5)
+    assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)
+    assert ns['data']['total_weight'].iloc[0] == 4
+
+
+def test_wmean_accepts_pivotal_target_list(parser):
+    df = pd.DataFrame({'a': [1.0, 3.0], 'b': [10.0, 30.0], 'w': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    source = 'list measures = a, b\nwith data\n    agg wmean w measures\n'
+
+    ast = parser.parse(source)
+    assert ast[1]['agg_list'] == [
+        {'func': 'wmean', 'column': 'a', 'weight': 'w'},
+        {'func': 'wmean', 'column': 'b', 'weight': 'w'},
+    ]
+
+    run(parser, source, ns)
+    assert ns['data']['wmean_a'].iloc[0] == pytest.approx(2.5)
+    assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)
+
+
+def test_wmean_rejects_one_alias_for_multiple_list_targets(parser):
+    result = parser.parse(
+        'list measures = a, b\nwith data\n    agg wmean w measures as weighted\n'
+    )
+    assert 'error' in result
+    assert 'cannot use one alias' in result['error'].message
+
+
+def test_wmean_rejects_pivotal_list_as_weight(parser):
+    result = parser.parse(
+        'list weights = w1, w2\nwith data\n    agg wmean weights amount\n'
+    )
+    assert 'error' in result
+    assert 'exactly one weight column' in result['error'].message
+
+
 def test_agg_function_applies_to_multiple_columns(parser):
     """agg mean colA, colB applies mean to each listed column."""
     df = pd.DataFrame({'colA': [1.0, 3.0], 'colB': [10.0, 30.0]})
     ns = {'pd': pd, 'data': df}
     run(parser, 'with data\n    agg mean colA, colB\n', ns)
+    assert ns['data']['colA_mean'].iloc[0] == pytest.approx(2.0)
+    assert ns['data']['colB_mean'].iloc[0] == pytest.approx(20.0)
+
+
+def test_mean_accepts_pivotal_target_list(parser):
+    df = pd.DataFrame({'colA': [1.0, 3.0], 'colB': [10.0, 30.0]})
+    ns = {'pd': pd, 'data': df}
+    source = 'list measures = colA, colB\nwith data\n    agg mean measures\n'
+
+    ast = parser.parse(source)
+    assert ast[1]['agg_list'] == [
+        {'func': 'mean', 'column': 'colA'},
+        {'func': 'mean', 'column': 'colB'},
+    ]
+
+    run(parser, source, ns)
     assert ns['data']['colA_mean'].iloc[0] == pytest.approx(2.0)
     assert ns['data']['colB_mean'].iloc[0] == pytest.approx(20.0)
 
