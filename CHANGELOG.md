@@ -6,6 +6,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-01
+
 ### Added
 
 - Added target-first weighted aggregation blocks with optional `=` syntax, such

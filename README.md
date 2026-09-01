@@ -14,12 +14,12 @@ A live-demo of [Pivotal in Jupyter Lab](https://mybinder.org/v2/gh/nealbob/pivot
 
 [![JupyterLab demo](https://raw.githubusercontent.com/nealbob/pivotal-py/master/images/pivotal_lab_animation2.gif)](https://mybinder.org/v2/gh/nealbob/pivotal-demo/HEAD?urlpath=%2Fdoc%2Ftree%2Ffootball_demo.ipynb)
 
-## What's New In 0.6.0
+## What's New In 0.7.0
 
-- Native backend-independent expression and condition IR, with supported assignments and filters generated consistently across pandas, Polars, DuckDB, and SQL
-- Explicit package and table persistence with `save package as`, file saves, and managed-table saves
-- Explicit `\` line continuation for long statements
-- JupyterLab autocomplete arrow-key navigation and corrected faceted-plot title handling
+- Target-first weighted aggregation blocks, with comma-separated columns or named target lists sharing one weight column
+- Named Pivotal lists for built-in aggregations such as `agg mean measures`
+- Native Pivotal scalar and dictionary path references in `load` statements
+- Compatibility fixes for weighted aggregation, dataframe columns named `weight`, and multi-case assignment headers with trailing whitespace
 
 See the full changelog at: <https://github.com/nealbob/pivotal-py/blob/master/CHANGELOG.md>
 
@@ -142,6 +142,13 @@ Neal Hughes
   - Added explicit package, file, and managed-table save syntax
   - Added explicit line continuation
   - Fixed JupyterLab autocomplete navigation and faceted plot titles
+  - See `CHANGELOG.md` on GitHub for the full release notes
+
+- **v0.7.0** - Aggregate lists, target-first weighted means, and native load paths
+  - Added comma-separated and named-list aggregation targets
+  - Added target-first weighted aggregation blocks with one shared weight column
+  - Fixed native Pivotal scalar and dictionary path references in `load`
+  - Preserved legacy weighted syntax and columns named `weight`
   - See `CHANGELOG.md` on GitHub for the full release notes
 
 ---
