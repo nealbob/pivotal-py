@@ -1527,7 +1527,7 @@
 <p>Python functions in the runtime namespace use <code>:</code> in column expressions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">python</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">def</span> <span class="n">clean_price</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="err">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="k">return</span> <span class="n">s</span><span class="err">.</span><span class="nb">str</span><span class="err">.</span><span class="nb">replace</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="err">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="k">return</span> <span class="n">s</span><span class="err">.</span><span class="nb">str</span><span class="err">.</span><span class="nb">replace</span><span class="p">(</span><span class="s2">"$"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="err">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">end</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">with</span> <span class="n">sales</span>
@@ -1606,15 +1606,15 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">slug</span> <span class="o">=</span> <span class="nb">lower</span><span class="p">(</span><span class="nb">trim</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">abbr</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">description</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">clean</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">notes</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">postcode</span> <span class="o">=</span> <span class="nb">regex_extract</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot;\\b\\d{4}\\b&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">clean_phone</span> <span class="o">=</span> <span class="nb">regex_replace</span><span class="p">(</span><span class="n">phone</span><span class="p">,</span> <span class="s2">&quot;[^0-9]&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">clean</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">notes</span><span class="p">,</span> <span class="s2">"N/A"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">postcode</span> <span class="o">=</span> <span class="nb">regex_extract</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="s2">"\\b\\d{4}\\b"</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">clean_phone</span> <span class="o">=</span> <span class="nb">regex_replace</span><span class="p">(</span><span class="n">phone</span><span class="p">,</span> <span class="s2">"[^0-9]"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
 </code></pre></div>
 <p>Regex patterns use normal Pivotal strings. Escape backslashes inside quoted patterns, for example <code>"\\b\\d{4}\\b"</code> for a four-digit postcode on a word boundary.</p>
 <p><strong>String concatenation</strong> with <code>+</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">contacts</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">full_name</span> <span class="o">=</span> <span class="n">last_name</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span> <span class="o">+</span> <span class="n">first_name</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="kd">label</span> <span class="o">=</span> <span class="n">code</span> <span class="o">+</span> <span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="n">region</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">full_name</span> <span class="o">=</span> <span class="n">last_name</span> <span class="o">+</span> <span class="s2">", "</span> <span class="o">+</span> <span class="n">first_name</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="kd">label</span> <span class="o">=</span> <span class="n">code</span> <span class="o">+</span> <span class="s2">"-"</span> <span class="o">+</span> <span class="n">region</span>
 </code></pre></div>
 <p><strong>Nesting</strong> is supported:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">with</span> <span class="n">products</span>
@@ -1680,7 +1680,7 @@
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">yr</span>       <span class="o">=</span> <span class="nb">year</span><span class="p">(</span><span class="n">order_date</span><span class="p">)</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">mo</span>       <span class="o">=</span> <span class="nb">month</span><span class="p">(</span><span class="n">order_date</span><span class="p">)</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">quarter</span>  <span class="o">=</span> <span class="nb">quarter</span><span class="p">(</span><span class="n">order_date</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="kd">label</span>    <span class="o">=</span> <span class="nb">date_format</span><span class="p">(</span><span class="n">order_date</span><span class="p">,</span> <span class="s2">&quot;%b %Y&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="kd">label</span>    <span class="o">=</span> <span class="nb">date_format</span><span class="p">(</span><span class="n">order_date</span><span class="p">,</span> <span class="s2">"%b %Y"</span><span class="p">)</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">days_open</span> <span class="o">=</span> <span class="nb">date_diff</span><span class="p">(</span><span class="n">close_date</span><span class="p">,</span> <span class="n">open_date</span><span class="p">)</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">due_date</span>  <span class="o">=</span> <span class="nb">date_add</span><span class="p">(</span><span class="n">order_date</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
 </code></pre></div>
@@ -1768,27 +1768,27 @@ round one or more columns in place.</p>
 <p>Create a column with different values depending on a condition:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">discounted_price</span> <span class="o">=</span> <span class="n">price</span> <span class="o">*</span> <span class="mf">0.9</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="kd">where</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">&quot;clearance&quot;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="kd">where</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">"clearance"</span>
 </code></pre></div>
 <p><code>else</code> is optional. Without it, rows where the condition is false receive <code>null</code> / <code>NaN</code>. Use <code>else</code> to provide a default:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">discounted_price</span> <span class="o">=</span> <span class="n">price</span> <span class="o">*</span> <span class="mf">0.9</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="kd">where</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">&quot;clearance&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="kd">where</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">"clearance"</span>
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="kd">else</span> <span class="n">price</span>
 </code></pre></div>
 <h2 id="multi-case-assignment">Multi-case assignment</h2>
 <p>Test multiple conditions in order; use explicit <code>else</code> for the default:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">tier</span> <span class="o">=</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>        <span class="kd">where</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">500</span><span class="p">;</span> <span class="s2">&quot;Gold&quot;</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="kd">where</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">;</span> <span class="s2">&quot;Silver&quot;</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>        <span class="kd">else</span> <span class="s2">&quot;Bronze&quot;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>        <span class="kd">where</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">500</span><span class="p">;</span> <span class="s2">"Gold"</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="kd">where</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">;</span> <span class="s2">"Silver"</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>        <span class="kd">else</span> <span class="s2">"Bronze"</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">with</span> <span class="n">products</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">price_band</span> <span class="o">=</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="kd">where</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="s2">&quot;premium&quot;</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="kd">where</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">200</span><span class="p">;</span>  <span class="s2">&quot;mid&quot;</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="kd">else</span> <span class="s2">&quot;budget&quot;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="kd">where</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="s2">"premium"</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="kd">where</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">200</span><span class="p">;</span>  <span class="s2">"mid"</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="kd">else</span> <span class="s2">"budget"</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">adjusted</span> <span class="o">=</span>

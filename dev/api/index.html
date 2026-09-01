@@ -1645,21 +1645,21 @@
 </code></pre></div>
 <h3 id="parsesource"><code>parse(source)</code></h3>
 <p>Parse a Pivotal source string into an abstract syntax tree (list of AST nodes).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">"""</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">with sales as summary</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="s2">    group by region</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="s2">        agg sum revenue as total</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="s2">&quot;&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="s2">"""</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Returns:</strong> A list of AST node dicts, or <code>{'error': '...'}</code> on parse failure.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;error&#39;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parse error: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">'error'</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parse error: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">'error'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h3 id="generate_coderesults-backendpandas"><code>generate_code(results, backend='pandas')</code></h3>
 <p>Generate code from parsed AST nodes.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">code_blocks</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;pandas&#39;</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">code_blocks</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'pandas'</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
 <table>
@@ -1684,20 +1684,20 @@
 </tbody>
 </table>
 <p><strong>Returns:</strong> A list of code strings (one per logical block). Join them to produce a complete script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">full_code</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">code_blocks</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">full_code</span> <span class="o">=</span> <span class="s1">'</span><span class="se">\n\n</span><span class="s1">'</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">code_blocks</span><span class="p">)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">full_code</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h3 id="executesource-globals_dict-backendpandas-verbosetrue"><code>execute(source, globals_dict, backend='pandas', verbose=True)</code></h3>
 <p>Parse and execute Pivotal source in one call.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="s2">load &quot;data/sales.csv&quot; as sales</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"""</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="s2">load "data/sales.csv" as sales</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="s2">with sales as summary</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="s2">    group by region</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="s2">        agg sum revenue as total</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="s2">    sort total desc</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="s2">"""</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
 <table>
@@ -1733,22 +1733,22 @@
 </table>
 <p><strong>Returns:</strong> A dict of <code>{table_name: DataFrame}</code> for every table produced.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">summary_df</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">&#39;summary&#39;</span><span class="p">]</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">summary_df</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">'summary'</span><span class="p">]</span>
 </code></pre></div>
 <p>Pass a custom dict to share variables or isolate execution:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s1">&#39;sales&#39;</span><span class="p">:</span> <span class="n">existing_df</span><span class="p">}</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'threshold'</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s1">'sales'</span><span class="p">:</span> <span class="n">existing_df</span><span class="p">}</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"""</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="s2">with sales as filtered</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="s2">    filter amount &gt; :threshold</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="s2">"""</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">&#39;filtered&#39;</span><span class="p">]</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">'filtered'</span><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h3 id="exportsource-backendpandas"><code>export(source, backend='pandas')</code></h3>
 <p>Generate a clean, standalone Python script from Pivotal source.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">script</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;analysis.py&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">script</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">'analysis.py'</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">script</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Returns:</strong> A string containing the complete Python script including imports.</p>
@@ -1759,11 +1759,11 @@
 </code></pre></div>
 <h3 id="packageexport_todestination-globals-fmtcsv-chart_fmtpng-includenone-excludenone"><code>Package.export_to(destination, globals, fmt='csv', chart_fmt='png', include=None, exclude=None)</code></h3>
 <p>Save a package to a complete destination directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export_to</span><span class="p">(</span><span class="s1">&#39;~/output/my_analysis&#39;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export_to</span><span class="p">(</span><span class="s1">'~/output/my_analysis'</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
 </code></pre></div>
 <h3 id="packageexportname-globals-pathnone-fmtcsv-chart_fmtpng-includenone-excludenone"><code>Package.export(name, globals, path=None, fmt='csv', chart_fmt='png', include=None, exclude=None)</code></h3>
 <p>Save all tables and charts from the current session to a data package.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">Package</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s1">'my_analysis'</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="s1">'~/output'</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
 <table>
@@ -1815,21 +1815,21 @@
 <hr />
 <h3 id="packageopenname-pathnone"><code>Package.open(name, path=None)</code></h3>
 <p>Load a previously saved package.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;~/output&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">'my_analysis'</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">'~/output'</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Returns:</strong> A <code>Package</code> object.</p>
 <hr />
 <h3 id="pkgload_all"><code>pkg.load_all()</code></h3>
 <p>Load all tables from the package into a dict:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">'my_analysis'</span><span class="p">)</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_all</span><span class="p">()</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">&#39;sales&#39;</span><span class="p">]</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="s1">'sales'</span><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h3 id="pkgload_tablename"><code>pkg.load_table(name)</code></h3>
 <p>Load a single table by name:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;my_analysis&#39;</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s1">&#39;sales&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">Package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">'my_analysis'</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s1">'sales'</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="notebook-export-functions">Notebook export functions</h2>
@@ -1837,10 +1837,10 @@
 <p>Export a Jupyter notebook to a Python or SQL file.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_python</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">'analysis.ipynb'</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># creates analysis.py</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;sql&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">notebook_to_python</span><span class="p">(</span><span class="s1">'analysis.ipynb'</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'sql'</span><span class="p">)</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># creates analysis.sql</span>
 </code></pre></div>
 <p><strong>Parameters:</strong></p>
@@ -1875,7 +1875,7 @@
 <p>Export a Jupyter notebook to a <code>.pivotal</code> file.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pivotal.__main__</span><span class="w"> </span><span class="kn">import</span> <span class="n">notebook_to_pivotal</span>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">notebook_to_pivotal</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">)</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">notebook_to_pivotal</span><span class="p">(</span><span class="s1">'analysis.ipynb'</span><span class="p">)</span>
 <a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># creates analysis.pivotal</span>
 </code></pre></div>
 <ul>

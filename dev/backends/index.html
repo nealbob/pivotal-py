@@ -1570,8 +1570,8 @@
 <h2 id="pandas-default">Pandas (default)</h2>
 <p>The default backend. Uses pandas DataFrames throughout. Best for interactive analysis and datasets that fit comfortably in memory.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Python API</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;pandas&#39;</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;pandas&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'pandas'</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'pandas'</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Jupyter — set for the session</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="err">%</span><span class="n">pivotal_set</span> <span class="n">backend</span><span class="o">=</span><span class="n">pandas</span>
@@ -1582,8 +1582,8 @@
 <h2 id="polars">Polars</h2>
 <p>Uses Polars DataFrames throughout. Polars is a fast, columnar DataFrame library with a Rust core. It is a good choice when you want pandas-style in-process execution but with better performance on larger datasets.</p>
 <p>Requires <code>pip install pivotal[polars]</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;polars&#39;</span><span class="p">)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;polars&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'polars'</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'polars'</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="err">%</span><span class="n">pivotal_set</span> <span class="n">backend</span><span class="o">=</span><span class="n">polars</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
@@ -1598,8 +1598,8 @@
 <h2 id="duckdb">DuckDB</h2>
 <p>Executes operations using DuckDB's in-process SQL engine. Significantly faster for large datasets (hundreds of millions of rows), uses columnar storage, and supports lazy evaluation.</p>
 <p>Requires <code>pip install pivotal[duckdb]</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="err">%</span><span class="n">pivotal_set</span> <span class="n">backend</span><span class="o">=</span><span class="n">duckdb</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
@@ -1616,7 +1616,7 @@
 - Sharing queries with analysts using SQL tools (DBeaver, DataGrip, Tableau)
 - Producing <a href="https://www.getdbt.com/">dbt</a> model files
 - Auditing what a notebook computes</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;sql&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'sql'</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="err">%</span><span class="n">pivotal_set</span> <span class="n">backend</span><span class="o">=</span><span class="n">sql</span>
 </code></pre></div>
@@ -1656,10 +1656,10 @@
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">results</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">dsl</span><span class="p">)</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="c1"># generate code</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">code</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">code</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">generate_code</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="c1"># or execute directly</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;duckdb&#39;</span><span class="p">)</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">parser</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">dsl</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">'duckdb'</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="cli-notebook-export">CLI — notebook export</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pivotal<span class="w"> </span>--export-py<span class="w"> </span>notebook.ipynb<span class="w">           </span><span class="c1"># pandas</span>

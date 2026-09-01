@@ -1454,7 +1454,7 @@
 </code></pre></div>
 <p>Keep columns whose names match a regex pattern:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">metrics</span> <span class="kd">as</span> <span class="n">rates</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">select</span> <span class="ow">matches</span> <span class="s2">&quot;_rate$&quot;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">select</span> <span class="ow">matches</span> <span class="s2">"_rate$"</span>
 </code></pre></div>
 <h2 id="drop-remove-columns"><code>drop</code> — remove columns</h2>
 <p>Remove specific columns, keep everything else:</p>
@@ -1463,7 +1463,7 @@
 </code></pre></div>
 <p>Remove columns whose names match a regex pattern:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">drop</span> <span class="ow">matches</span> <span class="s2">&quot;^temp_&quot;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">drop</span> <span class="ow">matches</span> <span class="s2">"^temp_"</span>
 </code></pre></div>
 <h2 id="distinct-remove-duplicate-rows"><code>distinct</code> — remove duplicate rows</h2>
 <h3 id="deduplicate-on-all-columns">Deduplicate on all columns</h3>

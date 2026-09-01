@@ -1451,7 +1451,7 @@
 <h1 id="filtering">Filtering</h1>
 <p>The <code>filter</code> statement keeps rows that match a condition. Rows that do not match are dropped.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">active</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 </code></pre></div>
 <h2 id="comparison-operators">Comparison operators</h2>
 <table>
@@ -1490,15 +1490,15 @@
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">filter</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">100</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">filter</span> <span class="n">quantity</span> <span class="o">!=</span> <span class="mi">0</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">filter</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="mf">0.9</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">filter</span> <span class="n">discount</span> <span class="o">&lt;=</span> <span class="mf">0.5</span>
 </code></pre></div>
 <h2 id="logical-operators">Logical operators</h2>
 <p>Combine conditions with <code>and</code> / <code>or</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">filter</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">1000</span> <span class="ow">and</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">&quot;premium&quot;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span> <span class="ow">or</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">500</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">filter</span> <span class="n">region</span> <span class="o">==</span> <span class="s2">&quot;North&quot;</span> <span class="ow">and</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span> <span class="ow">and</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">100</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">filter</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">1000</span> <span class="ow">and</span> <span class="n">category</span> <span class="o">==</span> <span class="s2">"premium"</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span> <span class="ow">or</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">500</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">filter</span> <span class="n">region</span> <span class="o">==</span> <span class="s2">"North"</span> <span class="ow">and</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span> <span class="ow">and</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">100</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1506,11 +1506,11 @@
 </div>
 <h2 id="membership-in-not-in">Membership — <code>in</code> / <code>not in</code></h2>
 <p>Test whether a value is in a list:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;North&quot;</span><span class="p">,</span> <span class="s2">&quot;South&quot;</span><span class="p">,</span> <span class="s2">&quot;East&quot;</span><span class="p">]</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">filter</span> <span class="n">category</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="s2">&quot;draft&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"North"</span><span class="p">,</span> <span class="s2">"South"</span><span class="p">,</span> <span class="s2">"East"</span><span class="p">]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">filter</span> <span class="n">category</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"test"</span><span class="p">,</span> <span class="s2">"draft"</span><span class="p">]</span>
 </code></pre></div>
 <p>Use a Python variable for the list:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">valid_regions</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;North&quot;</span><span class="p">,</span> <span class="s2">&quot;South&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">valid_regions</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"North"</span><span class="p">,</span> <span class="s2">"South"</span><span class="p">]</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="nv">:valid_regions</span>
 </code></pre></div>
@@ -1554,17 +1554,17 @@
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">filter</span> <span class="n">product</span> <span class="ow">contains</span> <span class="s2">&quot;Laptop&quot;</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">filter</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">contains</span> <span class="s2">&quot;test&quot;</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">filter</span> <span class="n">email</span> <span class="ow">matches</span> <span class="s2">&quot;.+@.+\\..+&quot;</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">filter</span> <span class="n">event</span> <span class="ow">startswith</span> <span class="s2">&quot;login&quot;</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">filter</span> <span class="n">filename</span> <span class="ow">endswith</span> <span class="s2">&quot;.csv&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">filter</span> <span class="n">product</span> <span class="ow">contains</span> <span class="s2">"Laptop"</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">filter</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">contains</span> <span class="s2">"test"</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">filter</span> <span class="n">email</span> <span class="ow">matches</span> <span class="s2">".+@.+\\..+"</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">filter</span> <span class="n">event</span> <span class="ow">startswith</span> <span class="s2">"login"</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">filter</span> <span class="n">filename</span> <span class="ow">endswith</span> <span class="s2">".csv"</span>
 </code></pre></div>
 <p>Use <code>^</code> and <code>$</code> anchors when the whole string must match the pattern.</p>
 <h2 id="python-variable-references">Python variable references</h2>
 <p>Any filter value can be a Python variable, prefixed with <code>:</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">min_price</span> <span class="o">=</span> <span class="mi">100</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">target_region</span> <span class="o">=</span> <span class="s2">&quot;North&quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">target_region</span> <span class="o">=</span> <span class="s2">"North"</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">filter</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="nv">:min_price</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">filter</span> <span class="n">region</span> <span class="o">==</span> <span class="nv">:target_region</span>
@@ -1572,9 +1572,9 @@
 <h2 id="multiple-filter-lines">Multiple filter lines</h2>
 <p>Multiple <code>filter</code> lines under the same <code>with</code> block are applied in sequence (AND logic):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">result</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">filter</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">500</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;North&quot;</span><span class="p">,</span> <span class="s2">&quot;South&quot;</span><span class="p">]</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"North"</span><span class="p">,</span> <span class="s2">"South"</span><span class="p">]</span>
 </code></pre></div>
 
 

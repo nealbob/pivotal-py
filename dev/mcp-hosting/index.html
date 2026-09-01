@@ -1454,10 +1454,10 @@ compilation, execution, and comparison tools to MCP-capable AI clients.</p>
 </tbody>
 </table>
 <p>Install the MCP extra before using either mode:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pip</span> <span class="n">install</span> <span class="s2">&quot;pivotal-lang[mcp]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pip</span> <span class="n">install</span> <span class="s2">"pivotal-lang[mcp]"</span>
 </code></pre></div>
 <p>For an editable checkout:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="s2">&quot;.[mcp]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="s2">".[mcp]"</span>
 </code></pre></div>
 <h2 id="local-full-server">Local Full Server</h2>
 <p>Use the local full server when the MCP client is running on your machine and you
@@ -1486,7 +1486,7 @@ on the same inputs.</p>
 <p>When passing data files to run or compare tools, use a mapping from table name to
 local CSV or Parquet path:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;sales&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C:\\data\\sales.csv&quot;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"sales"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:\\data\\sales.csv"</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">}</span>
 </code></pre></div>
 <p>The key is the table or variable name made available to the tool, not the file

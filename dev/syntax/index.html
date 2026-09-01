@@ -1319,15 +1319,15 @@
 <a href="command-reference/">Syntax Reference</a>.</p>
 <h2 id="structure">Structure</h2>
 <p>A Pivotal script is a sequence of <strong>blocks</strong>. Each block begins with a top-level statement (<code>load</code>, <code>with</code>, <code>save</code>, <code>delete</code>) and its indented sub-statements:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">load</span> <span class="s2">&quot;data/sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>      <span class="c1"># top-level: load a file</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">load</span> <span class="s2">"data/sales.csv"</span> <span class="kd">as</span> <span class="n">sales</span>      <span class="c1"># top-level: load a file</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="kd">summary</span>             <span class="c1"># top-level: define a table</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>     <span class="c1"># indented: sub-operation</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>     <span class="c1"># indented: sub-operation</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">region</span>               <span class="c1">#           sub-operation</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="n">total</span>  <span class="c1">#           sub-option of group by</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">sort</span> <span class="n">total</span> <span class="kd">desc</span>               <span class="c1"># back to with level</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;output/report&quot;</span>   <span class="c1"># top-level: save output</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">"output/report"</span>   <span class="c1"># top-level: save output</span>
 </code></pre></div>
 <h2 id="indentation">Indentation</h2>
 <p>Indentation is significant but flexible — any consistent number of spaces or tabs works. Sub-options must be indented relative to their parent; they end when the indentation returns to the parent level.</p>
@@ -1342,7 +1342,7 @@
 <h2 id="python-variable-references">Python variable references</h2>
 <p>Prefix a Python variable name with <code>:</code> to reference it from the surrounding scope:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">threshold</span> <span class="o">=</span> <span class="mi">500</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"A"</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">]</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">filtered</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">filter</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="nv">:threshold</span>
@@ -1353,8 +1353,8 @@
 <p>This works in Jupyter (referencing notebook variables) and in the Python API (referencing the namespace passed to <code>execute()</code>).</p>
 <h2 id="string-quoting">String quoting</h2>
 <p>Strings use double quotes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">filter</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;Alice&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">load</span> <span class="s2">&quot;path/to/file.csv&quot;</span> <span class="kd">as</span> <span class="n">data</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">filter</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">"Alice"</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">load</span> <span class="s2">"path/to/file.csv"</span> <span class="kd">as</span> <span class="n">data</span>
 </code></pre></div>
 <h2 id="statements">Statements</h2>
 <table>

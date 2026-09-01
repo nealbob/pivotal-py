@@ -1466,13 +1466,13 @@ or combines data.</p>
       <td>Read a CSV</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;sales.csv&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"sales.csv"</span><span class="p">)</span>
 </code></pre></div>
 
 </td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">load</span> <span class="s2">&quot;sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">load</span> <span class="s2">"sales.csv"</span> <span class="kd">as</span> <span class="n">sales</span>
 </code></pre></div>
 
 </td>
@@ -1482,8 +1482,8 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">&quot;sales.csv&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;;&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="s2">"sales.csv"</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">sep</span><span class="o">=</span><span class="s2">";"</span><span class="p">,</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
 </code></pre></div>
@@ -1491,8 +1491,8 @@ or combines data.</p>
 </td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">load</span> <span class="s2">&quot;sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">sep</span> <span class="s2">&quot;;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">load</span> <span class="s2">"sales.csv"</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">sep</span> <span class="s2">";"</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="kd">header</span> <span class="mi">0</span>
 </code></pre></div>
 
@@ -1546,14 +1546,14 @@ or combines data.</p>
       <td>Filter rows</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">active</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">active</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">"status"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"active"</span><span class="p">]</span>
 </code></pre></div>
 
 </td>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">active</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 </code></pre></div>
 
 </td>
@@ -1563,8 +1563,8 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">high_value</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="p">(</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span><span class="p">)</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="o">&amp;</span> <span class="p">(</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="p">(</span><span class="n">sales</span><span class="p">[</span><span class="s2">"status"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"active"</span><span class="p">)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="o">&amp;</span> <span class="p">(</span><span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">]</span>
 </code></pre></div>
 
@@ -1572,7 +1572,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">high_value</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="k">filter</span> <span class="n">revenue</span> <span class="o">&gt;</span> <span class="mi">1000</span>
 </code></pre></div>
 
@@ -1583,7 +1583,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">east_west</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;region&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">&quot;East&quot;</span><span class="p">,</span> <span class="s2">&quot;West&quot;</span><span class="p">])</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">"region"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">"East"</span><span class="p">,</span> <span class="s2">"West"</span><span class="p">])</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="p">]</span>
 </code></pre></div>
 
@@ -1591,7 +1591,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">east_west</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;East&quot;</span><span class="p">,</span> <span class="s2">&quot;West&quot;</span><span class="p">]</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">filter</span> <span class="n">region</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"East"</span><span class="p">,</span> <span class="s2">"West"</span><span class="p">]</span>
 </code></pre></div>
 
 </td>
@@ -1600,7 +1600,7 @@ or combines data.</p>
       <td>Select columns</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">report</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[[</span><span class="s2">&quot;order_id&quot;</span><span class="p">,</span> <span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="s2">&quot;revenue&quot;</span><span class="p">]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">report</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[[</span><span class="s2">"order_id"</span><span class="p">,</span> <span class="s2">"region"</span><span class="p">,</span> <span class="s2">"revenue"</span><span class="p">]]</span>
 </code></pre></div>
 
 </td>
@@ -1617,7 +1617,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">clean</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;debug_flag&quot;</span><span class="p">,</span> <span class="s2">&quot;notes&quot;</span><span class="p">]</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"debug_flag"</span><span class="p">,</span> <span class="s2">"notes"</span><span class="p">]</span>
 <a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1636,8 +1636,8 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">renamed</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">columns</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        <span class="s2">&quot;qty&quot;</span><span class="p">:</span> <span class="s2">&quot;quantity&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>        <span class="s2">&quot;rev&quot;</span><span class="p">:</span> <span class="s2">&quot;revenue&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        <span class="s2">"qty"</span><span class="p">:</span> <span class="s2">"quantity"</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>        <span class="s2">"rev"</span><span class="p">:</span> <span class="s2">"revenue"</span><span class="p">,</span>
 <a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="p">}</span>
 <a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="p">)</span>
 </code></pre></div>
@@ -1656,7 +1656,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">top</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="s2">&quot;revenue&quot;</span><span class="p">,</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="s2">"revenue"</span><span class="p">,</span>
 <a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">)</span>
 </code></pre></div>
@@ -1691,7 +1691,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">unique_products</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="p">[</span><span class="s2">&quot;product&quot;</span><span class="p">,</span> <span class="s2">&quot;category&quot;</span><span class="p">]</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="p">[</span><span class="s2">"product"</span><span class="p">,</span> <span class="s2">"category"</span><span class="p">]</span>
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1720,7 +1720,7 @@ or combines data.</p>
       <td>Create a column</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;margin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"margin"</span><span class="p">]</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span> <span class="o">-</span> <span class="n">sales</span><span class="p">[</span><span class="s2">"cost"</span><span class="p">]</span>
 </code></pre></div>
 
 </td>
@@ -1736,10 +1736,10 @@ or combines data.</p>
       <td>Create a conditional column</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;tier&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">,</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="s2">&quot;high&quot;</span><span class="p">,</span>
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    <span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"tier"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">,</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="s2">"high"</span><span class="p">,</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    <span class="s2">"standard"</span><span class="p">,</span>
 <a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1747,9 +1747,9 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="k">with</span> <span class="n">sales</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    <span class="n">tier</span> <span class="o">=</span> <span class="s2">&quot;high&quot;</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    <span class="n">tier</span> <span class="o">=</span> <span class="s2">"high"</span>
 <a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>        <span class="kd">where</span> <span class="n">revenue</span> <span class="o">&gt;</span> <span class="mi">1000</span>
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>        <span class="kd">else</span> <span class="s2">&quot;standard&quot;</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>        <span class="kd">else</span> <span class="s2">"standard"</span>
 </code></pre></div>
 
 </td>
@@ -1759,8 +1759,8 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">clean</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">fillna</span><span class="p">({</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span>
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="s2">&quot;revenue&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="s2">"region"</span><span class="p">:</span> <span class="s2">"Unknown"</span><span class="p">,</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="s2">"revenue"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="p">})</span>
 </code></pre></div>
 
@@ -1769,7 +1769,7 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">clean</span>
 <a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>    <span class="k">fillna</span>
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>        <span class="n">region</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>        <span class="n">region</span> <span class="o">=</span> <span class="s2">"Unknown"</span>
 <a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>        <span class="n">revenue</span> <span class="o">=</span> <span class="mi">0</span>
 </code></pre></div>
 
@@ -1780,7 +1780,7 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="n">complete</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span>
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>    <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;customer_id&quot;</span><span class="p">,</span> <span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>    <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">"customer_id"</span><span class="p">,</span> <span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1797,8 +1797,8 @@ or combines data.</p>
       <td>Cast a column</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;order_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;order_date&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"order_date"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>    <span class="n">sales</span><span class="p">[</span><span class="s2">"order_date"</span><span class="p">]</span>
 <a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1815,7 +1815,7 @@ or combines data.</p>
       <td>Round values</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 
 </td>
@@ -1845,7 +1845,7 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="n">by_region</span> <span class="o">=</span> <span class="p">(</span>
 <a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>    <span class="n">sales</span>
-<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>    <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 <a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a><span class="p">)</span>
 </code></pre></div>
@@ -1866,11 +1866,11 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="p">(</span>
 <a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>    <span class="n">sales</span>
-<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>    <span class="o">.</span><span class="n">agg</span><span class="p">(</span>
-<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>        <span class="n">total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">),</span>
-<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>        <span class="n">avg_order</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
-<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>        <span class="n">orders</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;order_id&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">),</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>        <span class="n">total</span><span class="o">=</span><span class="p">(</span><span class="s2">"revenue"</span><span class="p">,</span> <span class="s2">"sum"</span><span class="p">),</span>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>        <span class="n">avg_order</span><span class="o">=</span><span class="p">(</span><span class="s2">"revenue"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
+<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>        <span class="n">orders</span><span class="o">=</span><span class="p">(</span><span class="s2">"order_id"</span><span class="p">,</span> <span class="s2">"count"</span><span class="p">),</span>
 <a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a>    <span class="p">)</span>
 <a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a><span class="p">)</span>
 </code></pre></div>
@@ -1892,8 +1892,8 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="n">totals</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
-<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>    <span class="n">total</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">),</span>
-<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>    <span class="n">avg</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>    <span class="n">total</span><span class="o">=</span><span class="p">(</span><span class="s2">"revenue"</span><span class="p">,</span> <span class="s2">"sum"</span><span class="p">),</span>
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>    <span class="n">avg</span><span class="o">=</span><span class="p">(</span><span class="s2">"revenue"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">),</span>
 <a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1911,10 +1911,10 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="n">wide</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
-<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;product&quot;</span><span class="p">,</span>
-<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>    <span class="n">columns</span><span class="o">=</span><span class="s2">&quot;region&quot;</span><span class="p">,</span>
-<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>    <span class="n">values</span><span class="o">=</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span>
-<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>    <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>    <span class="n">index</span><span class="o">=</span><span class="s2">"product"</span><span class="p">,</span>
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>    <span class="n">columns</span><span class="o">=</span><span class="s2">"region"</span><span class="p">,</span>
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>    <span class="n">values</span><span class="o">=</span><span class="s2">"revenue"</span><span class="p">,</span>
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>    <span class="n">aggfunc</span><span class="o">=</span><span class="s2">"sum"</span><span class="p">,</span>
 <a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1935,10 +1935,10 @@ or combines data.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="n">long</span> <span class="o">=</span> <span class="n">monthly_sales</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
-<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>    <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;region&quot;</span><span class="p">],</span>
-<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>    <span class="n">value_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;jan&quot;</span><span class="p">,</span> <span class="s2">&quot;feb&quot;</span><span class="p">,</span> <span class="s2">&quot;mar&quot;</span><span class="p">],</span>
-<a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>    <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;month&quot;</span><span class="p">,</span>
-<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>    <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;revenue&quot;</span><span class="p">,</span>
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>    <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">"region"</span><span class="p">],</span>
+<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>    <span class="n">value_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">"jan"</span><span class="p">,</span> <span class="s2">"feb"</span><span class="p">,</span> <span class="s2">"mar"</span><span class="p">],</span>
+<a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>    <span class="n">var_name</span><span class="o">=</span><span class="s2">"month"</span><span class="p">,</span>
+<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>    <span class="n">value_name</span><span class="o">=</span><span class="s2">"revenue"</span><span class="p">,</span>
 <a id="__codelineno-46-6" name="__codelineno-46-6" href="#__codelineno-46-6"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1949,8 +1949,8 @@ or combines data.</p>
 <a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>    <span class="k">unpivot</span>
 <a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>        <span class="kd">id</span> <span class="n">region</span>
 <a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>        <span class="kd">cols</span> <span class="n">jan</span><span class="p">,</span> <span class="n">feb</span><span class="p">,</span> <span class="n">mar</span>
-<a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>        <span class="kd">variable</span> <span class="s2">&quot;month&quot;</span>
-<a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>        <span class="kd">value</span> <span class="s2">&quot;revenue&quot;</span>
+<a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>        <span class="kd">variable</span> <span class="s2">"month"</span>
+<a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>        <span class="kd">value</span> <span class="s2">"revenue"</span>
 </code></pre></div>
 
 </td>
@@ -1973,8 +1973,8 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="n">enriched</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
 <a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>    <span class="n">customers</span><span class="p">,</span>
-<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>    <span class="n">on</span><span class="o">=</span><span class="s2">&quot;customer_id&quot;</span><span class="p">,</span>
-<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>    <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>    <span class="n">on</span><span class="o">=</span><span class="s2">"customer_id"</span><span class="p">,</span>
+<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>    <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span>
 <a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -1993,9 +1993,9 @@ or combines data.</p>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="n">enriched</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
 <a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>    <span class="n">customers</span><span class="p">,</span>
-<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>    <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;customer_id&quot;</span><span class="p">,</span>
-<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>    <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">,</span>
-<a id="__codelineno-50-5" name="__codelineno-50-5" href="#__codelineno-50-5"></a>    <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>    <span class="n">left_on</span><span class="o">=</span><span class="s2">"customer_id"</span><span class="p">,</span>
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>    <span class="n">right_on</span><span class="o">=</span><span class="s2">"id"</span><span class="p">,</span>
+<a id="__codelineno-50-5" name="__codelineno-50-5" href="#__codelineno-50-5"></a>    <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span>
 <a id="__codelineno-50-6" name="__codelineno-50-6" href="#__codelineno-50-6"></a><span class="p">)</span>
 </code></pre></div>
 
@@ -2046,8 +2046,8 @@ or combines data.</p>
       <td>Rank within groups</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;regional_rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">)[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"regional_rank"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">)[</span><span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>    <span class="o">.</span><span class="n">rank</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a><span class="p">)</span>
 </code></pre></div>
@@ -2066,9 +2066,9 @@ or combines data.</p>
       <td>Lag a value</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
-<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;prev_revenue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">)[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"prev_revenue"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">)[</span><span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>    <span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 <a id="__codelineno-56-5" name="__codelineno-56-5" href="#__codelineno-56-5"></a><span class="p">)</span>
 </code></pre></div>
@@ -2088,9 +2088,9 @@ or combines data.</p>
       <td>Running total</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
-<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;running_revenue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">)[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"running_revenue"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">)[</span><span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-58-4" name="__codelineno-58-4" href="#__codelineno-58-4"></a>    <span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
 <a id="__codelineno-58-5" name="__codelineno-58-5" href="#__codelineno-58-5"></a><span class="p">)</span>
 </code></pre></div>
@@ -2110,9 +2110,9 @@ or combines data.</p>
       <td>Rolling average</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
-<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;rolling_avg&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;region&quot;</span><span class="p">)[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">sales</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
+<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a><span class="n">sales</span><span class="p">[</span><span class="s2">"rolling_avg"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>    <span class="n">sales</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"region"</span><span class="p">)[</span><span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a>    <span class="o">.</span><span class="n">rolling</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
 <a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a>    <span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 <a id="__codelineno-60-6" name="__codelineno-60-6" href="#__codelineno-60-6"></a>    <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -2149,7 +2149,7 @@ notebook or script.</p>
       <td markdown="1">
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a><span class="n">threshold</span> <span class="o">=</span> <span class="mi">1000</span>
-<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a><span class="n">top</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">&quot;revenue&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">]</span>
+<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a><span class="n">top</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="n">sales</span><span class="p">[</span><span class="s2">"revenue"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">]</span>
 </code></pre></div>
 
 </td>
@@ -2165,7 +2165,7 @@ notebook or script.</p>
       <td>Use a Python column list</td>
       <td markdown="1">
 
-<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;order_id&quot;</span><span class="p">,</span> <span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="s2">&quot;revenue&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"order_id"</span><span class="p">,</span> <span class="s2">"region"</span><span class="p">,</span> <span class="s2">"revenue"</span><span class="p">]</span>
 <a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a><span class="n">report</span> <span class="o">=</span> <span class="n">sales</span><span class="p">[</span><span class="n">cols</span><span class="p">]</span>
 </code></pre></div>
 

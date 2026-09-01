@@ -1458,19 +1458,19 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">fillna</span> <span class="mi">0</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">fillna</span> <span class="s2">&quot;unknown&quot;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">fillna</span> <span class="s2">"unknown"</span>
 </code></pre></div>
 <h3 id="fill-specific-columns">Fill specific columns</h3>
 <p>Use an indented block to fill different columns with different values:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">fillna</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">price</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">region</span> <span class="o">=</span> <span class="s2">&quot;N/A&quot;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">name</span> <span class="o">=</span> <span class="s2">"unknown"</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">region</span> <span class="o">=</span> <span class="s2">"N/A"</span>
 </code></pre></div>
 <p>Or use comma-separated syntax:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">clean</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">fillna</span> <span class="n">price</span> <span class="mi">0</span><span class="p">,</span> <span class="n">name</span> <span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="n">region</span> <span class="s2">&quot;N/A&quot;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">fillna</span> <span class="n">price</span> <span class="mi">0</span><span class="p">,</span> <span class="n">name</span> <span class="s2">"unknown"</span><span class="p">,</span> <span class="n">region</span> <span class="s2">"N/A"</span>
 </code></pre></div>
 <p>Unquoted per-column fill values are column references:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">with</span> <span class="n">sales</span>

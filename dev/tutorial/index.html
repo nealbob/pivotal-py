@@ -2109,10 +2109,10 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">cast</span> <span class="n">Pclass</span> <span class="kd">as</span> <span class="nb">string</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="k">table</span> <span class="n">survival_table</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="kd">title</span> <span class="s2">&quot;Titanic survival rates by class and sex&quot;</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="kd">stub</span> <span class="n">Pclass</span> <span class="s2">&quot;Passenger Class&quot;</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="kd">label</span> <span class="n">female</span> <span class="kd">as</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="n">male</span> <span class="kd">as</span> <span class="s2">&quot;M&quot;</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="kd">spanner</span> <span class="n">female</span><span class="p">,</span> <span class="n">male</span> <span class="s2">&quot;Sex&quot;</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="kd">title</span> <span class="s2">"Titanic survival rates by class and sex"</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="kd">stub</span> <span class="n">Pclass</span> <span class="s2">"Passenger Class"</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="kd">label</span> <span class="n">female</span> <span class="kd">as</span> <span class="s2">"F"</span><span class="p">,</span> <span class="n">male</span> <span class="kd">as</span> <span class="s2">"M"</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="kd">spanner</span> <span class="n">female</span><span class="p">,</span> <span class="n">male</span> <span class="s2">"Sex"</span>
 <a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="kd">format</span> <span class="kd">number</span> <span class="mi">2</span>
 <a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="k">show</span>
 </code></pre></div>
@@ -2184,7 +2184,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 </code></pre></div>
 <p>Under the hood all Pivotal objects are just Python objects. Any dataframe, Scalar, List or Dictionary defined in Pivotal exists in the Python namespace and can be accessed within Python code cells:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Python code</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;myvar: </span><span class="si">{</span><span class="n">myvar</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span> 
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'myvar: </span><span class="si">{</span><span class="n">myvar</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span> 
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">temp</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">adults</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
@@ -2199,7 +2199,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 </code></pre></div>
 <p>Varaibles defined in Python can also be accessed within Pivotal code by adding a <code>:</code> prefix:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Python code</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">pylist</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Pclass&quot;</span><span class="p">,</span> <span class="s2">&quot;Parch&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">pylist</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Pclass"</span><span class="p">,</span> <span class="s2">"Parch"</span><span class="p">]</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">pyvar</span> <span class="o">=</span> <span class="mi">3</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="err">%%</span><span class="n">pivotal</span>
@@ -2267,7 +2267,7 @@ KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">family</span> <span class="o">=</span> <span class="n">Parch</span> <span class="o">+</span> <span class="n">SibSp</span>
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">male</span> <span class="o">=</span> <span class="mi">1</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="kd">where</span> <span class="n">Sex</span> <span class="o">==</span> <span class="s2">&quot;male&quot;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="kd">where</span> <span class="n">Sex</span> <span class="o">==</span> <span class="s2">"male"</span>
 <a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="kd">else</span> <span class="mi">0</span>
 </code></pre></div>
 <p>Above we add a new column for the total family members on-board (Parents &amp; Children <code>Parch</code> + Siblings and Spouses <code>SibSp</code>). Second, we apply a conditional assignment (via an indented <code>where</code> clause) to define a binary <code>male</code> column.</p>
@@ -2309,7 +2309,7 @@ AssertionError: [Pivotal] assert failed on titanic: Age must not be null: 177 ro
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">statsmodels.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sm</span>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">model</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">Logit</span><span class="p">(</span><span class="n">titanic</span><span class="o">.</span><span class="n">Survived</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
 <a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">titanic</span><span class="p">[</span><span class="s2">&quot;predicted&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">titanic</span><span class="p">[</span><span class="s2">"predicted"</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>Optimization terminated successfully.
          Current function value: 0.494549
@@ -2342,13 +2342,13 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <p>The Pivotal <code>save</code> command exports all data-frames, plots and tables in the current session to a Frictionless data package (a simple folder structure with overarching JSON metadata). </p>
 <p>At this point we have accumulated 6 data-frames, 2 charts and 1 table. We can choose which of these to include / exclude from the save, but for now lets just save all of them. By default charts are saved as both <code>png</code> images and <code>csv</code> data files.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="err">%%</span><span class="n">pivotal</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;titanic_results&quot;</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">"titanic_results"</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>Package &#39;titanic_results&#39; saved to C:\pivotal-demo\tutorial\titanic_results (6 dataframe(s), 2 chart(s), 1 table(s), 3 parameter(s))
+<div class="highlight"><pre><span></span><code>Package 'titanic_results' saved to C:\pivotal-demo\tutorial\titanic_results (6 dataframe(s), 2 chart(s), 1 table(s), 3 parameter(s))
 &lt;pivotal.package.Package at 0x1e16213a270&gt;
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">directory_tree</span><span class="w"> </span><span class="kn">import</span> <span class="n">DisplayTree</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">DisplayTree</span><span class="p">(</span><span class="s1">&#39;titanic_results&#39;</span><span class="p">)</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">DisplayTree</span><span class="p">(</span><span class="s1">'titanic_results'</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>titanic_results/
 ├── charts/
@@ -2372,7 +2372,7 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <p>Let's now have a look at some Australian football statistics. This data (taken from <a href="https://github.com/akareen/AFL-Data-Analysis">akareen/AFL-Data-Analaysis</a> on Github) are stored as a large number (129) CSV files (one for each year of VFL/AFL competition). </p>
 <p>The <code>bulk load</code> command can be applied here to loop over all the data files in a folder, and concatenate to a single table. </p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="err">%%</span><span class="n">pivotal</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">&quot;data\AFL\matches&quot;</span> <span class="kd">as</span> <span class="n">afl_games</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">"data\AFL\matches"</span> <span class="kd">as</span> <span class="n">afl_games</span>
 </code></pre></div>
 <h2 id="column-loops-and-case-assignment">Column loops and case assignment</h2>
 <p>Below we introduce some new Pivotal syntax: Column-wise loops. These can be useful in situations where we need to apply the same assignment / mutation to multiple columns, in this case a string replace function applied to <code>team_1_team_name</code> (Home team) and <code>team_2_team_name</code> (Away team).</p>
@@ -2385,19 +2385,19 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
 <a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="c1">#  Column loop </span>
 <a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">team_1_team_name</span><span class="p">,</span> <span class="n">team_2_team_name</span>
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">&quot;Kangaroos&quot;</span><span class="p">,</span> <span class="s2">&quot;North Melbourne&quot;</span><span class="p">)</span>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">&quot;Footscray&quot;</span><span class="p">,</span> <span class="s2">&quot;Western Bulldogs&quot;</span><span class="p">)</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">"Kangaroos"</span><span class="p">,</span> <span class="s2">"North Melbourne"</span><span class="p">)</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">"Footscray"</span><span class="p">,</span> <span class="s2">"Western Bulldogs"</span><span class="p">)</span>
 <a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>
 <a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">line</span> <span class="n">long_term_scoring_trend</span>
-<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="kd">x</span> <span class="nb">year</span> <span class="s2">&quot;VFL/AFL season&quot;</span>
-<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">team_score</span> <span class="s2">&quot;Mean score per team&quot;</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="kd">x</span> <span class="nb">year</span> <span class="s2">"VFL/AFL season"</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">team_score</span> <span class="s2">"Mean score per team"</span>
 <a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>        <span class="k">show</span>
 <a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>
 <a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="c1">#  Case assignment</span>
 <a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>    <span class="n">winner</span> <span class="o">=</span>
 <a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>        <span class="kd">where</span> <span class="n">team_1_score</span> <span class="o">&gt;</span> <span class="n">team_2_score</span><span class="err">:</span> <span class="n">team_1_team_name</span>
 <a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>        <span class="kd">where</span> <span class="n">team_2_score</span> <span class="o">&gt;</span> <span class="n">team_1_score</span><span class="err">:</span> <span class="n">team_2_team_name</span>
-<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>        <span class="kd">else</span> <span class="s2">&quot;draw&quot;</span>
+<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>        <span class="kd">else</span> <span class="s2">"draw"</span>
 </code></pre></div>
 <p><img alt="png" src="../tutorial_files/tutorial_46_0.png" /></p>
 <h2 id="pipeline-functions">Pipeline functions</h2>
@@ -2427,9 +2427,9 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>    <span class="k">sort</span> <span class="n">win</span>
 <a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>    <span class="n">win</span> <span class="o">=</span> <span class="n">win</span> <span class="o">*</span> <span class="mi">100</span>
 <a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a>    <span class="k">plot</span> <span class="n">barh</span> <span class="n">win_rate_since_1990</span>
-<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>        <span class="kd">x</span> <span class="n">team_name</span> <span class="s2">&quot; &quot;</span>
-<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a>        <span class="kd">y</span> <span class="n">win</span> <span class="s2">&quot;Win percentage (home + away + finals)&quot;</span>
-<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a>        <span class="kd">title</span> <span class="s2">&quot;Win percentage since start of the AFL (1990 to 2025)&quot;</span>
+<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>        <span class="kd">x</span> <span class="n">team_name</span> <span class="s2">" "</span>
+<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a>        <span class="kd">y</span> <span class="n">win</span> <span class="s2">"Win percentage (home + away + finals)"</span>
+<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a>        <span class="kd">title</span> <span class="s2">"Win percentage since start of the AFL (1990 to 2025)"</span>
 <a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a>        <span class="k">show</span>
 </code></pre></div>
 <p><img alt="png" src="../tutorial_files/tutorial_48_0.png" /></p>
@@ -2453,21 +2453,21 @@ Fare           0.0168      0.003      5.954      0.000       0.011       0.022
 <p>No new syntax here. Just some stats showing the Geelong Cats win-rate with and without Gary Ablett (Senior/Junior) in the team.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="err">%%</span><span class="n">pivotal</span>
 <a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">with</span> <span class="n">games_with_lineup</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">ablett</span> <span class="o">=</span> <span class="s2">&quot;With Ablett&quot;</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>        <span class="kd">where</span> <span class="n">players</span> <span class="ow">contains</span> <span class="s2">&quot;Gary Ablett&quot;</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>        <span class="kd">else</span> <span class="s2">&quot;No Ablett&quot;</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">ablett</span> <span class="o">=</span> <span class="s2">"With Ablett"</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>        <span class="kd">where</span> <span class="n">players</span> <span class="ow">contains</span> <span class="s2">"Gary Ablett"</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>        <span class="kd">else</span> <span class="s2">"No Ablett"</span>
 <a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>
 <a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="n">era</span> <span class="o">=</span>
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&lt;=</span><span class="mi">1996</span><span class="err">:</span> <span class="s2">&quot;Gary Snr - 1990-1996&quot;</span>
-<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&gt;=</span><span class="mi">2004</span> <span class="ow">and</span> <span class="nb">year</span> <span class="o">&lt;</span><span class="mi">2011</span><span class="err">:</span> <span class="s2">&quot;Gary Jnr. - 2004-2010&quot;</span>
-<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>        <span class="c1">#where year&gt;2018 and year &lt;2021: &quot;Gary Jnr. return - 2018-2020&quot;</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&lt;=</span><span class="mi">1996</span><span class="err">:</span> <span class="s2">"Gary Snr - 1990-1996"</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&gt;=</span><span class="mi">2004</span> <span class="ow">and</span> <span class="nb">year</span> <span class="o">&lt;</span><span class="mi">2011</span><span class="err">:</span> <span class="s2">"Gary Jnr. - 2004-2010"</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>        <span class="c1">#where year&gt;2018 and year &lt;2021: "Gary Jnr. return - 2018-2020"</span>
 <a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>
 <a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">bar</span> <span class="n">no_ablett</span>
-<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a>        <span class="kd">x</span> <span class="n">ablett</span> <span class="s2">&quot; &quot;</span>
-<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">win</span> <span class="s2">&quot;Win rate&quot;</span>
+<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a>        <span class="kd">x</span> <span class="n">ablett</span> <span class="s2">" "</span>
+<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">win</span> <span class="s2">"Win rate"</span>
 <a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>        <span class="kd">by</span> <span class="n">era</span>
 <a id="__codelineno-26-16" name="__codelineno-26-16" href="#__codelineno-26-16"></a>        <span class="n">ylim</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.8</span>
-<a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a>        <span class="kd">title</span> <span class="s2">&quot;No Ablett no Geelong?&quot;</span>
+<a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a>        <span class="kd">title</span> <span class="s2">"No Ablett no Geelong?"</span>
 <a id="__codelineno-26-18" name="__codelineno-26-18" href="#__codelineno-26-18"></a>        <span class="k">show</span> 
 </code></pre></div>
 <p><img alt="png" src="../tutorial_files/tutorial_53_0.png" /></p>

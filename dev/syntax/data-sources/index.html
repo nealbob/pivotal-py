@@ -1641,49 +1641,55 @@
 <h1 id="data-sources">Data Sources</h1>
 <h2 id="load-load-a-file"><code>load</code> — load a file</h2>
 <p>Load a CSV, Excel, or Parquet file into a named table.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">load</span> <span class="s2">&quot;&lt;file_path&gt;&quot;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">table_name</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">load</span> <span class="s2">"&lt;file_path&gt;"</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">table_name</span><span class="o">&gt;</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">load</span> <span class="s2">&quot;data/sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">load</span> <span class="s2">&quot;catalog.xlsx&quot;</span> <span class="kd">as</span> <span class="n">products</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">load</span> <span class="s2">&quot;archive.parquet&quot;</span> <span class="kd">as</span> <span class="n">transactions</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">load</span> <span class="s2">"data/sales.csv"</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">load</span> <span class="s2">"catalog.xlsx"</span> <span class="kd">as</span> <span class="n">products</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">load</span> <span class="s2">"archive.parquet"</span> <span class="kd">as</span> <span class="n">transactions</span>
 </code></pre></div>
 <p>Use a Python variable for the path:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">load</span> <span class="nv">:my_file_path</span> <span class="kd">as</span> <span class="n">data</span>
 </code></pre></div>
+<p>Use a native Pivotal scalar without a colon:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">scalar</span> <span class="n">input_path</span> <span class="o">=</span> <span class="s2">"data/sales.csv"</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">load</span> <span class="n">input_path</span> <span class="kd">as</span> <span class="n">sales</span>
+</code></pre></div>
+<p>Compile-time dict references are also supported, for example
+<code>load paths.input as sales</code> when <code>paths.input</code> is a string.</p>
 <h2 id="bulk-load-load-generated-file-lists"><code>bulk load</code> - load generated file lists</h2>
 <p>Load many CSV or Parquet files from a Python list or folder. With one alias,
 Pivotal concatenates the files into one table and adds a <code>source</code> column
 containing the input filename.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;data/jan.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;data/feb.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;data/mar.csv&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"data/jan.csv"</span><span class="p">,</span> <span class="s2">"data/feb.csv"</span><span class="p">,</span> <span class="s2">"data/mar.csv"</span><span class="p">]</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">sales</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">&quot;data/monthly&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">"data/monthly"</span> <span class="kd">as</span> <span class="n">sales</span>
 </code></pre></div>
 <p>The concat mode unions columns by name, so files with extra or missing columns
 are combined with missing values where needed.</p>
 <p>When the source is a folder, files are loaded in sorted filename order. The
 folder must be non-empty and contain only CSV files or only Parquet files.</p>
 <p>Customize the provenance column:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">sales</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="kd">source</span> <span class="kd">column</span> <span class="n">file</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="kd">source</span> <span class="kd">value</span> <span class="n">stem</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="kd">source</span> <span class="kd">column</span> <span class="n">file</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="kd">source</span> <span class="kd">value</span> <span class="n">stem</span>
 </code></pre></div>
 <p><code>source value</code> can be <code>filename</code>, <code>path</code>, or <code>stem</code>.</p>
 <p>Use multiple aliases to load each file separately:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">jan_sales</span><span class="p">,</span> <span class="n">feb_sales</span><span class="p">,</span> <span class="n">mar_sales</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="n">jan_sales</span><span class="p">,</span> <span class="n">feb_sales</span><span class="p">,</span> <span class="n">mar_sales</span>
 </code></pre></div>
 <p>Or provide aliases from a Python list:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;jan_sales&quot;</span><span class="p">,</span> <span class="s2">&quot;feb_sales&quot;</span><span class="p">,</span> <span class="s2">&quot;mar_sales&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"jan_sales"</span><span class="p">,</span> <span class="s2">"feb_sales"</span><span class="p">,</span> <span class="s2">"mar_sales"</span><span class="p">]</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="nv">:tables</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="nv">:tables</span>
 </code></pre></div>
 <p>The file list and alias list must have the same length. Aliases must be valid
 Pivotal table identifiers.</p>
 <h3 id="options">Options</h3>
 <p>Indent options beneath the <code>load</code> statement:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">load</span> <span class="s2">&quot;data/sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="kd">header</span> <span class="mi">0</span>           <span class="c1"># row index of header (default 0)</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="kd">names</span> <span class="p">[</span><span class="s2">&quot;product&quot;</span><span class="p">,</span> <span class="s2">&quot;quantity&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">]</span>  <span class="c1"># override column names</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">load</span> <span class="s2">"data/sales.csv"</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="kd">header</span> <span class="mi">0</span>           <span class="c1"># row index of header (default 0)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="kd">names</span> <span class="p">[</span><span class="s2">"product"</span><span class="p">,</span> <span class="s2">"quantity"</span><span class="p">,</span> <span class="s2">"price"</span><span class="p">]</span>  <span class="c1"># override column names</span>
 </code></pre></div>
 <table>
 <thead>
@@ -1707,61 +1713,61 @@ Pivotal table identifiers.</p>
 <h2 id="with-set-or-create-a-table"><code>with</code> — set or create a table</h2>
 <h3 id="set-active-table">Set active table</h3>
 <p>Make an existing table the active table for subsequent operations:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">with</span> <span class="n">sales</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">filter</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">100</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">sort</span> <span class="n">price</span> <span class="kd">desc</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">with</span> <span class="n">sales</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">filter</span> <span class="n">price</span> <span class="o">&gt;</span> <span class="mi">100</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="k">sort</span> <span class="n">price</span> <span class="kd">desc</span>
 </code></pre></div>
 <h3 id="create-a-derived-table">Create a derived table</h3>
 <p>Create a new table by applying operations to an existing one. The original is unchanged:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">top_sales</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">filter</span> <span class="n">revenue</span> <span class="o">&gt;</span> <span class="mi">1000</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="k">sort</span> <span class="n">revenue</span> <span class="kd">desc</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">top_sales</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">filter</span> <span class="n">revenue</span> <span class="o">&gt;</span> <span class="mi">1000</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="k">sort</span> <span class="n">revenue</span> <span class="kd">desc</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">with</span> <span class="n">orders</span> <span class="kd">as</span> <span class="kd">summary</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">region</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">amount</span> <span class="kd">as</span> <span class="n">total</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">orders</span> <span class="kd">as</span> <span class="kd">summary</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">region</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">amount</span> <span class="kd">as</span> <span class="n">total</span>
 </code></pre></div>
 <p>Without <code>as</code>, operations apply to the named table in-place:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">sales</span>              <span class="c1"># operates on &#39;sales&#39;, modifying it</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">filter</span> <span class="n">active</span> <span class="o">==</span> <span class="kc">True</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">with</span> <span class="n">sales</span>              <span class="c1"># operates on 'sales', modifying it</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="k">filter</span> <span class="n">active</span> <span class="o">==</span> <span class="kc">True</span>
 </code></pre></div>
 <p>With <code>as</code>, a new table is created:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">active_sales</span>    <span class="c1"># creates &#39;active_sales&#39;, &#39;sales&#39; unchanged</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="k">filter</span> <span class="n">active</span> <span class="o">==</span> <span class="kc">True</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">with</span> <span class="n">sales</span> <span class="kd">as</span> <span class="n">active_sales</span>    <span class="c1"># creates 'active_sales', 'sales' unchanged</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">filter</span> <span class="n">active</span> <span class="o">==</span> <span class="kc">True</span>
 </code></pre></div>
 <h3 id="chaining">Chaining</h3>
 <p>Multiple <code>with</code> blocks can be chained — the output of one becomes the input of the next:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">load</span> <span class="s2">&quot;data.csv&quot;</span> <span class="kd">as</span> <span class="n">raw</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">cleaned</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="k">dropna</span> <span class="n">price</span><span class="p">,</span> <span class="n">quantity</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="k">fillna</span> <span class="mi">0</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">with</span> <span class="n">cleaned</span> <span class="kd">as</span> <span class="kd">summary</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">category</span>
-<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">price</span> <span class="kd">as</span> <span class="n">total</span>
-<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="k">sort</span> <span class="n">total</span> <span class="kd">desc</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">load</span> <span class="s2">"data.csv"</span> <span class="kd">as</span> <span class="n">raw</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">with</span> <span class="n">raw</span> <span class="kd">as</span> <span class="n">cleaned</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="k">dropna</span> <span class="n">price</span><span class="p">,</span> <span class="n">quantity</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">fillna</span> <span class="mi">0</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="k">with</span> <span class="n">cleaned</span> <span class="kd">as</span> <span class="kd">summary</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">category</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">price</span> <span class="kd">as</span> <span class="n">total</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="k">sort</span> <span class="n">total</span> <span class="kd">desc</span>
 </code></pre></div>
 <hr />
 <h2 id="from-load-from-a-database"><code>from</code> — load from a database</h2>
 <p>Connect to a database and load one or more tables or query results into named DataFrames.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">from</span> <span class="s2">&quot;&lt;database_path_or_uri&gt;&quot;</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="k">load</span> <span class="o">&lt;</span><span class="n">sql_table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">df_name</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="kd">query</span> <span class="s2">&quot;&lt;SQL string&gt;&quot;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">df_name</span><span class="o">&gt;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">from</span> <span class="s2">"&lt;database_path_or_uri&gt;"</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="k">load</span> <span class="o">&lt;</span><span class="n">sql_table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">df_name</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="kd">query</span> <span class="s2">"&lt;SQL string&gt;"</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">df_name</span><span class="o">&gt;</span>
 </code></pre></div>
 <h3 id="load-tables-by-name">Load tables by name</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">from</span> <span class="s2">&quot;data/mydb.sqlite&quot;</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="k">load</span> <span class="n">orders</span> <span class="kd">as</span> <span class="n">orders</span><span class="p">,</span> <span class="n">customers</span> <span class="kd">as</span> <span class="n">customers</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">from</span> <span class="s2">"data/mydb.sqlite"</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="k">load</span> <span class="n">orders</span> <span class="kd">as</span> <span class="n">orders</span><span class="p">,</span> <span class="n">customers</span> <span class="kd">as</span> <span class="n">customers</span>
 </code></pre></div>
 <p>Each <code>load</code> item reads the named SQL table with <code>SELECT * FROM &lt;table&gt;</code>. Multiple tables can be listed on a single line, comma-separated.</p>
 <h3 id="run-arbitrary-sql">Run arbitrary SQL</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">from</span> <span class="s2">&quot;data/mydb.sqlite&quot;</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="kd">query</span> <span class="s2">&quot;SELECT id, name FROM customers WHERE active = 1&quot;</span> <span class="kd">as</span> <span class="n">active_customers</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">from</span> <span class="s2">"data/mydb.sqlite"</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="kd">query</span> <span class="s2">"SELECT id, name FROM customers WHERE active = 1"</span> <span class="kd">as</span> <span class="n">active_customers</span>
 </code></pre></div>
 <h3 id="mix-load-and-query-in-one-block">Mix <code>load</code> and <code>query</code> in one block</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">from</span> <span class="s2">&quot;data/mydb.sqlite&quot;</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="k">load</span> <span class="n">orders</span> <span class="kd">as</span> <span class="n">orders_raw</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="kd">query</span> <span class="s2">&quot;SELECT category, SUM(amount) as total FROM orders GROUP BY category&quot;</span> <span class="kd">as</span> <span class="kd">summary</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">from</span> <span class="s2">"data/mydb.sqlite"</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="k">load</span> <span class="n">orders</span> <span class="kd">as</span> <span class="n">orders_raw</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="kd">query</span> <span class="s2">"SELECT category, SUM(amount) as total FROM orders GROUP BY category"</span> <span class="kd">as</span> <span class="kd">summary</span>
 </code></pre></div>
 <p>The connection is opened once and all reads share it.</p>
 <h3 id="supported-sources">Supported sources</h3>
@@ -1809,19 +1815,19 @@ Pivotal table identifiers.</p>
 <h3 id="sqlalchemy-support-postgresql-mysql-and-others">SQLAlchemy support (PostgreSQL, MySQL, and others)</h3>
 <p>For databases other than SQLite and DuckDB, Pivotal uses <a href="https://www.sqlalchemy.org/">SQLAlchemy</a> as the connection layer. SQLAlchemy is a Python library that provides a unified interface to many databases via connection URI strings.</p>
 <p><strong>Install SQLAlchemy and a driver:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># PostgreSQL</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>psycopg2-binary
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># MySQL</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>pymysql
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="c1"># Microsoft SQL Server</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>pyodbc
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># PostgreSQL</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>psycopg2-binary
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># MySQL</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>pymysql
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># Microsoft SQL Server</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>pip<span class="w"> </span>install<span class="w"> </span>sqlalchemy<span class="w"> </span>pyodbc
 </code></pre></div>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">from</span> <span class="s2">&quot;postgresql://user:password@localhost:5432/mydb&quot;</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="k">load</span> <span class="n">products</span> <span class="kd">as</span> <span class="n">products</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="kd">query</span> <span class="s2">&quot;SELECT * FROM orders WHERE status = &#39;open&#39;&quot;</span> <span class="kd">as</span> <span class="n">open_orders</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">from</span> <span class="s2">"postgresql://user:password@localhost:5432/mydb"</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="k">load</span> <span class="n">products</span> <span class="kd">as</span> <span class="n">products</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="kd">query</span> <span class="s2">"SELECT * FROM orders WHERE status = 'open'"</span> <span class="kd">as</span> <span class="n">open_orders</span>
 </code></pre></div>
 <p>If SQLAlchemy is not installed, Pivotal will raise a clear error with the install command rather than a cryptic import failure.</p>
 <blockquote>
@@ -1831,8 +1837,8 @@ Pivotal table identifiers.</p>
 <hr />
 <h2 id="delete-remove-a-table"><code>delete</code> — remove a table</h2>
 <p>Remove a table from memory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">delete</span> <span class="n">sales</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="k">delete</span> <span class="n">temp_table</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">delete</span> <span class="n">sales</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="k">delete</span> <span class="n">temp_table</span>
 </code></pre></div>
 <p>In Jupyter, this is equivalent to <code>del sales</code> in Python.</p>
 <p>Tables must have compatible columns.</p>

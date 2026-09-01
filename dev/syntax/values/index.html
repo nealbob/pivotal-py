@@ -1410,7 +1410,7 @@
 <h2 id="lists">Lists</h2>
 <p>Use <code>list</code> for reusable lists of columns or literal values:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">list</span> <span class="n">money_cols</span> <span class="o">=</span> <span class="n">price</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">revenue</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">list</span> <span class="n">regions</span> <span class="o">=</span> <span class="s2">&quot;AU&quot;</span><span class="p">,</span> <span class="s2">&quot;NZ&quot;</span><span class="p">,</span> <span class="s2">&quot;US&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">list</span> <span class="n">regions</span> <span class="o">=</span> <span class="s2">"AU"</span><span class="p">,</span> <span class="s2">"NZ"</span><span class="p">,</span> <span class="s2">"US"</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">list</span> <span class="n">limits</span> <span class="o">=</span> <span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span>
 </code></pre></div>
 <p>Lists can be used anywhere Pivotal expects a concrete list of columns, tables, or literal values:</p>
@@ -1445,11 +1445,11 @@
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="kd">columns</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">money</span> <span class="o">=</span> <span class="n">price</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">revenue</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">labels</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">AU</span> <span class="o">=</span> <span class="s2">&quot;Australia&quot;</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="n">NZ</span> <span class="o">=</span> <span class="s2">&quot;New Zealand&quot;</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">AU</span> <span class="o">=</span> <span class="s2">"Australia"</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="n">NZ</span> <span class="o">=</span> <span class="s2">"New Zealand"</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">class_names</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="mi">1</span> <span class="o">=</span> <span class="s2">&quot;1st&quot;</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="mi">2</span> <span class="o">=</span> <span class="s2">&quot;2nd&quot;</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="mi">1</span> <span class="o">=</span> <span class="s2">"1st"</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="mi">2</span> <span class="o">=</span> <span class="s2">"2nd"</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="k">filter</span> <span class="n">zscore</span> <span class="o">&gt;</span> <span class="n">config</span><span class="err">.</span><span class="n">thresholds</span><span class="err">.</span><span class="n">low</span> <span class="ow">and</span> <span class="n">zscore</span> <span class="o">&lt;</span> <span class="n">config</span><span class="err">.</span><span class="n">thresholds</span><span class="err">.</span><span class="n">high</span>
@@ -1464,9 +1464,9 @@
 </code></pre></div>
 <p>Keys can be identifiers, quoted strings, or numbers. Numeric keys in inline dictionaries are stored as string keys:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">dict</span> <span class="n">class_names</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="mi">1</span> <span class="o">=</span> <span class="s2">&quot;1st&quot;</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="mi">2</span> <span class="o">=</span> <span class="s2">&quot;2nd&quot;</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="mi">3</span> <span class="o">=</span> <span class="s2">&quot;3rd&quot;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="mi">1</span> <span class="o">=</span> <span class="s2">"1st"</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="mi">2</span> <span class="o">=</span> <span class="s2">"2nd"</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="mi">3</span> <span class="o">=</span> <span class="s2">"3rd"</span>
 </code></pre></div>
 <p>Values separated by commas become lists:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">dict</span> <span class="n">config</span>
@@ -1475,8 +1475,8 @@
 </code></pre></div>
 <h2 id="loading-dicts">Loading Dicts</h2>
 <p>Load configuration from JSON or YAML by file extension:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">dict</span> <span class="n">config</span> <span class="k">from</span> <span class="s2">&quot;config.json&quot;</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">dict</span> <span class="n">labels</span> <span class="k">from</span> <span class="s2">&quot;labels.yml&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">dict</span> <span class="n">config</span> <span class="k">from</span> <span class="s2">"config.json"</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">dict</span> <span class="n">labels</span> <span class="k">from</span> <span class="s2">"labels.yml"</span>
 </code></pre></div>
 <p>Bind an existing Python dictionary when it is already available in the runtime namespace:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">dict</span> <span class="n">config</span> <span class="o">=</span> <span class="nv">:python_config</span>
@@ -1496,7 +1496,7 @@
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="k">filter</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="n">cutoff</span>
 </code></pre></div>
 <p>Use <code>:</code> references when the value is owned by surrounding Python code:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">money_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="s2">&quot;cost&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">money_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"price"</span><span class="p">,</span> <span class="s2">"cost"</span><span class="p">]</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">cutoff</span> <span class="o">=</span> <span class="mi">100</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">sales</span>

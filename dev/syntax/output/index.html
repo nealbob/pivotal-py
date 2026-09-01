@@ -1740,7 +1740,7 @@ creating a separate summary table.</p>
 </code></pre></div>
 <p><code>show</code> can appear mid-pipeline — it displays the table at that point without interrupting subsequent operations:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">sales</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;active&quot;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">filter</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"active"</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">show</span> <span class="kd">head</span>              <span class="c1"># peek at filtered data</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">region</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">agg</span> <span class="nb">sum</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="n">total</span>
@@ -1755,7 +1755,7 @@ creating a separate summary table.</p>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="kd">kind</span> <span class="o">&lt;</span><span class="n">chart_type</span><span class="o">&gt;</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="kd">x</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="kd">y</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="kd">title</span> <span class="s2">&quot;&lt;title&gt;&quot;</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="kd">title</span> <span class="s2">"&lt;title&gt;"</span>
 </code></pre></div>
 <p><code>plot</code> uses the current active table as its source, so it fits naturally after
 <code>group by</code>, <code>pivot</code>, <code>select</code>, or other reshaping steps.</p>
@@ -1765,7 +1765,7 @@ creating a separate summary table.</p>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="k">plot</span> <span class="n">bar</span> <span class="n">revenue_chart</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>        <span class="kd">x</span> <span class="n">category</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="kd">y</span> <span class="n">total</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="kd">title</span> <span class="s2">&quot;Revenue by Category&quot;</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="kd">title</span> <span class="s2">"Revenue by Category"</span>
 </code></pre></div>
 <h3 id="chart-types">Chart types</h3>
 <table>
@@ -1860,15 +1860,15 @@ creating a separate summary table.</p>
 <p>Labels can be supplied after a plotted value:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="kd">summary</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">plot</span> <span class="n">line</span> <span class="n">sales_chart</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="kd">x</span> <span class="nb">month</span> <span class="s2">&quot;Month&quot;</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="kd">y</span> <span class="n">revenue</span> <span class="s2">&quot;Revenue&quot;</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="kd">x</span> <span class="nb">month</span> <span class="s2">"Month"</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="kd">y</span> <span class="n">revenue</span> <span class="s2">"Revenue"</span>
 </code></pre></div>
 <h3 id="examples">Examples</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">with</span> <span class="n">trends</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">plot</span> <span class="n">line</span> <span class="n">price_trend</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="kd">x</span> <span class="kd">date</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="kd">y</span> <span class="n">price</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="kd">title</span> <span class="s2">&quot;Price Over Time&quot;</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="kd">title</span> <span class="s2">"Price Over Time"</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="kd">legend</span> <span class="kc">False</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">raw</span>
@@ -1876,8 +1876,8 @@ creating a separate summary table.</p>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>        <span class="kd">x</span> <span class="n">price</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="kd">y</span> <span class="n">quantity</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="kd">c</span> <span class="n">category</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="kd">colormap</span> <span class="s2">&quot;viridis&quot;</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="kd">title</span> <span class="s2">&quot;Price vs Quantity&quot;</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="kd">colormap</span> <span class="s2">"viridis"</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="kd">title</span> <span class="s2">"Price vs Quantity"</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">plot</span> <span class="n">bar</span> <span class="n">regional_chart</span>
@@ -1885,7 +1885,7 @@ creating a separate summary table.</p>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="kd">y</span> <span class="n">revenue</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="kd">by</span> <span class="n">region</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="kd">cols</span> <span class="mi">2</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="kd">title</span> <span class="s2">&quot;Revenue by Category and Region&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="kd">title</span> <span class="s2">"Revenue by Category and Region"</span>
 </code></pre></div>
 <hr />
 <h2 id="pivot-plot-chart-with-inline-aggregation"><code>pivot plot</code> — chart with inline aggregation</h2>
@@ -1900,7 +1900,7 @@ creating a separate summary table.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">with</span> <span class="ow">matches</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">line</span> <span class="n">season_chart</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>        <span class="kd">x</span> <span class="n">season</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">home_team_goal</span><span class="p">,</span> <span class="nb">mean</span> <span class="n">away_team_goal</span> <span class="s2">&quot;Goals&quot;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">home_team_goal</span><span class="p">,</span> <span class="nb">mean</span> <span class="n">away_team_goal</span> <span class="s2">"Goals"</span>
 </code></pre></div>
 <h3 id="with-filter">With filter</h3>
 <p>Place a <code>filter</code> statement before <code>pivot plot</code> to pre-filter the source data:</p>
@@ -1952,27 +1952,27 @@ creating a separate summary table.</p>
 <h3 id="basic-table">Basic table</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">with</span> <span class="n">results</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">table</span> <span class="kd">summary</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="kd">title</span> <span class="s2">&quot;Sales Summary&quot;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="kd">title</span> <span class="s2">"Sales Summary"</span>
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        <span class="kd">format</span> <span class="kd">number</span> <span class="mi">2</span>
 </code></pre></div>
 <h3 id="full-options">Full options</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">with</span> <span class="n">results</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">table</span> <span class="n">report</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="kd">title</span> <span class="s2">&quot;Season Results&quot;</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="kd">subtitle</span> <span class="s2">&quot;All matches, 2023–24&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="kd">title</span> <span class="s2">"Season Results"</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="kd">subtitle</span> <span class="s2">"All matches, 2023–24"</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="kd">font</span> <span class="kd">size</span> <span class="mi">11</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="kd">font</span> <span class="s2">&quot;Georgia&quot;</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="kd">stub</span> <span class="n">team</span><span class="p">,</span> <span class="n">division</span> <span class="s2">&quot;Club&quot;</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="kd">spanner</span> <span class="n">goals</span><span class="p">,</span> <span class="n">win_rate</span> <span class="s2">&quot;Performance&quot;</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="kd">spanner</span> <span class="n">revenue</span> <span class="s2">&quot;Financials&quot;</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="kd">label</span> <span class="n">goals</span> <span class="kd">as</span> <span class="s2">&quot;Goals Scored&quot;</span><span class="p">,</span> <span class="n">win_rate</span> <span class="kd">as</span> <span class="s2">&quot;Win %&quot;</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="kd">font</span> <span class="s2">"Georgia"</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="kd">stub</span> <span class="n">team</span><span class="p">,</span> <span class="n">division</span> <span class="s2">"Club"</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="kd">spanner</span> <span class="n">goals</span><span class="p">,</span> <span class="n">win_rate</span> <span class="s2">"Performance"</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="kd">spanner</span> <span class="n">revenue</span> <span class="s2">"Financials"</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="kd">label</span> <span class="n">goals</span> <span class="kd">as</span> <span class="s2">"Goals Scored"</span><span class="p">,</span> <span class="n">win_rate</span> <span class="kd">as</span> <span class="s2">"Win %"</span>
 <a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>        <span class="kd">format</span> <span class="kd">number</span> <span class="mi">1</span>
 <a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>        <span class="kd">format</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="kd">currency</span> <span class="n">GBP</span>
 <a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="kd">format</span> <span class="n">win_rate</span> <span class="kd">as</span> <span class="kd">percent</span> <span class="mi">1</span>
-<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">&quot;Total&quot;</span><span class="p">,</span> <span class="nb">mean</span> <span class="kd">as</span> <span class="s2">&quot;Average&quot;</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">"Total"</span><span class="p">,</span> <span class="nb">mean</span> <span class="kd">as</span> <span class="s2">"Average"</span>
 <a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="kd">stripe</span>
 <a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>        <span class="kd">canvas</span> <span class="n">a4</span>
-<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="kd">style</span> <span class="s2">&quot;my_table_style.py&quot;</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="kd">style</span> <span class="s2">"my_table_style.py"</span>
 <a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>        <span class="k">show</span>
 </code></pre></div>
 <h3 id="options-reference">Options reference</h3>
@@ -2005,23 +2005,23 @@ creating a separate summary table.</p>
 </table>
 <p><strong>Font</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">font</span> <span class="kd">size</span> <span class="mi">11</span>          <span class="c1"># font size in pt</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kd">font</span> <span class="s2">&quot;Georgia&quot;</span>        <span class="c1"># font family</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kd">font</span> <span class="s2">"Georgia"</span>        <span class="c1"># font family</span>
 </code></pre></div>
 <p><strong>Stub (row labels)</strong></p>
 <p>The stub is the leftmost identifying column(s):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kd">stub</span> <span class="n">product</span>                     <span class="c1"># single column</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kd">stub</span> <span class="n">product</span> <span class="s2">&quot;Product&quot;</span>           <span class="c1"># with custom header label</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kd">stub</span> <span class="n">product</span> <span class="s2">"Product"</span>           <span class="c1"># with custom header label</span>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="kd">stub</span> <span class="n">product</span><span class="p">,</span> <span class="n">category</span>           <span class="c1"># column + group-by</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="kd">stub</span> <span class="n">product</span><span class="p">,</span> <span class="n">category</span> <span class="s2">&quot;Item&quot;</span>    <span class="c1"># all three</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="kd">stub</span> <span class="n">product</span><span class="p">,</span> <span class="n">category</span> <span class="s2">"Item"</span>    <span class="c1"># all three</span>
 </code></pre></div>
 <p><strong>Spanners (column groups)</strong></p>
 <p>Group columns under a shared header:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kd">spanner</span> <span class="n">price</span><span class="p">,</span> <span class="n">quantity</span> <span class="s2">&quot;Metrics&quot;</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kd">spanner</span> <span class="n">revenue</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">profit</span> <span class="s2">&quot;Financials&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kd">spanner</span> <span class="n">price</span><span class="p">,</span> <span class="n">quantity</span> <span class="s2">"Metrics"</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kd">spanner</span> <span class="n">revenue</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">profit</span> <span class="s2">"Financials"</span>
 <a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="kd">auto</span> <span class="kd">spanner</span>    <span class="c1"># infer from MultiIndex column names</span>
 </code></pre></div>
 <p><strong>Column labels</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kd">label</span> <span class="n">goals</span> <span class="kd">as</span> <span class="s2">&quot;Goals Scored&quot;</span><span class="p">,</span> <span class="n">win_rate</span> <span class="kd">as</span> <span class="s2">&quot;Win %&quot;</span><span class="p">,</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="s2">&quot;Revenue (£)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kd">label</span> <span class="n">goals</span> <span class="kd">as</span> <span class="s2">"Goals Scored"</span><span class="p">,</span> <span class="n">win_rate</span> <span class="kd">as</span> <span class="s2">"Win %"</span><span class="p">,</span> <span class="n">revenue</span> <span class="kd">as</span> <span class="s2">"Revenue (£)"</span>
 </code></pre></div>
 <p><strong>Formatting</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kd">format</span> <span class="kd">number</span> <span class="mi">2</span>           <span class="c1"># all numeric cols, 2 decimal places</span>
@@ -2032,13 +2032,13 @@ creating a separate summary table.</p>
 <a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="kd">format</span> <span class="n">col</span> <span class="kd">as</span> <span class="kd">date</span>
 </code></pre></div>
 <p><strong>Summary rows</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">summary</span> <span class="nb">sum</span>                          <span class="c1"># one &quot;Total&quot; row</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">&quot;Total&quot;</span>               <span class="c1"># explicit label</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">&quot;Total&quot;</span><span class="p">,</span> <span class="nb">mean</span> <span class="kd">as</span> <span class="s2">&quot;Avg&quot;</span>  <span class="c1"># multiple summary rows</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">summary</span> <span class="nb">sum</span>                          <span class="c1"># one "Total" row</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">"Total"</span>               <span class="c1"># explicit label</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="kd">summary</span> <span class="nb">sum</span> <span class="kd">as</span> <span class="s2">"Total"</span><span class="p">,</span> <span class="nb">mean</span> <span class="kd">as</span> <span class="s2">"Avg"</span>  <span class="c1"># multiple summary rows</span>
 </code></pre></div>
 <p><strong>Inline display</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">table</span> <span class="n">my_table</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="kd">title</span> <span class="s2">&quot;Results&quot;</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="kd">title</span> <span class="s2">"Results"</span>
 <a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="k">show</span>    <span class="c1"># render inline in notebook</span>
 </code></pre></div>
 

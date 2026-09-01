@@ -1368,7 +1368,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">with</span> <span class="n">orders</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">assert</span> <span class="n">order_id</span> <span class="ow">unique</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">assert</span> <span class="n">customer_id</span> <span class="ow">not</span> <span class="ow">null</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">assert</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;open&quot;</span><span class="p">,</span> <span class="s2">&quot;closed&quot;</span><span class="p">,</span> <span class="s2">&quot;cancelled&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">assert</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"open"</span><span class="p">,</span> <span class="s2">"closed"</span><span class="p">,</span> <span class="s2">"cancelled"</span><span class="p">]</span>
 </code></pre></div>
 <p>Use <code>check</code> when bad data should warn but allow the pipeline to continue:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">with</span> <span class="n">orders</span>
@@ -1378,7 +1378,7 @@
 <p><code>assert</code> and <code>check</code> accept the same condition syntax as <code>filter</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">assert</span> <span class="n">amount</span> <span class="o">&gt;=</span> <span class="mi">0</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">check</span> <span class="n">region</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="s2">&quot;sandbox&quot;</span><span class="p">]</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">check</span> <span class="n">region</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"test"</span><span class="p">,</span> <span class="s2">"sandbox"</span><span class="p">]</span>
 </code></pre></div>
 <p>They also support shorthand rules for uniqueness and missing values:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">orders</span>
@@ -1409,7 +1409,7 @@
 <p>Loop assignment targets can build new names with string suffixes or prefixes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">sales</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">price</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">revenue</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>        <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot;_real&quot;</span> <span class="o">=</span> <span class="n">col</span> <span class="o">/</span> <span class="n">cpi</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>        <span class="n">col</span> <span class="o">+</span> <span class="s2">"_real"</span> <span class="o">=</span> <span class="n">col</span> <span class="o">/</span> <span class="n">cpi</span>
 </code></pre></div>
 <p>Column loops support assignment, <code>cast</code>, <code>fillna</code>, <code>drop</code>, <code>dropna</code>, <code>round</code>, and window functions such as <code>rank</code>, <code>lag</code>, <code>lead</code>, <code>cumsum</code>, <code>cummean</code>, <code>cummin</code>, <code>cummax</code>, and <code>rolling</code>.</p>
 <h2 id="pipeline-functions">Pipeline Functions</h2>
@@ -1435,10 +1435,10 @@
 <p><code>return</code> is optional. It has no effect during normal Pivotal execution, but records which output table should be returned when Pivotal functions are exposed through a Python-callable API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pivotal</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">funcs</span> <span class="o">=</span> <span class="n">pivotal</span><span class="o">.</span><span class="n">load_functions</span><span class="p">(</span><span class="s2">&quot;transforms.pivotal&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">funcs</span> <span class="o">=</span> <span class="n">pivotal</span><span class="o">.</span><span class="n">load_functions</span><span class="p">(</span><span class="s2">"transforms.pivotal"</span><span class="p">)</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">sales_clean</span> <span class="o">=</span> <span class="n">funcs</span><span class="o">.</span><span class="n">clean_sales</span><span class="p">(</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">sales_raw</span><span class="p">,</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="s2">&quot;cost&quot;</span><span class="p">,</span> <span class="s2">&quot;revenue&quot;</span><span class="p">],</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"price"</span><span class="p">,</span> <span class="s2">"cost"</span><span class="p">,</span> <span class="s2">"revenue"</span><span class="p">],</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">min_amount</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
 </code></pre></div>

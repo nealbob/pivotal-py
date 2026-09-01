@@ -1406,26 +1406,26 @@
 
 <h1 id="saving">Saving</h1>
 <h2 id="save-a-table-to-a-file">Save a table to a file</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="s2">&quot;outputs/sales.csv&quot;</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">save</span> <span class="kd">summary</span> <span class="kd">as</span> <span class="s2">&quot;outputs/summary.parquet&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="s2">"outputs/sales.csv"</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">save</span> <span class="kd">summary</span> <span class="kd">as</span> <span class="s2">"outputs/summary.parquet"</span>
 </code></pre></div>
 <p>The file format is inferred from the destination suffix. Pandas supports CSV,
 Parquet, JSON Lines, Feather, Excel, and pickle. Polars and DuckDB support the
 formats available through their backends.</p>
 <p>Spark DataFrames can also write Delta destinations:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="s2">&quot;dbfs:/mnt/results/sales.delta&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="s2">"dbfs:/mnt/results/sales.delta"</span>
 </code></pre></div>
 <h2 id="save-a-managed-table">Save a managed table</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="k">table</span> <span class="s2">&quot;main.analytics.sales&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">save</span> <span class="n">sales</span> <span class="kd">as</span> <span class="k">table</span> <span class="s2">"main.analytics.sales"</span>
 </code></pre></div>
 <p>Managed table saves use the active backend. Spark DataFrames use
 <code>saveAsTable</code>; DuckDB and SQL compilation use <code>CREATE OR REPLACE TABLE</code>.</p>
 <h2 id="save-a-data-package">Save a data package</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;outputs/my_analysis&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">"outputs/my_analysis"</span>
 </code></pre></div>
 <p>This saves all tables, charts, rendered tables, and Pivotal parameters in the
 current session.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;~/projects/output/my_analysis&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">"~/projects/output/my_analysis"</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="kd">format</span> <span class="n">parquet</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="kd">chart_format</span> <span class="n">svg</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="kd">include</span> <span class="n">sales</span><span class="p">,</span> <span class="kd">summary</span><span class="p">,</span> <span class="n">chart1</span>
@@ -1460,11 +1460,11 @@ current session.</p>
 <p>The earlier <code>save "&lt;package_name&gt;"</code> form remains supported for compatibility,
 but new code should use <code>save package as "&lt;path&gt;"</code>.</p>
 <h2 id="loading-a-saved-package">Loading a saved package</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">python</span> <span class="n">import</span> <span class="n">pivotal</span><span class="p">;</span> <span class="n">_pivotal_pkg</span> <span class="o">=</span> <span class="n">pivotal</span><span class="err">.</span><span class="n">Package</span><span class="err">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;my_analysis&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">python</span> <span class="n">import</span> <span class="n">pivotal</span><span class="p">;</span> <span class="n">_pivotal_pkg</span> <span class="o">=</span> <span class="n">pivotal</span><span class="err">.</span><span class="n">Package</span><span class="err">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"my_analysis"</span><span class="p">)</span>
 </code></pre></div>
 <p>Then load package tables from Python:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">tables</span> <span class="o">=</span> <span class="n">_pivotal_pkg</span><span class="o">.</span><span class="n">load_all</span><span class="p">()</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">_pivotal_pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s2">&quot;sales&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">sales</span> <span class="o">=</span> <span class="n">_pivotal_pkg</span><span class="o">.</span><span class="n">load_table</span><span class="p">(</span><span class="s2">"sales"</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="delete-remove-a-table"><code>delete</code> - remove a table</h2>
