@@ -1,0 +1,2536 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A pipeline-oriented data transformation DSL for Python and Jupyter">
+      
+      
+      
+        <link rel="canonical" href="https://docs.pivotal-lang.org/0.7.0/tutorial/">
+      
+      
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="../pandas-cheatsheet/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tutorial - Pivotal</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tutorial-10-minutes-to-pivotal" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Pivotal" class="md-header__button md-logo" aria-label="Pivotal" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Pivotal
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tutorial
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/nealbob/pivotal-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nealbob/pivotal-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Pivotal" class="md-nav__button md-logo" aria-label="Pivotal" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    Pivotal
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/nealbob/pivotal-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nealbob/pivotal-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whypivotal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Pivotal?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#import-pivotal-and-load-some-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import Pivotal and load some data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pivotal-ide-jupyterlab-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Pivotal IDE (JupyterLab extension)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modify-a-data-frame-in-place-sort-drop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modify a data-frame in-place (sort, drop)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plotting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-new-data-frame-filter-select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create new data-frame (filter, select)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aggregation-group-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation (group by)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pivot-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pivot tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters-scalars-lists-and-dictionaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters (Scalars, Lists, and Dictionaries)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-column-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation (column expressions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-cleaning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data cleaning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save-to-data-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Save to data package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#football-statistics-bulk-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Football statistics (bulk load)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#column-loops-and-case-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column loops and case assignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Merging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-indulgent-gary-ablett-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-indulgent Gary Ablett reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pandas-cheatsheet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pandas Cheatsheet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../syntax/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/values/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/pipeline-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Control
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/transformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/sorting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sorting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/grouping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grouping & Aggregation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/joining/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Merge and Concatenate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/reshaping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pivot Tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/window-functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Window Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/missing-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Missing Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/python-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Charts, Tables, and Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/saving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syntax/command-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pivotal Vs Python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Editors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JupyterLab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-hosting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#import-pivotal-and-load-some-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import Pivotal and load some data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pivotal-ide-jupyterlab-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Pivotal IDE (JupyterLab extension)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modify-a-data-frame-in-place-sort-drop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modify a data-frame in-place (sort, drop)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plotting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-new-data-frame-filter-select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create new data-frame (filter, select)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aggregation-group-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation (group by)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pivot-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pivot tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters-scalars-lists-and-dictionaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters (Scalars, Lists, and Dictionaries)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-column-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation (column expressions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-cleaning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data cleaning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save-to-data-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Save to data package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#football-statistics-bulk-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Football statistics (bulk load)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#column-loops-and-case-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column loops and case assignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Merging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-indulgent-gary-ablett-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-indulgent Gary Ablett reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tutorial-10-minutes-to-pivotal">Tutorial: 10 minutes to Pivotal</h1>
+<p>This is a short introduction to Pivotal, for more detail see the <a href="https://docs.pivotal-lang.org/syntax/">User Guide</a> or the <a href="https://docs.pivotal-lang.org/syntax/command-reference/">Syntax Reference</a>. This tutorial runs in a Jupyter notebook and makes use of the Pivotal JupyterLab extension. For installation details see <a href="https://docs.pivotal-lang.org/getting-started/">Getting Started</a> and <a href="https://docs.pivotal-lang.org/jupyter/">JupyterLab</a>.</p>
+<h2 id="import-pivotal-and-load-some-data">Import Pivotal and load some data</h2>
+<p>To begin import the Pivotal Python package.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pivotal</span>
+</code></pre></div>
+<p>Now we can start a Pivotal cell by typing <code>%%pivotal</code> (or using the ALT + P shortcut). </p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">load</span> <span class="n">data</span><span class="err">\</span><span class="n">titanic</span><span class="err">.</span><span class="n">csv</span> <span class="kd">as</span> <span class="n">titanic</span>
+</code></pre></div>
+<p>The <code>load</code> command requires a filepath (with or without quotes, windows or unix style paths, local or relative paths or URLs). Data can be in CSV, Parquet or Excel format (detected from the file extension).</p>
+<p>Data from SQL databases can also be loaded via the <a href="https://docs.pivotal-lang.org/syntax/data-sources/"><code>from</code></a> command.</p>
+<h2 id="the-pivotal-ide-jupyterlab-extension">The Pivotal IDE (JupyterLab extension)</h2>
+<p>Once the data has loaded, the Pivotal Explorer (left pane) and Viewer (right pane) will become visible within JupyterLab:</p>
+<p><img alt="screenshot" src="../assets/tutorial1.png" /></p>
+<p>The object explorer contains a list of all the objects in the current Pivotal session (dataframes, plots, tables, values) for now it will just contain the <code>titanic</code> dataframe. The Viewer provides a spreadsheet version of the <code>titanic</code> table with ability to scroll, sort, filter interactively (without editing the underlying data).</p>
+<p>The Explorer and Viewer pane will automatically update after each Pivotal cell is executed, with the Viewer showing the most recently modified / added object. Users can then navigate to view any object via mouse or <a href="https://docs.pivotal-lang.org/jupyter/#keyboard-shortcuts">keyboard shortcuts</a>.</p>
+<h2 id="modify-a-data-frame-in-place-sort-drop">Modify a data-frame in-place (sort, drop)</h2>
+<p>To modfy a dataframe in-place we can start a new <code>with</code> block. In this case we <code>sort</code> by <code>Age</code> and <code>drop</code> the <code>Name</code> column. Note that column and dataframe names do not need quotations in Pivotal.</p>
+<p>If using JupyterLab (or VS Code) the Pivotal Viewer provides a convenient way to inspect output, however results can also be viewed inline via the <code>show</code> command.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">with</span> <span class="n">titanic</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">sort</span> <span class="n">Age</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">drop</span> <span class="n">Name</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">show</span> <span class="kd">head</span>
+</code></pre></div>
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>PassengerId</th>
+      <th>Survived</th>
+      <th>Pclass</th>
+      <th>Sex</th>
+      <th>Age</th>
+      <th>SibSp</th>
+      <th>Parch</th>
+      <th>Ticket</th>
+      <th>Fare</th>
+      <th>Cabin</th>
+      <th>Embarked</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>803</th>
+      <td>804</td>
+      <td>1</td>
+      <td>3</td>
+      <td>male</td>
+      <td>0.42</td>
+      <td>0</td>
+      <td>1</td>
+      <td>2625</td>
+      <td>8.5167</td>
+      <td>NaN</td>
+      <td>C</td>
+    </tr>
+    <tr>
+      <th>755</th>
+      <td>756</td>
+      <td>1</td>
+      <td>2</td>
+      <td>male</td>
+      <td>0.67</td>
+      <td>1</td>
+      <td>1</td>
+      <td>250649</td>
+      <td>14.5000</td>
+      <td>NaN</td>
+      <td>S</td>
+    </tr>
+    <tr>
+      <th>644</th>
+      <td>645</td>
+      <td>1</td>
+      <td>3</td>
+      <td>female</td>
+      <td>0.75</td>
+      <td>2</td>
+      <td>1</td>
+      <td>2666</td>
+      <td>19.2583</td>
+      <td>NaN</td>
+      <td>C</td>
+    </tr>
+    <tr>
+      <th>469</th>
+      <td>470</td>
+      <td>1</td>
+      <td>3</td>
+      <td>female</td>
+      <td>0.75</td>
+      <td>2</td>
+      <td>1</td>
+      <td>2666</td>
+      <td>19.2583</td>
+      <td>NaN</td>
+      <td>C</td>
+    </tr>
+    <tr>
+      <th>78</th>
+      <td>79</td>
+      <td>1</td>
+      <td>2</td>
+      <td>male</td>
+      <td>0.83</td>
+      <td>0</td>
+      <td>2</td>
+      <td>248738</td>
+      <td>29.0000</td>
+      <td>NaN</td>
+      <td>S</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="plotting">Plotting</h2>
+<p>The <code>plot</code> command wraps the <a href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.plot.html">Pandas plot</a> function; see <a href="https://docs.pivotal-lang.org/syntax/output/">Charts, Tables, and Output</a> for details. The <code>pivot plot</code> command combines aggregation (<code>group by</code> or <code>pivot</code>) and plotting in one command similar to an Excel pivot chart.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">with</span> <span class="n">titanic</span> 
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">bar</span> <span class="n">survival_by_class</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="kd">x</span> <span class="n">Pclass</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">Survived</span>  
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">plot</span> <span class="n">hist</span> <span class="n">age_by_survival</span>    
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="kd">y</span> <span class="n">Age</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="kd">by</span> <span class="n">Survived</span>
+</code></pre></div>
+<p>As with dataframes, plots can be viewed inline with the <code>show</code> command or via the Pivotal Viewer pane (as shown here).</p>
+<p><img alt="screenshot" src="../assets/pivotal_animation1.gif" /></p>
+<h2 id="create-new-data-frame-filter-select">Create new data-frame (filter, select)</h2>
+<p>Add an alias to the <code>with</code> statement to create a new dataframe. Here the<code>titanic</code> table remains unchanged.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">oldest_passengers</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="k">filter</span> <span class="n">Age</span> <span class="o">&gt;</span> <span class="mi">70</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">select</span> <span class="n">Age</span><span class="p">,</span> <span class="n">Pclass</span><span class="p">,</span> <span class="n">Survived</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="k">show</span> <span class="kd">head</span>
+</code></pre></div>
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Age</th>
+      <th>Pclass</th>
+      <th>Survived</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>116</th>
+      <td>70.5</td>
+      <td>3</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>493</th>
+      <td>71.0</td>
+      <td>1</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>96</th>
+      <td>71.0</td>
+      <td>1</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>851</th>
+      <td>74.0</td>
+      <td>3</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>630</th>
+      <td>80.0</td>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="error-handling">Error handling</h2>
+<p>Pivotal offers native error messages which are easier to interpret than full Python tracebacks (although these are still available if required).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">with</span> <span class="n">wrong_table</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">select</span> <span class="n">Age</span>
+</code></pre></div>
+<div style="font-family:monospace;padding:8px 12px;border-left:3px solid #e05252;background:#fff5f5;border-radius:3px;margin:4px 0;line-height:1.6"><span style="color:#c0392b;font-weight:bold">Pivotal Validation Error: Table &#x27;wrong_table&#x27; not found</span><br><span style="color:#555">&nbsp;&nbsp;→ Available tables: oldest_passengers, survival_by_class_df, titanic</span><details style="margin-top:6px"><summary style="cursor:pointer;color:#888;font-size:0.9em">Show full traceback</summary><pre style="background:#f8f8f8;padding:8px;margin-top:4px;font-size:0.82em;overflow-x:auto;color:#555;border-radius:3px">Traceback (most recent call last):
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\IPython\core\interactiveshell.py&quot;, line 3699, in run_code
+    exec(code_obj, self.user_global_ns, self.user_ns)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\AppData\Local\Temp\ipykernel_27348\462969525.py&quot;, line 5, in &lt;module&gt;
+    wrong_table = wrong_table.loc[:, [&#x27;Age&#x27;]]
+                  ^^^^^^^^^^^
+NameError: name &#x27;wrong_table&#x27; is not defined
+</pre></details></div>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">with</span> <span class="n">titanic</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="k">select</span> <span class="n">age</span>
+</code></pre></div>
+<div style="font-family:monospace;padding:8px 12px;border-left:3px solid #e05252;background:#fff5f5;border-radius:3px;margin:4px 0;line-height:1.6"><span style="color:#c0392b;font-weight:bold">Pivotal Validation Error: Unknown column &#x27;age&#x27; in &#x27;select&#x27; on table &#x27;titanic&#x27;</span><br><span style="color:#555">&nbsp;&nbsp;→ Did you mean &#x27;Age&#x27;?</span><details style="margin-top:6px"><summary style="cursor:pointer;color:#888;font-size:0.9em">Show full traceback</summary><pre style="background:#f8f8f8;padding:8px;margin-top:4px;font-size:0.82em;overflow-x:auto;color:#555;border-radius:3px">Traceback (most recent call last):
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\IPython\core\interactiveshell.py&quot;, line 3699, in run_code
+    exec(code_obj, self.user_global_ns, self.user_ns)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\AppData\Local\Temp\ipykernel_27348\318122693.py&quot;, line 5, in &lt;module&gt;
+    titanic = titanic.loc[:, [&#x27;age&#x27;]]
+              ~~~~~~~~~~~^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1200, in __getitem__
+    return self._getitem_tuple(key)
+           ~~~~~~~~~~~~~~~~~~~^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1386, in _getitem_tuple
+    return self._getitem_lowerdim(tup)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1093, in _getitem_lowerdim
+    section = self._getitem_axis(key, axis=i)
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1438, in _getitem_axis
+    return self._getitem_iterable(key, axis=axis)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1378, in _getitem_iterable
+    keyarr, indexer = self._get_listlike_indexer(key, axis)
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexing.py&quot;, line 1576, in _get_listlike_indexer
+    keyarr, indexer = ax._get_indexer_strict(key, axis_name)
+                      ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexes\base.py&quot;, line 6302, in _get_indexer_strict
+    self._raise_if_missing(keyarr, indexer, axis_name)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\pandas\core\indexes\base.py&quot;, line 6352, in _raise_if_missing
+    raise KeyError(f&quot;None of [{key}] are in the [{axis_name}]&quot;)
+KeyError: &quot;None of [Index([&#x27;age&#x27;], dtype=&#x27;str&#x27;)] are in the [columns]&quot;
+</pre></details></div>
+
+<h2 id="aggregation-group-by">Aggregation (group by)</h2>
+<p>Following Pandas and R style syntax aggregation requires two commands: first <code>group by</code>, then <code>agg</code>. See <a href="https://docs.pivotal-lang.org/syntax/grouping/">Grouping &amp; Aggregation</a> for details.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">titanic_survival_rates</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">Pclass</span><span class="p">,</span> <span class="n">Sex</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="k">agg</span> <span class="nb">mean</span> <span class="n">Survived</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="k">show</span>
+</code></pre></div>
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Pclass</th>
+      <th>Sex</th>
+      <th>Survived</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>female</td>
+      <td>0.968085</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1</td>
+      <td>male</td>
+      <td>0.368852</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2</td>
+      <td>female</td>
+      <td>0.921053</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2</td>
+      <td>male</td>
+      <td>0.157407</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>3</td>
+      <td>female</td>
+      <td>0.500000</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>3</td>
+      <td>male</td>
+      <td>0.135447</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="pivot-tables">Pivot tables</h2>
+<p>Now lets try the same aggregation, but this time use <code>pivot</code> to reshape the output with <code>Sex</code> across the columns. Note here we are overwriting the dataframe created in the previous step.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">titanic_survival_rates</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="k">pivot</span> 
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="kd">rows</span> <span class="n">Pclass</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="kd">cols</span> <span class="n">Sex</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="k">agg</span> <span class="nb">mean</span> <span class="n">Survived</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">show</span>
+</code></pre></div>
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Sex</th>
+      <th>Pclass</th>
+      <th>female</th>
+      <th>male</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>0.968085</td>
+      <td>0.368852</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>0.921053</td>
+      <td>0.157407</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>0.500000</td>
+      <td>0.135447</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="tables">Tables</h2>
+<p>Pivotal supports generation of publication-ready tables via the Great Tables package, including ability to define merged cell headings via <code>spanner</code> command and apply number formats via <code>format</code> command. See <a href="https://docs.pivotal-lang.org/syntax/output/">Charts, Tables, and Output</a> for the full table syntax.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">with</span> <span class="n">titanic_survival_rates</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">cast</span> <span class="n">Pclass</span> <span class="kd">as</span> <span class="nb">string</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="k">table</span> <span class="n">survival_table</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="kd">title</span> <span class="s2">&quot;Titanic survival rates by class and sex&quot;</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="kd">stub</span> <span class="n">Pclass</span> <span class="s2">&quot;Passenger Class&quot;</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="kd">label</span> <span class="n">female</span> <span class="kd">as</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="n">male</span> <span class="kd">as</span> <span class="s2">&quot;M&quot;</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="kd">spanner</span> <span class="n">female</span><span class="p">,</span> <span class="n">male</span> <span class="s2">&quot;Sex&quot;</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="kd">format</span> <span class="kd">number</span> <span class="mi">2</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="k">show</span>
+</code></pre></div>
+<div id="rydlflkvas" style="padding-left:0pt;padding-right:0pt;padding-top:7.5pt;padding-bottom:7.5pt;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+
+<table class="gt_table" data-quarto-bootstrap="false" data-quarto-disable-processing="false" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;-webkit-font-smoothing: antialiased;-moz-osx-font-smoothing: grayscale;display: table;border-collapse: collapse;line-height: normal;margin-left: auto;margin-right: auto;color: #333333;font-size: 12pt;font-weight: normal;font-style: normal;background-color: #FFFFFF;width: auto;border-top-style: solid;border-top-width: 1.5pt;border-top-color: #A8A8A8;border-right-style: none;border-right-width: 1.5pt;border-right-color: #D3D3D3;border-bottom-style: solid;border-bottom-width: 1.5pt;border-bottom-color: #A8A8A8;border-left-style: none;border-left-width: 1.5pt;border-left-color: #D3D3D3;">
+<thead style="border-style: none;">
+
+  <tr class="gt_heading" style="border-style: none;background-color: #FFFFFF;text-align: center;border-bottom-color: #FFFFFF;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;">
+    <td class="gt_heading gt_title gt_font_normal" colspan="3" style="border-style: none;color: #333333;font-size: 125%;font-weight: normal;padding-top: 3pt;padding-bottom: 3pt;padding-left: 3.75pt;padding-right: 3.75pt;border-bottom-color: #FFFFFF;border-bottom-width: 0;background-color: #FFFFFF;text-align: center;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;">Titanic survival rates by class and sex</td>
+  </tr>
+<tr class="gt_col_headings gt_spanner_row" style="border-style: none;background-color: transparent;border-top-style: solid;border-top-width: 1.5pt;border-top-color: #D3D3D3;border-bottom-style: hidden;border-bottom-width: 1.5pt;border-bottom-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;">
+  <th class="gt_col_heading gt_columns_bottom_border gt_left" id="Passenger-Class" rowspan="2" colspan="1" style="border-style: none;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: normal;text-transform: inherit;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: bottom;padding-top: 3.75pt;padding-bottom: 3.75pt;padding-left: 3.75pt;padding-right: 3.75pt;overflow-x: hidden;text-align: left;white-space: nowrap" scope="col">Passenger Class</th>
+  <th class="gt_center gt_columns_top_border gt_column_spanner_outer" id="Sex" rowspan="1" colspan="2" scope="colgroup" style="border-style: none;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: normal;text-transform: inherit;padding-top: 0;padding-bottom: 0;padding-left: 3pt;text-align: center;padding-right: 0;">
+    <span class="gt_column_spanner" style="border-bottom-style: solid;border-bottom-width: 1.5pt;border-bottom-color: #D3D3D3;vertical-align: bottom;padding-top: 3.75pt;padding-bottom: 3.75pt;overflow-x: hidden;display: inline-block;width: 100%;">Sex</span>
+  </th>
+</tr>
+<tr class="gt_col_headings" style="border-style: none;background-color: transparent;border-top-style: solid;border-top-width: 1.5pt;border-top-color: #D3D3D3;border-bottom-style: solid;border-bottom-width: 1.5pt;border-bottom-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;">
+  <th class="gt_col_heading gt_columns_bottom_border gt_right" id="female" rowspan="1" colspan="1" scope="col" style="border-style: none;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: normal;text-transform: inherit;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: bottom;padding-top: 3.75pt;padding-bottom: 3.75pt;padding-left: 3.75pt;padding-right: 3.75pt;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">F</th>
+  <th class="gt_col_heading gt_columns_bottom_border gt_right" id="male" rowspan="1" colspan="1" scope="col" style="border-style: none;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: normal;text-transform: inherit;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: bottom;padding-top: 3.75pt;padding-bottom: 3.75pt;padding-left: 3.75pt;padding-right: 3.75pt;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">M</th>
+</tr>
+</thead>
+<tbody class="gt_table_body" style="border-style: none;border-top-style: solid;border-top-width: 1.5pt;border-top-color: #D3D3D3;border-bottom-style: solid;border-bottom-width: 1.5pt;border-bottom-color: #D3D3D3;">
+  <tr style="border-style: none;background-color: transparent;">
+    <th class="gt_row gt_left gt_stub" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: solid;border-right-width: 1.5pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: initial;text-transform: inherit;text-align: left;white-space: nowrap">1</th>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.97</td>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.37</td>
+  </tr>
+  <tr style="border-style: none;background-color: transparent;">
+    <th class="gt_row gt_left gt_stub" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: solid;border-right-width: 1.5pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: initial;text-transform: inherit;text-align: left;white-space: nowrap">2</th>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.92</td>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.16</td>
+  </tr>
+  <tr style="border-style: none;background-color: transparent;">
+    <th class="gt_row gt_left gt_stub" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: solid;border-right-width: 1.5pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;color: #333333;background-color: #FFFFFF;font-size: 100%;font-weight: initial;text-transform: inherit;text-align: left;white-space: nowrap">3</th>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.50</td>
+    <td class="gt_row gt_right" style="border-style: none;padding-top: 6pt;padding-bottom: 6pt;padding-left: 3.75pt;padding-right: 3.75pt;margin: 7.5pt;border-top-style: solid;border-top-width: 0.75pt;border-top-color: #D3D3D3;border-left-style: none;border-left-width: 0.75pt;border-left-color: #D3D3D3;border-right-style: none;border-right-width: 0.75pt;border-right-color: #D3D3D3;vertical-align: middle;overflow-x: hidden;text-align: right;font-variant-numeric: tabular-nums;">0.14</td>
+  </tr>
+</tbody>
+
+
+</table>
+
+</div>
+
+<h2 id="parameters-scalars-lists-and-dictionaries">Parameters (Scalars, Lists, and Dictionaries)</h2>
+<p>Pivotal also supports definition of Scalars, Lists and Dictionaries. Note that within Pivotal brackets for lists are optional. See <a href="https://docs.pivotal-lang.org/syntax/values/">Values: Scalars, Dicts, and Lists</a> for more detail.</p>
+<p>In Pivotal the sole purpose of these parameter objects is to pass metadata to dataframe operations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">list</span> <span class="n">mylist</span> <span class="o">=</span> <span class="n">Age</span><span class="p">,</span> <span class="n">Survived</span><span class="p">,</span> <span class="n">Pclass</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">scalar</span> <span class="n">myvar</span> <span class="o">=</span> <span class="mi">20</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">dict</span> <span class="n">config</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">column_lists</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>        <span class="n">compact</span> <span class="o">=</span> <span class="n">Age</span><span class="p">,</span> <span class="n">Pclass</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">thresholds</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="n">adult_age</span> <span class="o">=</span> <span class="mi">18</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1"># dict config from config.json   # load from json or yaml</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">temp</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="k">filter</span> <span class="n">Age</span> <span class="o">&gt;</span> <span class="n">myvar</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="k">select</span> <span class="n">mylist</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">adults</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>    <span class="k">filter</span> <span class="n">Age</span> <span class="o">&gt;=</span> <span class="n">config</span><span class="err">.</span><span class="n">thresholds</span><span class="err">.</span><span class="n">adult_age</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="k">select</span> <span class="n">config</span><span class="err">.</span><span class="n">column_lists</span><span class="err">.</span><span class="n">compact</span>
+</code></pre></div>
+<p>Under the hood all Pivotal objects are just Python objects. Any dataframe, Scalar, List or Dictionary defined in Pivotal exists in the Python namespace and can be accessed within Python code cells:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Python code</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;myvar: </span><span class="si">{</span><span class="n">myvar</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span> 
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">temp</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">adults</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>myvar: 20
+      Age  Survived  Pclass
+227  20.5         0       3
+402  21.0         0       3
+408  21.0         0       3
+102  21.0         0       1
+627  21.0         1       1
+</code></pre></div>
+<p>Varaibles defined in Python can also be accessed within Pivotal code by adding a <code>:</code> prefix:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Python code</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">pylist</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Pclass&quot;</span><span class="p">,</span> <span class="s2">&quot;Parch&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">pyvar</span> <span class="o">=</span> <span class="mi">3</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">temp</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="k">filter</span> <span class="n">Parch</span> <span class="o">&gt;</span> <span class="nv">:pyvar</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="k">select</span> <span class="nv">:pylist</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="k">show</span> <span class="kd">head</span>
+</code></pre></div>
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Pclass</th>
+      <th>Parch</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>567</th>
+      <td>3</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>3</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>885</th>
+      <td>3</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>3</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>610</th>
+      <td>3</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="mutation-column-expressions">Mutation (column expressions)</h2>
+<p>Columns can be modified and added with a simple <code>newcol = &lt;expression&gt;</code> syntax. Below we add two new columns in preparation for some data analysis: </p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">with</span> <span class="n">titanic</span> <span class="kd">as</span> <span class="n">X</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">family</span> <span class="o">=</span> <span class="n">Parch</span> <span class="o">+</span> <span class="n">SibSp</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">male</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="kd">where</span> <span class="n">Sex</span> <span class="o">==</span> <span class="s2">&quot;male&quot;</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="kd">else</span> <span class="mi">0</span>
+</code></pre></div>
+<p>Above we add a new column for the total family members on-board (Parents &amp; Children <code>Parch</code> + Siblings and Spouses <code>SibSp</code>). Second, we apply a conditional assignment (via an indented <code>where</code> clause) to define a binary <code>male</code> column.</p>
+<h2 id="data-cleaning">Data cleaning</h2>
+<p>Next we need to handle missing values in the <code>Age</code> column. First we use an aggregation function <code>median()</code> (in this case grouped by <code>Sex</code> and <code>Pclass</code> via an indented <code>by</code> clause) to create some replacement values. Then the <code>fillna</code> command is used to replace NAs in <code>Age</code> with <code>median_age</code>. </p>
+<p>Last we include an <code>assert</code> command as a quality check on our data preparation pipeline. This will throw an error if we have missed any NAs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">list</span> <span class="n">features</span> <span class="o">=</span> <span class="n">Age</span><span class="p">,</span> <span class="n">Age2</span><span class="p">,</span> <span class="n">family</span><span class="p">,</span> <span class="n">male</span><span class="p">,</span> <span class="n">Fare</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">with</span> <span class="n">X</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="n">median_age</span> <span class="o">=</span> <span class="nb">median</span><span class="p">(</span><span class="n">Age</span><span class="p">)</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="kd">by</span> <span class="n">Sex</span><span class="p">,</span> <span class="n">Pclass</span>  
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="k">fillna</span> <span class="n">Age</span> <span class="n">median_age</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    <span class="n">Age2</span> <span class="o">=</span> <span class="n">Age</span><span class="o">**</span><span class="mi">2</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="k">select</span> <span class="n">features</span> 
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="c1"># Should be no NAs here </span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>    <span class="k">assert</span> <span class="n">features</span> <span class="ow">not</span> <span class="ow">null</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">with</span> <span class="n">titanic</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="c1"># Some NAs here </span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="k">assert</span> <span class="n">Age</span> <span class="ow">not</span> <span class="ow">null</span>
+</code></pre></div>
+<div style="font-family:monospace;padding:8px 12px;border-left:3px solid #e05252;background:#fff5f5;border-radius:3px;margin:4px 0;line-height:1.6"><span style="color:#c0392b;font-weight:bold">Pivotal Runtime Error: An error occurred while executing your Pivotal script</span><br><span style="color:#555">&nbsp;&nbsp;→ [Pivotal] assert failed on titanic: Age must not be null: 177 row(s)</span><details style="margin-top:6px"><summary style="cursor:pointer;color:#888;font-size:0.9em">Show full traceback</summary><pre style="background:#f8f8f8;padding:8px;margin-top:4px;font-size:0.82em;overflow-x:auto;color:#555;border-radius:3px">Traceback (most recent call last):
+  File &quot;C:\Users\hughe\.conda\envs\pivotal\Lib\site-packages\IPython\core\interactiveshell.py&quot;, line 3699, in run_code
+    exec(code_obj, self.user_global_ns, self.user_ns)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;C:\Users\hughe\AppData\Local\Temp\ipykernel_42152\124378638.py&quot;, line 6, in &lt;module&gt;
+    if _pvt_dq_bad: raise AssertionError(f&quot;[Pivotal] assert failed on titanic: Age must not be null: {_pvt_dq_bad} row(s)&quot;)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [Pivotal] assert failed on titanic: Age must not be null: 177 row(s)
+</pre></details></div>
+
+<h2 id="python-analysis">Python analysis</h2>
+<p>Now lets jump into Python to do some analysis. In this case a simple linear regression to predict survival of Titanic passengers, using the <code>titanic</code> and <code>X</code> dataframes we built in Pivotal:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">statsmodels.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sm</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">model</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">Logit</span><span class="p">(</span><span class="n">titanic</span><span class="o">.</span><span class="n">Survived</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">titanic</span><span class="p">[</span><span class="s2">&quot;predicted&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Optimization terminated successfully.
+         Current function value: 0.494549
+         Iterations 6
+                           Logit Regression Results                           
+==============================================================================
+Dep. Variable:               Survived   No. Observations:                  891
+Model:                          Logit   Df Residuals:                      886
+Method:                           MLE   Df Model:                            4
+Date:                Fri, 15 May 2026   Pseudo R-squ.:                  0.2573
+Time:                        13:36:27   Log-Likelihood:                -440.64
+converged:                       True   LL-Null:                       -593.33
+Covariance Type:            nonrobust   LLR p-value:                 7.526e-65
+==============================================================================
+                 coef    std err          z      P&gt;|z|      [0.025      0.975]
+------------------------------------------------------------------------------
+Age            0.0348      0.010      3.329      0.001       0.014       0.055
+Age2          -0.0005      0.000     -2.402      0.016      -0.001   -9.09e-05
+family        -0.1962      0.056     -3.505      0.000      -0.306      -0.087
+male          -2.3253      0.175    -13.267      0.000      -2.669      -1.982
+Fare           0.0168      0.003      5.954      0.000       0.011       0.022
+==============================================================================
+</code></pre></div>
+<p>Since we have added a new column to the <code>titanic</code> table in Python it is good idea to update the Pivotal UI (Object Explorer / Viewer) via the <code>update</code> method, after which we will see the new <code>predicted</code> column in the <code>titanic</code> table.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">pivotal</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[Pivotal] Updated viewer: titanic, survival_by_class_df, oldest_passengers, titanic_survival_rates, temp, X
+</code></pre></div>
+<h2 id="save-to-data-package">Save to data package</h2>
+<p>The Pivotal <code>save</code> command exports all data-frames, plots and tables in the current session to a Frictionless data package (a simple folder structure with overarching JSON metadata). </p>
+<p>At this point we have accumulated 6 data-frames, 2 charts and 1 table. We can choose which of these to include / exclude from the save, but for now lets just save all of them. By default charts are saved as both <code>png</code> images and <code>csv</code> data files.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;titanic_results&quot;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Package &#39;titanic_results&#39; saved to C:\pivotal-demo\tutorial\titanic_results (6 dataframe(s), 2 chart(s), 1 table(s), 3 parameter(s))
+&lt;pivotal.package.Package at 0x1e16213a270&gt;
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">directory_tree</span><span class="w"> </span><span class="kn">import</span> <span class="n">DisplayTree</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">DisplayTree</span><span class="p">(</span><span class="s1">&#39;titanic_results&#39;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>titanic_results/
+├── charts/
+│   ├── age_by_survival.csv
+│   ├── age_by_survival.png
+│   ├── survival_by_class.csv
+│   └── survival_by_class.png
+├── data/
+│   ├── oldest_passengers.csv
+│   ├── survival_by_class_df.csv
+│   ├── temp.csv
+│   ├── titanic.csv
+│   ├── titanic_survival_rates.csv
+│   └── X.csv
+├── datapackage.json
+├── parameters.json
+└── tables/
+    └── survival_table.html
+</code></pre></div>
+<h2 id="football-statistics-bulk-load">Football statistics (bulk load)</h2>
+<p>Let's now have a look at some Australian football statistics. This data (taken from <a href="https://github.com/akareen/AFL-Data-Analysis">akareen/AFL-Data-Analaysis</a> on Github) are stored as a large number (129) CSV files (one for each year of VFL/AFL competition). </p>
+<p>The <code>bulk load</code> command can be applied here to loop over all the data files in a folder, and concatenate to a single table. </p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">&quot;data\AFL\matches&quot;</span> <span class="kd">as</span> <span class="n">afl_games</span>
+</code></pre></div>
+<h2 id="column-loops-and-case-assignment">Column loops and case assignment</h2>
+<p>Below we introduce some new Pivotal syntax: Column-wise loops. These can be useful in situations where we need to apply the same assignment / mutation to multiple columns, in this case a string replace function applied to <code>team_1_team_name</code> (Home team) and <code>team_2_team_name</code> (Away team).</p>
+<p>The last statement is a "Case assignment" which allow for multiple <code>where</code> conditions and an optional default <code>else</code> value.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="k">with</span> <span class="n">afl_games</span> 
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="n">team_2_score</span> <span class="o">=</span> <span class="n">team_2_final_goals</span><span class="o">*</span><span class="mi">6</span> <span class="o">+</span> <span class="n">team_2_final_behinds</span> 
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">team_1_score</span> <span class="o">=</span> <span class="n">team_1_final_goals</span><span class="o">*</span><span class="mi">6</span> <span class="o">+</span> <span class="n">team_1_final_behinds</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">team_score</span> <span class="o">=</span> <span class="p">(</span><span class="n">team_1_score</span> <span class="o">+</span> <span class="n">team_2_score</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span> 
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="c1">#  Column loop </span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">team_1_team_name</span><span class="p">,</span> <span class="n">team_2_team_name</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">&quot;Kangaroos&quot;</span><span class="p">,</span> <span class="s2">&quot;North Melbourne&quot;</span><span class="p">)</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">col</span> <span class="o">=</span> <span class="nb">replace</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">&quot;Footscray&quot;</span><span class="p">,</span> <span class="s2">&quot;Western Bulldogs&quot;</span><span class="p">)</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">line</span> <span class="n">long_term_scoring_trend</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="kd">x</span> <span class="nb">year</span> <span class="s2">&quot;VFL/AFL season&quot;</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">team_score</span> <span class="s2">&quot;Mean score per team&quot;</span>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>        <span class="k">show</span>
+<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>
+<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="c1">#  Case assignment</span>
+<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>    <span class="n">winner</span> <span class="o">=</span>
+<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>        <span class="kd">where</span> <span class="n">team_1_score</span> <span class="o">&gt;</span> <span class="n">team_2_score</span><span class="err">:</span> <span class="n">team_1_team_name</span>
+<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>        <span class="kd">where</span> <span class="n">team_2_score</span> <span class="o">&gt;</span> <span class="n">team_1_score</span><span class="err">:</span> <span class="n">team_2_team_name</span>
+<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>        <span class="kd">else</span> <span class="s2">&quot;draw&quot;</span>
+</code></pre></div>
+<p><img alt="png" src="../tutorial_files/tutorial_46_0.png" /></p>
+<h2 id="pipeline-functions">Pipeline functions</h2>
+<p>Pivotal also supports functions, which group together a reusable sequence of data operations (a pipeline).</p>
+<p>In this example we apply the same operations (via the <code>ha_games</code> function) to the home and away teams in the <code>afl_games</code> table, then combine them into a single set of results for each team in each round.  </p>
+<p>Pivotal functions are non-recursive (i.e., more like Excel macros than Python functions), but they can still be called from within Python code if needed; see <a href="https://docs.pivotal-lang.org/syntax/pipeline-control/">Pipeline Control</a> for details.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="k">function</span> <span class="n">ha_games</span><span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="k">with</span> <span class="n">input</span> <span class="kd">as</span> <span class="n">output</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>        <span class="k">select</span> <span class="n">col</span><span class="p">,</span> <span class="n">winner</span><span class="p">,</span> <span class="nb">year</span><span class="p">,</span> <span class="kd">date</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>        <span class="n">win</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>            <span class="kd">where</span> <span class="n">col</span> <span class="o">==</span> <span class="n">winner</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>            <span class="kd">else</span> <span class="mi">0</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>        <span class="k">select</span> <span class="n">col</span> <span class="kd">as</span> <span class="n">team_name</span><span class="p">,</span> <span class="n">win</span><span class="p">,</span> <span class="nb">year</span><span class="p">,</span> <span class="kd">date</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>        <span class="k">filter</span> <span class="nb">year</span> <span class="o">&gt;=</span> <span class="mi">1990</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="n">ha_games</span><span class="p">(</span><span class="n">afl_games</span><span class="p">,</span> <span class="n">home_games</span><span class="p">,</span> <span class="n">team_1_team_name</span><span class="p">)</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="n">ha_games</span><span class="p">(</span><span class="n">afl_games</span><span class="p">,</span> <span class="n">away_games</span><span class="p">,</span> <span class="n">team_2_team_name</span><span class="p">)</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="k">with</span> <span class="n">home_games</span> <span class="kd">as</span> <span class="n">all_games</span>
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>    <span class="k">concat</span> <span class="n">away_games</span>
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a><span class="k">with</span> <span class="n">all_games</span> <span class="kd">as</span> <span class="n">all_games_mean</span>    
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>    <span class="k">group</span> <span class="kd">by</span> <span class="n">team_name</span>
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>        <span class="k">agg</span> <span class="nb">mean</span> <span class="n">win</span>
+<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>    <span class="k">sort</span> <span class="n">win</span>
+<a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>    <span class="n">win</span> <span class="o">=</span> <span class="n">win</span> <span class="o">*</span> <span class="mi">100</span>
+<a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a>    <span class="k">plot</span> <span class="n">barh</span> <span class="n">win_rate_since_1990</span>
+<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>        <span class="kd">x</span> <span class="n">team_name</span> <span class="s2">&quot; &quot;</span>
+<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a>        <span class="kd">y</span> <span class="n">win</span> <span class="s2">&quot;Win percentage (home + away + finals)&quot;</span>
+<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a>        <span class="kd">title</span> <span class="s2">&quot;Win percentage since start of the AFL (1990 to 2025)&quot;</span>
+<a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a>        <span class="k">show</span>
+</code></pre></div>
+<p><img alt="png" src="../tutorial_files/tutorial_48_0.png" /></p>
+<h2 id="merging">Merging</h2>
+<p>The syntax of the Pivotal <code>merge</code> command should be familiar to regular Pandas users. Below we add an extra column <code>players</code> (names of players from each game). Since our <code>cats_lineup</code> table only includes one team and we use an <code>inner</code> merge, we're left with fewer rows (the 832 Geelong Cats games between 1990 and 2025).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">load</span> <span class="n">data</span><span class="err">\</span><span class="n">AFL</span><span class="err">\</span><span class="n">lineups</span><span class="err">\</span><span class="n">team_lineups_geelong</span><span class="err">.</span><span class="n">csv</span> <span class="kd">as</span> <span class="n">cats_lineup</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="k">with</span> <span class="n">cats_lineup</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="k">select</span> <span class="kd">date</span><span class="p">,</span> <span class="n">team_name</span><span class="p">,</span> <span class="n">players</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="k">with</span> <span class="n">all_games</span> <span class="kd">as</span> <span class="n">games_with_lineup</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>    <span class="k">show</span> <span class="kd">shape</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>    <span class="kd">inner</span> <span class="k">merge</span> <span class="n">cats_lineup</span> <span class="kd">on</span> <span class="n">team_name</span><span class="p">,</span> <span class="kd">date</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="k">show</span> <span class="kd">shape</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>(13366, 4)
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>(832, 5)
+</code></pre></div>
+<h2 id="self-indulgent-gary-ablett-reference">Self-indulgent Gary Ablett reference</h2>
+<p>No new syntax here. Just some stats showing the Geelong Cats win-rate with and without Gary Ablett (Senior/Junior) in the team.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="err">%%</span><span class="n">pivotal</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">with</span> <span class="n">games_with_lineup</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">ablett</span> <span class="o">=</span> <span class="s2">&quot;With Ablett&quot;</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>        <span class="kd">where</span> <span class="n">players</span> <span class="ow">contains</span> <span class="s2">&quot;Gary Ablett&quot;</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>        <span class="kd">else</span> <span class="s2">&quot;No Ablett&quot;</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="n">era</span> <span class="o">=</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&lt;=</span><span class="mi">1996</span><span class="err">:</span> <span class="s2">&quot;Gary Snr - 1990-1996&quot;</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>        <span class="kd">where</span> <span class="nb">year</span><span class="o">&gt;=</span><span class="mi">2004</span> <span class="ow">and</span> <span class="nb">year</span> <span class="o">&lt;</span><span class="mi">2011</span><span class="err">:</span> <span class="s2">&quot;Gary Jnr. - 2004-2010&quot;</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>        <span class="c1">#where year&gt;2018 and year &lt;2021: &quot;Gary Jnr. return - 2018-2020&quot;</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>
+<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a>    <span class="k">pivot</span> <span class="k">plot</span> <span class="n">bar</span> <span class="n">no_ablett</span>
+<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a>        <span class="kd">x</span> <span class="n">ablett</span> <span class="s2">&quot; &quot;</span>
+<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>        <span class="kd">y</span> <span class="nb">mean</span> <span class="n">win</span> <span class="s2">&quot;Win rate&quot;</span>
+<a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>        <span class="kd">by</span> <span class="n">era</span>
+<a id="__codelineno-26-16" name="__codelineno-26-16" href="#__codelineno-26-16"></a>        <span class="n">ylim</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.8</span>
+<a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a>        <span class="kd">title</span> <span class="s2">&quot;No Ablett no Geelong?&quot;</span>
+<a id="__codelineno-26-18" name="__codelineno-26-18" href="#__codelineno-26-18"></a>        <span class="k">show</span> 
+</code></pre></div>
+<p><img alt="png" src="../tutorial_files/tutorial_53_0.png" /></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

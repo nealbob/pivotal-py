@@ -1,0 +1,3306 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A pipeline-oriented data transformation DSL for Python and Jupyter">
+      
+      
+      
+        <link rel="canonical" href="https://docs.pivotal-lang.org/0.7.0/syntax/command-reference/">
+      
+      
+        <link rel="prev" href="../saving/">
+      
+      
+        <link rel="next" href="../../backends/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Syntax Reference - Pivotal</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#syntax-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Pivotal" class="md-header__button md-logo" aria-label="Pivotal" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Pivotal
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Syntax Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/nealbob/pivotal-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nealbob/pivotal-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Pivotal" class="md-nav__button md-logo" aria-label="Pivotal" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Pivotal
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/nealbob/pivotal-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nealbob/pivotal-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../whypivotal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Pivotal?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pandas-cheatsheet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pandas Cheatsheet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../values/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Values
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Control
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Column Expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sorting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sorting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grouping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grouping & Aggregation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../joining/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Merge and Concatenate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reshaping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pivot Tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../window-functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Window Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../missing-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Missing Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Charts, Tables, and Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax Reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#values-lists-and-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values, Lists, and Conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters-scalar-list-and-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters (scalar, list and dict)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters (scalar, list and dict)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dict
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bulk-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bulk load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#table-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table Blocks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Table Blocks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        with
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        for
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rows-and-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rows and Columns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rows and Columns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assert-and-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        assert and check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        select
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        drop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sort-order-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sort / order by
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distinct" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distinct
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fillna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fillna
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dropna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dropna
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cast
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        round
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aggregation-and-reshaping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation and Reshaping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Aggregation and Reshaping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#group-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group by
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agg
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pivot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pivot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unpivot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unpivot
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Combining Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        concat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intersect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        intersect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exclude" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        exclude
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#window-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Window Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Window Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rank" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rank
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lag-and-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        lag and lead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cumulative-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cumulative functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rolling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rolling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pivot-plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pivot plot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Python Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages-and-session-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages and Session Objects
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packages and Session Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#function" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        function
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#function-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Function calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pivotal Vs Python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Editors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../jupyter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JupyterLab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp-hosting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#notation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#values-lists-and-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values, Lists, and Conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters-scalar-list-and-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters (scalar, list and dict)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters (scalar, list and dict)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dict
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bulk-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bulk load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#table-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table Blocks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Table Blocks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        with
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        for
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rows-and-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rows and Columns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rows and Columns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assert-and-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        assert and check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        select
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        drop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sort-order-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sort / order by
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distinct" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distinct
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fillna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fillna
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dropna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dropna
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cast
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#round" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        round
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aggregation-and-reshaping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregation and Reshaping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Aggregation and Reshaping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#group-by" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group by
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agg
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pivot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pivot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unpivot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unpivot
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Combining Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        concat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intersect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        intersect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exclude" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        exclude
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#window-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Window Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Window Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rank" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rank
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lag-and-lead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        lag and lead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cumulative-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cumulative functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rolling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rolling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pivot-plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pivot plot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Python Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages-and-session-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages and Session Objects
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packages and Session Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#function" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        function
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#function-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Function calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="syntax-reference">Syntax Reference</h1>
+<p>This page is a compact reference for Pivotal statements and options. It is
+intended for checking exact command shapes; see the user guide topic pages
+for longer examples and explanation.</p>
+<h2 id="notation">Notation</h2>
+<table>
+<thead>
+<tr>
+<th>Placeholder</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;table&gt;</code></td>
+<td>Pivotal table/DataFrame name</td>
+</tr>
+<tr>
+<td><code>&lt;col&gt;</code></td>
+<td>Column name</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;</code></td>
+<td>Identifier used for a table, column, chart, function, or native value</td>
+</tr>
+<tr>
+<td><code>&lt;value&gt;</code></td>
+<td>Boolean, number, string, identifier, path, <code>None</code>, or Python variable</td>
+</tr>
+<tr>
+<td><code>&lt;expr&gt;</code></td>
+<td>Raw expression text parsed by the selected backend</td>
+</tr>
+<tr>
+<td><code>&lt;condition&gt;</code></td>
+<td>One or more comparisons joined by <code>and</code> or <code>or</code></td>
+</tr>
+<tr>
+<td><code>:var</code> / <code>:func(col)</code></td>
+<td>Python runtime variable or callable</td>
+</tr>
+<tr>
+<td><code>[ ... ]</code></td>
+<td>Optional syntax in this reference, unless shown inside code as a list</td>
+</tr>
+</tbody>
+</table>
+<p>Pivotal identifiers start with a letter and may contain letters, numbers, and
+underscores. Strings may use single or double quotes. Comments may use <code>#</code>,
+<code>--</code>, or <code>/* ... */</code>.</p>
+<h2 id="values-lists-and-conditions">Values, Lists, and Conditions</h2>
+<p>Accepted value forms:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kc">True</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kc">False</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kc">None</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="mi">123</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="o">-</span><span class="mi">123</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="mf">12.5</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="s2">&quot;text&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="s1">&#39;text&#39;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">identifier</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nv">:python_variable</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nv">:python_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nv">:python_dict</span><span class="p">[</span><span class="s2">&quot;key&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="kd">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">file</span><span class="err">.</span><span class="n">csv</span>
+</code></pre></div>
+<p>Accepted list forms:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="kd">c</span><span class="p">]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="kd">c</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="kd">c</span>
+</code></pre></div>
+<p>Conditions use a column on the left:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">==</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">!=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&gt;=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">between</span> <span class="p">[</span><span class="o">&lt;</span><span class="n">low</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">high</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">contains</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">not</span> <span class="ow">contains</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">matches</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">not</span> <span class="ow">matches</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">startswith</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">endswith</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="k">list</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="n">name</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="k">list</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="n">name</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Multiple conditions may be joined with <code>and</code> or <code>or</code>.</p>
+<h2 id="parameters-scalar-list-and-dict">Parameters (scalar, list and dict)</h2>
+<h3 id="list"><code>list</code></h3>
+<p>Define a reusable list:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">list</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>List values may be literals, identifiers, paths, or Python variables. Named
+lists can be used in column lists, filter value lists, loop sources, and
+function arguments.</p>
+<p>Index into a known list with square brackets:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">list</span> <span class="n">limits</span> <span class="o">=</span> <span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">with</span> <span class="n">sales</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">filter</span> <span class="n">zscore</span> <span class="o">&gt;</span> <span class="n">limits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">zscore</span> <span class="o">&lt;</span> <span class="n">limits</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</code></pre></div>
+<h3 id="scalar"><code>scalar</code></h3>
+<p>Define a reusable single value:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">scalar</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">scalar</span> <span class="n">gst</span> <span class="o">=</span> <span class="mf">0.1</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">scalar</span> <span class="n">cutoff</span> <span class="o">=</span> <span class="nv">:python_cutoff</span>
+</code></pre></div>
+<h3 id="dict"><code>dict</code></h3>
+<p>Define a nested dictionary inline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">dict</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span><span class="err">:</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="o">&lt;</span><span class="n">nested_key</span><span class="o">&gt;</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Load a dictionary from JSON or YAML:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">dict</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="k">from</span> <span class="s2">&quot;&lt;path&gt;.json&quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">dict</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="k">from</span> <span class="s2">&quot;&lt;path&gt;.yml&quot;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">dict</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="k">from</span> <span class="s2">&quot;&lt;path&gt;.yaml&quot;</span>
+</code></pre></div>
+<p>Bind an existing Python dictionary:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">dict</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nv">:python_dict</span>
+</code></pre></div>
+<p>Access known dictionary values with dot paths:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">config</span><span class="err">.</span><span class="n">thresholds</span><span class="err">.</span><span class="n">high</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">config</span><span class="err">.</span><span class="kd">columns</span><span class="err">.</span><span class="n">money</span>
+</code></pre></div>
+<p>Native values persist in the Python namespace. Later cells may also use
+<code>:name</code>, <code>:name[0]</code>, or <code>:name["key"]</code> runtime references, but native lookup is
+preferred inside Pivotal code when the value belongs to the pipeline.</p>
+<h2 id="data-sources">Data Sources</h2>
+<h3 id="load"><code>load</code></h3>
+<p>Load a file into a table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">load</span> <span class="o">&lt;</span><span class="kd">path</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="nb">string</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="n">pivotal</span><span class="o">-</span><span class="kd">value</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">load</span> <span class="o">&lt;</span><span class="kd">path</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="nb">string</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="n">pivotal</span><span class="o">-</span><span class="kd">value</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="o">&lt;</span><span class="n">reader_option</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="o">&lt;</span><span class="n">reader_option</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="o">&lt;</span><span class="n">reader_option</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span><span class="p">]</span>
+</code></pre></div>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">load</span> <span class="s2">&quot;sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">scalar</span> <span class="n">input_path</span> <span class="o">=</span> <span class="s2">&quot;sales.csv&quot;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">load</span> <span class="n">input_path</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">load</span> <span class="nv">:input_path</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">load</span> <span class="s2">&quot;sales.csv&quot;</span> <span class="kd">as</span> <span class="n">sales</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="kd">header</span> <span class="mi">0</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">sep</span> <span class="s2">&quot;;&quot;</span>
+</code></pre></div>
+<p><code>load</code> reader options are pass-through keyword arguments for the generated file
+reader. CSV files use <code>read_csv</code>, Excel files use <code>read_excel</code>, and Parquet
+files use <code>read_parquet</code>.</p>
+<p>Load tables from the active package:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">load</span> <span class="k">all</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">load</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="bulk-load"><code>bulk load</code></h3>
+<p>Load a list or folder of CSV or Parquet files.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">&quot;&lt;folder&gt;&quot;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">bulk</span> <span class="k">load</span> <span class="s2">&quot;&lt;file1&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;file2&gt;&quot;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">table1</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">table2</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="nv">:aliases</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="k">bulk</span> <span class="k">load</span> <span class="nv">:files</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="kd">source</span> <span class="kd">column</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="kd">source</span> <span class="kd">value</span> <span class="kd">path</span><span class="err">|</span><span class="n">filename</span><span class="err">|</span><span class="n">stem</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="o">&lt;</span><span class="n">reader_option</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>With one static alias, files are concatenated into one table and a source column
+is added. With multiple aliases, or with a Python alias list, each file is loaded
+as a separate table.</p>
+<p>Folder sources are expanded in sorted filename order. A folder must be non-empty
+and contain only CSV files or only Parquet files.</p>
+<p>Defaults:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source column</code></td>
+<td><code>source</code></td>
+</tr>
+<tr>
+<td><code>source value</code></td>
+<td><code>filename</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="from"><code>from</code></h3>
+<p>Load tables or query results from a database.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">from</span> <span class="o">&lt;</span><span class="n">database</span><span class="o">-</span><span class="kd">path</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="n">uri</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">load</span> <span class="o">&lt;</span><span class="n">sql_table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="kd">query</span> <span class="s2">&quot;&lt;sql&gt;&quot;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>The block may contain any mix of <code>load</code> and <code>query</code> lines. Supported source
+forms include SQLite paths, DuckDB paths, SQLAlchemy URIs, and Python variables
+containing those values.</p>
+<h2 id="table-blocks">Table Blocks</h2>
+<h3 id="with"><code>with</code></h3>
+<p>Set the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">with</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Create a derived table and make it active:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">with</span> <span class="o">&lt;</span><span class="n">source_table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_table</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Statements that transform a table are normally indented under <code>with</code>.</p>
+<h3 id="assignment">Assignment</h3>
+<p>Create or replace a column on the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="o">&lt;</span><span class="n">target_col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Conditional assignment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="o">&lt;</span><span class="n">target_col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="kd">where</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="kd">else</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Grouped/windowed assignment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="o">&lt;</span><span class="n">target_col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>Multi-case assignment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="o">&lt;</span><span class="n">target_col</span><span class="o">&gt;</span> <span class="o">=</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="kd">where</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="kd">where</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span><span class="err">:</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="kd">else</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+</code></pre></div>
+<p><code>map</code> can be used instead of <code>where</code> as an alias in multi-case assignment.</p>
+<p>The <code>else</code> branch is optional. Without it, unmatched rows receive the backend's
+missing value.</p>
+<p>Python runtime functions in assignment expressions must use <code>:</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="o">&lt;</span><span class="n">target_col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nv">:python_func</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">)</span>
+</code></pre></div>
+<p>Bare function calls are reserved for built-in Pivotal functions and backend-native functions.</p>
+<h3 id="for"><code>for</code></h3>
+<p>Repeat column-oriented operations over a list of columns.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">for</span> <span class="o">&lt;</span><span class="n">loop_var</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="o">&lt;</span><span class="n">loop_var</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="k">for</span> <span class="o">&lt;</span><span class="n">loop_var</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="nv">:python_column_list</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="o">&lt;</span><span class="n">loop_var</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">expr</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Inside a <code>for</code> block, assignment targets can be built from identifiers and
+string literals:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">price</span><span class="p">,</span> <span class="n">cost</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>    <span class="n">col</span> <span class="o">+</span> <span class="s2">&quot;_clean&quot;</span> <span class="o">=</span> <span class="n">col</span>
+</code></pre></div>
+<p>Allowed statements inside <code>for</code> are assignment, <code>cast</code>, <code>fillna</code>, <code>drop</code>,
+<code>dropna</code>, <code>round</code>, <code>rank</code>, <code>lag</code>, <code>lead</code>, <code>cumsum</code>, <code>cummean</code>, <code>cummin</code>,
+<code>cummax</code>, and <code>rolling</code>.</p>
+<h2 id="rows-and-columns">Rows and Columns</h2>
+<h3 id="filter"><code>filter</code></h3>
+<p>Keep rows matching a condition:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">filter</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="assert-and-check"><code>assert</code> and <code>check</code></h3>
+<p>Validate data quality. <code>assert</code> fails on invalid data; <code>check</code> warns and
+continues.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">assert</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="k">check</span> <span class="o">&lt;</span><span class="n">condition</span><span class="o">&gt;</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="k">assert</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="ow">unique</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="k">check</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="ow">unique</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="k">assert</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="ow">not</span> <span class="ow">null</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="k">check</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="ow">not</span> <span class="ow">null</span>
+</code></pre></div>
+<h3 id="select"><code>select</code></h3>
+<p>Keep selected columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">select</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="k">select</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="k">select</span> <span class="nv">:python_column_or_columns</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="k">select</span> <span class="ow">matches</span> <span class="s2">&quot;&lt;regex&gt;&quot;</span>
+</code></pre></div>
+<p>Aliases are supported for explicit column names. A Python variable may provide a
+single column or a list of columns.</p>
+<p>End a physical line with <code>\</code> to continue a long Pivotal statement:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="k">select</span> <span class="n">customer_id</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="err">\</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    <span class="n">revenue</span><span class="p">,</span> <span class="n">quantity</span><span class="p">,</span> <span class="kd">date</span>
+</code></pre></div>
+<h3 id="drop"><code>drop</code></h3>
+<p>Remove columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">drop</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="k">drop</span> <span class="ow">matches</span> <span class="s2">&quot;&lt;regex&gt;&quot;</span>
+</code></pre></div>
+<h3 id="rename"><code>rename</code></h3>
+<p>Rename columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">rename</span> <span class="o">&lt;</span><span class="n">old_col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<h3 id="sort-order-by"><code>sort</code> / <code>order by</code></h3>
+<p>Sort rows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="k">sort</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">asc</span><span class="err">|</span><span class="kd">desc</span><span class="p">],</span> <span class="err">...</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="k">order</span> <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">asc</span><span class="err">|</span><span class="kd">desc</span><span class="p">],</span> <span class="err">...</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="k">sort</span> <span class="nv">:python_column_or_columns</span> <span class="p">[</span><span class="kd">asc</span><span class="err">|</span><span class="kd">desc</span><span class="p">]</span>
+</code></pre></div>
+<p>Ascending order is the default.</p>
+<h3 id="distinct"><code>distinct</code></h3>
+<p>Drop duplicate rows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="k">distinct</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="k">distinct</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>Without columns, duplicates are checked across the full row.</p>
+<h3 id="fillna"><code>fillna</code></h3>
+<p>Fill missing values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="k">fillna</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="k">fillna</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="k">fillna</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>    <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>    <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="dropna"><code>dropna</code></h3>
+<p>Drop rows with missing values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="k">dropna</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="k">dropna</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<h3 id="cast"><code>cast</code></h3>
+<p>Cast one or more columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">cast</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="kd">as</span> <span class="nb">int</span><span class="err">|</span><span class="kd">integer</span><span class="err">|</span><span class="nb">float</span><span class="err">|</span><span class="nb">string</span><span class="err">|</span><span class="nb">str</span><span class="err">|</span><span class="nb">bool</span><span class="err">|</span><span class="nb">boolean</span><span class="err">|</span><span class="nb">datetime</span> <span class="p">[</span><span class="kd">strict</span><span class="p">]</span>
+</code></pre></div>
+<p>Without <code>strict</code>, bad values are coerced where the backend supports coercion.</p>
+<h3 id="round"><code>round</code></h3>
+<p>Round numeric columns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="k">round</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="o">&lt;</span><span class="n">decimals</span><span class="o">&gt;</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="k">round</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">decimals</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>The <code>as</code> form is valid only with a single source column.</p>
+<h2 id="aggregation-and-reshaping">Aggregation and Reshaping</h2>
+<h3 id="group-by"><code>group by</code></h3>
+<p>Group and aggregate the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="k">group</span> <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>    <span class="k">agg</span> <span class="o">&lt;</span><span class="n">agg_item</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>If <code>agg</code> is omitted, backends use their default grouped aggregation behavior.</p>
+<h3 id="agg"><code>agg</code></h3>
+<p>Aggregate the whole active table without grouping:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="k">agg</span> <span class="o">&lt;</span><span class="n">agg_item</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>Aggregation item forms:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="nb">quantile</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">q</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="nb">quantile</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">q</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="nb">percentile</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a><span class="nb">percentile</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a><span class="nb">wmean</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">weight</span><span class="o">-</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a><span class="nb">wmean</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">list</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a>    <span class="n">weight</span> <span class="p">[</span><span class="o">=</span><span class="p">]</span> <span class="o">&lt;</span><span class="n">weight</span><span class="o">-</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a><span class="nv">:python_func</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="err">...</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+<a id="__codelineno-40-11" name="__codelineno-40-11" href="#__codelineno-40-11"></a><span class="nv">:python_func</span><span class="p">(</span><span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">kw</span><span class="o">&gt;=&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">[</span><span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span><span class="p">]</span>
+</code></pre></div>
+<p>The target-first indented form is preferred for space syntax. Its <code>=</code> is
+optional, and multiple comma-separated targets share the same weight. A single
+<code>as</code> alias is valid only when there is one target. <code>weight</code> remains a valid
+dataframe column name.</p>
+<p>Built-in aggregation functions accepted by the grammar are <code>mean</code>, <code>avg</code>, <code>sum</code>,
+<code>min</code>, <code>max</code>, <code>count</code>, <code>median</code>, <code>std</code>, <code>nunique</code>, <code>quantile</code>, <code>percentile</code>, and
+<code>wmean</code>.</p>
+<p>Older weight-first syntax (<code>wmean &lt;weight-col&gt; &lt;target-col&gt; ...</code>) and the <code>wavg</code>
+alias remain accepted for backward compatibility, but new code should use the
+target-first block or bracket form.</p>
+<p>Pivotal also expands shorthand such as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="k">agg</span> <span class="nb">mean</span> <span class="n">price</span><span class="p">,</span> <span class="n">cost</span>
+</code></pre></div>
+<p>to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="k">agg</span> <span class="nb">mean</span> <span class="n">price</span><span class="p">,</span> <span class="nb">mean</span> <span class="n">cost</span>
+</code></pre></div>
+<h3 id="pivot"><code>pivot</code></h3>
+<p>Create a pivot table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="k">pivot</span>
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>    <span class="kd">rows</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>    <span class="kd">cols</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>    <span class="k">agg</span> <span class="o">&lt;</span><span class="n">agg_item</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p><code>rows</code>, <code>cols</code>, and <code>agg</code> lines may appear in any order. Use the same aggregation
+item forms as <code>group by</code>.</p>
+<h3 id="unpivot"><code>unpivot</code></h3>
+<p>Convert wide data to long data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="k">unpivot</span>
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>    <span class="kd">id</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>    <span class="kd">cols</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">-</span><span class="ow">or</span><span class="o">-</span><span class="k">python</span><span class="o">-</span><span class="n">var</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>    <span class="kd">variable</span> <span class="s2">&quot;&lt;variable_column_name&gt;&quot;</span>
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>    <span class="kd">value</span> <span class="s2">&quot;&lt;value_column_name&gt;&quot;</span>
+</code></pre></div>
+<p>Defaults:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>variable</code></td>
+<td><code>variable</code></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td><code>value</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="combining-tables">Combining Tables</h2>
+<h3 id="merge"><code>merge</code></h3>
+<p>Join another table to the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="k">merge</span> <span class="o">&lt;</span><span class="n">right_table</span><span class="o">&gt;</span>
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a><span class="o">&lt;</span><span class="kd">left</span><span class="err">|</span><span class="kd">right</span><span class="err">|</span><span class="kd">inner</span><span class="err">|</span><span class="kd">outer</span><span class="o">&gt;</span> <span class="k">merge</span> <span class="o">&lt;</span><span class="n">right_table</span><span class="o">&gt;</span>
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a><span class="k">merge</span> <span class="o">&lt;</span><span class="n">right_table</span><span class="o">&gt;</span> <span class="kd">on</span> <span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a><span class="o">&lt;</span><span class="kd">left</span><span class="err">|</span><span class="kd">right</span><span class="err">|</span><span class="kd">inner</span><span class="err">|</span><span class="kd">outer</span><span class="o">&gt;</span> <span class="k">merge</span> <span class="o">&lt;</span><span class="n">right_table</span><span class="o">&gt;</span> <span class="kd">on</span> <span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-45-5" name="__codelineno-45-5" href="#__codelineno-45-5"></a>    <span class="o">&lt;</span><span class="n">merge_option</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-45-6" name="__codelineno-45-6" href="#__codelineno-45-6"></a>    <span class="o">&lt;</span><span class="n">merge_option</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>The default merge type is <code>inner</code>. Indented merge options are pass-through
+keyword arguments for the generated backend merge/join call.</p>
+<h3 id="concat"><code>concat</code></h3>
+<p>Append tables vertically to the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="k">concat</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<h3 id="intersect"><code>intersect</code></h3>
+<p>Keep rows in the active table that also appear in the listed tables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="k">intersect</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<h3 id="exclude"><code>exclude</code></h3>
+<p>Remove rows from the active table that appear in the listed tables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="k">exclude</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<h2 id="window-functions">Window Functions</h2>
+<h3 id="rank"><code>rank</code></h3>
+<p>Rank rows by a column:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="k">rank</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="p">[</span><span class="kd">asc</span><span class="err">|</span><span class="kd">desc</span><span class="p">]</span> <span class="p">[</span><span class="kd">pct</span><span class="p">]</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>Ascending order is the default. <code>pct</code> returns percentile ranks.</p>
+<h3 id="lag-and-lead"><code>lag</code> and <code>lead</code></h3>
+<p>Read values from prior or later rows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="k">lag</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">periods</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>
+<a id="__codelineno-50-5" name="__codelineno-50-5" href="#__codelineno-50-5"></a><span class="k">lead</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">periods</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-50-6" name="__codelineno-50-6" href="#__codelineno-50-6"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-50-7" name="__codelineno-50-7" href="#__codelineno-50-7"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Use <code>order</code> to make the row order explicit.</p>
+<h3 id="cumulative-functions">Cumulative functions</h3>
+<p>Compute cumulative values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="k">cumsum</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a><span class="k">cummean</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-6" name="__codelineno-51-6" href="#__codelineno-51-6"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-51-7" name="__codelineno-51-7" href="#__codelineno-51-7"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-8" name="__codelineno-51-8" href="#__codelineno-51-8"></a>
+<a id="__codelineno-51-9" name="__codelineno-51-9" href="#__codelineno-51-9"></a><span class="k">cummin</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-10" name="__codelineno-51-10" href="#__codelineno-51-10"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-51-11" name="__codelineno-51-11" href="#__codelineno-51-11"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-12" name="__codelineno-51-12" href="#__codelineno-51-12"></a>
+<a id="__codelineno-51-13" name="__codelineno-51-13" href="#__codelineno-51-13"></a><span class="k">cummax</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-51-14" name="__codelineno-51-14" href="#__codelineno-51-14"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-51-15" name="__codelineno-51-15" href="#__codelineno-51-15"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+</code></pre></div>
+<h3 id="rolling"><code>rolling</code></h3>
+<p>Compute rolling-window values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a><span class="k">rolling</span> <span class="o">&lt;</span><span class="n">agg_func</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">window_size</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">new_col</span><span class="o">&gt;</span>
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a>    <span class="k">order</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-52-4" name="__codelineno-52-4" href="#__codelineno-52-4"></a>    <span class="kd">min_periods</span> <span class="p">[</span><span class="o">=</span><span class="p">]</span> <span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Rolling aggregation functions use the same grammar token as <code>agg</code>: <code>mean</code>,
+<code>avg</code>, <code>sum</code>, <code>min</code>, <code>max</code>, <code>count</code>, <code>median</code>, <code>std</code>, and <code>nunique</code>. Backend
+support for individual rolling functions may vary.</p>
+<h2 id="output">Output</h2>
+<h3 id="show"><code>show</code></h3>
+<p>Display the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a><span class="k">show</span>
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a><span class="k">show</span> <span class="kd">head</span>
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a><span class="k">show</span> <span class="kd">summary</span>
+<a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a><span class="k">show</span> <span class="kd">shape</span>
+<a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a><span class="k">show</span> <span class="kd">columns</span>
+</code></pre></div>
+<h3 id="plot"><code>plot</code></h3>
+<p>Create or update a matplotlib chart:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a><span class="k">plot</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a><span class="k">plot</span> <span class="o">&lt;</span><span class="kd">kind</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a><span class="k">plot</span> <span class="o">&lt;</span><span class="kd">kind</span><span class="o">&gt;</span> <span class="kd">on</span> <span class="o">&lt;</span><span class="n">existing_chart_name</span><span class="o">&gt;</span>
+<a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a><span class="k">plot</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-54-5" name="__codelineno-54-5" href="#__codelineno-54-5"></a>    <span class="o">&lt;</span><span class="n">plot_option</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-54-6" name="__codelineno-54-6" href="#__codelineno-54-6"></a>    <span class="o">&lt;</span><span class="n">plot_option</span><span class="o">&gt;</span> <span class="o">=</span> <span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span>
+<a id="__codelineno-54-7" name="__codelineno-54-7" href="#__codelineno-54-7"></a>    <span class="o">&lt;</span><span class="n">plot_option</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="kd">value</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span><span class="p">]</span>
+<a id="__codelineno-54-8" name="__codelineno-54-8" href="#__codelineno-54-8"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-54-9" name="__codelineno-54-9" href="#__codelineno-54-9"></a>    <span class="kd">cols</span> <span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span>
+<a id="__codelineno-54-10" name="__codelineno-54-10" href="#__codelineno-54-10"></a>    <span class="k">show</span>
+</code></pre></div>
+<p>Common plot options include <code>kind</code>, <code>x</code>, <code>y</code>, <code>title</code>, <code>legend</code>, <code>c</code>,
+<code>colormap</code>, <code>style</code>, and <code>canvas</code>. Most options are passed through to pandas or
+matplotlib plotting code.</p>
+<p>Labels can be supplied after a value:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a><span class="k">plot</span> <span class="n">line</span> <span class="n">sales_chart</span>
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>    <span class="kd">x</span> <span class="nb">month</span> <span class="s2">&quot;Month&quot;</span>
+<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>    <span class="kd">y</span> <span class="n">revenue</span> <span class="s2">&quot;Revenue&quot;</span>
+</code></pre></div>
+<h3 id="pivot-plot"><code>pivot plot</code></h3>
+<p>Group, aggregate, and plot in one command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="k">pivot</span> <span class="k">plot</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a><span class="k">pivot</span> <span class="k">plot</span> <span class="o">&lt;</span><span class="kd">kind</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>    <span class="kd">x</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>    <span class="kd">y</span> <span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+<a id="__codelineno-56-5" name="__codelineno-56-5" href="#__codelineno-56-5"></a>    <span class="kd">by</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-56-6" name="__codelineno-56-6" href="#__codelineno-56-6"></a>    <span class="kd">cols</span> <span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span>
+<a id="__codelineno-56-7" name="__codelineno-56-7" href="#__codelineno-56-7"></a>    <span class="kd">canvas</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-56-8" name="__codelineno-56-8" href="#__codelineno-56-8"></a>    <span class="k">show</span>
+</code></pre></div>
+<h3 id="table"><code>table</code></h3>
+<p>Create a Great Tables table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a><span class="k">table</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>    <span class="kd">title</span> <span class="s2">&quot;&lt;text&gt;&quot;</span>
+<a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>    <span class="kd">subtitle</span> <span class="s2">&quot;&lt;text&gt;&quot;</span>
+<a id="__codelineno-57-4" name="__codelineno-57-4" href="#__codelineno-57-4"></a>    <span class="kd">font</span> <span class="kd">size</span> <span class="o">&lt;</span><span class="kd">number</span><span class="o">&gt;</span>
+<a id="__codelineno-57-5" name="__codelineno-57-5" href="#__codelineno-57-5"></a>    <span class="kd">font</span> <span class="s2">&quot;&lt;family&gt;&quot;</span>
+<a id="__codelineno-57-6" name="__codelineno-57-6" href="#__codelineno-57-6"></a>    <span class="kd">stub</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span>
+<a id="__codelineno-57-7" name="__codelineno-57-7" href="#__codelineno-57-7"></a>    <span class="kd">stub</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="s2">&quot;&lt;label&gt;&quot;</span>
+<a id="__codelineno-57-8" name="__codelineno-57-8" href="#__codelineno-57-8"></a>    <span class="kd">stub</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">group_col</span><span class="o">&gt;</span>
+<a id="__codelineno-57-9" name="__codelineno-57-9" href="#__codelineno-57-9"></a>    <span class="kd">stub</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">group_col</span><span class="o">&gt;</span> <span class="s2">&quot;&lt;label&gt;&quot;</span>
+<a id="__codelineno-57-10" name="__codelineno-57-10" href="#__codelineno-57-10"></a>    <span class="kd">stripe</span>
+<a id="__codelineno-57-11" name="__codelineno-57-11" href="#__codelineno-57-11"></a>    <span class="kd">canvas</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span>
+<a id="__codelineno-57-12" name="__codelineno-57-12" href="#__codelineno-57-12"></a>    <span class="kd">label</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="s2">&quot;&lt;label&gt;&quot;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-57-13" name="__codelineno-57-13" href="#__codelineno-57-13"></a>    <span class="kd">format</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="o">&lt;</span><span class="n">format_type</span><span class="o">&gt;</span>
+<a id="__codelineno-57-14" name="__codelineno-57-14" href="#__codelineno-57-14"></a>    <span class="kd">format</span> <span class="o">&lt;</span><span class="n">format_type</span><span class="o">&gt;</span>
+<a id="__codelineno-57-15" name="__codelineno-57-15" href="#__codelineno-57-15"></a>    <span class="kd">style</span> <span class="s2">&quot;&lt;path&gt;&quot;</span>
+<a id="__codelineno-57-16" name="__codelineno-57-16" href="#__codelineno-57-16"></a>    <span class="kd">summary</span> <span class="o">&lt;</span><span class="n">summary_spec</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-57-17" name="__codelineno-57-17" href="#__codelineno-57-17"></a>    <span class="kd">spanner</span> <span class="o">&lt;</span><span class="n">col</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span> <span class="s2">&quot;&lt;label&gt;&quot;</span>
+<a id="__codelineno-57-18" name="__codelineno-57-18" href="#__codelineno-57-18"></a>    <span class="kd">auto</span> <span class="kd">spanner</span>
+<a id="__codelineno-57-19" name="__codelineno-57-19" href="#__codelineno-57-19"></a>    <span class="k">show</span>
+</code></pre></div>
+<p>Format types:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a><span class="kd">number</span>
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a><span class="kd">number</span> <span class="o">&lt;</span><span class="n">decimals</span><span class="o">&gt;</span>
+<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a><span class="kd">integer</span>
+<a id="__codelineno-58-4" name="__codelineno-58-4" href="#__codelineno-58-4"></a><span class="kd">currency</span>
+<a id="__codelineno-58-5" name="__codelineno-58-5" href="#__codelineno-58-5"></a><span class="kd">currency</span> <span class="o">&lt;</span><span class="n">code</span><span class="o">&gt;</span>
+<a id="__codelineno-58-6" name="__codelineno-58-6" href="#__codelineno-58-6"></a><span class="kd">percent</span>
+<a id="__codelineno-58-7" name="__codelineno-58-7" href="#__codelineno-58-7"></a><span class="kd">percent</span> <span class="o">&lt;</span><span class="n">decimals</span><span class="o">&gt;</span>
+<a id="__codelineno-58-8" name="__codelineno-58-8" href="#__codelineno-58-8"></a><span class="kd">date</span>
+</code></pre></div>
+<p>Summary specs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a><span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span>
+<a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a><span class="o">&lt;</span><span class="n">func</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="s2">&quot;&lt;label&gt;&quot;</span>
+</code></pre></div>
+<h2 id="python-integration">Python Integration</h2>
+<h3 id="python"><code>python</code></h3>
+<p>Run a single Python statement:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a><span class="k">python</span> <span class="o">&lt;</span><span class="k">python</span><span class="o">-</span><span class="n">code</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>Run a Python block:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a><span class="k">python</span>
+<a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>    <span class="o">&lt;</span><span class="k">python</span><span class="o">-</span><span class="n">code</span><span class="o">&gt;</span>
+<a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a><span class="k">end</span>
+</code></pre></div>
+<p><code>python...end</code> blocks are preprocessed into a single Python statement before
+parsing, so comments and indentation inside the Python code are preserved.</p>
+<h3 id="apply"><code>apply</code></h3>
+<p>Apply a Python function to the active table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a><span class="k">apply</span> <span class="err">:</span><span class="o">&lt;</span><span class="n">python_function_name</span><span class="o">&gt;</span>
+</code></pre></div>
+<p>The function receives the active DataFrame and must return a DataFrame.</p>
+<h2 id="packages-and-session-objects">Packages and Session Objects</h2>
+<h3 id="save"><code>save</code></h3>
+<p>Save outputs to a Pivotal data package:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="s2">&quot;&lt;directory&gt;/&lt;package_name&gt;&quot;</span>
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a><span class="k">save</span> <span class="kd">package</span> <span class="kd">as</span> <span class="nv">:python_path</span>
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a>    <span class="kd">format</span> <span class="o">&lt;</span><span class="n">csv</span><span class="err">|</span><span class="n">parquet</span><span class="o">&gt;</span>
+<a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a>    <span class="kd">chart_format</span> <span class="o">&lt;</span><span class="n">png</span><span class="err">|</span><span class="n">svg</span><span class="o">&gt;</span>
+<a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a>    <span class="kd">include</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+<a id="__codelineno-63-6" name="__codelineno-63-6" href="#__codelineno-63-6"></a>    <span class="k">exclude</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p>Save one table to a path or managed catalog table:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="k">save</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="s2">&quot;&lt;path&gt;&quot;</span>
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a><span class="k">save</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="nv">:python_path</span>
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a><span class="k">save</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span> <span class="kd">as</span> <span class="k">table</span> <span class="s2">&quot;&lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;&quot;</span>
+</code></pre></div>
+<p>File formats are inferred from the path suffix. Managed table support depends
+on the selected backend.</p>
+<h3 id="delete"><code>delete</code></h3>
+<p>Remove a table from the session namespace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="k">delete</span> <span class="o">&lt;</span><span class="k">table</span><span class="o">&gt;</span>
+</code></pre></div>
+<h2 id="pipeline-functions">Pipeline Functions</h2>
+<h3 id="function"><code>function</code></h3>
+<p>Define a reusable non-recursive pipeline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a><span class="k">function</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="p">([</span><span class="o">&lt;</span><span class="n">param</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">param</span><span class="o">&gt;=&lt;</span><span class="n">default</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span><span class="p">])</span>
+<a id="__codelineno-66-2" name="__codelineno-66-2" href="#__codelineno-66-2"></a>    <span class="o">&lt;</span><span class="n">statement</span><span class="o">&gt;</span>
+<a id="__codelineno-66-3" name="__codelineno-66-3" href="#__codelineno-66-3"></a>    <span class="o">&lt;</span><span class="n">statement</span><span class="o">&gt;</span>
+<a id="__codelineno-66-4" name="__codelineno-66-4" href="#__codelineno-66-4"></a>    <span class="k">return</span> <span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span>
+</code></pre></div>
+<p><code>return</code> is optional. It records output metadata for Python-callable wrappers.</p>
+<h3 id="function-calls">Function calls</h3>
+<p>Call a Pivotal pipeline function:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a><span class="o">&lt;</span><span class="n">function_name</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&lt;</span><span class="n">arg</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">arg</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">keyword</span><span class="o">&gt;=&lt;</span><span class="n">arg</span><span class="o">&gt;</span><span class="p">,</span> <span class="err">...</span><span class="p">)</span>
+</code></pre></div>
+<p>Function arguments may be values, Python variables, named lists, or inline
+round-bracket lists:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a><span class="n">clean_sales</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">clean</span><span class="p">,</span> <span class="p">(</span><span class="n">price</span><span class="p">,</span> <span class="n">cost</span><span class="p">),</span> <span class="n">min_amount</span><span class="o">=</span><span class="nv">:threshold</span><span class="p">)</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
