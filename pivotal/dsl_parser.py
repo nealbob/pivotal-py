@@ -259,7 +259,13 @@ grammar_indented = r"""
 
     agg_clause: agg_line+
 
-    agg_line: "agg" agg_item ("," agg_item)* _NL?
+    agg_line: weighted_agg_line
+            | "agg" agg_item ("," agg_item)* _NL?
+
+    weighted_agg_line: "agg" ("wmean" | "wavg") weighted_agg_targets weighted_agg_alias? _NL _INDENT weighted_agg_weight _DEDENT
+    weighted_agg_targets: (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("," (IDENTIFIER | PYTHON_VAR | COMPILE_REF))*
+    weighted_agg_alias: "as" IDENTIFIER
+    weighted_agg_weight: "weight" "="? (IDENTIFIER | PYTHON_VAR | COMPILE_REF) _NL?
 
     agg_item: QUANTILE_FUNCTION "(" (IDENTIFIER | PYTHON_VAR) "," quantile_value ")" ("as" IDENTIFIER)? -> quantile_bracket_item
             | QUANTILE_FUNCTION (IDENTIFIER | PYTHON_VAR) quantile_value ("as" IDENTIFIER)? -> quantile_space_item
@@ -357,7 +363,8 @@ grammar_indented = r"""
 
     select_item: (IDENTIFIER | PYTHON_VAR | COMPILE_REF) ("as" IDENTIFIER)?
 
-    agg_statement: "agg" agg_item ("," agg_item)* _NL?
+    agg_statement: weighted_agg_line
+                 | "agg" agg_item ("," agg_item)* _NL?
 
     pivot_statement: "pivot" _NL _INDENT pivot_args _DEDENT
 
@@ -1769,6 +1776,45 @@ class DSLTransformer(Transformer):
                 result.append(item)
             elif isinstance(item, list):
                 result.extend(d for d in item if isinstance(d, dict))
+        return result
+
+    def weighted_agg_targets(self, *targets):
+        return [target if isinstance(target, dict) else str(target) for target in targets]
+
+    def weighted_agg_alias(self, alias):
+        return {'weighted_agg_alias': str(alias)}
+
+    def weighted_agg_weight(self, weight):
+        value = weight if isinstance(weight, dict) else str(weight)
+        return {'weighted_agg_weight': value}
+
+    def weighted_agg_line(self, *parts):
+        """Target-first weighted agg with an indented weight option."""
+        targets = next((part for part in parts if isinstance(part, list)), [])
+        alias_part = next(
+            (part for part in parts if isinstance(part, dict) and 'weighted_agg_alias' in part),
+            None,
+        )
+        weight_part = next(
+            (part for part in parts if isinstance(part, dict) and 'weighted_agg_weight' in part),
+            None,
+        )
+        if weight_part is None:
+            raise ValueError("Weighted aggregation requires an indented 'weight <column>' option.")
+        if len(targets) > 1 and alias_part is not None:
+            raise ValueError(
+                "An aggregation over multiple target columns cannot use one alias. "
+                "Remove 'as ...' to use generated names, or write separate agg items."
+            )
+
+        weight = weight_part['weighted_agg_weight']
+        alias = alias_part['weighted_agg_alias'] if alias_part is not None else None
+        result = []
+        for target in targets:
+            item = {'func': 'wmean', 'column': target, 'weight': weight}
+            if alias is not None:
+                item['alias'] = alias
+            result.append(item)
         return result
 
     def agg_clause(self, *lines):

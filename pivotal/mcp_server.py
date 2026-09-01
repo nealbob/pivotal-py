@@ -18,7 +18,9 @@ _SYNTAX_PATH = _REPO_ROOT / "PIVOTAL.md"
 _PUBLIC_WEBSITE_URL = "https://www.pivotal-lang.org/"
 _PUBLIC_DOCS_BASE_URL = "https://docs.pivotal-lang.org"
 _PUBLIC_MCP_URL = "https://mcp.pivotal-lang.org/mcp"
-_FULL_SYNTAX_MAX_CHARS = 25000
+# Keep the default large enough to return the canonical syntax reference in full.
+# Topic-specific requests still use their caller-supplied limits.
+_FULL_SYNTAX_MAX_CHARS = 32000
 
 _DOC_FILES = (
     "PIVOTAL.md",

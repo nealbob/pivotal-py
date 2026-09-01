@@ -1054,6 +1054,26 @@ def test_groupby_wmean_pivotal_target_list(parser):
     assert result['wmean_cost'].to_list() == pytest.approx([25.0, 30.0])
 
 
+def test_groupby_wmean_target_first_block(parser):
+    df = pl.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'amount': [100, 300, 200, 400],
+        'cost': [10, 30, 20, 40],
+        'weight': [1, 3, 2, 2],
+    })
+    ns = {'data': df}
+    run(
+        parser,
+        'with data\ngroup by region\n'
+        '    agg wmean amount, cost\n'
+        '        weight = weight\n',
+        ns,
+    )
+    result = ns['data'].sort('region')
+    assert result['wmean_amount'].to_list() == pytest.approx([250.0, 300.0])
+    assert result['wmean_cost'].to_list() == pytest.approx([25.0, 30.0])
+
+
 def test_groupby_mean_pivotal_target_list(parser):
     df = pl.DataFrame({
         'region': ['N', 'N', 'S', 'S'],

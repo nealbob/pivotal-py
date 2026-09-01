@@ -1348,6 +1348,86 @@ def test_wmean_accepts_pivotal_target_list(parser):
     assert ns['data']['wmean_b'].iloc[0] == pytest.approx(25.0)
 
 
+def test_wmean_target_first_block_accepts_list_and_optional_equals(parser):
+    df = pd.DataFrame({
+        'price': [10.0, 30.0],
+        'cost': [1.0, 5.0],
+        'quantity': [1, 3],
+    })
+    ns = {'pd': pd, 'data': df}
+    source = (
+        'list measures = price, cost\n'
+        'with data\n'
+        'agg wmean measures\n'
+        '    weight quantity\n'
+    )
+
+    ast = parser.parse(source)
+    assert ast[1]['agg_list'] == [
+        {'func': 'wmean', 'column': 'price', 'weight': 'quantity'},
+        {'func': 'wmean', 'column': 'cost', 'weight': 'quantity'},
+    ]
+
+    run(parser, source, ns)
+    assert ns['data']['wmean_price'].iloc[0] == pytest.approx(25.0)
+    assert ns['data']['wmean_cost'].iloc[0] == pytest.approx(4.0)
+
+
+def test_wmean_target_first_block_allows_weight_column_name(parser):
+    df = pd.DataFrame({
+        'price': [10.0, 30.0],
+        'weight': [1.0, 3.0],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(
+        parser,
+        'with data\nagg wmean price, weight\n    weight = weight\n',
+        ns,
+    )
+    assert ns['data']['wmean_price'].iloc[0] == pytest.approx(25.0)
+    assert ns['data']['wmean_weight'].iloc[0] == pytest.approx(2.5)
+
+
+def test_wmean_target_first_block_single_alias(parser):
+    df = pd.DataFrame({'price': [10.0, 30.0], 'quantity': [1, 3]})
+    ns = {'pd': pd, 'data': df}
+    run(
+        parser,
+        'with data\nagg wmean price as avg_price\n    weight = quantity\n',
+        ns,
+    )
+    assert ns['data']['avg_price'].iloc[0] == pytest.approx(25.0)
+
+
+def test_wmean_target_first_block_rejects_one_alias_for_multiple_targets(parser):
+    result = parser.parse(
+        'with data\nagg wmean price, cost as weighted\n'
+        '    weight quantity\n'
+    )
+    assert 'error' in result
+    assert 'multiple target columns cannot use one alias' in result['error'].message
+
+
+def test_wmean_target_first_block_can_precede_another_grouped_agg(parser):
+    df = pd.DataFrame({
+        'region': ['N', 'N', 'S', 'S'],
+        'price': [10.0, 30.0, 20.0, 40.0],
+        'quantity': [1, 3, 2, 2],
+    })
+    ns = {'pd': pd, 'data': df}
+    run(
+        parser,
+        'with data\ngroup by region\n'
+        '    agg wmean price as avg_price\n'
+        '        weight quantity\n'
+        '    agg sum quantity as total_quantity\n',
+        ns,
+    )
+    n = ns['data'][ns['data']['region'] == 'N'].iloc[0]
+    assert n['avg_price'] == pytest.approx(25.0)
+    assert n['total_quantity'] == 4
+
+
 def test_wmean_rejects_one_alias_for_multiple_list_targets(parser):
     result = parser.parse(
         'list measures = a, b\nwith data\n    agg wmean w measures as weighted\n'

@@ -229,6 +229,7 @@ const COMMAND_COMPLETIONS: Completion[] = [
   { label: 'group by',  type: 'keyword', apply: snippet('group by ${grp_col}\n    agg ${func} ${val_col} as ${name}'), detail: 'group by <col>\n    agg <sum|mean|...> <col> as <name>' },
   // standalone agg: whole-table aggregation, no group by
   { label: 'agg',       type: 'keyword', apply: snippet('agg ${func} ${agg_col} as ${name}'), detail: 'agg <sum|mean|...> <col> as <name>' },
+  { label: 'agg wmean', type: 'keyword', apply: snippet('agg wmean ${target_col}\n    weight = ${weight_col}'), detail: 'agg wmean <target>\n    weight [=] <weight_col>' },
 
   // Window functions — all use  <func> <col> [n] as <name>  form
   // rolling: rolling <func> <col> <window> as <name>  (order is an optional indented sub-clause)
@@ -670,17 +671,17 @@ function detectContext(
     // Sub-clause keywords inside multi-line statements where a column name follows:
     // pivot/unpivot: rows <col>, cols <col>, id <col>
     // window opts:   order <col>
-    if (/^(rows|cols|id|order|stub|left_on|right_on)\s+\w*$/.test(trimmed)) {
+    if (/^(rows|cols|id|order|stub|left_on|right_on|weight)\s*(?:=\s*)?\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     // Agg sub-clause: 'agg <func> <partial_col>' — next word after func is the column.
     // Covers agg lines inside group by blocks and pivot agg lines.
-    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+    if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|quantile|percentile|wavg|wmean)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     // Agg function as the first word on an indented line (no leading 'agg') — kept for
     // backward-compat with any context where the agg keyword is omitted.
-    if (/^(mean|sum|count|min|max|avg|median|std|nunique|wavg)\s+\w*$/.test(trimmed)) {
+    if (/^(mean|sum|count|min|max|avg|median|std|nunique|quantile|percentile|wavg|wmean)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
   }

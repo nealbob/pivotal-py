@@ -880,6 +880,26 @@ def test_groupby_wmean_pivotal_target_list_duckdb(parser, region_df):
     assert s['cost'] == pytest.approx(30.0)
 
 
+def test_groupby_wmean_target_first_block_duckdb(parser, region_df):
+    data = region_df.assign(cost=[10, 30, 20, 40])
+    conn = make_conn('data', data)
+    ns = ddb_ns(conn)
+    run_ddb(
+        parser,
+        'with data\ngroup by region\n'
+        '    agg wmean amount, cost\n'
+        '        weight = weight\n',
+        ns,
+    )
+    result = fetch(ns, 'data')
+    n = result[result['region'] == 'N'].iloc[0]
+    s = result[result['region'] == 'S'].iloc[0]
+    assert n['amount'] == pytest.approx(250.0)
+    assert n['cost'] == pytest.approx(25.0)
+    assert s['amount'] == pytest.approx(300.0)
+    assert s['cost'] == pytest.approx(30.0)
+
+
 def test_groupby_multi_agg_duckdb(parser, region_df):
     """Multiple agg functions in one groupby."""
     conn = make_conn('data', region_df)

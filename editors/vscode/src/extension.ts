@@ -121,6 +121,7 @@ const COMMAND_COMPLETIONS: CommandCompletion[] = [
   // Grouping / aggregation
   { label: 'group by', snippet: 'group by ${1:grp_col}\n    agg ${2:func} ${3:val_col} as ${4:name}', detail: 'group by <col>\n    agg <func> <col> as <name>' },
   { label: 'agg',      snippet: 'agg ${1:func} ${2:agg_col} as ${3:name}', detail: 'agg <func> <col> as <name>' },
+  { label: 'agg wmean', snippet: 'agg wmean ${1:target_col}\n    weight = ${2:weight_col}', detail: 'agg wmean <target>\n    weight [=] <weight_col>' },
 
   // Window functions
   { label: 'rolling', snippet: 'rolling ${1:func} ${2:val_col} ${3:window} as ${4:name}', detail: 'rolling <func> <col> <window> as <name>' },
@@ -418,7 +419,7 @@ function detectContext(
     if (/^(x|y|by|c)\s+\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
-    if (/^(rows|cols|id|order|stub|left_on|right_on)\s+\w*$/.test(trimmed)) {
+    if (/^(rows|cols|id|order|stub|left_on|right_on|weight)\s*(?:=\s*)?\w*$/.test(trimmed)) {
       return { type: 'column', table };
     }
     if (/^agg\s+(mean|sum|count|min|max|avg|median|std|nunique|quantile|percentile|wavg|wmean)\s+\w*$/.test(trimmed)) {

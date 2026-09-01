@@ -328,6 +328,17 @@ def test_codegen_groupby_wmean_pivotal_target_list_sql(parser):
     assert 'SUM(id * quantity) / NULLIF(SUM(quantity), 0) AS id_wmean' in sql
 
 
+def test_codegen_groupby_wmean_target_first_block_sql(parser):
+    sql = gen_sql(
+        parser,
+        'with sales\ngroup by category\n'
+        '    agg wmean price, id\n'
+        '        weight = quantity\n',
+    )
+    assert 'SUM(price * quantity) / NULLIF(SUM(quantity), 0) AS price_wmean' in sql
+    assert 'SUM(id * quantity) / NULLIF(SUM(quantity), 0) AS id_wmean' in sql
+
+
 def test_execute_groupby_sql(parser, sample_df):
     conn = make_conn('sales', sample_df)
     sql = gen_sql(parser, 'with sales\ngroup by category\n    agg sum price as total\n')

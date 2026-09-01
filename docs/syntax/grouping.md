@@ -34,7 +34,6 @@ agg sum revenue as total              # space syntax
 agg sum(revenue) as total             # bracket syntax — both are equivalent
 agg quantile revenue 0.9 as p90       # quantile: value column first
 agg percentile(revenue, 90) as p90    # percentile: value column first
-agg wmean quantity price as avg       # space syntax: wmean weight_col value_col
 agg wmean(price, quantity) as avg     # bracket syntax: wmean(value_col, weight_col)
 ```
 
@@ -47,23 +46,22 @@ with sales as averages
     agg mean measures
 ```
 
-Use commas to apply a weighted mean to multiple value columns with one shared
-weight column. This is the canonical multi-column form:
+For the preferred space form, put weighted-mean targets first and specify the
+shared weight column in an indented option. The `=` is optional:
 
 ```pivotal
-agg wmean quantity price, cost, margin
+agg wmean price, cost, margin
+    weight quantity
 ```
 
-The original space-separated form (`agg wmean quantity price cost margin`) is
-still accepted for compatibility.
-
-Named Pivotal lists are also accepted in the weighted target position:
+Named Pivotal lists are accepted in the weighted target position:
 
 ```pivotal
 list measures = price, cost, margin
 
 with sales as averages
-    agg wmean quantity measures
+    agg wmean measures
+        weight = quantity
 ```
 
 The weight must resolve to exactly one column. A multi-column target list cannot
@@ -139,16 +137,28 @@ agg mean price as avg_price
 
 ## Weighted average
 
-`wmean <weight_col> <value_col>` computes a weighted mean. Note the argument order differs between the two syntaxes: space form takes weight first, bracket form takes value first.
+The preferred space form puts the value column first and configures its weight
+in an indented option:
 
 ```pivotal
 with products
     group by category
-        agg wmean quantity price as avg_price   # space: weight first
-        agg wmean(price, quantity) as avg_price  # bracket: value first
+        agg wmean price as avg_price
+            weight quantity
 ```
 
-`wavg` is accepted as a backward-compatible alias for `wmean`.
+The compact equivalent is `agg wmean(price, quantity) as avg_price`.
+
+Both `weight quantity` and `weight = quantity` are accepted. `weight` is only an
+option keyword in this block, so a dataframe column named `weight` remains valid:
+
+```pivotal
+agg wmean price
+    weight = weight
+```
+
+The legacy weight-first form (`agg wmean quantity price`) and `wavg` alias remain
+accepted for backward compatibility.
 
 ## Quantiles and percentiles
 

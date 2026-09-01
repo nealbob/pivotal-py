@@ -474,17 +474,24 @@ quantile(<col-or-python-var>, <q>) [as <new_col>]
 percentile <col-or-python-var> <p> [as <new_col>]
 percentile(<col-or-python-var>, <p>) [as <new_col>]
 wmean(<col-or-python-var>, <weight-col-or-python-var>) [as <new_col>]
-wmean <weight-col-or-python-var> <col-or-python-var> [as <new_col>]
-wmean <weight-col-or-python-var> <col1> <col2> ...
+wmean <col-or-list> [as <new_col>]
+    weight [=] <weight-col>
 :python_func <col> ... [as <new_col>]
 :python_func(<col>, ..., <kw>=<value>) [as <new_col>]
 ```
 
-Built-in aggregation functions accepted by the grammar are `mean`, `avg`, `sum`,
-`min`, `max`, `count`, `median`, `std`, `nunique`, `quantile`, and `percentile`.
+The target-first indented form is preferred for space syntax. Its `=` is
+optional, and multiple comma-separated targets share the same weight. A single
+`as` alias is valid only when there is one target. `weight` remains a valid
+dataframe column name.
 
-Older `wavg` syntax is accepted as a backward-compatible alias for `wmean`, but
-new code should use `wmean`.
+Built-in aggregation functions accepted by the grammar are `mean`, `avg`, `sum`,
+`min`, `max`, `count`, `median`, `std`, `nunique`, `quantile`, `percentile`, and
+`wmean`.
+
+Older weight-first syntax (`wmean <weight-col> <target-col> ...`) and the `wavg`
+alias remain accepted for backward compatibility, but new code should use the
+target-first block or bracket form.
 
 Pivotal also expands shorthand such as:
 
